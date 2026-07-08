@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.3.1
+Version: 0.3.2
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst. It is designed for safe, evidence-based infrastructure and cloud operations.
 
@@ -20,6 +20,15 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 - monitoring-observability
 - runbook-authoring
 - capacity-and-risk-review
+
+
+## What changed in v0.3.2
+
+- Expanded skeletal templates into guided operator artifacts with instructions, scoring rubrics, example rows, validation prompts, and anti-patterns.
+- Added `--help` / `-h` support to Bash helper scripts and `-Help` support to the PowerShell helper.
+- Expanded `references/external-sources.md` into a curated operations reference map covering SRE, RFCs, Linux, Windows Server, pfSense, Kubernetes, VMware/Broadcom, backup, AWS, Azure, and GCP.
+- Fixed the `nori.json` versus `AGENTS.md` mismatch by adding `references/external-sources.md` to required references.
+- Added validation assets for environments that have PowerShell installed, including a parser-based syntax check script.
 
 ## What changed in v0.3.1
 
@@ -58,11 +67,30 @@ SAFE_READ_ONLY commands may be executed automatically only when scoped, non-sens
 
 ## Assets
 
-Examples and templates are included under specific skills. Read-only helper scripts live under:
+Examples and templates are included under specific skills. Templates are intentionally guided artifacts, not empty placeholders. They include fields, expected evidence, scoring hints, example rows, and validation prompts.
+
+Read-only helper scripts live under:
 
 `skills/command-driven-operations/scripts/`
 
+Each helper script includes a quick help mode. Use:
+
+```bash
+./skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help
+./skills/command-driven-operations/scripts/network-target-readonly.sh --help
+```
+
+For PowerShell:
+
+```powershell
+./skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help
+```
+
 These scripts are helpers, not permission grants. They should be reviewed before use and run only in authorized environments.
+
+Validation helpers live under:
+
+`tests/`
 
 ## Keywords
 

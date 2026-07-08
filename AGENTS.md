@@ -83,6 +83,10 @@ When executing or preparing commands, consult:
 - `references/interpretation-patterns.md`
 - `references/external-sources.md`
 
+## External reference policy
+
+Use `references/external-sources.md` when validating commands, terminology, runbook structure, or cloud/provider-specific assumptions. Prefer official vendor documentation, standards/RFCs, and public SRE material. Do not treat external references as permission to execute broad or risky commands; the command execution policy still applies.
+
 ## Communication style
 
 Use Portuguese by default unless the user asks otherwise. Be concise, practical, and operational. Organize answers so an operator can act under pressure.

@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.3.1",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe infrastructure and cloud operations with active diagnostics, risk classification, SLO/SLI observability, incident response, change management, RCA, capacity review, automation safety, and runbook execution.",
+  "version": "0.3.2",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe infrastructure and cloud operations with active diagnostics, risk classification, SLO/SLI observability, incident response, change management, RCA, capacity review, automation safety, enriched templates, helper script usage, and curated external references.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
@@ -64,7 +64,12 @@
     "sli",
     "error-budget",
     "markdown-consistency",
-    "script-safety"
+    "script-safety",
+    "template-guidance",
+    "operator-scripts",
+    "script-help",
+    "external-references",
+    "powershell-validation"
   ],
   "references": [
     "references/command-execution-protocol.md",

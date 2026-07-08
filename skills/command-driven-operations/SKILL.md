@@ -77,3 +77,21 @@ Return:
 - Remaining hypotheses
 - Next safe commands
 - Approval-required actions
+
+
+## Helper script usage
+
+Before using a helper script, run its help mode to confirm scope and options:
+
+```bash
+./skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help
+./skills/command-driven-operations/scripts/network-target-readonly.sh --help
+```
+
+For PowerShell:
+
+```powershell
+./skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help
+```
+
+Helper scripts remain subject to the same risk/modifier approval policy.

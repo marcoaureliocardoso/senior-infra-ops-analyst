@@ -36,3 +36,8 @@ Write runbooks that an operator can follow under pressure without guessing.
 ## Output
 
 Return a complete runbook draft in Markdown.
+
+
+## Template completeness rule
+
+Do not leave skeletal placeholders as finished runbooks. Every template-based output must include purpose, inputs, ordered steps, risk classification, expected observations, interpretation, rollback or stop conditions, validation, and escalation path.
