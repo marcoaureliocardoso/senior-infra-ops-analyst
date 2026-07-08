@@ -1,3 +1,9 @@
+## Completed in v0.4.2
+
+- Populated roadmap-domain examples with realistic, non-skeletal evidence records.
+- Clarified expanded-domain reference labeling in `AGENTS.md`.
+- Added validation checks for skeletal examples.
+
 # Roadmap
 
 ## Completed in v0.4.1

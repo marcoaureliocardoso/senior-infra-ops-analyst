@@ -1,3 +1,11 @@
+# Changelog
+
+## 0.4.2 - 2026-07-08
+
+- Populated 13 previously skeletal roadmap examples with realistic evidence sequences, interpretations, safe next actions, approval gates, and output records.
+- Clarified `AGENTS.md` expanded-domain reference heading for v0.4.0/v0.4.1 coverage.
+- Updated validation to detect skeletal example files and empty field-only example patterns.
+
 ## 0.4.0 - 2026-07-08
 
 ### Added
@@ -23,8 +31,6 @@
 
 - `ROADMAP.md` now separates completed v0.4.0 coverage from future deep-dive improvements.
 - `AGENTS.md` and `nori.json` now reference all new domain references.
-
-# Changelog
 
 ## 0.3.4 - 2026-07-08
 

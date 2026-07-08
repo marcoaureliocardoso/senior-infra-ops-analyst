@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.4.1
+Version: 0.4.2
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations.
 
@@ -12,17 +12,18 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
-## What changed in v0.4.1
+## What changed in v0.4.2
+
+- Populated previously skeletal roadmap examples with realistic scenario, evidence, interpretation, safe next actions, and approval-gate content.
+- Clarified `AGENTS.md` expanded-domain reference labeling so Kubernetes operations is not presented as part of the original v0.4.0 batch.
+- Added validation to detect skeletal example files and empty output-pattern placeholders.
+
+Previous v0.4.1 changes retained:
 
 - Replaced boilerplate roadmap skill bodies with domain-specific required steps.
 - Added `skills/kubernetes-operations/` and `references/kubernetes-operations.md` for general Kubernetes operations beyond K3s host checks.
-- Added examples for all v0.4 roadmap domain skills.
 - Removed duplicated root templates. Template ownership is now consistent: templates live under `skills/<skill>/templates/`.
 - Updated slash commands to point to skill-owned templates.
-- Deepened ITSM/CMDB workflows with API lookup patterns, state-change boundaries, and CI relationship checks.
-- Deepened disaster recovery drills with dependency validation, RTO/RPO interpretation, and drill type risk mapping.
-- Added cross-references between related references, especially TLS/load balancer/web/Kubernetes/monitoring/ITSM/audit domains.
-- Expanded validation to check template ownership, roadmap examples, Kubernetes coverage, and repeated required-block patterns.
 
 ## Slash commands
 
@@ -49,7 +50,7 @@ All reusable templates are owned by skills:
 skills/<skill>/templates/<artifact>.md
 ```
 
-There is intentionally no root `templates/` directory in v0.4.1. This avoids duplicate artifacts with unclear ownership.
+There is intentionally no root `templates/` directory from v0.4.1 onward. This avoids duplicate artifacts with unclear ownership.
 
 ## Safety model
 

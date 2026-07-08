@@ -101,6 +101,20 @@ for group in fingerprints.values():
     if len(group)>1:
         err(f'roadmap skills share identical normalized required block: {group}')
 
+
+# Examples should be usable artifacts, not empty output-pattern skeletons.
+for p in (root/'skills').glob('*/examples/*.md'):
+    txt = p.read_text(encoding='utf-8')
+    rel = p.relative_to(root)
+    nonempty = [ln for ln in txt.splitlines() if ln.strip()]
+    if len(nonempty) < 15:
+        err(f'example appears too thin: {rel}')
+    if '## Example output pattern' in txt:
+        err(f'example contains skeletal output-pattern heading: {rel}')
+    empty_fields = [ln for ln in txt.splitlines() if re.match(r'^- [A-Za-z][A-Za-z /-]*:\s*$', ln.strip())]
+    if len(empty_fields) >= 3:
+        err(f'example contains multiple empty field placeholders: {rel}')
+
 # Key cross-reference checks.
 for rel in ['references/load-balancers-reverse-proxies.md','references/pki-certificate-lifecycle.md','references/kubernetes-operations.md','references/disaster-recovery-drills.md','references/itsm-cmdb-workflows.md']:
     if '## Related references' not in read(rel): err(f'{rel} lacks related references')

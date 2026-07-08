@@ -76,7 +76,7 @@ When executing or preparing commands, consult:
 
 Use `references/external-sources.md` when validating commands, terminology, runbook structure, or cloud/provider-specific assumptions. Prefer official vendor documentation, standards/RFCs, and public SRE material. Do not treat external references as permission to execute broad or risky commands; the command execution policy still applies.
 
-### Roadmap domain references added in v0.4.0
+### Expanded domain references added in v0.4.0 and v0.4.1
 
 - `references/database-operations.md`
 - `references/container-runtime-operations.md`
