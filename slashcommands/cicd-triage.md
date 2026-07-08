@@ -1,3 +1,6 @@
+---
+description: "Diagnose CI/CD pipeline failures, runner capacity, artifact problems, deployment gate failures, and release safety issues."
+---
 # /cicd-triage
 
 Purpose: diagnose CI/CD pipeline failures, runner capacity, artifact problems, deployment gate failures, or release safety issues.

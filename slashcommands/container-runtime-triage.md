@@ -1,3 +1,6 @@
+---
+description: "Diagnose Docker, Podman, or containerd runtime failures outside Kubernetes control-plane checks."
+---
 # /container-runtime-triage
 
 Purpose: diagnose Docker/Podman/containerd runtime failures outside Kubernetes control-plane checks.

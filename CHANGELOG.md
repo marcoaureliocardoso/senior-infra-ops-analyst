@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4 - 2026-07-08
+
+- Added YAML frontmatter with operational descriptions to all 20 slash commands.
+
 ## 0.4.3 - 2026-07-08
 
 - Added populated examples for the 7 original core skills.
@@ -15,6 +19,16 @@
 - Populated 13 previously skeletal roadmap examples with realistic evidence sequences, interpretations, safe next actions, approval gates, and output records.
 - Clarified `AGENTS.md` expanded-domain reference heading for v0.4.0/v0.4.1 coverage.
 - Updated validation to detect skeletal example files and empty field-only example patterns.
+
+## 0.4.1 - 2026-07-08
+
+- Replaced generic roadmap skill bodies with domain-specific operational requirements.
+- Added dedicated Kubernetes operations skill, reference, template, example, and `/k8s-triage` slash command.
+- Added examples for all v0.4 roadmap domain skills.
+- Removed duplicated root templates and standardized template ownership under `skills/<skill>/templates/`.
+- Deepened ITSM/CMDB and disaster recovery drill references.
+- Added related-reference sections across domain references.
+- Expanded validation for examples, template ownership, Kubernetes coverage, and repeated required-block detection.
 
 ## 0.4.0 - 2026-07-08
 
@@ -76,13 +90,3 @@
 ## 0.3.0 - 2026-07-08
 
 - Added cloud operations, SLO/SLI observability, RCA artifacts, risk taxonomy, slash commands, templates, and helper scripts.
-
-## v0.4.1 - 2026-07-08
-
-- Replaced generic roadmap skill bodies with domain-specific operational requirements.
-- Added dedicated Kubernetes operations skill, reference, template, example, and `/k8s-triage` slash command.
-- Added examples for all v0.4 roadmap domain skills.
-- Removed duplicated root templates and standardized template ownership under `skills/<skill>/templates/`.
-- Deepened ITSM/CMDB and disaster recovery drill references.
-- Added related-reference sections across domain references.
-- Expanded validation for examples, template ownership, Kubernetes coverage, and repeated required-block detection.

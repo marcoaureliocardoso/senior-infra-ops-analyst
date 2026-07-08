@@ -1,3 +1,6 @@
+---
+description: "Diagnose queue backlog, consumer lag, broker alarms, partition leadership, and message flow interruptions."
+---
 # /queue-triage
 
 Purpose: diagnose queue backlog, consumer lag, broker alarms, partition leadership, and message flow interruption.

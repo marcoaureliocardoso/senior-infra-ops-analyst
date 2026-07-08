@@ -1,3 +1,6 @@
+---
+description: "Produce a blameless root cause analysis from incident evidence."
+---
 # /rca
 
 Purpose: produce a blameless RCA from incident evidence.

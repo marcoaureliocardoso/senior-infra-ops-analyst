@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.4.3
+Version: 0.4.4
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations.
 
@@ -12,6 +12,10 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
+## What changed in v0.4.4
+
+- Added YAML frontmatter with operational descriptions to all 20 slash commands.
+
 ## What changed in v0.4.3
 
 - Added populated examples for the 7 original core skills.
@@ -20,12 +24,22 @@ This package includes 24 skills covering core operations, incident/change/RCA, o
 - Aligned safety and risk classifications for Kubernetes/K3s, network probes, pfSense `pfctl -d`, token handling, and state-changing approval gates.
 - Expanded validation for all skill examples, related references, cloud templates, and broken internal links.
 
-Previous v0.4.1 changes retained:
+## What changed in v0.4.2
+
+- Populated 13 previously skeletal roadmap examples with realistic evidence sequences, interpretations, safe next actions, approval gates, and output records.
+- Clarified `AGENTS.md` expanded-domain reference heading for v0.4.0/v0.4.1 coverage.
+- Updated validation to detect skeletal example files and empty field-only example patterns.
+
+## What changed in v0.4.1
 
 - Replaced boilerplate roadmap skill bodies with domain-specific required steps.
 - Added `skills/kubernetes-operations/` and `references/kubernetes-operations.md` for general Kubernetes operations beyond K3s host checks.
 - Removed duplicated root templates. Template ownership is now consistent: templates live under `skills/<skill>/templates/`.
 - Updated slash commands to point to skill-owned templates.
+- Deepened ITSM/CMDB workflows with API lookup patterns, state-change boundaries, and CI relationship checks.
+- Deepened disaster recovery drills with dependency validation, RTO/RPO interpretation, and drill type risk mapping.
+- Added cross-references between related references.
+- Expanded validation to check template ownership, roadmap examples, Kubernetes coverage, and repeated required-block patterns.
 
 ## Slash commands
 

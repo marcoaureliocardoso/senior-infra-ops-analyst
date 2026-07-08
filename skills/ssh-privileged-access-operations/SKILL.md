@@ -1,7 +1,7 @@
 ---
 name: SSH and Privileged Access Operations
 description: Use when diagnosing SSH reachability, authentication, sudo/PAM, privileged access, bastion, key lifecycle, account lockout, or access review issues.
-version: 0.4.3
+version: 0.4.4
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

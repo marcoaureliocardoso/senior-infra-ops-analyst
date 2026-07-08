@@ -1,3 +1,6 @@
+---
+description: "Inspect TLS certificate chain, expiry, SAN coverage, trust, and create renewal or deployment plans."
+---
 # /cert-check
 
 Purpose: inspect TLS certificate chain, expiry, SAN coverage, trust, and renewal/deployment plan.

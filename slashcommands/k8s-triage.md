@@ -1,3 +1,6 @@
+---
+description: "Diagnose Kubernetes workload, service, ingress, storage, scheduling, RBAC, and cluster symptoms with scoped read-only commands."
+---
 # /k8s-triage
 
 Purpose: diagnose Kubernetes workload, service, ingress, storage, scheduling, RBAC, or cluster symptoms with scoped read-only commands.

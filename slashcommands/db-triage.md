@@ -1,3 +1,6 @@
+---
+description: "Diagnose database availability, sessions, locks, replication, storage, and backup health."
+---
 # /db-triage
 
 Purpose: diagnose database availability, sessions, locks, replication, storage, or backup health.

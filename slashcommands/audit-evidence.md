@@ -1,3 +1,6 @@
+---
+description: "Collect and structure audit/compliance evidence with redaction and traceability."
+---
 # /audit-evidence
 
 Purpose: collect and structure audit/compliance evidence with redaction and traceability.

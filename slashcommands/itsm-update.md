@@ -1,3 +1,6 @@
+---
+description: "Prepare a factual ITSM or CMDB incident, change, or problem update without mutating records unless explicitly requested."
+---
 # /itsm-update
 
 Purpose: prepare a factual ITSM/CMDB incident/change/problem update or impact analysis without mutating records unless explicitly requested.

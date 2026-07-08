@@ -1,7 +1,7 @@
 ---
 name: Web Servers and Application Gateway Operations
 description: Use when diagnosing IIS, Apache, NGINX, application gateways, virtual hosts, status codes, access/error logs, static content, upstream integration, or gateway policies.
-version: 0.4.3
+version: 0.4.4
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

@@ -1,5 +1,9 @@
 # Roadmap
 
+## Completed in v0.4.4
+
+- Added YAML frontmatter with operational descriptions to all 20 slash commands.
+
 ## Completed in v0.4.3
 
 - Populated examples for original core skills.

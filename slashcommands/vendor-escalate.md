@@ -1,3 +1,6 @@
+---
+description: "Prepare a vendor escalation package with bounded evidence and a precise support request."
+---
 # /vendor-escalate
 
 Purpose: prepare a vendor escalation package with bounded evidence and a precise support request.

@@ -1,3 +1,6 @@
+---
+description: "Create a runbook or branching playbook for infrastructure operations."
+---
 # /runbook
 
 Purpose: create a runbook or branching playbook for infrastructure operations.

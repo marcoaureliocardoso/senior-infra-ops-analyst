@@ -1,3 +1,6 @@
+---
+description: "Diagnose load balancer or reverse proxy backend health, routing, TLS, sticky sessions, PROXY protocol, and upstream errors."
+---
 # /lb-triage
 
 Purpose: diagnose load balancer or reverse proxy backend health, routing, TLS, sticky sessions, PROXY protocol, or upstream errors.

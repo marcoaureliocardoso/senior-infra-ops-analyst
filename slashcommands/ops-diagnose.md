@@ -1,3 +1,6 @@
+---
+description: "Actively diagnose an infrastructure symptom with safe read-only commands before giving conclusions."
+---
 # /ops-diagnose
 
 Use the Command Driven Operations and Infrastructure Troubleshooting skills.

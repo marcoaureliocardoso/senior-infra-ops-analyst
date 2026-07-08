@@ -1,3 +1,6 @@
+---
+description: "Diagnose SSH login, privilege escalation, bastion, key, PAM, sudo, and privileged-access workflow issues."
+---
 # /ssh-triage
 
 Purpose: diagnose SSH login, privilege escalation, bastion, key, PAM, sudo, or privileged-access workflow issues.

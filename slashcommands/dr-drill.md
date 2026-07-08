@@ -1,3 +1,6 @@
+---
+description: "Plan or document a disaster recovery drill, restore test, or failover readiness exercise."
+---
 # /dr-drill
 
 Purpose: plan or document a disaster recovery drill, restore test, or failover readiness exercise.

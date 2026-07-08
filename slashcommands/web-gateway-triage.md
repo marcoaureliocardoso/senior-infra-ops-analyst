@@ -1,3 +1,6 @@
+---
+description: "Diagnose web server or application gateway 4xx and 5xx errors, TLS, routing, WAF, upstream, cache, and header issues."
+---
 # /web-gateway-triage
 
 Purpose: diagnose web server or application gateway 4xx/5xx, TLS, routing, WAF, upstream, cache, or header issues.

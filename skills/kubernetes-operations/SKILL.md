@@ -1,7 +1,7 @@
 ---
 name: Kubernetes Operations
 description: Use when diagnosing Kubernetes clusters, workloads, services, ingress, storage, RBAC, scheduling, autoscaling, network policy, control-plane, or platform symptoms beyond K3s-only checks.
-version: 0.4.3
+version: 0.4.4
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

@@ -1,3 +1,6 @@
+---
+description: "Triage and stabilize an infrastructure incident."
+---
 # /incident-triage
 
 Purpose: triage and stabilize an infrastructure incident.

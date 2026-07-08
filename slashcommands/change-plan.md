@@ -1,3 +1,6 @@
+---
+description: "Produce an approval-ready infrastructure change plan."
+---
 # /change-plan
 
 Purpose: produce an approval-ready infrastructure change plan.

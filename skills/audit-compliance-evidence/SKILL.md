@@ -1,7 +1,7 @@
 ---
 name: Audit and Compliance Evidence Collection
 description: Use when collecting, redacting, organizing, and explaining evidence for audits, controls, access reviews, change evidence, backups, or compliance records.
-version: 0.4.3
+version: 0.4.4
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

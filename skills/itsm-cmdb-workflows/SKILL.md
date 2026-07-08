@@ -1,7 +1,7 @@
 ---
 name: ITSM and CMDB Workflows
 description: Use when updating or correlating incident, change, problem, CMDB, CI ownership, dependency, impact, support group, or service record workflows.
-version: 0.4.3
+version: 0.4.4
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

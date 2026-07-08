@@ -1,3 +1,6 @@
+---
+description: "Diagnose AWS, Azure, or GCP resources using scoped read-only cloud CLI and API commands."
+---
 # /cloud-check
 
 Use the Cloud Operations and Command Driven Operations skills.
