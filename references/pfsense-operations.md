@@ -16,17 +16,17 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 | SAFE_READ_ONLY | `hostname` | Target firewall | Confirm you are on the correct appliance. |
 | SAFE_READ_ONLY | `date` | Time | Wrong time breaks certs, VPN, logs, auth. |
 | SAFE_READ_ONLY | `uptime` | Load/uptime | Recent reboot or high load is incident evidence. |
-| SAFE_READ_ONLY | `ifconfig` | Interfaces, link, IPs | Interface down/errors guide L1/L2 checks. |
-| SAFE_READ_ONLY | `netstat -rn` | Routing table | Missing/wrong default/static routes affect traffic. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `ifconfig` | Interfaces, link, IPs | Interface down/errors guide L1/L2 checks. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `netstat -rn` | Routing table | Missing/wrong default/static routes affect traffic. |
 
 ## 2. Firewall and states
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `pfctl -sr` | Loaded filter rules | Confirms runtime rules; compare with intended GUI rules. |
-| SAFE_READ_ONLY | `pfctl -sn` | NAT rules | NAT mismatch can break outbound/inbound traffic. |
-| SAFE_READ_ONLY | `pfctl -ss | head -50` | State table samples | Confirms whether sessions are being created. |
-| SAFE_READ_ONLY | `pfctl -si` | PF counters/state summary | High drops, state exhaustion, counters indicate firewall pressure. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `pfctl -sr` | Loaded filter rules | Confirms runtime rules; compare with intended GUI rules. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `pfctl -sn` | NAT rules | NAT mismatch can break outbound/inbound traffic. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `pfctl -ss \| head -50` | State table samples | Confirms whether sessions are being created. |
+| SAFE_READ_ONLY + PRIVILEGED | `pfctl -si` | PF counters/state summary | High drops, state exhaustion, counters indicate firewall pressure. |
 | DISRUPTIVE_CHANGE | `pfctl -F states` | Flush all states | Breaks active sessions; requires approval. |
 | DISRUPTIVE_CHANGE | `pfctl -d` | Disable packet filter | Dangerous; emergency only with explicit approval. |
 
@@ -34,19 +34,19 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `clog /var/log/filter.log | tail -100` | Firewall log | Blocks/pass actions near incident time. |
-| SAFE_READ_ONLY | `clog /var/log/system.log | tail -100` | System log | Service, interface, package, boot issues. |
-| SAFE_READ_ONLY | `clog /var/log/dhcpd.log | tail -100` | DHCP log | Lease/renewal failures. |
-| SAFE_READ_ONLY | `clog /var/log/openvpn.log | tail -100` | OpenVPN log | VPN auth/tunnel errors. |
-| SAFE_READ_ONLY | `clog /var/log/ipsec.log | tail -100` | IPsec log | Phase1/Phase2/auth/tunnel clues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `clog /var/log/filter.log \| tail -100` | Firewall log | Blocks/pass actions near incident time. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `clog /var/log/system.log \| tail -100` | System log | Service, interface, package, boot issues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `clog /var/log/dhcpd.log \| tail -100` | DHCP log | Lease/renewal failures. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `clog /var/log/openvpn.log \| tail -100` | OpenVPN log | VPN auth/tunnel errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `clog /var/log/ipsec.log \| tail -100` | IPsec log | Phase1/Phase2/auth/tunnel clues. |
 
 ## 4. Interfaces and packet capture
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
 | SAFE_READ_ONLY | `ifconfig <interface>` | Interface status/errors | Errors/collisions/drops suggest link/NIC issue. |
-| SAFE_READ_ONLY | `tcpdump -ni <interface> host <ip> -c 50` | Whether packets reach interface | Packets on LAN but not WAN suggests firewall/NAT/routing. |
-| SAFE_READ_ONLY | `tcpdump -ni <interface> port <port> -c 50` | Service-specific traffic | Confirms SYN/SYN-ACK flow direction. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `tcpdump -ni <interface> host <ip> -c 50` | Whether packets reach interface | Packets on LAN but not WAN suggests firewall/NAT/routing. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `tcpdump -ni <interface> port <port> -c 50` | Service-specific traffic | Confirms SYN/SYN-ACK flow direction. |
 
 `tcpdump` is read-only but SENSITIVE_OUTPUT and ACTIVE_PROBE-adjacent operationally because it captures traffic metadata. Use exact host/port/interface filters, short packet counts, and no payload capture unless approved.
 
@@ -54,8 +54,8 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `sockstat -4 -l | grep ':53\|:67\|:68'` | DNS/DHCP listeners | Expected services not listening means service/config issue. |
-| SAFE_READ_ONLY | `ps aux | grep -E 'unbound|dnsmasq|dhcpd'` | Service processes | Missing process indicates service stopped. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `sockstat -4 -l \| grep ':53\|:67\|:68'` | DNS/DHCP listeners | Expected services not listening means service/config issue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `ps aux \| grep -E 'unbound\|dnsmasq\|dhcpd'` | Service processes | Missing process indicates service stopped. |
 | DISRUPTIVE_CHANGE | Restart DNS/DHCP services | Service recovery | Requires approval; can interrupt resolution/leases. |
 
 ## 6. GUI operations requiring approval

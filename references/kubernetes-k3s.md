@@ -13,48 +13,48 @@ Use for Kubernetes and K3S clusters, workloads, services, ingress, nodes, pods, 
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `kubectl config current-context` | Target cluster | Wrong context can cause wrong-cluster actions. |
-| SAFE_READ_ONLY | `kubectl get nodes -o wide` | Node health/versions/IPs | NotReady or version skew narrows issue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl config current-context` | Target cluster | Wrong context can cause wrong-cluster actions. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get nodes -o wide` | Node health/versions/IPs | NotReady or version skew narrows issue. |
 | SAFE_READ_ONLY | `kubectl get namespaces` | Namespace inventory | Confirms expected namespace. |
-| SAFE_READ_ONLY | `kubectl get events -A --sort-by=.lastTimestamp | tail -50` | Recent cluster events | Scheduling, image pull, probe, node events. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE | `kubectl get events -A --sort-by=.lastTimestamp \| tail -50` | Recent cluster events | Scheduling, image pull, probe, node events. |
 
 ## 2. Workload checks
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
 | SAFE_READ_ONLY | `kubectl get pods -n <ns> -o wide` | Pod state/node/IP | Pending/CrashLoop/ImagePull errors guide next step. |
-| SAFE_READ_ONLY | `kubectl describe pod -n <ns> <pod>` | Pod events/spec | Probe, mount, scheduling, image errors. |
-| SAFE_READ_ONLY | `kubectl logs -n <ns> <pod> --tail=200` | App/container logs | App startup/runtime error. |
-| SAFE_READ_ONLY | `kubectl logs -n <ns> <pod> -c <container> --previous --tail=200` | Previous crashed container | Critical for CrashLoopBackOff. |
-| SAFE_READ_ONLY | `kubectl get deploy,statefulset,daemonset -n <ns> -o wide` | Controller state | Desired vs available mismatch. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl describe pod -n <ns> <pod>` | Pod events/spec | Probe, mount, scheduling, image errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl logs -n <ns> <pod> --tail=200` | App/container logs | App startup/runtime error. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl logs -n <ns> <pod> -c <container> --previous --tail=200` | Previous crashed container | Critical for CrashLoopBackOff. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get deploy,statefulset,daemonset -n <ns> -o wide` | Controller state | Desired vs available mismatch. |
 | DISRUPTIVE_CHANGE | `kubectl rollout restart deployment/<name> -n <ns>` | Restart workload | Requires approval; can interrupt users. |
 
 ## 3. Service and ingress
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `kubectl get svc,endpoints,endpointslice -n <ns>` | Service-to-pod mapping | Empty endpoints means selector/pod readiness issue. |
-| SAFE_READ_ONLY | `kubectl describe svc -n <ns> <svc>` | Service selector/ports | Selector/targetPort mismatch breaks traffic. |
-| SAFE_READ_ONLY | `kubectl get ingress -A -o wide` | Ingress routes | Wrong host/address/class clue. |
-| SAFE_READ_ONLY | `kubectl describe ingress -n <ns> <ingress>` | Ingress details/events | TLS/class/routing errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get svc,endpoints,endpointslice -n <ns>` | Service-to-pod mapping | Empty endpoints means selector/pod readiness issue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl describe svc -n <ns> <svc>` | Service selector/ports | Selector/targetPort mismatch breaks traffic. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get ingress -A -o wide` | Ingress routes | Wrong host/address/class clue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl describe ingress -n <ns> <ingress>` | Ingress details/events | TLS/class/routing errors. |
 
 ## 4. Resources
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
 | SAFE_READ_ONLY | `kubectl top nodes` | Node CPU/memory | Requires metrics server; saturation clue. |
-| SAFE_READ_ONLY | `kubectl top pods -A --sort-by=cpu` | Pod CPU usage | Heavy consumers. |
-| SAFE_READ_ONLY | `kubectl top pods -A --sort-by=memory` | Pod memory usage | OOM risk. |
-| SAFE_READ_ONLY | `kubectl describe node <node>` | Node pressure/events | DiskPressure/MemoryPressure/PIDPressure. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE | `kubectl top pods -A --sort-by=cpu` | Pod CPU usage | Heavy consumers. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE | `kubectl top pods -A --sort-by=memory` | Pod memory usage | OOM risk. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl describe node <node>` | Node pressure/events | DiskPressure/MemoryPressure/PIDPressure. |
 
 ## 5. K3S host-level checks
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
 | SAFE_READ_ONLY | `systemctl status k3s --no-pager` | K3S server service | Failed/inactive explains cluster API issue. |
-| SAFE_READ_ONLY | `journalctl -u k3s --since "1 hour ago" --no-pager | tail -200` | K3S server logs | API, datastore, network plugin errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `journalctl -u k3s --since "1 hour ago" --no-pager \| tail -200` | K3S server logs | API, datastore, network plugin errors. |
 | SAFE_READ_ONLY | `systemctl status k3s-agent --no-pager` | K3S agent service | Worker node health. |
-| SAFE_READ_ONLY | `journalctl -u k3s-agent --since "1 hour ago" --no-pager | tail -200` | Agent logs | Node/container runtime issues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `journalctl -u k3s-agent --since "1 hour ago" --no-pager \| tail -200` | Agent logs | Node/container runtime issues. |
 | DISRUPTIVE_CHANGE | `systemctl restart k3s` | Restart control plane | Requires approval; cluster API interruption. |
 
 ## 6. Diagnostic order for app unavailable

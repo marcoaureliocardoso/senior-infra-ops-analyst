@@ -1,55 +1,69 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-This skillset personifies a Senior Infrastructure Operations Analyst with command-driven, safety-gated infrastructure operations.
+Version: 0.3.1
 
-## What changed in v0.2.1
+A command-driven skillset that personifies a Senior Infrastructure Operations Analyst. It is designed for safe, evidence-based infrastructure and cloud operations.
 
-The skillset is no longer only advisory. It now instructs the agent to actively execute safe read-only diagnostics when tool access exists, while stopping at explicit approval gates before any state-changing or disruptive operation.
+## Core behavior
 
-Core additions and audit fixes:
+The agent should not merely suggest diagnostics when tool access exists. It should execute narrowly scoped SAFE_READ_ONLY commands, summarize observed evidence, interpret results, and stop before approval-gated actions.
 
-- `command-driven-operations` skill
-- command execution protocol
-- risk classification model
-- technology command references
-- interpretation guides
-- operational runbook template
-- sensitivity/resource-impact modifiers for read-only commands
-- corrected package root naming consistency
-- safer TLS, log, packet-capture, AD, Kubernetes, and storage guidance
+## Included skills
 
-## Intended behavior
+- command-driven-operations
+- cloud-operations
+- incident-response
+- infrastructure-troubleshooting
+- change-management
+- root-cause-analysis
+- automation-safe-operations
+- monitoring-observability
+- runbook-authoring
+- capacity-and-risk-review
 
-When the agent has terminal, SSH, PowerShell, API, or MCP/tool access:
+## What changed in v0.3.1
 
-1. Identify context and target.
-2. Classify commands by risk.
-3. Execute safe read-only commands directly.
-4. Summarize observed output.
-5. Interpret evidence.
-6. Continue narrowing the diagnosis.
-7. Stop before state-changing actions and request explicit approval.
+- Fixed Markdown table rendering for commands that contain shell or PowerShell pipelines.
+- Hardened `network-target-readonly.sh` against shell injection by validating target and port and avoiding direct interpolation in `bash -c`.
+- Made operational modifiers more explicit in command matrices for active probes, sensitive output, privileged reads, logs, packet captures, and broad inventories.
+- Clarified that helper scripts are optional assets and must follow the same risk/modifier approval policy.
 
-When the agent does not have execution access:
+## What changed in v0.3.0
 
-1. Provide exact command sequence.
-2. Explain risk.
-3. Explain expected normal and abnormal signals.
-4. Explain how to interpret outputs.
-5. Mark approval-required steps clearly.
+- Added Cloud Operations skill and `references/cloud-operations.md` for AWS, Azure, and GCP.
+- Expanded Monitoring and Observability with SLI/SLO/error-budget structure.
+- Expanded Capacity and Risk Review with a formal risk taxonomy.
+- Expanded RCA with definitions for evidence map and action table.
+- Added richer slash commands with expected inputs, behavior, examples, and outputs.
+- Added templates, examples, and read-only helper scripts as assets.
 
-## Structure
+## Safety model
 
-```text
-senior-infra-ops-analyst/
-├── AGENTS.md
-├── nori.json
-├── skills/
-├── references/
-├── templates/
-└── slashcommands/
-```
+Commands are classified as:
 
-## Important limitation
+- SAFE_READ_ONLY
+- LOW_RISK_CHANGE
+- DISRUPTIVE_CHANGE
+- DESTRUCTIVE
 
-A skillset cannot magically grant shell or infrastructure access. It controls behavior when the host agent already has compatible tools. If the agent has no terminal/SSH/API/MCP access, it must not pretend to have run commands.
+Operational modifiers include:
+
+- SENSITIVE_OUTPUT
+- RESOURCE_INTENSIVE
+- ACTIVE_PROBE
+- PRIVILEGED
+- REMOTE_SESSION_RISK
+
+SAFE_READ_ONLY commands may be executed automatically only when scoped, non-sensitive, and low load. Sensitive or broad diagnostics require minimization, redaction, and sometimes approval. State-changing actions require explicit approval.
+
+## Assets
+
+Examples and templates are included under specific skills. Read-only helper scripts live under:
+
+`skills/command-driven-operations/scripts/`
+
+These scripts are helpers, not permission grants. They should be reviewed before use and run only in authorized environments.
+
+## Keywords
+
+infrastructure, infrastructure operations, IT operations, sysadmin, DevOps, SRE, safe operations, command-driven operations, command-driven diagnostics, incident response, RCA, change management, runbook, observability, SLI, SLO, error budget, capacity planning, risk assessment, Linux, Windows Server, Active Directory, DNS, DHCP, networking, firewall, pfSense, VPN, VMware, Kubernetes, K3s, storage, backup, restore, cloud, AWS, Azure, GCP.

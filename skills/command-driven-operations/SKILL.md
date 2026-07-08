@@ -25,7 +25,7 @@ Use this loop repeatedly:
 
 1. State hypothesis.
 2. Pick the least risky command that can confirm or refute it.
-3. Run the command if SAFE_READ_ONLY and tool access exists.
+3. Run the command only if it is SAFE_READ_ONLY, tool access exists, and the modifier policy allows execution without approval.
 4. Summarize only relevant output.
 5. Interpret the result.
 6. Decide next check or mitigation.
@@ -57,6 +57,15 @@ Always consult the relevant command reference:
 - VMware: `references/vmware-operations.md`
 - K3S/Kubernetes: `references/kubernetes-k3s.md`
 - Storage/backup: `references/storage-backup.md`
+- Cloud: `references/cloud-operations.md`
+
+## Optional helper assets
+
+Use helper scripts only when their scope matches the target and the risk/modifier policy allows execution. Do not run broad baseline scripts in production-sensitive contexts without minimization or approval.
+
+- `skills/command-driven-operations/scripts/linux-baseline-readonly.sh`
+- `skills/command-driven-operations/scripts/windows-baseline-readonly.ps1`
+- `skills/command-driven-operations/scripts/network-target-readonly.sh`
 
 ## Output
 

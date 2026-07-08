@@ -22,9 +22,9 @@ Use for ESXi hosts, VMs, datastores, snapshots, networking, and hypervisor healt
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `vim-cmd vmsvc/getallvms` | VM IDs/inventory | Get VMID before read-only VM checks. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `vim-cmd vmsvc/getallvms` | VM IDs/inventory | Get VMID before read-only VM checks. |
 | SAFE_READ_ONLY | `vim-cmd vmsvc/power.getstate <vmid>` | VM power state | Powered off/suspended vs running. |
-| SAFE_READ_ONLY | `vim-cmd vmsvc/get.summary <vmid>` | VM summary | Tools status, config, runtime clues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `vim-cmd vmsvc/get.summary <vmid>` | VM summary | Tools status, config, runtime clues. |
 | DISRUPTIVE_CHANGE | `vim-cmd vmsvc/power.reset <vmid>` | Hard reset VM | Requires approval; can cause data loss. |
 | DISRUPTIVE_CHANGE | `vim-cmd vmsvc/power.off <vmid>` | Power off VM | Requires approval; user impact. |
 
@@ -33,17 +33,17 @@ Use for ESXi hosts, VMs, datastores, snapshots, networking, and hypervisor healt
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
 | SAFE_READ_ONLY | `esxcli storage filesystem list` | Datastore usage/mount | Full or unmounted datastore explains VM issues. |
-| SAFE_READ_ONLY | `esxcli storage core device list | head -80` | Device visibility | Missing/degraded storage path. |
-| SAFE_READ_ONLY | `esxcli storage core path list | head -120` | Storage paths | Dead paths indicate SAN/iSCSI/FC issues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `esxcli storage core device list \| head -80` | Device visibility | Missing/degraded storage path. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `esxcli storage core path list \| head -120` | Storage paths | Dead paths indicate SAN/iSCSI/FC issues. |
 | DISRUPTIVE_CHANGE | Storage rescan/remount | Storage state | Requires approval and maintenance awareness. |
 
 ## 4. Networking
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `esxcli network nic list` | Physical NICs | Down NIC or wrong speed impacts VMs. |
-| SAFE_READ_ONLY | `esxcli network vswitch standard list` | vSwitch state | Missing portgroup/vSwitch mismatch. |
-| SAFE_READ_ONLY | `esxcli network ip interface ipv4 get` | VMkernel IPs | Management/vMotion/storage network clue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `esxcli network nic list` | Physical NICs | Down NIC or wrong speed impacts VMs. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `esxcli network vswitch standard list` | vSwitch state | Missing portgroup/vSwitch mismatch. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `esxcli network ip interface ipv4 get` | VMkernel IPs | Management/vMotion/storage network clue. |
 | SAFE_READ_ONLY | `esxcli network ip route ipv4 list` | Routing | Management/storage path issues. |
 | DISRUPTIVE_CHANGE | vSwitch/portgroup/NIC changes | Network path | Requires approval and rollback path. |
 
@@ -51,7 +51,7 @@ Use for ESXi hosts, VMs, datastores, snapshots, networking, and hypervisor healt
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `vim-cmd vmsvc/snapshot.get <vmid>` | Snapshot tree | Old/large snapshots are risk. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `vim-cmd vmsvc/snapshot.get <vmid>` | Snapshot tree | Old/large snapshots are risk. |
 | DESTRUCTIVE | Snapshot remove/delete/consolidate | Disk chain change | Requires approval, backup, and storage headroom. |
 
 ## 6. Diagnostic order for VM down/slowness

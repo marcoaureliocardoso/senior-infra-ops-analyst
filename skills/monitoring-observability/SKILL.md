@@ -1,29 +1,62 @@
 ---
 name: Monitoring and Observability
 skill_id: monitoring-observability
-description: Use when designing, reviewing, or improving monitoring, logging, alerting, dashboards, SLOs, health checks, capacity metrics, or incident detection for infrastructure services.
+description: Use when designing, reviewing, or improving monitoring, logging, alerting, dashboards, SLOs, SLIs, error budgets, health checks, capacity metrics, or incident detection for infrastructure and cloud services.
 ---
 
 # Monitoring and Observability
 
-Design monitoring that detects real user-impacting problems early without drowning operators in noise.
+Design monitoring that detects user-impacting problems early, explains what changed, and avoids alert fatigue.
 
 <required>
-1. Identify the service, users, dependencies, and failure modes.
-2. Define symptoms worth alerting on, not only low-level resource thresholds.
-3. Execute safe metric/log checks when tool access exists.
-4. Separate alerts, dashboards, logs, traces, reports, and capacity indicators.
-5. Include severity, threshold, duration, owner, runbook link, and expected operator action for each alert.
-6. Flag noisy, unactionable, duplicate, or missing alerts.
+1. Identify the service, users, dependencies, critical user journeys, failure modes, and ownership.
+2. Define SLIs before alerts: availability, latency, error rate, saturation, freshness, durability, backup success, or job completion.
+3. Map each SLI to an SLO target, measurement window, data source, known blind spots, and error-budget implication.
+4. Execute safe metric/log/alert checks when tool access exists, using narrow time windows and redaction for sensitive data.
+5. Separate paging alerts, ticket alerts, dashboards, reports, logs, traces, and capacity indicators.
+6. For each alert, specify symptom, impact, threshold, duration, severity, owner, runbook, first diagnostic command, and escalation path.
+7. Flag noisy, duplicate, unactionable, missing, stale, or threshold-only alerts that do not map to user impact.
 </required>
 
-## Monitoring model
+## SLO/SLI model
 
-Cover availability, latency, error rate, saturation, capacity trend, dependency health, certificate expiration, backup success/failure, authentication failures, and security-relevant anomalies.
+Use `references/observability-slo-sli.md`.
 
-## Alert quality
+Minimum SLI definition:
 
-A good alert has clear symptom, real impact, threshold, duration, severity, owner, first diagnostic step, escalation path, and runbook.
+- Service or user journey
+- Indicator formula
+- Good event / total event definition
+- Data source and query
+- Window: rolling, calendar, or incident window
+- Target and rationale
+- Error budget and burn-rate alerting approach
+- Known gaps and proxy limitations
+
+## Alert design
+
+Prefer symptoms over causes. A page should mean a human must act now.
+
+Good alert examples:
+
+- API availability below SLO over a burn-rate window
+- backup job failed and no recent successful restore point exists
+- certificate expires within actionable window
+- disk saturation trend predicts exhaustion before next maintenance window
+
+Bad alert examples:
+
+- CPU > 80% without impact or duration
+- every warning log line
+- duplicate host/service alerts for the same failure
+
+## Assets
+
+Use:
+
+- `skills/monitoring-observability/templates/slo-spec.md`
+- `skills/monitoring-observability/templates/alert-rule.md`
+- `skills/monitoring-observability/examples/dashboard-outline.md`
 
 ## Output
 
@@ -31,8 +64,8 @@ Return:
 
 - Observability gaps
 - Checks executed
-- Recommended metrics and logs
-- Alert rules
+- SLI/SLO table
+- Alert rules with severity and first action
 - Dashboard layout
-- Runbook links or runbook stubs
 - Noise-reduction recommendations
+- Runbook stubs or links

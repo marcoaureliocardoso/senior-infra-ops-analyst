@@ -1,36 +1,55 @@
 ---
 name: Root Cause Analysis
 skill_id: root-cause-analysis
-description: Use after an incident or recurring infrastructure problem to produce a blameless RCA, timeline, contributing factors, corrective actions, and prevention plan based on evidence.
+description: Use after an incident or recurring infrastructure problem to produce a blameless RCA, timeline, evidence map, action table, contributing factors, corrective actions, and prevention plan based on evidence.
 ---
 
 # Root Cause Analysis
 
-Produce a blameless, evidence-based RCA. Focus on system behavior, contributing factors, detection gaps, and durable fixes.
+Produce a blameless, evidence-based RCA. Focus on system behavior, contributing factors, detection gaps, response gaps, and durable fixes.
 
 <required>
-1. Build a timeline using concrete timestamps when available.
-2. Distinguish trigger, root cause, contributing factors, detection gaps, response gaps, and user impact.
-3. Avoid blaming individuals.
-4. Link every conclusion to evidence or mark it as an assumption.
-5. Use logs, monitoring output, command history, ticket records, and change records when available.
-6. Produce corrective actions with owner, priority, effort, due date, and verification method when possible.
+1. Build a timeline with concrete timestamps, timezone, source, and confidence level for each event.
+2. Distinguish trigger, root cause, contributing factors, detection gaps, response gaps, recovery actions, and user impact.
+3. Avoid blaming individuals; describe system conditions, process gaps, tooling gaps, missing checks, and decision constraints.
+4. Link every conclusion to evidence in an evidence map, or mark it as assumption/unknown.
+5. Use logs, monitoring output, command history, ticket records, change records, config diffs, and communications when available.
+6. Produce an action table with owner, priority, effort, due date, verification method, and failure mode addressed.
+7. Include prevention, detection, response, documentation, and validation actions; do not list only remediation.
 </required>
 
-## RCA sections
+## Artifact definitions
 
-1. Executive summary
-2. Impact
-3. Detection
-4. Timeline
-5. What happened
-6. Root cause
-7. Contributing factors
-8. What went well
-9. What did not go well
-10. Corrective and preventive actions
-11. Follow-up validation
+Use `references/rca-artifacts.md`.
+
+Evidence map:
+
+- Claim or finding
+- Evidence source
+- Timestamp/window
+- Observed fact
+- Confidence
+- Gaps or assumptions
+
+Action table:
+
+- Action
+- Failure mode addressed
+- Type: prevent, detect, respond, recover, document
+- Owner
+- Priority
+- Effort
+- Due date
+- Verification method
+
+## Assets
+
+Use:
+
+- `skills/root-cause-analysis/templates/evidence-map.md`
+- `skills/root-cause-analysis/templates/action-table.md`
+- `skills/root-cause-analysis/templates/rca-draft.md`
 
 ## Output
 
-Return a complete RCA draft with an action table and evidence map.
+Return a complete RCA draft with timeline, evidence map, action table, open questions, and follow-up validation plan.

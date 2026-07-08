@@ -13,11 +13,11 @@ Use for domain login, Group Policy, Kerberos, LDAP, DNS SRV, replication, accoun
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `whoami /user` | Logged-in identity | Confirms domain/local identity. |
-| SAFE_READ_ONLY | `echo %LOGONSERVER%` | Authenticating DC | Unexpected DC may indicate site/DNS issue. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `whoami /user` | Logged-in identity | Confirms domain/local identity. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `echo %LOGONSERVER%` | Authenticating DC | Unexpected DC may indicate site/DNS issue. |
 | SAFE_READ_ONLY | `nltest /dsgetdc:<domain>` | DC discovery | Failure points to DNS/domain reachability. |
 | SAFE_READ_ONLY | `w32tm /query /status` | Time sync | Time skew breaks Kerberos. |
-| SAFE_READ_ONLY | `gpresult /r` | Applied GPO summary | Missing/failed GPO can explain policy issues. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `gpresult /r` | Applied GPO summary | Missing/failed GPO can explain policy issues. |
 
 ## 2. DNS SRV records
 
@@ -36,7 +36,7 @@ Run on a DC or admin workstation with tools installed.
 | SAFE_READ_ONLY | `repadmin /replsummary` | Replication summary | Failures/high deltas indicate replication issue. |
 | SAFE_READ_ONLY | `repadmin /showrepl` | Detailed replication | Identify failing partners/naming contexts. |
 | SAFE_READ_ONLY | `netdom query fsmo` | FSMO role holders | Confirms role placement/reachability. |
-| SAFE_READ_ONLY | `Get-ADDomainController -Filter * | Select HostName,Site,IPv4Address,OperatingSystem` | DC inventory | Confirms expected DCs/sites. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-ADDomainController -Filter * \| Select HostName,Site,IPv4Address,OperatingSystem` | DC inventory | Confirms expected DCs/sites. |
 
 ## 4. Account and lockout checks
 
@@ -44,8 +44,8 @@ Account, lockout, and security-event queries are SAFE_READ_ONLY but SENSITIVE_OU
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `Get-ADUser <user> -Properties LockedOut,Enabled,LastLogonDate,PasswordLastSet,BadPwdCount` | User state | Single-user issue may be lockout/password/disabled. |
-| SAFE_READ_ONLY | `Search-ADAccount -LockedOut` | Locked accounts | Spike may indicate saved bad credentials or attack/noise. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-ADUser <user> -Properties LockedOut,Enabled,LastLogonDate,PasswordLastSet,BadPwdCount` | User state | Single-user issue may be lockout/password/disabled. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Search-ADAccount -LockedOut` | Locked accounts | Spike may indicate saved bad credentials or attack/noise. |
 | LOW_RISK_CHANGE | `Unlock-ADAccount <user>` | Unlock account | Requires approval; validate cause to avoid recurrence. |
 | DISRUPTIVE_CHANGE | Group membership/GPO/password policy edits | Policy/security change | Requires change plan and approval. |
 
@@ -53,9 +53,9 @@ Account, lockout, and security-event queries are SAFE_READ_ONLY but SENSITIVE_OU
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `Get-WinEvent -LogName 'Directory Service' -MaxEvents 100` | AD DS events | Replication/database/service errors. |
-| SAFE_READ_ONLY | `Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4740} -MaxEvents 50` | Lockout events | Identify locked user/caller computer. |
-| SAFE_READ_ONLY | `Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Time-Service'} -MaxEvents 50` | Time service | Time instability affects Kerberos. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-WinEvent -LogName 'Directory Service' -MaxEvents 100` | AD DS events | Replication/database/service errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4740} -MaxEvents 50` | Lockout events | Identify locked user/caller computer. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Time-Service'} -MaxEvents 50` | Time service | Time instability affects Kerberos. |
 
 ## 6. Diagnostic order for login failures
 

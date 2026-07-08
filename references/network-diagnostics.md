@@ -33,20 +33,20 @@ Use for connectivity, routing, firewall, VPN, VLAN, packet loss, latency, and se
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `ping -c 4 <target>` | ICMP reachability | Failure does not prove TCP failure; ICMP may be blocked. |
-| SAFE_READ_ONLY | `traceroute <target>` | Path hops | Useful for routing asymmetry clues; may be filtered. |
-| SAFE_READ_ONLY | `mtr -rw <target>` | Loss/latency over path | Loss at final hop matters more than filtered intermediate hops. |
-| SAFE_READ_ONLY | `nc -vz <target> <port>` | TCP connection | Refused = host reached/no listener; timeout = drop/path/firewall. |
-| SAFE_READ_ONLY | `Test-NetConnection <target> -Port <port>` | Windows TCP connection | Same interpretation as above. |
-| SAFE_READ_ONLY | `curl -vI https://<host>/` | HTTPS endpoint/TLS/header | TLS/cert/proxy/app errors become visible. Use `-k` only to continue testing after explicitly noting that certificate validation is being bypassed. |
+| SAFE_READ_ONLY + ACTIVE_PROBE | `ping -c 4 <target>` | ICMP reachability | Failure does not prove TCP failure; ICMP may be blocked. |
+| SAFE_READ_ONLY + ACTIVE_PROBE | `traceroute <target>` | Path hops | Useful for routing asymmetry clues; may be filtered. |
+| SAFE_READ_ONLY + ACTIVE_PROBE + RESOURCE_INTENSIVE | `mtr -rw <target>` | Loss/latency over path | Loss at final hop matters more than filtered intermediate hops. |
+| SAFE_READ_ONLY + ACTIVE_PROBE | `nc -vz <target> <port>` | TCP connection | Refused = host reached/no listener; timeout = drop/path/firewall. |
+| SAFE_READ_ONLY + ACTIVE_PROBE | `Test-NetConnection <target> -Port <port>` | Windows TCP connection | Same interpretation as above. |
+| SAFE_READ_ONLY + ACTIVE_PROBE + SENSITIVE_OUTPUT | `curl -vI https://<host>/` | HTTPS endpoint/TLS/header | TLS/cert/proxy/app errors become visible. Use `-k` only to continue testing after explicitly noting that certificate validation is being bypassed. |
 
 ## 4. Firewall/routing clues
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `sudo nft list ruleset` | Linux nftables rules | Read-only, but may require privilege. Redact sensitive info. |
-| SAFE_READ_ONLY | `sudo iptables -S` | Linux iptables rules | Check drops/NAT; do not flush. |
-| SAFE_READ_ONLY | `Get-NetFirewallRule -Enabled True | Select -First 50` | Windows Firewall rules | Baseline only; filter by port/app for precision. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `sudo nft list ruleset` | Linux nftables rules | Read-only, but may require privilege. Redact sensitive info. |
+| SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `sudo iptables -S` | Linux iptables rules | Check drops/NAT; do not flush. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-NetFirewallRule -Enabled True \| Select -First 50` | Windows Firewall rules | Baseline only; filter by port/app for precision. |
 | DISRUPTIVE_CHANGE | Firewall flush/rule edits | Traffic policy | Requires approval and rollback. |
 
 ## 5. Diagnostic order for “service unreachable”

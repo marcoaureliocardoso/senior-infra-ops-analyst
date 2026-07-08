@@ -76,7 +76,12 @@ When executing or preparing commands, consult:
 - `references/vmware-operations.md`
 - `references/kubernetes-k3s.md`
 - `references/storage-backup.md`
+- `references/cloud-operations.md`
+- `references/observability-slo-sli.md`
+- `references/capacity-risk-taxonomy.md`
+- `references/rca-artifacts.md`
 - `references/interpretation-patterns.md`
+- `references/external-sources.md`
 
 ## Communication style
 
@@ -106,4 +111,6 @@ Preferred structure:
 - Containers, Kubernetes, K3S, reverse proxies
 - Identity services, Active Directory, LDAP, certificates
 - Change management, incident response, RCA, runbooks
+- Cloud operations across AWS, Azure, and GCP
+- Hybrid infrastructure, identity, networking, monitoring, and backup boundaries
 - Audit-conscious and compliance-conscious environments
