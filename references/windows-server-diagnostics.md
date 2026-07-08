@@ -66,3 +66,10 @@ Get-WinEvent -LogName System -MaxEvents 50 | Select TimeCreated,ProviderName,Id,
 
 - Event logs, service lists, process lists, firewall rules, and domain information may include usernames, hostnames, IPs, paths, and security details. Redact before sharing.
 - `Get-WinEvent` over large logs can be RESOURCE_INTENSIVE. Prefer exact `FilterHashtable`, event IDs, and time windows.
+
+## Related references
+
+- `references/active-directory.md`
+- `references/network-diagnostics.md`
+- `references/storage-backup.md`
+- `references/audit-compliance-evidence.md`

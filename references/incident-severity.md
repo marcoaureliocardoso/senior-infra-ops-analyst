@@ -22,3 +22,10 @@ Mitigation urgency never cancels safety gates. If the correct mitigation is disr
 - risk of waiting
 
 Emergency policy may authorize faster approval, but the agent must not silently execute disruptive actions.
+
+## Related references
+
+- `references/diagnostic-order.md`
+- `references/risk-levels.md`
+- `references/itsm-cmdb-workflows.md`
+- `references/vendor-escalation.md`

@@ -25,7 +25,7 @@ Use this for DR exercises, restore tests, failover readiness, backup validation,
 ```bash
 # Examples only; adapt per platform and scope.
 ls -lh <backup-location>
-restic snapshots || borg list <repo> || rclone lsd <remote>
+restic -r <repo> snapshots || borg list <repo> || rclone lsd <remote>
 aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault>
 az backup recoverypoint list --vault-name <vault> --resource-group <rg> --container-name <container> --item-name <item>
 gcloud compute snapshots list

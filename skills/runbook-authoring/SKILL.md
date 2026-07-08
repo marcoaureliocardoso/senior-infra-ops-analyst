@@ -2,7 +2,7 @@
 name: Runbook Authoring
 skill_id: runbook-authoring
 description: Use when creating or improving infrastructure runbooks, standard operating procedures, maintenance guides, recovery procedures, checklists, or handover documentation.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -44,6 +44,7 @@ Write runbooks that an operator can follow under pressure without guessing.
 
 ## Required references
 
+- `references/diagnostic-order.md`
 - `references/risk-levels.md`
 
 

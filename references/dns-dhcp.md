@@ -34,3 +34,10 @@ Use this for name resolution, forward/reverse lookup, resolver configuration, le
 - Restart DNS/DHCP services.
 - Change DHCP scope options, reservations, or exclusions.
 - Delete leases in production.
+
+## Related references
+
+- `references/network-diagnostics.md`
+- `references/active-directory.md`
+- `references/pfsense-operations.md`
+- `references/load-balancers-reverse-proxies.md`

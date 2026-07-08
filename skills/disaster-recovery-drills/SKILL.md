@@ -1,7 +1,7 @@
 ---
 name: Disaster Recovery Drills
 description: Use when planning or executing tabletop exercises, restore tests, failover readiness checks, RTO/RPO validation, and DR evidence collection.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

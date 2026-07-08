@@ -1,7 +1,7 @@
 ---
 name: Database Operations
 description: Use when diagnosing database availability, sessions, locks, replication, storage, backup health, or performance symptoms before recommending database changes.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

@@ -26,3 +26,10 @@ During active incidents, first establish severity, blast radius, communications,
 ## Troubleshooting overlay
 
 For a single-user or client-specific symptom, include client-side checks in steps 1 and 3. For third-party or provider symptoms, include external dependencies in step 12.
+
+## Related references
+
+- `references/command-execution-protocol.md`
+- `references/risk-levels.md`
+- `references/incident-severity.md`
+- `references/interpretation-patterns.md`

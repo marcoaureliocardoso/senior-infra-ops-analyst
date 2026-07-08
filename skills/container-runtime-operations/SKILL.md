@@ -1,7 +1,7 @@
 ---
 name: Container Runtime Operations
 description: Use when diagnosing Docker, Podman, containerd, CRI-O, image, log, resource, port, or runtime failures outside Kubernetes control-plane checks.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

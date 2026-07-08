@@ -1,7 +1,7 @@
 ---
 name: PKI and Certificate Lifecycle Operations
 description: Use when diagnosing certificate expiry, trust chain, SAN mismatch, TLS handshake, renewal, deployment validation, or certificate inventory issues.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

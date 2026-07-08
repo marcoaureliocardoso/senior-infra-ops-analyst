@@ -2,7 +2,7 @@
 name: Command Driven Operations
 skill_id: command-driven-operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -89,6 +89,7 @@ Available helpers:
 
 ## Required references
 
+- `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
 

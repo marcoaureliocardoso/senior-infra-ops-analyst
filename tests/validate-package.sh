@@ -10,8 +10,10 @@ skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -File tests/validate-powershell-syntax.ps1
+  pwsh -NoProfile -File skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help >/dev/null
 elif command -v powershell >/dev/null 2>&1; then
   powershell -NoProfile -File tests/validate-powershell-syntax.ps1
+  powershell -NoProfile -File skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help >/dev/null
 else
   echo "PowerShell not available; syntax validation for .ps1 skipped. See tests/validation-notes.md."
 fi

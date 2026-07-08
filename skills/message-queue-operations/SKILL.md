@@ -1,7 +1,7 @@
 ---
 name: Message Queue Operations
 description: Use when diagnosing RabbitMQ, Kafka, Redis Streams, broker health, queue depth, consumer lag, dead-letter queues, partition leadership, or message flow issues.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

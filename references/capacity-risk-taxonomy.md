@@ -68,3 +68,10 @@ Evidence: cloud inventory, monitoring, activity logs, IAM policies, backup vault
 - Reversibility
 - Validation
 - Owner/decision needed
+
+## Related references
+
+- `references/risk-levels.md`
+- `references/storage-backup.md`
+- `references/disaster-recovery-drills.md`
+- `references/monitoring-stack-operations.md`

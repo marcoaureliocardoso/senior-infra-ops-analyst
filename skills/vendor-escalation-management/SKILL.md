@@ -1,7 +1,7 @@
 ---
 name: Vendor Escalation Management
 description: Use when preparing or managing support escalations to vendors, ISPs, cloud providers, OEMs, MSPs, or software support teams.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

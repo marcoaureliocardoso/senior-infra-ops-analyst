@@ -38,3 +38,13 @@ coverage/
 .tmp/
 .tmp-*/
 validation-output/
+*.pub
+*.token
+*.ovpn
+*.pgpass
+.my.cnf
+*service-account*.json
+*.rdp
+terraform.tfstate
+terraform.tfstate.*
+.terraform/

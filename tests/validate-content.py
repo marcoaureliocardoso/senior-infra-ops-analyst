@@ -119,6 +119,36 @@ for p in (root/'skills').glob('*/examples/*.md'):
 for rel in ['references/load-balancers-reverse-proxies.md','references/pki-certificate-lifecycle.md','references/kubernetes-operations.md','references/disaster-recovery-drills.md','references/itsm-cmdb-workflows.md']:
     if '## Related references' not in read(rel): err(f'{rel} lacks related references')
 
+# Every skill should have at least one populated example.
+for skill in skills:
+    exdir = root/'skills'/skill/'examples'
+    if not exdir.exists():
+        err(f'skill lacks examples directory: {skill}')
+    elif not list(exdir.glob('*.md')):
+        err(f'skill lacks markdown example: {skill}')
+
+# Every reference should have related references for navigability.
+for ref in refs:
+    if ref.endswith('.md') and '## Related references' not in read(ref):
+        err(f'reference lacks related references: {ref}')
+
+# Cloud operations must have its evidence template.
+if not (root/'skills/cloud-operations/templates/cloud-command-record.md').exists():
+    err('cloud-operations lacks cloud-command-record template')
+
+# Common operator-facing skills should have slash commands.
+for cmd in ['ssh-triage.md','lb-triage.md','monitoring-stack-triage.md','web-gateway-triage.md','cicd-triage.md','itsm-update.md']:
+    if not (root/'slashcommands'/cmd).exists():
+        err(f'missing slash command: {cmd}')
+
+# Detect broken internal references to non-existent reference or skill files.
+for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/SKILL.md')) + list((root/'slashcommands').glob('*.md')):
+    txt = p2.read_text(encoding='utf-8')
+    for m in re.findall(r'`(references/[^`]+?\.md|skills/[^`]+?\.md)`', txt):
+        if not (root/m).exists():
+            err(f'broken internal markdown reference in {p2.relative_to(root)}: {m}')
+
+
 if errors:
     print('Validation failed:')
     for e in errors: print('-', e)

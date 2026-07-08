@@ -1,7 +1,7 @@
 ---
 name: Load Balancer and Reverse Proxy Operations
 description: Use when diagnosing NGINX, HAProxy, Apache reverse proxy, cloud load balancers, backend pool health, routing, TLS termination, or gateway errors.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

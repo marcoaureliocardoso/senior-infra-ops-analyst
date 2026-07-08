@@ -1,7 +1,7 @@
 ---
 name: Monitoring Stack Operations
 description: Use when diagnosing Prometheus, Grafana, Zabbix, ELK/Elastic/OpenSearch, alerting, scraping, ingestion, dashboard, or query failures.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

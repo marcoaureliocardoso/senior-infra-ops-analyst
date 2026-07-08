@@ -48,7 +48,8 @@ section "tcp port"
 if have nc; then
   timeout 5 nc -vz -- "$TARGET" "$PORT" && echo "TCP open" || echo "TCP probe completed: not open or not reachable"
 elif have python3; then
-  python3 - "$TARGET" "$PORT" <<'PY'
+  if have timeout; then PY_TIMEOUT=(timeout 7 python3); else PY_TIMEOUT=(python3); fi
+  "${PY_TIMEOUT[@]}" - "$TARGET" "$PORT" <<'PY'
 import socket, sys
 host, port = sys.argv[1], int(sys.argv[2])
 s = socket.socket(socket.AF_INET if ':' not in host else socket.AF_INET6, socket.SOCK_STREAM)

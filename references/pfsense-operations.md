@@ -28,7 +28,7 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 | SAFE_READ_ONLY + PRIVILEGED + SENSITIVE_OUTPUT | `pfctl -ss \| head -50` | State table samples | Confirms whether sessions are being created. |
 | SAFE_READ_ONLY + PRIVILEGED | `pfctl -si` | PF counters/state summary | High drops, state exhaustion, counters indicate firewall pressure. |
 | DISRUPTIVE_CHANGE | `pfctl -F states` | Flush all states | Breaks active sessions; requires approval. |
-| DISRUPTIVE_CHANGE | `pfctl -d` | Disable packet filter | Dangerous; emergency only with explicit approval. |
+| DESTRUCTIVE | `pfctl -d` | Disable packet filter | Removes packet filtering; emergency-only with explicit senior approval, rollback plan, and out-of-band access. |
 
 ## 3. Logs
 
@@ -83,3 +83,9 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 ## Sensitivity notes
 
 Runtime firewall/NAT rules, state tables, VPN logs, and packet captures reveal private topology and user/session metadata. Summarize relevant signals and redact addresses, usernames, public IPs, and tunnel identifiers when sharing outside the operator context.
+
+## Related references
+
+- `references/network-diagnostics.md`
+- `references/dns-dhcp.md`
+- `references/incident-severity.md`

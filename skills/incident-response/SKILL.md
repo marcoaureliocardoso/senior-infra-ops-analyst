@@ -2,7 +2,7 @@
 name: Incident Response
 skill_id: incident-response
 description: Use when triaging, stabilizing, communicating, or coordinating an infrastructure incident, outage, degradation, alert storm, service interruption, or suspected production failure with active evidence gathering.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -45,7 +45,7 @@ Use the incident overlay in `references/diagnostic-order.md`:
 - `references/risk-levels.md`
 - `references/incident-severity.md`
 - `references/diagnostic-order.md`
-- `skills/incident-response/skills/incident-response/templates/incident-worksheet.md`
+- `skills/incident-response/templates/incident-worksheet.md`
 
 
 ## Output

@@ -64,5 +64,5 @@ Owner:
 
 - `references/itsm-cmdb-workflows.md`
 - `references/ssh-privileged-access.md`
-- `references/change-management.md`
+- `skills/change-management/SKILL.md`
 - `references/storage-backup.md`

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.3 - 2026-07-08
+
+- Added populated examples for the 7 original core skills.
+- Added related-reference sections to all original references and strengthened cross-reference validation.
+- Added cloud operations template and operator slash commands for SSH, load balancers, monitoring stacks, web gateways, CI/CD, and ITSM updates.
+- Fixed safety gaps: approval gates for automation/capacity operations, `pfctl -d` classification, Kubernetes destructive command examples, and token-in-shell-history warnings.
+- Aligned Kubernetes/K3s and network risk modifiers, including `SENSITIVE_OUTPUT` and `RESOURCE_INTENSIVE`.
+- Hardened network probe Python fallback with an OS-level timeout when available.
+- Expanded project hygiene with additional `.gitignore` security patterns, CI link validation, Makefile clean target, and local pre-commit checks.
+
 ## 0.4.2 - 2026-07-08
 
 - Populated 13 previously skeletal roadmap examples with realistic evidence sequences, interpretations, safe next actions, approval gates, and output records.

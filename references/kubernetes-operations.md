@@ -31,6 +31,8 @@ kubectl config current-context
 kubectl get ns
 kubectl get all -n <ns>
 kubectl get events -n <ns> --sort-by=.lastTimestamp | tail -50
+kubectl api-resources --verbs=list --namespaced -o name
+kubectl get crd
 ```
 
 Interpretation:
@@ -76,6 +78,7 @@ kubectl top nodes
 kubectl top pods -n <ns> --sort-by=memory
 kubectl describe node <node>
 kubectl get quota,limitrange -n <ns>
+kubectl get hpa,poddisruptionbudget -n <ns>
 kubectl get pvc,pv -n <ns>
 kubectl describe pvc -n <ns> <pvc>
 ```
@@ -89,7 +92,9 @@ Interpretation:
 ```bash
 kubectl auth can-i <verb> <resource> -n <ns> --as <user-or-sa>
 kubectl get role,rolebinding,clusterrole,clusterrolebinding -n <ns>
+kubectl auth can-i get pods -n <ns>
 kubectl get networkpolicy -n <ns>
+kubectl get mutatingwebhookconfiguration,validatingwebhookconfiguration
 ```
 
 Interpretation:
@@ -99,11 +104,12 @@ Interpretation:
 ## Risk mapping
 
 - Scoped `get`: `SAFE_READ_ONLY`, often `SENSITIVE_OUTPUT`.
-- `describe`, `logs`, `events`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; broad scope can be `RESOURCE_INTENSIVE`.
-- `top`: `SAFE_READ_ONLY`; requires metrics server and may fail if unavailable.
+- `describe`, `logs`, `events`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; broad scope such as `-A`, high-cardinality event streams, or large log windows can be `RESOURCE_INTENSIVE`.
+- `top`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; cluster-wide or sorted queries can be `RESOURCE_INTENSIVE`; requires metrics server and may fail if unavailable.
 - `auth can-i`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT` when users/service accounts are named.
 - `exec`, port-forward, temporary debug pods: `REMOTE_SESSION_RISK` or `ACTIVE_PROBE`; require operator awareness and tight scope.
-- `apply`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, `cordon`, `drain`: `STATE_CHANGING` or `DISRUPTIVE`; require explicit approval.
+- `apply`, `patch`, `edit`, `scale`, `rollout restart`, `cordon`, `drain`: `STATE_CHANGING` or `DISRUPTIVE`; require explicit approval.
+- `kubectl delete namespace <ns>`, `kubectl delete pvc`, and broad deletes: `DESTRUCTIVE`; require formal approval, recovery evidence, and rollback/restore plan.
 
 ## Evidence to capture
 

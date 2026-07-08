@@ -52,3 +52,9 @@ Use multiple windows when possible:
 - Host metrics bad but SLI good: dashboard issue or early-warning ticket, not page.
 - Logs noisy but SLI good: investigate trend, do not page unless risk is imminent.
 - Backup success without restore test: recoverability confidence is incomplete.
+
+## Related references
+
+- `references/monitoring-stack-operations.md`
+- `references/incident-severity.md`
+- `references/diagnostic-order.md`

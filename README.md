@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.4.2
+Version: 0.4.3
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations.
 
@@ -12,11 +12,13 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
-## What changed in v0.4.2
+## What changed in v0.4.3
 
-- Populated previously skeletal roadmap examples with realistic scenario, evidence, interpretation, safe next actions, and approval-gate content.
-- Clarified `AGENTS.md` expanded-domain reference labeling so Kubernetes operations is not presented as part of the original v0.4.0 batch.
-- Added validation to detect skeletal example files and empty output-pattern placeholders.
+- Added populated examples for the 7 original core skills.
+- Added `## Related references` sections to all original references and tightened cross-reference validation.
+- Added a cloud operations template and 6 slash commands for SSH, load balancers, monitoring stacks, web gateways, CI/CD, and ITSM updates.
+- Aligned safety and risk classifications for Kubernetes/K3s, network probes, pfSense `pfctl -d`, token handling, and state-changing approval gates.
+- Expanded validation for all skill examples, related references, cloud templates, and broken internal links.
 
 Previous v0.4.1 changes retained:
 
@@ -41,6 +43,12 @@ Previous v0.4.1 changes retained:
 - `/dr-drill` — disaster recovery drill planning/evidence.
 - `/audit-evidence` — audit/compliance evidence collection.
 - `/vendor-escalate` — vendor support escalation package.
+- `/ssh-triage` — SSH, bastion, PAM, sudo, key, and privileged-access triage.
+- `/lb-triage` — load balancer and reverse proxy health/routing/TLS triage.
+- `/monitoring-stack-triage` — Prometheus/Grafana/Zabbix/ELK/OpenSearch triage.
+- `/web-gateway-triage` — web server, application gateway, WAF, and upstream triage.
+- `/cicd-triage` — CI/CD pipeline, runner, artifact, and deployment-gate triage.
+- `/itsm-update` — ITSM/CMDB factual update and impact-analysis drafting.
 
 ## Template convention
 

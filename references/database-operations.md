@@ -88,3 +88,8 @@ Interpretation:
 - `references/disaster-recovery-drills.md`
 - `references/monitoring-stack-operations.md`
 - `references/audit-compliance-evidence.md`
+
+## Connection poolers
+
+- PgBouncer: inspect `SHOW POOLS;`, `SHOW CLIENTS;`, and `SHOW SERVERS;` using the PgBouncer admin database; output is `SENSITIVE_OUTPUT`.
+- ProxySQL: inspect `stats_mysql_connection_pool` and `stats_mysql_processlist`; output is `SENSITIVE_OUTPUT`.

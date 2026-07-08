@@ -47,6 +47,28 @@ redis-cli XINFO GROUPS <stream>
 redis-cli XINFO CONSUMERS <stream> <group>
 ```
 
+
+### Additional Kafka checks
+
+```bash
+kafka-consumer-groups.sh --bootstrap-server <broker> --group <group> --describe
+kafka-acls.sh --bootstrap-server <broker> --list
+kafka-configs.sh --bootstrap-server <broker> --describe --entity-type topics --entity-name <topic>
+```
+
+### Additional RabbitMQ checks
+
+```bash
+rabbitmq-diagnostics check_running
+rabbitmqctl list_channels name user connection messages_unacknowledged
+```
+
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; broker-wide channel/group listings can be `RESOURCE_INTENSIVE` in large environments.
+
+### Managed and alternative queues
+
+For Amazon MSK, Azure Service Bus, Google Pub/Sub, NATS, and Pulsar, prefer scoped queue/topic/subscription health, consumer lag/backlog, permission, and quota checks. Do not purge, replay, reset offsets, or alter retention without approval.
+
 ## Risk mapping
 
 - Queue/topic/lag listing: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.

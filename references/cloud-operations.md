@@ -124,3 +124,24 @@ Before any cloud change, provide:
 - Treat provider-native connectivity tests and health probes as `ACTIVE_PROBE` unless they only read existing results.
 - Never execute start/stop/reboot/resize/delete, IAM changes, security rule changes, DNS changes, or backup/restore actions without explicit approval.
 - Summarize and redact identities, public IPs, internal IPs, resource IDs, and policy details when sharing outside the operations context.
+
+
+## Pagination and JSON extraction
+
+Cloud CLIs can return large result sets. Prefer scope filters, provider pagination controls, and field extraction before broad dumps. Examples:
+
+```bash
+aws ec2 describe-instances --filters "Name=tag:Name,Values=<name>" --max-results 50 | jq '.Reservations[].Instances[] | {InstanceId,State,PrivateIpAddress,PublicIpAddress}'
+az vm list -g <rg> --query '[].{name:name,powerState:powerState,privateIps:privateIps}' -o json | jq .
+gcloud compute instances list --filter='name=<name>' --format=json | jq '.[] | {name,zone,status,networkInterfaces}'
+```
+
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; public/private IPs, account IDs, project names, and tags may need redaction.
+
+## Related references
+
+- `references/network-diagnostics.md`
+- `references/storage-backup.md`
+- `references/pki-certificate-lifecycle.md`
+- `references/monitoring-stack-operations.md`
+- `references/ssh-privileged-access.md`

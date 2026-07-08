@@ -81,3 +81,30 @@ Before SSH or remote PowerShell:
 - Prefer read-only probes first.
 - Use hostname/IP in the command record.
 - Do not fan out to multiple hosts without an explicit allowlist.
+
+
+## Exit code and clock evidence
+
+For operational evidence, record command exit codes and the clock source used for timestamps. Prefer UTC for incident timelines. Examples:
+
+```bash
+date -u
+timedatectl 2>/dev/null || true
+<command>; rc=$?; echo "exit_code=$rc"
+```
+
+For PowerShell:
+
+```powershell
+Get-Date -AsUTC
+<command>
+$LASTEXITCODE
+```
+
+Do not interpret partial output as successful execution until the exit code or tool status is understood.
+
+## Related references
+
+- `references/risk-levels.md`
+- `references/diagnostic-order.md`
+- `references/interpretation-patterns.md`

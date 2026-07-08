@@ -2,7 +2,7 @@
 name: Automation Safe Operations
 skill_id: automation-safe-operations
 description: Use when writing, reviewing, or running automation scripts for infrastructure operations, including shell, PowerShell, Ansible, Python, scheduled jobs, mass changes, shutdown/startup routines, or maintenance automation.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -22,8 +22,8 @@ Design automation as if a typo could affect production. Prioritize idempotence, 
 2. Include dry-run or preview mode whenever feasible.
 3. Include logging of actions, errors, timestamps, target identity, and exit codes.
 4. Execute lint/static checks and safe dry-runs when tool access exists.
-5. Require approval before running scripts that change production state.
-6. Never suggest mass destructive operations without confirmation gates and safeguards.
+5. Require explicit approval before running scripts that change state in any environment, including production, staging, test, lab, and developer systems.
+6. Never suggest mass destructive operations without confirmation gates, safeguards, backups or rollback evidence, and operator-visible blast-radius notes.
 </required>
 
 ## Safety checklist
@@ -45,6 +45,7 @@ Check quoting, variable expansion, privilege requirements, secrets exposure, rac
 
 ## Required references
 
+- `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
 

@@ -85,3 +85,10 @@ Interpret before proposing changes.
 - `journalctl`, `dmesg`, application logs, process lists, firewall rules, and service status can expose usernames, paths, tokens, internal hostnames, or private IPs. Redact before sharing.
 - `find`, `du`, and large log scans are RESOURCE_INTENSIVE on busy filesystems. Prefer exact paths, `-xdev`, time windows, and result limits.
 - Commands using `sudo` are PRIVILEGED even when read-only; confirm the target before running.
+
+## Related references
+
+- `references/network-diagnostics.md`
+- `references/storage-backup.md`
+- `references/command-execution-protocol.md`
+- `references/monitoring-stack-operations.md`

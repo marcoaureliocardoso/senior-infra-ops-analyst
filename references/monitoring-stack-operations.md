@@ -52,6 +52,38 @@ Interpretation:
 - Yellow cluster -> replicas unassigned.
 - Disk watermark warnings -> shard allocation/storage pressure.
 
+
+## Shell-history warning
+
+Avoid placing bearer tokens, private tokens, cookies, or credentials directly on the command line because they can be captured in shell history, process listings, terminal logs, or audit tooling. Prefer approved secret stores, short-lived environment variables, `--netrc`/credential helpers where appropriate, or vendor CLI authentication. Redact tokens from examples and outputs.
+
+
+### Prometheus API and tooling
+
+```bash
+promtool check config <prometheus.yml>
+promtool tsdb analyze <data-dir>
+curl -sS http://<prometheus>:9090/api/v1/targets
+curl -sS http://<prometheus>:9090/api/v1/rules
+curl -sS http://<prometheus>:9090/api/v1/alerts
+```
+
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; TSDB analysis can be `RESOURCE_INTENSIVE` on large datasets.
+
+### Elastic/OpenSearch checks
+
+```bash
+curl -sS http://<es>:9200/_cluster/health?pretty
+curl -sS http://<es>:9200/_cat/shards?v
+curl -sS -XGET http://<es>:9200/_cluster/allocation/explain?pretty
+```
+
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; allocation explain can reveal node names, index names, and topology.
+
+### Adjacent platforms
+
+For Loki, Datadog, New Relic, Splunk, Thanos, Cortex, or Mimir, prefer scoped health, target, rule, alert, and query endpoints over broad data dumps. Treat tenant IDs, labels, queries, and logs as `SENSITIVE_OUTPUT`.
+
 ## Risk mapping
 
 - Health and status APIs: `SAFE_READ_ONLY`.

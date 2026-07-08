@@ -1,7 +1,7 @@
 ---
 name: CI/CD Operations
 description: Use when diagnosing failed pipelines, runner capacity, deployment gates, artifact failures, rollback workflows, or release safety issues.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

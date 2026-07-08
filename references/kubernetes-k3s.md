@@ -22,12 +22,14 @@ Use for Kubernetes and K3S clusters, workloads, services, ingress, nodes, pods, 
 
 | Risk | Command | Verifies | Interpretation |
 |---|---|---|---|
-| SAFE_READ_ONLY | `kubectl get pods -n <ns> -o wide` | Pod state/node/IP | Pending/CrashLoop/ImagePull errors guide next step. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get pods -n <ns> -o wide` | Pod state/node/IP | Reveals pod IPs and node names; Pending/CrashLoop/ImagePull errors guide next step. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl describe pod -n <ns> <pod>` | Pod events/spec | Probe, mount, scheduling, image errors. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl logs -n <ns> <pod> --tail=200` | App/container logs | App startup/runtime error. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl logs -n <ns> <pod> -c <container> --previous --tail=200` | Previous crashed container | Critical for CrashLoopBackOff. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `kubectl get deploy,statefulset,daemonset -n <ns> -o wide` | Controller state | Desired vs available mismatch. |
 | DISRUPTIVE_CHANGE | `kubectl rollout restart deployment/<name> -n <ns>` | Restart workload | Requires approval; can interrupt users. |
+| DESTRUCTIVE | `kubectl delete namespace <ns>` | Delete all namespace resources | Cascading deletion; require formal approval, backup/export evidence, and recovery plan. |
+| DESTRUCTIVE | `kubectl delete pvc -n <ns> <pvc>` | Delete persistent volume claim | Can destroy data depending on reclaim policy; require formal approval and backup validation. |
 
 ## 3. Service and ingress
 
@@ -80,3 +82,5 @@ Use for Kubernetes and K3S clusters, workloads, services, ingress, nodes, pods, 
 - `references/kubernetes-operations.md`
 - `references/container-runtime-operations.md`
 - `references/linux-diagnostics.md`
+
+- `references/network-diagnostics.md`

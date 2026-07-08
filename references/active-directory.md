@@ -67,3 +67,11 @@ Account, lockout, and security-event queries are SAFE_READ_ONLY but SENSITIVE_OU
 6. Check account state.
 7. Check DC health and replication.
 8. Only then propose changes.
+
+## Related references
+
+- `references/windows-server-diagnostics.md`
+- `references/dns-dhcp.md`
+- `references/incident-severity.md`
+- `references/ssh-privileged-access.md`
+- `references/audit-compliance-evidence.md`

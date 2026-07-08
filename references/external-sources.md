@@ -161,3 +161,8 @@ Use these official references when updating or validating this skillset. Prefer 
 - ServiceNow incident management: https://www.servicenow.com/docs/r/it-service-management/incident-management/c_IncidentManagement.html
 - NIST SP 800-34 Rev. 1: https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final
 - NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+
+## Related references
+
+- `references/command-execution-protocol.md`
+- `references/risk-levels.md`

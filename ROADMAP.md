@@ -1,10 +1,18 @@
+# Roadmap
+
+## Completed in v0.4.3
+
+- Populated examples for original core skills.
+- Added full related-reference coverage for original references.
+- Added missing operator slash commands for SSH, load balancing, monitoring stack, web gateway, CI/CD, and ITSM workflows.
+- Added cloud operations template and stronger cross-reference/content validation.
+- Tightened safety classification and approval gates across original and Kubernetes/network references.
+
 ## Completed in v0.4.2
 
 - Populated roadmap-domain examples with realistic, non-skeletal evidence records.
 - Clarified expanded-domain reference labeling in `AGENTS.md`.
 - Added validation checks for skeletal examples.
-
-# Roadmap
 
 ## Completed in v0.4.1
 
@@ -35,8 +43,10 @@ The previous roadmap domains received dedicated skills, references, and template
 
 ## Future improvements
 
-- Add vendor-specific deep dives for Oracle, SQL Server Always On, PostgreSQL HA stacks, MySQL Group Replication, Redis Cluster, enterprise load balancers, and managed Kubernetes distributions.
-- Add MCP/tool-specific adapters for ServiceNow, Jira Service Management, Zabbix API, Grafana API, GitHub/GitLab, and cloud provider support APIs.
-- Add offline integration tests for each slash command and template.
-- Add live link validation in CI where outbound network access is available.
-- Add optional runnable labs using disposable containers or mock CLIs for safe skill testing.
+| Priority | Item | Owner | Notes |
+|---|---|---|---|
+| P1 | MCP/tool-specific adapters | Maintainer | ServiceNow, Jira Service Management, Zabbix API, Grafana API, GitHub/GitLab, cloud support APIs. |
+| P1 | Offline functional tests | Maintainer | Exercise each slash command against mock evidence and expected output. |
+| P2 | Vendor deep dives | Maintainer/contributors | Oracle, SQL Server Always On, PostgreSQL HA, MySQL Group Replication, Redis Cluster, enterprise LBs, managed Kubernetes. |
+| P2 | Runnable labs | Contributors | Disposable containers or mock CLIs for safe skill testing. |
+| P3 | External link maintenance | Maintainer | Scheduled CI link validation and stale-link replacement. |

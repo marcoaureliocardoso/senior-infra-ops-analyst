@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.4.2",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.4.2 populates roadmap examples with realistic evidence records and clarifies expanded domain-reference labeling.",
+  "version": "0.4.3",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.4.3 evens out core-skill examples, cross-references, slash commands, cloud templates, and risk classification consistency.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [

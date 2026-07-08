@@ -60,6 +60,27 @@ gcloud compute backend-services list
 gcloud compute backend-services get-health <service> --global
 ```
 
+
+### Additional HAProxy runtime checks
+
+```bash
+echo "show errors" | socat - /var/run/haproxy.sock
+echo "show servers state" | socat - /var/run/haproxy.sock
+```
+
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; socket access is usually privileged and can reveal backend names, IPs, and request errors.
+
+### Protocol-specific checks
+
+- WebSocket: verify `Upgrade` and `Connection` headers and idle timeouts.
+- gRPC: verify HTTP/2 passthrough/termination mode and backend health path.
+- PROXY protocol: verify both sides agree on enabled/disabled state.
+- X-Forwarded-For/Forwarded: verify expected client IP preservation and trusted proxy boundaries.
+
+### Other products
+
+For Traefik, Envoy, Caddy, Varnish, and appliance load balancers, prefer status/API reads and config validation commands before reloads or traffic-shifting actions.
+
 ## Risk mapping
 
 - Config print and status: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.

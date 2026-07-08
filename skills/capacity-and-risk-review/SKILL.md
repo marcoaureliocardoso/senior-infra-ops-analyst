@@ -2,7 +2,7 @@
 name: Capacity and Risk Review
 skill_id: capacity-and-risk-review
 description: Use when reviewing infrastructure capacity, technical debt, operational risk, lifecycle risk, resilience, backup posture, hardware constraints, cloud resource posture, or upgrade priorities using evidence and diagnostic commands.
-version: 0.4.1
+version: 0.4.3
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -25,6 +25,7 @@ Review infrastructure like a senior operator accountable for continuity, resilie
 5. Prioritize recommendations by impact, urgency, effort, reversibility, dependency, cost, and evidence confidence.
 6. Separate immediate mitigations, quick wins, structural improvements, and decisions that require management acceptance.
 7. Include evidence needed to validate each risk and a measurable exit criterion for each recommendation.
+8. Do not execute changes, broad scans, failover tests, cleanup actions, quota changes, capacity resizing, decommissioning, or backup/restore actions without explicit approval, even when the review is non-production.
 </required>
 
 ## Risk model
@@ -61,6 +62,7 @@ Use:
 
 ## Required references
 
+- `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/capacity-risk-taxonomy.md`
 

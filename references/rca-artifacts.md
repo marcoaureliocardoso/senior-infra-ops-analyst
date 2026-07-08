@@ -55,3 +55,10 @@ Weak action: "Improve monitoring."
 - Actions cover prevention, detection, response, and recovery.
 - At least one action has a validation method.
 - The document is blameless and system-focused.
+
+## Related references
+
+- `references/incident-severity.md`
+- `references/diagnostic-order.md`
+- `references/itsm-cmdb-workflows.md`
+- `references/audit-compliance-evidence.md`

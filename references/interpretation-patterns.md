@@ -97,3 +97,9 @@ Interpretation:
 - Many users suddenly fail: domain/DC/DNS/time/cert path likely.
 - One user fails: account/password/lockout/profile likely.
 - Kerberos errors: time, SPN, DNS, domain trust, encryption/cipher issues.
+
+## Related references
+
+- `references/diagnostic-order.md`
+- `references/command-execution-protocol.md`
+- `references/risk-levels.md`

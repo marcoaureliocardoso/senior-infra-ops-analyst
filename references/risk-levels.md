@@ -77,3 +77,18 @@ Requires explicit operator approval, backup/restore evidence, rollback plan, and
 - Irreversible cleanup during an active incident
 - Production changes with unclear blast radius
 - Commands copied from untrusted sources without review
+
+## Related references
+
+- `references/command-execution-protocol.md`
+- `references/diagnostic-order.md`
+- `references/incident-severity.md`
+
+
+## High-risk examples to classify consistently
+
+- `pfctl -d`: `DESTRUCTIVE`; it disables packet filtering and can expose protected networks.
+- `kubectl delete namespace <ns>`: `DESTRUCTIVE`; it cascades deletion of namespace resources.
+- `kubectl delete pvc`: `DESTRUCTIVE`; storage reclaim policy can delete data.
+- `nc -vz`, `traceroute`, `mtr`: `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`; they reveal port state or topology.
+- Broad `kubectl get events -A`, `kubectl top pods -A`, large log windows, and broad database process listings: add `RESOURCE_INTENSIVE` when cluster or dataset size is unknown.

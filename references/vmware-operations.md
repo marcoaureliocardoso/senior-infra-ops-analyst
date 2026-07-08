@@ -68,3 +68,10 @@ Use for ESXi hosts, VMs, datastores, snapshots, networking, and hypervisor healt
 ## Sensitivity and load notes
 
 VM inventories, datastore names, network names, and snapshot trees reveal private topology and business context. Summarize relevant findings and redact identifiers when needed. Avoid repeated broad ESXi queries during host instability.
+
+## Related references
+
+- `references/storage-backup.md`
+- `references/network-diagnostics.md`
+- `references/disaster-recovery-drills.md`
+- `references/capacity-risk-taxonomy.md`

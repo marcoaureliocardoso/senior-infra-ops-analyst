@@ -41,6 +41,11 @@ java -jar jenkins-cli.jar -s <url> list-jobs
 java -jar jenkins-cli.jar -s <url> console <job> <build>
 ```
 
+
+## Shell-history warning
+
+Avoid placing bearer tokens, private tokens, cookies, or credentials directly on the command line because they can be captured in shell history, process listings, terminal logs, or audit tooling. Prefer approved secret stores, short-lived environment variables, `--netrc`/credential helpers where appropriate, or vendor CLI authentication. Redact tokens from examples and outputs.
+
 ## Risk mapping
 
 - List/view runs and failed logs: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
@@ -56,4 +61,4 @@ Pipeline URL/ID, commit SHA, actor, environment, failed stage, first failing lin
 - `references/container-runtime-operations.md`
 - `references/kubernetes-operations.md`
 - `references/cloud-operations.md`
-- `references/change-management.md`
+- `skills/change-management/SKILL.md`

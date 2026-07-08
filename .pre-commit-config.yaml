@@ -6,3 +6,38 @@ repos:
         entry: bash tests/validate-package.sh
         language: system
         pass_filenames: false
+      - id: trailing-whitespace
+        name: trailing whitespace check
+        entry: bash -c 'if grep -RIn "[[:blank:]]$" -- . --exclude-dir=.git; then exit 1; fi'
+        language: system
+        pass_filenames: false
+      - id: end-of-file-newline
+        name: end-of-file newline check
+        entry: bash -c 'python3 - <<"PY"
+from pathlib import Path
+bad=[]
+for p in Path(".").rglob("*"):
+    if p.is_file() and ".git" not in p.parts and p.suffix in {".md",".json",".yml",".yaml",".sh",".ps1",".py"}:
+        b=p.read_bytes()
+        if b and not b.endswith(b"\n"): bad.append(str(p))
+if bad:
+    print("Missing final newline:", *bad, sep="\n")
+    raise SystemExit(1)
+PY'
+        language: system
+        pass_filenames: false
+      - id: yaml-parse
+        name: YAML parse check
+        entry: bash -c 'python3 - <<"PY"
+try:
+    import yaml
+except Exception:
+    print("PyYAML unavailable; skipping YAML parse")
+    raise SystemExit(0)
+from pathlib import Path
+for p in list(Path(".").rglob("*.yml"))+list(Path(".").rglob("*.yaml")):
+    if ".git" in p.parts: continue
+    yaml.safe_load(p.read_text())
+PY'
+        language: system
+        pass_filenames: false

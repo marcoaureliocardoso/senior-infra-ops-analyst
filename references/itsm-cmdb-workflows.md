@@ -71,6 +71,11 @@ Timestamp:
 Linked CI/change/problem/vendor ticket:
 ```
 
+
+## Shell-history warning
+
+Avoid placing bearer tokens, private tokens, cookies, or credentials directly on the command line because they can be captured in shell history, process listings, terminal logs, or audit tooling. Prefer approved secret stores, short-lived environment variables, `--netrc`/credential helpers where appropriate, or vendor CLI authentication. Redact tokens from examples and outputs.
+
 ## Risk mapping
 
 - Reading records/CMDB: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.

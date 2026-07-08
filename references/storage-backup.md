@@ -87,3 +87,10 @@ Get-Service |
 Get-WinEvent -LogName Application -MaxEvents 200 |
   Where-Object {$_.Message -match 'backup|VSS|shadow'}
 ```
+
+## Related references
+
+- `references/disaster-recovery-drills.md`
+- `references/database-operations.md`
+- `references/vmware-operations.md`
+- `references/cloud-operations.md`
