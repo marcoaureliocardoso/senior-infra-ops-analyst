@@ -114,3 +114,50 @@ Use these official references when updating or validating this skillset. Prefer 
 - gcloud compute instances list: https://cloud.google.com/sdk/gcloud/reference/compute/instances/list
 - Compute Engine get/list instances: https://cloud.google.com/compute/docs/instances/get-list
 - Network Intelligence Center: https://cloud.google.com/network-intelligence-center/docs
+
+
+## v0.4.0 roadmap domain sources
+
+### Database operations
+- PostgreSQL monitoring statistics: https://www.postgresql.org/docs/current/monitoring-stats.html
+- PostgreSQL monitoring database activity: https://www.postgresql.org/docs/current/monitoring.html
+- MySQL SHOW PROCESSLIST: https://dev.mysql.com/doc/refman/8.2/en/show-processlist.html
+- MongoDB current operations: https://www.mongodb.com/docs/manual/reference/method/db.currentop/
+
+### Container runtime operations
+- Docker container logs: https://docs.docker.com/reference/cli/docker/container/logs/
+- Docker inspect: https://docs.docker.com/reference/cli/docker/inspect/
+- Docker logging: https://docs.docker.com/engine/logging/
+
+### Load balancers, reverse proxies, and web gateways
+- NGINX load balancing: https://nginx.org/en/docs/http/load_balancing.html
+- NGINX Admin Guide HTTP Load Balancer: https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/
+- HAProxy configuration manual: https://www.haproxy.com/documentation/haproxy-configuration-manual/latest/
+- Apache HTTP Server documentation: https://httpd.apache.org/
+
+### PKI and certificates
+- OpenSSL verify: https://docs.openssl.org/1.1.1/man1/verify/
+- OpenSSL s_client connectivity testing: https://docs.pingidentity.com/solution-guides/standards_and_protocols_use_cases/htg_use_openssl_to_test_ssl_connectivity.html
+
+### CI/CD operations
+- GitHub Actions documentation: https://docs.github.com/actions
+- GitLab CI/CD documentation: https://docs.gitlab.com/ci/
+
+### Monitoring stacks
+- Grafana Prometheus data source: https://grafana.com/docs/grafana/latest/datasources/prometheus/
+- Grafana data sources: https://grafana.com/docs/grafana/latest/datasources/
+- OpenSearch Grafana data source: https://grafana.com/docs/plugins/grafana-opensearch-datasource/latest/
+
+### Message queues
+- RabbitMQ monitoring: https://www.rabbitmq.com/docs/monitoring
+- RabbitMQ command line tools: https://www.rabbitmq.com/docs/cli
+- RabbitMQ clustering: https://www.rabbitmq.com/docs/clustering
+
+### SSH and privileged access
+- OpenSSH manual pages: https://www.openssh.com/manual.html
+- sshd_config manual: https://man7.org/linux/man-pages/man5/sshd_config.5.html
+
+### ITSM, disaster recovery, and audit evidence
+- ServiceNow incident management: https://www.servicenow.com/docs/r/it-service-management/incident-management/c_IncidentManagement.html
+- NIST SP 800-34 Rev. 1: https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final
+- NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final

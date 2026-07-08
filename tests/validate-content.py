@@ -48,6 +48,42 @@ for rel in ['references/network-diagnostics.md','references/dns-dhcp.md','refere
 if 'Canonical Diagnostic Order' not in read('references/diagnostic-order.md'):
     err('diagnostic-order reference missing canonical heading')
 
+
+
+# v0.4.0 roadmap coverage checks
+roadmap_refs = [
+ 'references/database-operations.md',
+ 'references/container-runtime-operations.md',
+ 'references/load-balancers-reverse-proxies.md',
+ 'references/pki-certificate-lifecycle.md',
+ 'references/cicd-operations.md',
+ 'references/monitoring-stack-operations.md',
+ 'references/message-queues.md',
+ 'references/web-servers-application-gateways.md',
+ 'references/ssh-privileged-access.md',
+ 'references/itsm-cmdb-workflows.md',
+ 'references/disaster-recovery-drills.md',
+ 'references/vendor-escalation.md',
+ 'references/audit-compliance-evidence.md',
+]
+for ref in roadmap_refs:
+    if not (root/ref).exists(): err(f'missing roadmap reference: {ref}')
+    elif 'Safety rules' not in read(ref): err(f'roadmap reference lacks Safety rules: {ref}')
+
+roadmap_skills = [
+ 'database-operations', 'container-runtime-operations', 'load-balancer-operations',
+ 'pki-certificate-operations', 'cicd-operations', 'monitoring-stack-operations',
+ 'message-queue-operations', 'web-gateway-operations', 'ssh-privileged-access-operations',
+ 'itsm-cmdb-workflows', 'disaster-recovery-drills', 'vendor-escalation-management',
+ 'audit-compliance-evidence'
+]
+for skill in roadmap_skills:
+    if skill not in manifest.get('skills', []): err(f'roadmap skill not listed in manifest: {skill}')
+
+for rel in ['slashcommands/db-triage.md','slashcommands/container-runtime-triage.md','slashcommands/cert-check.md','slashcommands/queue-triage.md','slashcommands/dr-drill.md','slashcommands/audit-evidence.md','slashcommands/vendor-escalate.md']:
+    if not (root/rel).exists(): err(f'missing roadmap slash command: {rel}')
+    elif 'templates/' not in read(rel): err(f'roadmap slash command lacks template reference: {rel}')
+
 if errors:
     print('Validation failed:')
     for e in errors: print('-', e)

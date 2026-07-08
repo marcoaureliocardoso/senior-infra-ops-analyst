@@ -75,6 +75,23 @@ When executing or preparing commands, consult:
 
 Use `references/external-sources.md` when validating commands, terminology, runbook structure, or cloud/provider-specific assumptions. Prefer official vendor documentation, standards/RFCs, and public SRE material. Do not treat external references as permission to execute broad or risky commands; the command execution policy still applies.
 
+### Roadmap domain references added in v0.4.0
+
+- `references/database-operations.md`
+- `references/container-runtime-operations.md`
+- `references/load-balancers-reverse-proxies.md`
+- `references/pki-certificate-lifecycle.md`
+- `references/cicd-operations.md`
+- `references/monitoring-stack-operations.md`
+- `references/message-queues.md`
+- `references/web-servers-application-gateways.md`
+- `references/ssh-privileged-access.md`
+- `references/itsm-cmdb-workflows.md`
+- `references/disaster-recovery-drills.md`
+- `references/vendor-escalation.md`
+- `references/audit-compliance-evidence.md`
+
+
 ## Communication style
 
 Use Portuguese by default unless the user asks otherwise. Be concise, practical, and operational. Organize answers so an operator can act under pressure.

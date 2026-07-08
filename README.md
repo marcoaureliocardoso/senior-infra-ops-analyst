@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.3.3
+Version: 0.4.0
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst. It is designed for safe, evidence-based infrastructure and cloud operations.
 
@@ -142,3 +142,30 @@ make validate-links
 
 - Live validation report: `tests/reports/live-validation-2026-07-08.md`
 - PowerShell parser validation helper: `tests/validate-powershell-syntax.ps1`
+
+
+## v0.4.0 roadmap domain coverage
+
+Version 0.4.0 converts the roadmap into operational content. New domains include databases, container runtimes, load balancers/reverse proxies, PKI/certificate lifecycle, CI/CD, monitoring stacks, message queues, web servers/application gateways, SSH/PAM, ITSM/CMDB, disaster recovery drills, vendor escalation, and audit/compliance evidence collection.
+
+Each new domain follows the same pattern:
+
+```text
+skills/<domain>/SKILL.md
+references/<domain>.md
+skills/<domain>/templates/<artifact>.md
+```
+
+New slash commands:
+
+```text
+/db-triage
+/container-runtime-triage
+/cert-check
+/queue-triage
+/dr-drill
+/audit-evidence
+/vendor-escalate
+```
+
+These commands do not bypass approval gates. They activate the relevant skill, reference, and template while preserving the shared command execution and risk classification rules.

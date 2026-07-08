@@ -8,6 +8,7 @@ Scope: `references/external-sources.md` from `senior-infra-ops-analyst` v0.3.3.
 - Live validation therefore used web retrieval/search.
 - Direct web retrieval was treated as `PASS_DIRECT` when the target URL loaded readable content.
 - Search-confirmed official replacements were used when a target existed but direct fetch failed due to fetcher limitations, redirects, robots restrictions, or vendor site behavior.
+- PowerShell syntax validation with a real parser was attempted only if `pwsh` or `powershell` was locally available.
 
 ## Summary
 
@@ -15,6 +16,7 @@ Scope: `references/external-sources.md` from `senior-infra-ops-analyst` v0.3.3.
 - Direct web retrieval passes: 72
 - URLs needing replacement or alternate canonical URL: 8
 - Remaining caveat: vendor sites can still block non-browser fetchers; use `tests/validate-links.sh` from a networked workstation for independent confirmation.
+- PowerShell parser validation: not executed in this environment because neither `pwsh` nor `powershell` is installed, and the container cannot resolve external DNS to install PowerShell.
 
 ## Replacements applied in v0.3.4
 
@@ -30,6 +32,14 @@ Scope: `references/external-sources.md` from `senior-infra-ops-analyst` v0.3.3.
 | `https://www.tcpdump.org/manpages/tcpdump.1.html` | blocked by robots for this fetcher | `https://man7.org/linux/man-pages/man8/tcpdump.8.html` |
 
 ## PowerShell parser validation
+
+Real parser validation was not possible here:
+
+```text
+command -v pwsh       -> not found
+command -v powershell -> not found
+container DNS         -> cannot resolve external hosts, so PowerShell could not be installed
+```
 
 To validate on a Windows or PowerShell-enabled Linux host:
 

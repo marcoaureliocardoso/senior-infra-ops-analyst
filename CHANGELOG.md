@@ -1,3 +1,29 @@
+## 0.4.0 - 2026-07-08
+
+### Added
+
+- Dedicated skills, references, and templates for all previous ROADMAP domains:
+  - database operations
+  - container runtime operations beyond Kubernetes control-plane checks
+  - load balancers and reverse proxies
+  - PKI and certificate lifecycle operations
+  - CI/CD operations
+  - monitoring stack operations
+  - message queues
+  - web servers and application gateways
+  - SSH and privileged access management
+  - ITSM/CMDB workflows
+  - disaster recovery drills
+  - vendor escalation management
+  - audit and compliance evidence collection
+- New slash commands: `/db-triage`, `/container-runtime-triage`, `/cert-check`, `/queue-triage`, `/dr-drill`, `/audit-evidence`, `/vendor-escalate`.
+- Root templates for database incident, certificate renewal, DR drill, vendor escalation, and audit evidence records.
+
+### Changed
+
+- `ROADMAP.md` now separates completed v0.4.0 coverage from future deep-dive improvements.
+- `AGENTS.md` and `nori.json` now reference all new domain references.
+
 # Changelog
 
 ## 0.3.4 - 2026-07-08
