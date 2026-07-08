@@ -1,0 +1,48 @@
+{
+  "name": "senior-infra-ops-analyst",
+  "version": "0.2.1",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe infrastructure operations with active diagnostics, risk classification, sensitivity/resource-impact gates, incident response, change management, RCA, observability, automation safety, and runbook execution.",
+  "author": "Marco Aurelio Cardoso",
+  "license": "MIT",
+  "skills": [
+    "command-driven-operations",
+    "incident-response",
+    "infrastructure-troubleshooting",
+    "change-management",
+    "root-cause-analysis",
+    "automation-safe-operations",
+    "monitoring-observability",
+    "runbook-authoring",
+    "capacity-and-risk-review"
+  ],
+  "tags": [
+    "infrastructure",
+    "operations",
+    "sysadmin",
+    "devops",
+    "sre",
+    "incident-response",
+    "change-management",
+    "observability",
+    "command-driven-diagnostics",
+    "linux",
+    "windows-server",
+    "pfsense",
+    "vmware",
+    "k3s"
+  ],
+  "references": [
+    "references/command-execution-protocol.md",
+    "references/risk-levels.md",
+    "references/linux-diagnostics.md",
+    "references/windows-server-diagnostics.md",
+    "references/network-diagnostics.md",
+    "references/pfsense-operations.md",
+    "references/dns-dhcp.md",
+    "references/active-directory.md",
+    "references/vmware-operations.md",
+    "references/kubernetes-k3s.md",
+    "references/storage-backup.md",
+    "references/interpretation-patterns.md"
+  ]
+}
