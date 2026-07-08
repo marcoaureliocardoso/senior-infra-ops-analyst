@@ -1,7 +1,7 @@
 ---
 name: Message Queue Operations
-description: Use when diagnosing RabbitMQ, Kafka, Redis Streams, queue backlog, consumer lag, broker alarms, partition leadership, or message flow interruption.
-version: 0.4.0
+description: Use when diagnosing RabbitMQ, Kafka, Redis Streams, broker health, queue depth, consumer lag, dead-letter queues, partition leadership, or message flow issues.
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # Message Queue Operations
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/message-queues.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/message-queue-operations/templates/queue-incident.md` when producing the final artifact.
+1. Identify broker type, cluster, queue/topic/stream, producer, consumer group, message criticality, ordering/durability assumptions, and user impact.
+2. Use `references/message-queues.md` for broker-specific read-only checks: queue depth, consumer count, lag, partitions, replicas, alarms, DLQ, and disk/memory pressure.
+3. Cross-reference application gateway, database, CI/CD, and monitoring stack references when queue symptoms are downstream effects.
+4. Treat message payloads, routing keys, queue names, consumer groups, broker URLs, and topic names as `SENSITIVE_OUTPUT`.
+5. Run metadata and health checks before consuming, replaying, purging, resetting offsets, changing retention, or restarting brokers/consumers.
+6. Interpret symptoms as producer outage, consumer failure, poison messages, broker resource alarm, partition leadership issue, network split, or downstream dependency failure.
+7. Require approval before purge, replay, offset reset, retention change, rebalance intervention, broker restart, or DLQ redrive.
+8. Classify lag and cluster-wide queries as potentially `RESOURCE_INTENSIVE`; bound by queue/topic, group, and time window.
+9. Produce `skills/message-queue-operations/templates/queue-incident.md` with depth/lag evidence, producer/consumer status, risk, and gated remediation.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 

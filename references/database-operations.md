@@ -81,3 +81,10 @@ Interpretation:
 ## Evidence to capture
 
 - Engine/version, role, uptime, active sessions, waits/locks, replication state, storage free space, latest backup metadata, and affected services.
+
+## Related references
+
+- `references/storage-backup.md`
+- `references/disaster-recovery-drills.md`
+- `references/monitoring-stack-operations.md`
+- `references/audit-compliance-evidence.md`

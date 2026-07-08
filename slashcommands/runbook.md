@@ -17,8 +17,8 @@ Inputs expected:
 
 Behavior:
 - Use `skills/runbook-authoring/SKILL.md`.
-- Use `skills/runbook-authoring/templates/runbook.md` for linear procedures and `skills/runbook-authoring/templates/playbook.md` for branching incident workflows. For changes, use `templates/change-plan.md` as supporting structure.
-- For command evidence, use `templates/command-record.md`.
+- Use `skills/runbook-authoring/templates/runbook.md` for linear procedures and `skills/runbook-authoring/templates/playbook.md` for branching incident workflows. For changes, use `skills/change-management/templates/change-plan.md` as supporting structure.
+- For command evidence, use `skills/command-driven-operations/templates/command-record.md`.
 - Distinguish linear runbooks from branching playbooks.
 
 Output: procedure with prerequisites, safety gates, steps, expected outputs, interpretation, rollback/escalation, and evidence to archive.

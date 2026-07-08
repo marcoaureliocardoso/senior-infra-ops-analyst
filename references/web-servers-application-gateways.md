@@ -53,3 +53,9 @@ Get-WinEvent -LogName Application -MaxEvents 100
 ## Evidence to capture
 
 URL, method, response code, correlation/request ID, gateway route, backend target, TLS binding, error log excerpt, config test, and recent deployment/change.
+
+## Related references
+
+- `references/load-balancers-reverse-proxies.md`
+- `references/pki-certificate-lifecycle.md`
+- `references/kubernetes-operations.md`

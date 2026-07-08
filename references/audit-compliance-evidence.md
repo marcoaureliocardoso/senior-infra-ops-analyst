@@ -59,3 +59,10 @@ Owner:
 - Evidence collection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Exporting full logs/user lists/config dumps: `SENSITIVE_OUTPUT`; approval and redaction required.
 - Remediation changes: `STATE_CHANGING`, separate from evidence collection.
+
+## Related references
+
+- `references/itsm-cmdb-workflows.md`
+- `references/ssh-privileged-access.md`
+- `references/change-management.md`
+- `references/storage-backup.md`

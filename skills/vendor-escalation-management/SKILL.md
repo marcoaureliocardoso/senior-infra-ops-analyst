@@ -1,7 +1,7 @@
 ---
 name: Vendor Escalation Management
 description: Use when preparing or managing support escalations to vendors, ISPs, cloud providers, OEMs, MSPs, or software support teams.
-version: 0.4.0
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # Vendor Escalation Management
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/vendor-escalation.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/vendor-escalation-management/templates/vendor-escalation-package.md` when producing the final artifact.
+1. Identify vendor/product, contract/support level, version, architecture, impact, urgency, prior troubleshooting, and exact support ask.
+2. Use `references/vendor-escalation.md` to assemble bounded evidence: timeline, symptoms, logs summary, configs/diffs, topology excerpt, reproduction, and business impact.
+3. Cross-reference incident response, audit evidence, security/sensitive-output policy, cloud/provider references, and ITSM records before sharing artifacts.
+4. Redact credentials, private keys, tokens, personal data, internal IPs where not needed, customer data, and unrelated logs before packaging.
+5. Run or request only vendor-safe read-only diagnostics that are scoped, documented, and approved by the operator.
+6. Interpret vendor data requests by risk: harmless metadata, sensitive bundle, privileged collector, disruptive reproduction, or data export.
+7. Require approval before uploading support bundles, enabling debug logs, running vendor collectors, granting remote sessions, or sharing topology.
+8. Maintain a clear escalation state: opened, waiting for vendor, waiting for customer, escalated severity, workaround applied, RCA pending, or closed.
+9. Produce `skills/vendor-escalation-management/templates/vendor-escalation-package.md` with concise problem statement, evidence, redactions, questions, and next action.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 

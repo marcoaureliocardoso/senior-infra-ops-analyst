@@ -50,3 +50,10 @@ java -jar jenkins-cli.jar -s <url> console <job> <build>
 ## Evidence to capture
 
 Pipeline URL/ID, commit SHA, actor, environment, failed stage, first failing line after redaction, runner, dependency/service status, and rollback option.
+
+## Related references
+
+- `references/container-runtime-operations.md`
+- `references/kubernetes-operations.md`
+- `references/cloud-operations.md`
+- `references/change-management.md`

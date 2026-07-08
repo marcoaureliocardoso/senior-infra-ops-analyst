@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.4.0",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.4.0 expands the roadmap into production-grade domain coverage for databases, container runtimes, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/PAM, ITSM/CMDB, disaster recovery drills, vendor escalation, and audit evidence collection.",
+  "version": "0.4.1",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.4.1 removes template duplication, adds domain-specific roadmap skills with examples, introduces dedicated Kubernetes operations coverage, and deepens ITSM/CMDB and disaster recovery drill guidance.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
@@ -17,6 +17,7 @@
     "capacity-and-risk-review",
     "database-operations",
     "container-runtime-operations",
+    "kubernetes-operations",
     "load-balancer-operations",
     "pki-certificate-operations",
     "cicd-operations",
@@ -126,7 +127,12 @@
     "dr-drills",
     "vendor-escalation",
     "audit-evidence",
-    "compliance"
+    "compliance",
+    "kubernetes-operations",
+    "k8s",
+    "template-ownership",
+    "domain-specific-skills",
+    "skill-examples"
   ],
   "references": [
     "references/command-execution-protocol.md",
@@ -138,6 +144,7 @@
     "references/dns-dhcp.md",
     "references/active-directory.md",
     "references/vmware-operations.md",
+    "references/kubernetes-operations.md",
     "references/kubernetes-k3s.md",
     "references/storage-backup.md",
     "references/interpretation-patterns.md",

@@ -2,7 +2,7 @@
 name: Change Management
 skill_id: change-management
 description: Use when planning, reviewing, approving, executing, or documenting infrastructure changes, maintenance windows, migrations, upgrades, firewall rules, deployments, patches, or configuration changes.
-version: 0.3.3
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -52,7 +52,7 @@ Escalate risk if the change touches firewall, routing, VPN, VLANs, DNS, DHCP, id
 
 - `references/risk-levels.md`
 - `references/diagnostic-order.md`
-- `templates/change-plan.md`
+- `skills/change-management/skills/change-management/templates/change-plan.md`
 
 
 ## Output

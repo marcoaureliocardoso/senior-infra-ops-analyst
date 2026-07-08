@@ -18,7 +18,7 @@ Inputs expected:
 
 Behavior:
 - Use `skills/change-management/SKILL.md`.
-- Use `templates/change-plan.md` as the output structure.
+- Use `skills/change-management/templates/change-plan.md` as the output structure.
 - Use `references/risk-levels.md` for risk and modifiers.
 - Execute only safe pre-checks when tool access exists.
 - Stop before state-changing steps until approval is explicit.

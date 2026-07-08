@@ -17,7 +17,7 @@ Inputs expected:
 
 Behavior:
 - Use `skills/incident-response/SKILL.md`.
-- Use `templates/incident-worksheet.md`.
+- Use `skills/incident-response/templates/incident-worksheet.md`.
 - Use `references/incident-severity.md` for SEV classification.
 - Use `references/diagnostic-order.md` for evidence collection.
 - Do not execute disruptive mitigation without approval.

@@ -30,3 +30,7 @@ Use this for every executed or proposed command. Separate observed output from i
 | Output summary | Resolver returned NXDOMAIN. |
 | Interpretation | DNS path works, but the record is missing or wrong in the queried zone. |
 | Next action | Compare zone file/authoritative resolver before changing records. |
+
+## Interpretation
+
+Explain what the output confirms or refutes.

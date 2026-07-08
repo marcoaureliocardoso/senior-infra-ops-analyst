@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, re, sys
+import json, re, sys, hashlib
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 errors = []
@@ -8,39 +8,45 @@ def err(msg): errors.append(msg)
 def read(p): return (root/p).read_text(encoding='utf-8')
 
 manifest = json.loads(read('nori.json'))
-for skill in manifest.get('skills', []):
+skills = manifest.get('skills', [])
+refs = manifest.get('references', [])
+
+for skill in skills:
     p = root/'skills'/skill/'SKILL.md'
     if not p.exists():
         err(f'missing skill file: {p}')
-    else:
-        t = p.read_text(encoding='utf-8')
-        if '<required>' not in t: err(f'skill lacks <required>: {skill}')
-        if 'references/risk-levels.md' not in t: err(f'skill does not reference shared risk levels: {skill}')
-        fm = t.split('---',2)[1] if t.startswith('---') else ''
-        for field in ['version:', 'last_updated:', 'maintainer:', 'triggers:']:
-            if field not in fm: err(f'skill lacks metadata {field} {skill}')
+        continue
+    t = p.read_text(encoding='utf-8')
+    if '<required>' not in t: err(f'skill lacks <required>: {skill}')
+    if 'references/risk-levels.md' not in t: err(f'skill does not reference shared risk levels: {skill}')
+    fm = t.split('---',2)[1] if t.startswith('---') else ''
+    for field in ['version:', 'last_updated:', 'maintainer:', 'triggers:']:
+        if field not in fm: err(f'skill lacks metadata {field} {skill}')
 
-for ref in manifest.get('references', []):
+for ref in refs:
     if not (root/ref).exists(): err(f'missing reference: {ref}')
 
 agents = read('AGENTS.md')
-for ref in manifest.get('references', []):
+for ref in refs:
     if ref not in agents: err(f'AGENTS.md missing required reference: {ref}')
 
-for p in list((root/'templates').glob('*.md')) + list((root/'skills').glob('*/templates/*.md')):
+# Template convention: no root templates; skill-owned templates only.
+if (root/'templates').exists():
+    err('root templates directory exists; templates must be owned under skills/<skill>/templates/')
+
+for p in list((root/'skills').glob('*/templates/*.md')):
     t = p.read_text(encoding='utf-8')
     nonempty = [ln for ln in t.splitlines() if ln.strip() and not ln.strip().startswith('|---')]
     if len(nonempty) < 12: err(f'template appears skeletal: {p.relative_to(root)}')
     if re.search(r'## [^\n]+\n\s*(##|$)', t): err(f'template has empty adjacent section: {p.relative_to(root)}')
 
-slash_template_expectations = {
-    'slashcommands/rca.md': 'skills/root-cause-analysis/templates/',
-    'slashcommands/change-plan.md': 'templates/change-plan.md',
-    'slashcommands/incident-triage.md': 'templates/incident-worksheet.md',
-    'slashcommands/runbook.md': 'templates/',
-}
-for rel, expected in slash_template_expectations.items():
-    if expected not in read(rel): err(f'{rel} does not reference {expected}')
+# Slash commands must point to skill-owned templates, not root templates.
+for p in (root/'slashcommands').glob('*.md'):
+    t=p.read_text(encoding='utf-8')
+    if '`templates/' in t or ' templates/' in t:
+        err(f'{p.relative_to(root)} references root templates path')
+    if p.name in {'incident-triage.md','change-plan.md','rca.md','runbook.md','db-triage.md','container-runtime-triage.md','cert-check.md','queue-triage.md','dr-drill.md','audit-evidence.md','vendor-escalate.md','k8s-triage.md'} and 'skills/' not in t:
+        err(f'{p.relative_to(root)} lacks skill-owned template reference')
 
 for rel in ['references/network-diagnostics.md','references/dns-dhcp.md','references/cloud-operations.md']:
     if 'Safety rules' not in read(rel): err(f'{rel} lacks Safety rules')
@@ -48,9 +54,6 @@ for rel in ['references/network-diagnostics.md','references/dns-dhcp.md','refere
 if 'Canonical Diagnostic Order' not in read('references/diagnostic-order.md'):
     err('diagnostic-order reference missing canonical heading')
 
-
-
-# v0.4.0 roadmap coverage checks
 roadmap_refs = [
  'references/database-operations.md',
  'references/container-runtime-operations.md',
@@ -65,6 +68,7 @@ roadmap_refs = [
  'references/disaster-recovery-drills.md',
  'references/vendor-escalation.md',
  'references/audit-compliance-evidence.md',
+ 'references/kubernetes-operations.md',
 ]
 for ref in roadmap_refs:
     if not (root/ref).exists(): err(f'missing roadmap reference: {ref}')
@@ -75,14 +79,31 @@ roadmap_skills = [
  'pki-certificate-operations', 'cicd-operations', 'monitoring-stack-operations',
  'message-queue-operations', 'web-gateway-operations', 'ssh-privileged-access-operations',
  'itsm-cmdb-workflows', 'disaster-recovery-drills', 'vendor-escalation-management',
- 'audit-compliance-evidence'
+ 'audit-compliance-evidence', 'kubernetes-operations'
 ]
 for skill in roadmap_skills:
-    if skill not in manifest.get('skills', []): err(f'roadmap skill not listed in manifest: {skill}')
+    if skill not in skills: err(f'roadmap skill not listed in manifest: {skill}')
+    if not (root/'skills'/skill/'examples').exists(): err(f'roadmap skill lacks examples directory: {skill}')
+    elif not list((root/'skills'/skill/'examples').glob('*.md')): err(f'roadmap skill lacks markdown example: {skill}')
 
-for rel in ['slashcommands/db-triage.md','slashcommands/container-runtime-triage.md','slashcommands/cert-check.md','slashcommands/queue-triage.md','slashcommands/dr-drill.md','slashcommands/audit-evidence.md','slashcommands/vendor-escalate.md']:
-    if not (root/rel).exists(): err(f'missing roadmap slash command: {rel}')
-    elif 'templates/' not in read(rel): err(f'roadmap slash command lacks template reference: {rel}')
+# Detect copy/paste required blocks among roadmap skills after path normalization.
+fingerprints={}
+for skill in roadmap_skills:
+    t=read(f'skills/{skill}/SKILL.md')
+    m=re.search(r'<required>(.*?)</required>', t, re.S)
+    if not m: continue
+    block=m.group(1).strip()
+    norm=re.sub(r'references/[a-z0-9\-]+\.md','references/<ref>.md',block)
+    norm=re.sub(r'skills/[a-z0-9\-]+/templates/[a-z0-9\-]+\.md','skills/<skill>/templates/<template>.md',norm)
+    h=hashlib.sha256(norm.encode()).hexdigest()
+    fingerprints.setdefault(h,[]).append(skill)
+for group in fingerprints.values():
+    if len(group)>1:
+        err(f'roadmap skills share identical normalized required block: {group}')
+
+# Key cross-reference checks.
+for rel in ['references/load-balancers-reverse-proxies.md','references/pki-certificate-lifecycle.md','references/kubernetes-operations.md','references/disaster-recovery-drills.md','references/itsm-cmdb-workflows.md']:
+    if '## Related references' not in read(rel): err(f'{rel} lacks related references')
 
 if errors:
     print('Validation failed:')

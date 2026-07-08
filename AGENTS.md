@@ -62,6 +62,7 @@ When executing or preparing commands, consult:
 - `references/dns-dhcp.md`
 - `references/active-directory.md`
 - `references/vmware-operations.md`
+- `references/kubernetes-operations.md`
 - `references/kubernetes-k3s.md`
 - `references/storage-backup.md`
 - `references/cloud-operations.md`

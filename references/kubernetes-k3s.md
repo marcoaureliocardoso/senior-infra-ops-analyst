@@ -74,3 +74,9 @@ Use for Kubernetes and K3S clusters, workloads, services, ingress, nodes, pods, 
 - `kubectl logs` is SENSITIVE_OUTPUT. Use `--tail`, namespace, pod, container, and time-window filters.
 - `kubectl get events -A` and cluster-wide queries can be noisy on large clusters. Prefer a namespace when known.
 - Avoid cluster-wide log collection or repeated polling during control-plane instability without approval.
+
+## Related references
+
+- `references/kubernetes-operations.md`
+- `references/container-runtime-operations.md`
+- `references/linux-diagnostics.md`

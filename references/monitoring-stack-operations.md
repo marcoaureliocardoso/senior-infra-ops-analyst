@@ -61,3 +61,9 @@ Interpretation:
 ## Evidence to capture
 
 Affected monitor, datasource, query, target status, alert labels after redaction, storage state, ingestion rate, last config change, and monitoring blind spots.
+
+## Related references
+
+- `references/observability-slo-sli.md`
+- `references/kubernetes-operations.md`
+- `references/audit-compliance-evidence.md`

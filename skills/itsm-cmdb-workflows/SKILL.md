@@ -1,7 +1,7 @@
 ---
 name: ITSM and CMDB Workflows
 description: Use when updating or correlating incident, change, problem, CMDB, CI ownership, dependency, impact, support group, or service record workflows.
-version: 0.4.0
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # ITSM and CMDB Workflows
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/itsm-cmdb-workflows.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/itsm-cmdb-workflows/templates/itsm-cmdb-update.md` when producing the final artifact.
+1. Identify record type, ticket/change/problem ID, service, CI, owner, support group, business impact, dependency chain, and desired workflow action.
+2. Use `references/itsm-cmdb-workflows.md` to correlate incidents, changes, known errors, CI relationships, ownership, maintenance windows, and audit trail.
+3. Cross-reference incident severity, change management, RCA, audit evidence, and vendor escalation references when records drive operational decisions.
+4. Treat ticket details, CI names, topology, user reports, asset tags, impact statements, and internal notes as `SENSITIVE_OUTPUT`.
+5. Perform read-only record lookups and relationship checks before proposing updates, reassignment, priority change, approval, or closure.
+6. Interpret workflow data as supporting evidence, not ground truth: stale CMDB, missing owner, unlinked change, duplicate incident, or wrong CI can mislead diagnosis.
+7. Require approval or explicit instruction before changing state, priority, assignment, closure, approval status, SLA pause, or CMDB relationships.
+8. Use shared risk vocabulary even for ticket changes: they are `STATE_CHANGING` because they alter audit history and workflow obligations.
+9. Produce `skills/itsm-cmdb-workflows/templates/itsm-cmdb-update.md` with record summary, CI mapping, linked evidence, proposed updates, and approval boundary.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 

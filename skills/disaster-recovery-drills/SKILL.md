@@ -1,7 +1,7 @@
 ---
 name: Disaster Recovery Drills
 description: Use when planning or executing tabletop exercises, restore tests, failover readiness checks, RTO/RPO validation, and DR evidence collection.
-version: 0.4.0
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # Disaster Recovery Drills
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/disaster-recovery-drills.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/disaster-recovery-drills/templates/dr-drill-plan.md` when producing the final artifact.
+1. Identify service, scenario, assets, dependencies, RTO/RPO, data criticality, recovery site/target, participants, and allowed drill type.
+2. Use `references/disaster-recovery-drills.md` for tabletop, isolated restore, component failover, and full-service failover planning and evidence collection.
+3. Cross-reference storage/backup, database, DNS/DHCP, cloud, load balancer, PKI, monitoring, ITSM/CMDB, and audit evidence references.
+4. Treat backup locations, topology, credentials, recovery procedures, asset lists, and RTO/RPO results as `SENSITIVE_OUTPUT`.
+5. Run read-only prechecks first: backup inventory, latest restore point, replication status, dependency map, monitoring status, and approval/communication readiness.
+6. Interpret drill results against measurable success criteria: restored data integrity, service smoke tests, auth path, DNS/routing, monitoring, and RTO/RPO timing.
+7. Require formal approval before production failover, DNS cutover, restore overwrite, replication break, destructive test, or user-impacting validation.
+8. Define abort criteria, rollback, communications, evidence collection, and cleanup before any technical drill step.
+9. Produce `skills/disaster-recovery-drills/templates/dr-drill-plan.md` with scenario, sequence, roles, timings, validation, deviations, and corrective actions.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 

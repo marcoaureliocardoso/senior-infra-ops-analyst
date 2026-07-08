@@ -54,3 +54,11 @@ Interpretation:
 - Remote cert inspection: `SAFE_READ_ONLY` + `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`.
 - Local cert metadata inspection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Trust store, key, renewal, service reload: `STATE_CHANGING`; private key handling is high sensitivity.
+
+## Related references
+
+- `references/load-balancers-reverse-proxies.md`
+- `references/web-servers-application-gateways.md`
+- `references/kubernetes-operations.md`
+- `references/cloud-operations.md`
+- `references/audit-compliance-evidence.md`

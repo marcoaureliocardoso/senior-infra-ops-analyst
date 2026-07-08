@@ -2,7 +2,7 @@
 name: Capacity and Risk Review
 skill_id: capacity-and-risk-review
 description: Use when reviewing infrastructure capacity, technical debt, operational risk, lifecycle risk, resilience, backup posture, hardware constraints, cloud resource posture, or upgrade priorities using evidence and diagnostic commands.
-version: 0.3.3
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:

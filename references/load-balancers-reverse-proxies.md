@@ -69,3 +69,11 @@ gcloud compute backend-services get-health <service> --global
 ## Evidence to capture
 
 VIP/listener, protocol, route rule, backend pool, health status, last config test, observed response code, error logs, and recent changes.
+
+## Related references
+
+- `references/pki-certificate-lifecycle.md`
+- `references/web-servers-application-gateways.md`
+- `references/kubernetes-operations.md`
+- `references/cloud-operations.md`
+- `references/network-diagnostics.md`

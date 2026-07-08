@@ -60,3 +60,9 @@ ctr namespaces list
 ## Evidence to capture
 
 Runtime, host, container ID/name, image digest, restart count, health status, port mapping, mount list, last log excerpt, resource usage, and exact risk classification.
+
+## Related references
+
+- `references/kubernetes-operations.md`
+- `references/linux-diagnostics.md`
+- `references/monitoring-stack-operations.md`

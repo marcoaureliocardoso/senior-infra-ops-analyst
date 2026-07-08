@@ -39,3 +39,9 @@ Interpretation:
 ## Evidence to capture
 
 User, host, source, auth method, server decision, key fingerprint, policy source, sudo rule, time, correlation with change, and rollback owner.
+
+## Related references
+
+- `references/linux-diagnostics.md`
+- `references/active-directory.md`
+- `references/audit-compliance-evidence.md`

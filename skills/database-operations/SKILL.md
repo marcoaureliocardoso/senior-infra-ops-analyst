@@ -1,7 +1,7 @@
 ---
 name: Database Operations
 description: Use when diagnosing database availability, sessions, locks, replication, storage, backup health, or performance symptoms before recommending database changes.
-version: 0.4.0
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # Database Operations
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/database-operations.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/database-operations/templates/database-incident.md` when producing the final artifact.
+1. Identify engine, role, topology, affected application, data sensitivity, HA/replication mode, and the exact symptom before touching queries or service state.
+2. Confirm whether the issue is availability, latency, lock contention, storage, replication lag, authentication, backup/restore, or maintenance/change related.
+3. Use `references/database-operations.md` to select engine-specific read-only checks for PostgreSQL, MySQL/MariaDB, SQL Server, or Redis.
+4. Run only scoped read-only queries first: sessions, locks, replication, size, wait/event, slow query indicators, backup status, and service reachability.
+5. Classify SQL text, usernames, table names, connection strings, and query results as `SENSITIVE_OUTPUT`; summarize rather than dumping rows.
+6. Interpret each result in operational terms: blocking chain, saturated storage, failed replica, exhausted connections, bad plan symptom, or client-side timeout.
+7. Before proposing kill session, failover, restart, vacuum/reindex, schema change, purge, restore, or parameter change, classify risk and require approval.
+8. Use `references/risk-levels.md`, `references/command-execution-protocol.md`, and the shared diagnostic order unless database safety requires a narrower order.
+9. Produce `skills/database-operations/templates/database-incident.md` with engine, evidence, interpretation, mitigation options, rollback, and validation.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 

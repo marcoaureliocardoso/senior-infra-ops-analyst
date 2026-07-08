@@ -53,3 +53,9 @@ openssl version
 - Redaction noted.
 - Business impact stated.
 - Vendor ask is specific.
+
+## Related references
+
+- `references/itsm-cmdb-workflows.md`
+- `references/audit-compliance-evidence.md`
+- `references/incident-severity.md`

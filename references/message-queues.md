@@ -56,3 +56,9 @@ redis-cli XINFO CONSUMERS <stream> <group>
 ## Evidence to capture
 
 Broker/cluster, queue/topic, lag/backlog, consumers, partitions/leaders, alarm state, oldest message age, error logs, and owner/service mapping.
+
+## Related references
+
+- `references/database-operations.md`
+- `references/monitoring-stack-operations.md`
+- `references/disaster-recovery-drills.md`

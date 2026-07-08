@@ -1,7 +1,7 @@
 ---
 name: Monitoring Stack Operations
-description: Use when diagnosing Prometheus, Alertmanager, Grafana, Zabbix, ELK, Elastic, or OpenSearch health, alerting, dashboard, storage, and ingestion issues.
-version: 0.4.0
+description: Use when diagnosing Prometheus, Grafana, Zabbix, ELK/Elastic/OpenSearch, alerting, scraping, ingestion, dashboard, or query failures.
+version: 0.4.1
 last_updated: 2026-07-08
 maintainer: Marco Aurelio Cardoso
 triggers:
@@ -11,30 +11,31 @@ triggers:
 
 # Monitoring Stack Operations
 
-Use this skill to operate the domain through evidence-first, command-driven diagnostics. Do not merely suggest commands when a safe tool is available; execute approved `SAFE_READ_ONLY` checks, interpret results, and stop before state-changing actions.
+Use this skill when the operational domain materially changes the diagnostic order, evidence type, approval gate, or interpretation. The shared command-driven posture still applies, but the domain-specific reference and template are mandatory context.
 
 <required>
-1. Confirm scope, affected service, environment, business impact, and whether this is incident, change, audit, or planned maintenance work.
-2. Apply `references/diagnostic-order.md` unless a domain-specific order is safer; state any deviation.
-3. Use `references/risk-levels.md` and `references/command-execution-protocol.md` before commands.
-4. Consult `references/monitoring-stack-operations.md` for domain command order, safety rules, and interpretation.
-5. Start with bounded read-only checks and capture concise evidence; redact sensitive output.
-6. Interpret each result before choosing the next command.
-7. Classify proposed remediation as `STATE_CHANGING`, `DISRUPTIVE`, or `DESTRUCTIVE` when applicable.
-8. Require explicit approval before changes, restarts, failovers, purges, access changes, config writes, or vendor data sharing.
-9. Use the template `skills/monitoring-stack-operations/templates/monitoring-stack-incident.md` when producing the final artifact.
+1. Identify stack component, data source, target/service, alert rule, dashboard, time range, and whether the issue is monitoring-only or service-impacting.
+2. Use `references/monitoring-stack-operations.md` for Prometheus, Grafana, Zabbix, Elastic/ELK, and OpenSearch checks.
+3. Cross-reference `references/observability-slo-sli.md` when changing alerts, SLOs, burn-rate alerts, or dashboard definitions.
+4. Treat metrics labels, logs, screenshots, query results, credentials, endpoints, and user data as `SENSITIVE_OUTPUT`.
+5. Run read-only checks first: target/scrape health, query status, datasource health, alert state, ingestion lag, disk pressure, and selected recent logs.
+6. Interpret failure by layer: exporter down, scrape error, label mismatch, query too expensive, datasource auth, index ingestion delay, retention/disk, or alert rule noise.
+7. Require approval before disabling alerts, deleting indices, changing retention, reloading configs, silencing broad alerts, or restarting collectors.
+8. Classify broad queries and log searches as `RESOURCE_INTENSIVE` and limit by time, label, namespace, host, or index.
+9. Produce `skills/monitoring-stack-operations/templates/monitoring-stack-incident.md` with signal path, broken layer, query evidence, impact on detection, and safe remediation.
 </required>
 
 ## Output
 
 Return:
 - Situation and scope
+- Domain-specific command/evidence sequence
 - Commands executed or explicitly not executed
 - Observations and interpretation
-- Risk classification
+- Risk classification and modifiers
 - Recommended next action
 - Approval gate, if needed
-- Evidence/template artifact
+- Completed template artifact
 
 ## References
 
