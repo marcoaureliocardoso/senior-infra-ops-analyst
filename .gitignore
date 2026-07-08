@@ -1,0 +1,40 @@
+# Secrets and local configuration
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.kubeconfig
+kubeconfig*
+.aws/
+.azure/
+.gcloud/
+secrets.*
+credentials.*
+
+# Runtime and editor noise
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs and generated outputs
+*.log
+logs/
+out/
+build/
+dist/
+coverage/
+.cache/
+
+# Local validation artifacts
+.tmp/
+.tmp-*/
+validation-output/

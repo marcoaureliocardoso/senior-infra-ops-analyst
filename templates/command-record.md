@@ -1,15 +1,32 @@
 # Command Record
 
+Use this for every executed or proposed command. Separate observed output from interpretation.
+
 | Field | Value |
 |---|---|
 | Timestamp |  |
 | Operator/Agent |  |
 | Target |  |
-| Environment |  |
+| Environment | production / staging / lab / unknown |
 | Command |  |
-| Risk |  |
-| Purpose |  |
-| Output summary |  |
-| Interpretation |  |
+| Risk | SAFE_READ_ONLY / LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |
+| Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / none |
+| Purpose | What hypothesis does this test? |
+| Approval status | not required / requested / approved / denied |
+| Output summary | Short factual summary; redact secrets and personal data. |
+| Interpretation | What does the output confirm or refute? |
 | Next action |  |
-| Approval required? |  |
+
+## Example
+
+| Field | Value |
+|---|---|
+| Timestamp | 2026-07-08 10:15 BRT |
+| Target | dns01 |
+| Command | `dig intranet.example A` |
+| Risk | SAFE_READ_ONLY |
+| Modifiers | ACTIVE_PROBE |
+| Purpose | Check whether the resolver returns the expected A record. |
+| Output summary | Resolver returned NXDOMAIN. |
+| Interpretation | DNS path works, but the record is missing or wrong in the queried zone. |
+| Next action | Compare zone file/authoritative resolver before changing records. |

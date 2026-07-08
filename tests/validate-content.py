@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import json, re, sys
+from pathlib import Path
+root = Path(__file__).resolve().parents[1]
+errors = []
+
+def err(msg): errors.append(msg)
+def read(p): return (root/p).read_text(encoding='utf-8')
+
+manifest = json.loads(read('nori.json'))
+for skill in manifest.get('skills', []):
+    p = root/'skills'/skill/'SKILL.md'
+    if not p.exists():
+        err(f'missing skill file: {p}')
+    else:
+        t = p.read_text(encoding='utf-8')
+        if '<required>' not in t: err(f'skill lacks <required>: {skill}')
+        if 'references/risk-levels.md' not in t: err(f'skill does not reference shared risk levels: {skill}')
+        fm = t.split('---',2)[1] if t.startswith('---') else ''
+        for field in ['version:', 'last_updated:', 'maintainer:', 'triggers:']:
+            if field not in fm: err(f'skill lacks metadata {field} {skill}')
+
+for ref in manifest.get('references', []):
+    if not (root/ref).exists(): err(f'missing reference: {ref}')
+
+agents = read('AGENTS.md')
+for ref in manifest.get('references', []):
+    if ref not in agents: err(f'AGENTS.md missing required reference: {ref}')
+
+for p in list((root/'templates').glob('*.md')) + list((root/'skills').glob('*/templates/*.md')):
+    t = p.read_text(encoding='utf-8')
+    nonempty = [ln for ln in t.splitlines() if ln.strip() and not ln.strip().startswith('|---')]
+    if len(nonempty) < 12: err(f'template appears skeletal: {p.relative_to(root)}')
+    if re.search(r'## [^\n]+\n\s*(##|$)', t): err(f'template has empty adjacent section: {p.relative_to(root)}')
+
+slash_template_expectations = {
+    'slashcommands/rca.md': 'skills/root-cause-analysis/templates/',
+    'slashcommands/change-plan.md': 'templates/change-plan.md',
+    'slashcommands/incident-triage.md': 'templates/incident-worksheet.md',
+    'slashcommands/runbook.md': 'templates/',
+}
+for rel, expected in slash_template_expectations.items():
+    if expected not in read(rel): err(f'{rel} does not reference {expected}')
+
+for rel in ['references/network-diagnostics.md','references/dns-dhcp.md','references/cloud-operations.md']:
+    if 'Safety rules' not in read(rel): err(f'{rel} lacks Safety rules')
+
+if 'Canonical Diagnostic Order' not in read('references/diagnostic-order.md'):
+    err('diagnostic-order reference missing canonical heading')
+
+if errors:
+    print('Validation failed:')
+    for e in errors: print('-', e)
+    sys.exit(1)
+print('content validation passed')

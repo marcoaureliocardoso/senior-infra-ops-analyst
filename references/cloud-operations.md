@@ -107,3 +107,20 @@ Before any cloud change, provide:
 - Rollback command or recovery path
 - Validation command
 - Audit evidence to retain
+
+
+## Provider-native active probes
+
+| Provider | Command | Risk | Interpretation |
+|---|---|---|---|
+| Azure | `az network watcher test-connectivity --resource-group <rg> --source-resource <vm-id> --dest-address <host> --dest-port <port>` | SAFE_READ_ONLY + ACTIVE_PROBE + SENSITIVE_OUTPUT | Tests connectivity from Azure perspective; may reveal topology. |
+| GCP | `gcloud compute network-management connectivity-tests describe <test-name> --project <project>` | SAFE_READ_ONLY + SENSITIVE_OUTPUT | Reads configured connectivity test results. Creating tests is a change. |
+| AWS | `aws ec2 describe-network-insights-analyses --network-insights-analysis-ids <id>` | SAFE_READ_ONLY + SENSITIVE_OUTPUT | Reads existing reachability analysis. Creating analyses may require approval. |
+
+## Safety rules
+
+- Treat IAM, activity logs, security rules, routes, and logging queries as `SENSITIVE_OUTPUT`.
+- Treat all broad cross-region, cross-subscription, or cross-project inventory as `RESOURCE_INTENSIVE + SENSITIVE_OUTPUT`.
+- Treat provider-native connectivity tests and health probes as `ACTIVE_PROBE` unless they only read existing results.
+- Never execute start/stop/reboot/resize/delete, IAM changes, security rule changes, DNS changes, or backup/restore actions without explicit approval.
+- Summarize and redact identities, public IPs, internal IPs, resource IDs, and policy details when sharing outside the operations context.

@@ -2,6 +2,15 @@
 name: Automation Safe Operations
 skill_id: automation-safe-operations
 description: Use when writing, reviewing, or running automation scripts for infrastructure operations, including shell, PowerShell, Ansible, Python, scheduled jobs, mass changes, shutdown/startup routines, or maintenance automation.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - script review
+  - automation plan
+  - mass change
+  - scheduled job
+  - safe execution
 ---
 
 # Automation Safe Operations
@@ -33,6 +42,12 @@ Design automation as if a typo could affect production. Prioritize idempotence, 
 ## Review focus
 
 Check quoting, variable expansion, privilege requirements, secrets exposure, race conditions, partial failure behavior, rollback capability, OS/shell compatibility, and auditability.
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/command-execution-protocol.md`
+
 
 ## Output
 

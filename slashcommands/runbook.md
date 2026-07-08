@@ -1,32 +1,24 @@
 # /runbook
 
-Use the Runbook Authoring and Command Driven Operations skills.
+Purpose: create a runbook or branching playbook for infrastructure operations.
 
-## Purpose
+Use:
 
-Create an executable operational runbook with command order, risk, interpretation, rollback, and validation.
+```text
+/runbook Create a playbook for diagnosing VPN users who cannot reach internal systems
+```
 
-## Expected input
+Inputs expected:
+- target system or service
+- task type: routine runbook or branching playbook
+- prerequisites
+- commands and validation criteria
+- rollback or escalation path
 
-- Procedure name
-- Target system
-- Trigger condition
-- Required access/tools
-- Safety constraints
-- Success criteria
+Behavior:
+- Use `skills/runbook-authoring/SKILL.md`.
+- Use `skills/runbook-authoring/templates/runbook.md` for linear procedures and `skills/runbook-authoring/templates/playbook.md` for branching incident workflows. For changes, use `templates/change-plan.md` as supporting structure.
+- For command evidence, use `templates/command-record.md`.
+- Distinguish linear runbooks from branching playbooks.
 
-## Behavior
-
-1. Define when to use and when not to use the runbook.
-2. List prerequisites and approvals.
-3. Provide commands in safe execution order.
-4. Include expected/abnormal signals and interpretation.
-5. Include rollback, escalation, and evidence retention.
-
-## Example
-
-`/runbook safely validate and restart a failed internal DNS resolver`
-
-## Output
-
-Runbook with steps, command records, decision points, rollback, validation, escalation, and post-checks.
+Output: procedure with prerequisites, safety gates, steps, expected outputs, interpretation, rollback/escalation, and evidence to archive.

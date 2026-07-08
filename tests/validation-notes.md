@@ -1,29 +1,29 @@
 # Validation Notes
 
-## Local validation
+`tests/validate-package.sh` performs local checks that do not require internet access:
 
-This package includes `tests/validate-package.sh`. It validates JSON and Bash syntax in Unix-like environments.
+- JSON syntax
+- manifest-to-disk skill/reference integrity
+- `AGENTS.md` required reference alignment
+- shared risk-level reference usage across skills
+- required skill metadata fields
+- non-skeletal templates
+- slash command template references
+- safety sections in command-heavy references
+- Bash syntax and helper `--help` smoke tests
+- basic permission hygiene
+- PowerShell parser validation when `pwsh` or `powershell` is installed
 
-```bash
-./tests/validate-package.sh
-```
+`tests/validate-links.sh` is optional and requires internet access plus `curl`. It treats 2xx, 3xx, 401, and 403 as reachable because vendor documentation sometimes blocks anonymous HEAD requests.
 
-## PowerShell validation
-
-The PowerShell helper is intended to be parsed with PowerShell itself. Run this on a Windows host or any host with PowerShell 7+:
+PowerShell syntax was not validated in environments where no PowerShell runtime is present. Run:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File ./tests/validate-powershell-syntax.ps1
+pwsh -NoProfile -File tests/validate-powershell-syntax.ps1
 ```
 
-If PowerShell is not installed, do not claim the `.ps1` file was syntactically validated. Mark it as text-reviewed only.
+## Live validation note - 2026-07-08
 
-## Operational validation
+External links were validated through web retrieval because local curl-based validation could not resolve external DNS in the packaging container. See `tests/reports/live-validation-2026-07-08.md`.
 
-Syntax validation does not prove operational safety. Before using helper scripts in production:
-
-- inspect the script content,
-- confirm authorization,
-- confirm risk classification and modifiers,
-- run first in a test or narrow-scoped environment,
-- redact sensitive output before sharing.
+PowerShell parser validation with `pwsh`/`powershell` was not possible in this environment. The package still includes `tests/validate-powershell-syntax.ps1` for validation on a host with PowerShell installed.

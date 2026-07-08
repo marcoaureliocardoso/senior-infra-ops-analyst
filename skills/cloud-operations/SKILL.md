@@ -2,6 +2,15 @@
 name: Cloud Operations
 skill_id: cloud-operations
 description: Use when operating or diagnosing AWS, Azure, or GCP infrastructure with CLI/API access, especially inventory, VM health, network rules, load balancers, IAM exposure, monitoring, logs, quotas, backup, cost, and safe cloud change planning.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - aws check
+  - azure check
+  - gcp check
+  - cloud inventory
+  - cloud incident
 ---
 
 # Cloud Operations
@@ -31,6 +40,12 @@ Use `references/cloud-operations.md` for AWS, Azure, and GCP commands, risk leve
 6. Check IAM/permission symptoms if access-related.
 7. Check quota, capacity, backup, region/zone, and recent changes.
 8. Stop before state-changing mitigation unless approval is explicit.
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/cloud-operations.md`
+
 
 ## Output
 

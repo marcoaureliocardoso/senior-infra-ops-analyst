@@ -31,22 +31,22 @@ Use these official references when updating or validating this skillset. Prefer 
 
 - Linux man-pages project: https://www.kernel.org/doc/man-pages/
 - iproute2 documentation: https://wiki.linuxfoundation.org/networking/iproute2
-- systemd systemctl manual: https://www.freedesktop.org/software/systemd/man/latest/systemctl.html
-- systemd journalctl manual: https://www.freedesktop.org/software/systemd/man/latest/journalctl.html
+- systemd systemctl manual: https://www.freedesktop.org/software/systemd/man/systemctl.html
+- journalctl manual (man7 mirror): https://man7.org/linux/man-pages/man1/journalctl.1.html
 - OpenSSH manual pages: https://www.openssh.com/manual.html
-- tcpdump manual: https://www.tcpdump.org/manpages/tcpdump.1.html
+- tcpdump manual (man7 mirror): https://man7.org/linux/man-pages/man8/tcpdump.8.html
 
 ## Windows Server / PowerShell diagnostics
 
 - PowerShell documentation: https://learn.microsoft.com/en-us/powershell/
 - Test-NetConnection: https://learn.microsoft.com/en-us/powershell/module/nettcpip/test-netconnection
-- Resolve-DnsName: https://learn.microsoft.com/en-us/powershell/module/dnsclient/resolve-dnsname
-- Get-WinEvent: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent
+- Resolve-DnsName: https://learn.microsoft.com/en-us/powershell/module/dnsclient/resolve-dnsname?view=windowsserver2025-ps
+- Get-WinEvent: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-7.6
 - Windows Server DNS troubleshooting: https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/troubleshoot-dns-guidance
 - Windows DNS dynamic update troubleshooting: https://learn.microsoft.com/en-us/troubleshoot/windows-client/networking/troubleshooting-dns-dynamic-update-issues
 - Active Directory replication concepts: https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/get-started/replication/active-directory-replication-concepts
 - dcdiag reference: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dcdiag
-- repadmin reference: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/repadmin
+- AD replication troubleshooting with repadmin: https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/diagnose-replication-failures
 
 ## pfSense / firewall operations
 
@@ -55,7 +55,7 @@ Use these official references when updating or validating this skillset. Prefer 
 - Troubleshooting NAT port forwards: https://docs.netgate.com/pfsense/en/latest/troubleshooting/nat-port-forwards.html
 - Troubleshooting high availability: https://docs.netgate.com/pfsense/en/latest/troubleshooting/high-availability.html
 - pfSense diagnostics menu guide: https://docs.netgate.com/pfsense/en/latest/menuguide/diagnostics.html
-- Packet capture in pfSense: https://docs.netgate.com/pfsense/en/latest/diagnostics/packetcapture.html
+- Packet capturing in pfSense: https://docs.netgate.com/pfsense/en/latest/diagnostics/packetcapture/index.html
 
 ## Kubernetes / K3s
 
@@ -69,7 +69,7 @@ Use these official references when updating or validating this skillset. Prefer 
 
 ## VMware / virtualization
 
-- VMware vSphere documentation: https://techdocs.broadcom.com/us/en/vmware-cis/vsphere.html
+- ESXi host not responding/disconnected troubleshooting: https://knowledge.broadcom.com/external/article/344682/troubleshooting-an-esxi-host-in-a-not-re.html
 - ESXi performance troubleshooting: https://knowledge.broadcom.com/external/article/304594/troubleshooting-esxesxi-virtual-machine.html
 - ESXi storage latency troubleshooting: https://knowledge.broadcom.com/external/article/318927/esxi-device-latency-with-performance-has.html
 

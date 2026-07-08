@@ -2,6 +2,15 @@
 name: Change Management
 skill_id: change-management
 description: Use when planning, reviewing, approving, executing, or documenting infrastructure changes, maintenance windows, migrations, upgrades, firewall rules, deployments, patches, or configuration changes.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - change plan
+  - maintenance window
+  - rollback plan
+  - migration
+  - upgrade
 ---
 
 # Change Management
@@ -38,6 +47,13 @@ Treat every infrastructure change as a controlled operation with scope, validati
 ## Risk signals
 
 Escalate risk if the change touches firewall, routing, VPN, VLANs, DNS, DHCP, identity, certificates, authentication, production storage, backups, hypervisors, shared infrastructure, remote access paths, or automation affecting multiple hosts.
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/diagnostic-order.md`
+- `templates/change-plan.md`
+
 
 ## Output
 

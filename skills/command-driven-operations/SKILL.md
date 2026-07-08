@@ -2,6 +2,15 @@
 name: Command Driven Operations
 skill_id: command-driven-operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - run commands
+  - execute diagnostics
+  - terminal access
+  - ssh access
+  - powershell access
 ---
 
 # Command Driven Operations
@@ -61,11 +70,28 @@ Always consult the relevant command reference:
 
 ## Optional helper assets
 
-Use helper scripts only when their scope matches the target and the risk/modifier policy allows execution. Do not run broad baseline scripts in production-sensitive contexts without minimization or approval.
+Helper scripts are convenience assets, not permission grants. Before using one, run its help mode to confirm scope and options. Use them only when the target matches the script purpose and the risk/modifier policy allows execution. Do not run broad baseline scripts in production-sensitive contexts without minimization or approval.
+
+```bash
+./skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help
+./skills/command-driven-operations/scripts/network-target-readonly.sh --help
+```
+
+```powershell
+./skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help
+```
+
+Available helpers:
 
 - `skills/command-driven-operations/scripts/linux-baseline-readonly.sh`
 - `skills/command-driven-operations/scripts/windows-baseline-readonly.ps1`
 - `skills/command-driven-operations/scripts/network-target-readonly.sh`
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/command-execution-protocol.md`
+
 
 ## Output
 
@@ -77,21 +103,3 @@ Return:
 - Remaining hypotheses
 - Next safe commands
 - Approval-required actions
-
-
-## Helper script usage
-
-Before using a helper script, run its help mode to confirm scope and options:
-
-```bash
-./skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help
-./skills/command-driven-operations/scripts/network-target-readonly.sh --help
-```
-
-For PowerShell:
-
-```powershell
-./skills/command-driven-operations/scripts/windows-baseline-readonly.ps1 -Help
-```
-
-Helper scripts remain subject to the same risk/modifier approval policy.

@@ -2,6 +2,15 @@
 name: Monitoring and Observability
 skill_id: monitoring-observability
 description: Use when designing, reviewing, or improving monitoring, logging, alerting, dashboards, SLOs, SLIs, error budgets, health checks, capacity metrics, or incident detection for infrastructure and cloud services.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - slo
+  - sli
+  - dashboard
+  - alert tuning
+  - observability
 ---
 
 # Monitoring and Observability
@@ -57,6 +66,12 @@ Use:
 - `skills/monitoring-observability/templates/slo-spec.md`
 - `skills/monitoring-observability/templates/alert-rule.md`
 - `skills/monitoring-observability/examples/dashboard-outline.md`
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/observability-slo-sli.md`
+
 
 ## Output
 

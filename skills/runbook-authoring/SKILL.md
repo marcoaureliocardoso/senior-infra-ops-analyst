@@ -2,6 +2,15 @@
 name: Runbook Authoring
 skill_id: runbook-authoring
 description: Use when creating or improving infrastructure runbooks, standard operating procedures, maintenance guides, recovery procedures, checklists, or handover documentation.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - runbook
+  - playbook
+  - sop
+  - handover
+  - operational procedure
 ---
 
 # Runbook Authoring
@@ -32,6 +41,17 @@ Write runbooks that an operator can follow under pressure without guessing.
 12. Escalation
 13. Evidence/logs to retain
 14. Last reviewed date
+
+## Required references
+
+- `references/risk-levels.md`
+
+
+## Runbook versus playbook
+
+- A runbook is a mostly linear operational procedure for a known task.
+- A playbook is branching and decision-driven: if condition X is observed, follow path Y.
+- Choose runbook for routine maintenance and playbook for incident/triage flows.
 
 ## Output
 

@@ -27,7 +27,7 @@ Use for disk full, datastore issues, backup failures, restore readiness, snapsho
 | SAFE_READ_ONLY | `Get-Volume` | Volume health/free space | Low free space/offline volume. |
 | SAFE_READ_ONLY | `Get-PSDrive -PSProvider FileSystem` | Drive free space | Quick capacity view. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" \| Select DeviceID,Size,FreeSpace` | Drive capacity | Fast volume-level capacity view. |
-| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(-24)} \| Where-Object {$_.ProviderName -match 'disk\|ntfs\|stor'} \| Select -First 100` | Disk/storage events | Hardware/FS clues with a bounded time window. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `See PowerShell storage event example below` | Disk/storage events | Hardware/FS clues with a bounded time window. |
 | DESTRUCTIVE | `Remove-Item`, format, chkdsk repair | Deletes/repairs/writes | Requires approval and backup evidence. |
 
 ## 3. Backup status questions
@@ -51,8 +51,8 @@ Use the product-specific CLI/API when known. If unknown, ask for product or insp
 |---|---|---|---|
 | SAFE_READ_ONLY | `systemctl list-units '*backup*' --no-pager` | Linux backup services | Identify backup agent. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `journalctl --since "24 hours ago" \| grep -i backup \| tail -100` | Backup-related logs | Generic clue when product unknown. |
-| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-Service \| Where-Object {$_.Name -match 'backup\|veeam\|acronis\|wbengine'}` | Windows backup services | Identify backup agent. |
-| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `Get-WinEvent -LogName Application -MaxEvents 200 \| Where-Object {$_.Message -match 'backup\|VSS\|shadow'}` | Backup/VSS events | Failed VSS writers, product errors. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `See PowerShell backup service example below` | Windows backup services | Identify backup agent. |
+| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `See PowerShell backup event example below` | Backup/VSS events | Failed VSS writers, product errors. |
 
 ## 5. Snapshot caution
 
@@ -70,3 +70,20 @@ Snapshots are not backups by themselves. Before snapshot removal/consolidation:
 
 - Broad `du`, `find`, recursive `Get-ChildItem`, and full-disk scans are RESOURCE_INTENSIVE. Start at the affected mount/drive and limit depth/time.
 - Backup logs may include hostnames, paths, usernames, repository names, and policy details. Redact before sharing.
+
+
+## PowerShell examples with regex alternation
+
+These are provided outside tables so regex alternation remains copy-safe.
+
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(-24)} |
+  Where-Object {$_.ProviderName -match 'disk|ntfs|stor'} |
+  Select-Object -First 100
+
+Get-Service |
+  Where-Object {$_.Name -match 'backup|veeam|acronis|wbengine'}
+
+Get-WinEvent -LogName Application -MaxEvents 200 |
+  Where-Object {$_.Message -match 'backup|VSS|shadow'}
+```

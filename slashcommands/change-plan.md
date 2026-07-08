@@ -1,32 +1,26 @@
 # /change-plan
 
-Use the Change Management and Command Driven Operations skills.
+Purpose: produce an approval-ready infrastructure change plan.
 
-## Purpose
+Use:
 
-Create a production-grade change plan and run safe pre-checks when tools exist.
+```text
+/change-plan Replace firewall rule for backup repository access during maintenance window
+```
 
-## Expected input
+Inputs expected:
+- objective
+- target systems
+- affected services/users
+- maintenance window
+- rollback or restore point
+- known dependencies
 
-- Objective
-- Target systems
-- Environment and maintenance window
-- Implementation approach
-- Known dependencies
-- Desired validation and rollback constraints
+Behavior:
+- Use `skills/change-management/SKILL.md`.
+- Use `templates/change-plan.md` as the output structure.
+- Use `references/risk-levels.md` for risk and modifiers.
+- Execute only safe pre-checks when tool access exists.
+- Stop before state-changing steps until approval is explicit.
 
-## Behavior
-
-1. Define scope and blast radius.
-2. Classify change risk.
-3. Execute safe pre-checks only.
-4. Produce step-by-step implementation plan.
-5. Include validation, rollback, communications, freeze conditions, and evidence to retain.
-
-## Example
-
-`/change-plan upgrade RAM and SSD on lab PCs; preserve Windows activation and user profiles; rollback with original disk`
-
-## Output
-
-Objective, risk, pre-check commands, implementation steps, validation, rollback, communications, go/no-go criteria, evidence archive.
+Output: completed change plan with risk, pre-checks, implementation, validation, rollback, backout conditions, and post-change monitoring.

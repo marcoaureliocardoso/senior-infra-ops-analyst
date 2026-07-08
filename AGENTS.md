@@ -46,25 +46,13 @@ Explicit approval or tight scoping is also required before broad read-only diagn
 
 ## Default diagnostic order
 
-Unless evidence points elsewhere, follow this order:
-
-1. Define symptom, scope, user impact, and time window.
-2. Identify recent changes.
-3. Run safe local checks.
-4. Validate DNS and name resolution.
-5. Validate network path and ports.
-6. Validate firewall/routing/NAT/VPN.
-7. Validate host health.
-8. Validate service state and dependencies.
-9. Read logs/events around the time window.
-10. Validate authentication/authorization.
-11. Validate storage, backup, and capacity.
-12. Recommend or execute mitigation only after risk classification.
+Use `references/diagnostic-order.md` as the canonical diagnostic order. Incident response may add a severity/coordination overlay, and troubleshooting may add client-specific checks, but neither replaces the canonical order unless the reason is stated.
 
 ## Required references
 
 When executing or preparing commands, consult:
 
+- `references/incident-severity.md`
 - `references/command-execution-protocol.md`
 - `references/risk-levels.md`
 - `references/linux-diagnostics.md`

@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.3.2",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe infrastructure and cloud operations with active diagnostics, risk classification, SLO/SLI observability, incident response, change management, RCA, capacity review, automation safety, enriched templates, helper script usage, and curated external references.",
+  "version": "0.3.4",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe infrastructure and cloud operations with active diagnostics, risk classification, SLO/SLI observability, incident response, change management, RCA, capacity review, automation safety, enriched templates, helper script usage, and curated external references. Includes project hygiene, canonical diagnostics, incident severity, consistency validation, richer root templates, live external-link validation notes, and refreshed external references.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
@@ -69,7 +69,16 @@
     "operator-scripts",
     "script-help",
     "external-references",
-    "powershell-validation"
+    "powershell-validation",
+    "incident-severity",
+    "sev-model",
+    "canonical-diagnostics",
+    "ci",
+    "pre-commit",
+    "project-hygiene",
+    "link-validation",
+    "live-link-validation",
+    "external-link-refresh"
   ],
   "references": [
     "references/command-execution-protocol.md",
@@ -88,6 +97,13 @@
     "references/observability-slo-sli.md",
     "references/capacity-risk-taxonomy.md",
     "references/rca-artifacts.md",
-    "references/external-sources.md"
-  ]
+    "references/external-sources.md",
+    "references/diagnostic-order.md",
+    "references/incident-severity.md"
+  ],
+  "repository": "TBD: replace with canonical git repository URL before publishing",
+  "homepage": "TBD: replace with project homepage before publishing",
+  "bugs": {
+    "url": "TBD: replace with issue tracker URL before publishing"
+  }
 }

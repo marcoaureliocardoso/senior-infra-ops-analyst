@@ -2,6 +2,15 @@
 name: Infrastructure Troubleshooting
 skill_id: infrastructure-troubleshooting
 description: Use when diagnosing Linux, Windows, network, DNS, DHCP, firewall, VPN, virtualization, container, storage, authentication, or service availability problems using active command-driven evidence collection.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - troubleshoot
+  - connectivity issue
+  - service unavailable
+  - dns issue
+  - firewall issue
 ---
 
 # Infrastructure Troubleshooting
@@ -19,23 +28,12 @@ Diagnose infrastructure issues methodically. Start from observed symptoms and co
 
 ## Diagnostic order
 
-1. Scope and time
-2. Recent changes
-3. Client-side symptoms
-4. Name resolution
-5. Network path
-6. Firewall and routing
-7. Host health
-8. Service health
-9. Logs and events
-10. Authentication and permissions
-11. Storage and capacity
-12. External dependencies
+Use `references/diagnostic-order.md` as the canonical order. Client-side symptoms are handled in steps 1 and 3; external dependencies are handled in step 12.
 
 ## Required references
 
-Use the command matrices in:
-
+- `references/risk-levels.md`
+- `references/diagnostic-order.md`
 - `references/command-execution-protocol.md`
 - `references/linux-diagnostics.md`
 - `references/windows-server-diagnostics.md`

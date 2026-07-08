@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.3.2
+Version: 0.3.3
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst. It is designed for safe, evidence-based infrastructure and cloud operations.
 
@@ -21,6 +21,28 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 - runbook-authoring
 - capacity-and-risk-review
 
+
+## What changed in v0.3.3
+
+- Added project hygiene files: `.gitignore`, `.gitattributes`, `Makefile`, pre-commit config, GitHub Actions validation, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, and `ROADMAP.md`.
+- Added `references/diagnostic-order.md` to remove competing diagnostic sequences.
+- Added `references/incident-severity.md` with SEV1-SEV4 and mitigation approval rules.
+- Expanded root templates and aligned `templates/change-plan.md` with `change-management`.
+- Required all skills to reference shared risk vocabulary in `references/risk-levels.md`.
+- Added safety sections for DNS/DHCP, network, and cloud references.
+- Improved AWS/Azure/GCP parity and added provider-native active-probe guidance.
+- Hardened helper scripts for non-root, non-systemd, and missing TCP probe tools.
+- Expanded validation from syntax checks to content and consistency checks.
+- Added skill metadata fields: version, last_updated, triggers, and maintainer.
+
+## Slash commands
+
+- `/ops-diagnose` — evidence-driven diagnostics using the canonical diagnostic order.
+- `/incident-triage` — incident worksheet using `templates/incident-worksheet.md` and SEV model.
+- `/change-plan` — change plan using `templates/change-plan.md`.
+- `/rca` — RCA using `skills/root-cause-analysis/templates/`.
+- `/cloud-check` — scoped AWS/Azure/GCP read-only checks.
+- `/runbook` — runbook/playbook drafting using structured templates.
 
 ## What changed in v0.3.2
 
@@ -95,3 +117,28 @@ Validation helpers live under:
 ## Keywords
 
 infrastructure, infrastructure operations, IT operations, sysadmin, DevOps, SRE, safe operations, command-driven operations, command-driven diagnostics, incident response, RCA, change management, runbook, observability, SLI, SLO, error budget, capacity planning, risk assessment, Linux, Windows Server, Active Directory, DNS, DHCP, networking, firewall, pfSense, VPN, VMware, Kubernetes, K3s, storage, backup, restore, cloud, AWS, Azure, GCP.
+
+
+## Repository metadata
+
+`nori.json` includes placeholder repository/homepage/bugs metadata. Replace the placeholder values before publishing to a public registry.
+
+## Validation
+
+Run:
+
+```bash
+make validate-local
+```
+
+Optional live link check:
+
+```bash
+make validate-links
+```
+
+
+## Validation reports
+
+- Live validation report: `tests/reports/live-validation-2026-07-08.md`
+- PowerShell parser validation helper: `tests/validate-powershell-syntax.ps1`

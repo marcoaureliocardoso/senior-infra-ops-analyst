@@ -2,6 +2,15 @@
 name: Root Cause Analysis
 skill_id: root-cause-analysis
 description: Use after an incident or recurring infrastructure problem to produce a blameless RCA, timeline, evidence map, action table, contributing factors, corrective actions, and prevention plan based on evidence.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - rca
+  - postmortem
+  - recurring incident
+  - root cause
+  - action items
 ---
 
 # Root Cause Analysis
@@ -49,6 +58,12 @@ Use:
 - `skills/root-cause-analysis/templates/evidence-map.md`
 - `skills/root-cause-analysis/templates/action-table.md`
 - `skills/root-cause-analysis/templates/rca-draft.md`
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/rca-artifacts.md`
+
 
 ## Output
 

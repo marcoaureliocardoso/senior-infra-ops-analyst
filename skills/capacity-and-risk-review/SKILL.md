@@ -2,6 +2,15 @@
 name: Capacity and Risk Review
 skill_id: capacity-and-risk-review
 description: Use when reviewing infrastructure capacity, technical debt, operational risk, lifecycle risk, resilience, backup posture, hardware constraints, cloud resource posture, or upgrade priorities using evidence and diagnostic commands.
+version: 0.3.3
+last_updated: 2026-07-08
+maintainer: Marco Aurelio Cardoso
+triggers:
+  - capacity review
+  - risk review
+  - technical debt
+  - lifecycle risk
+  - upgrade priority
 ---
 
 # Capacity and Risk Review
@@ -49,6 +58,12 @@ Use:
 
 - `skills/capacity-and-risk-review/templates/risk-matrix.md`
 - `skills/capacity-and-risk-review/templates/30-60-90-plan.md`
+
+## Required references
+
+- `references/risk-levels.md`
+- `references/capacity-risk-taxonomy.md`
+
 
 ## Output
 
