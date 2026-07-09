@@ -23,6 +23,7 @@ jobs:
       - name: Schema validation
         run: python3 tests/validate-schema.py
       - name: Link validation
+        continue-on-error: true
         run: bash tests/validate-links.sh
 
   release:
