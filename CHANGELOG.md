@@ -14,6 +14,16 @@
 - CI/Security/Release status badges added to `README.md`.
 - Dependabot updates: `actions/checkout` v4.2.2→v7.0.0, `actions/setup-python` v5.3.0→v6.3.0, `github/codeql-action` v3→v4, `markdownlint-cli2-action` v19→v24, `cspell-action` v6→v8.
 
+## 0.5.1 - 2026-07-09
+
+- Robust link-checking: scans all markdown files (141 URLs), `--json` flag for machine-readable output, GET fallback for servers that reject HEAD (NIST, Microsoft Learn, Netgate docs).
+- Historical link health tracking: living issue with trend data (new this week, fixed this week, persistent), state embedded as hidden JSON for run-to-run comparison, auto-close when all links reachable, auto-reopen when broken links return.
+- Level 1 deterministic link auto-fix: pattern-based URL correction for known link rot patterns (RFC Editor → datatracker.ietf.org). Suggestions posted in link-audit issue with `sed` one-liner for application.
+- 13 RFC links corrected: `rfc-editor.org` URLs replaced with `datatracker.ietf.org/doc/html/rfcNNNN` after context verification confirmed identical RFC specifications.
+- Link-audit strategy documented in `ROADMAP.md` with 3-level plan (deterministic → AI-assisted → automated PR) and cost/benefit matrix.
+- Scheduled maintenance workflow hardened: inline Python heredoc replaced with `tests/link-audit-issue.py`, placeholder URL filtering, proper `gh` CLI issue management, 90-day artifact retention.
+- New labels: `maintenance`, `links`.
+
 ## 0.4.4 - 2026-07-08
 
 - Added YAML frontmatter with operational descriptions to all 20 slash commands.
