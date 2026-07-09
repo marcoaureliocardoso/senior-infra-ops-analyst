@@ -1,0 +1,45 @@
+name: Scheduled Maintenance
+
+on:
+  schedule:
+    # NOTE: job conditionals below match these cron strings.
+    # If you change a cron expression, update the corresponding job `if:`.
+    - cron: '17 7 * * 1'
+    - cron: '37 9 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  link-audit:
+    if: github.event.schedule == '17 7 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Link validation
+        id: links
+        run: bash tests/validate-links.sh
+      - name: Report broken links as issue
+        if: failure()
+        uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2eb # v2.9.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/link-audit-issue-template.md
+          update_existing: true
+
+  full-validation:
+    if: github.event.schedule == '37 9 1 * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Full package validation
+        run: bash tests/validate-package.sh
+      - name: Schema validation
+        run: python3 tests/validate-schema.py
+      - name: CI workflow self-check
+        run: bash tests/validate-ci-workflows.sh

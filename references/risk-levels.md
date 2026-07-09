@@ -15,7 +15,6 @@ Examples:
 
 May be executed directly when tool access exists, unless output may expose secrets, personal data, credentials, broad internal topology, packet metadata, or significant resource load.
 
-
 ## Operational modifiers
 
 Apply these modifiers in addition to the risk level. A command can be SAFE_READ_ONLY and still require minimization or approval.
@@ -83,7 +82,6 @@ Requires explicit operator approval, backup/restore evidence, rollback plan, and
 - `references/command-execution-protocol.md`
 - `references/diagnostic-order.md`
 - `references/incident-severity.md`
-
 
 ## High-risk examples to classify consistently
 

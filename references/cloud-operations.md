@@ -108,7 +108,6 @@ Before any cloud change, provide:
 - Validation command
 - Audit evidence to retain
 
-
 ## Provider-native active probes
 
 | Provider | Command | Risk | Interpretation |
@@ -124,7 +123,6 @@ Before any cloud change, provide:
 - Treat provider-native connectivity tests and health probes as `ACTIVE_PROBE` unless they only read existing results.
 - Never execute start/stop/reboot/resize/delete, IAM changes, security rule changes, DNS changes, or backup/restore actions without explicit approval.
 - Summarize and redact identities, public IPs, internal IPs, resource IDs, and policy details when sharing outside the operations context.
-
 
 ## Pagination and JSON extraction
 

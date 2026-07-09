@@ -70,7 +70,6 @@ Use for Kubernetes and K3S clusters, workloads, services, ingress, nodes, pods, 
 7. Check K3S service logs if cluster-level symptoms.
 8. Present remediation options requiring approval.
 
-
 ## Sensitivity and control-plane load notes
 
 - `kubectl logs` is SENSITIVE_OUTPUT. Use `--tail`, namespace, pod, container, and time-window filters.

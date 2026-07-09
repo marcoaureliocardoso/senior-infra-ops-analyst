@@ -47,7 +47,6 @@ Use `references/cloud-operations.md` for AWS, Azure, and GCP commands, risk leve
 - `references/risk-levels.md`
 - `references/cloud-operations.md`
 
-
 ## Output
 
 Return:

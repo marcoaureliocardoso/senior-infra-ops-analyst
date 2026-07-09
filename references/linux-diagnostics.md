@@ -79,7 +79,6 @@ journalctl -p warning..alert --since "1 hour ago" --no-pager | tail -200
 
 Interpret before proposing changes.
 
-
 ## Sensitivity and load notes
 
 - `journalctl`, `dmesg`, application logs, process lists, firewall rules, and service status can expose usernames, paths, tokens, internal hostnames, or private IPs. Redact before sharing.

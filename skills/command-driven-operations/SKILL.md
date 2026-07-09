@@ -70,7 +70,8 @@ Always consult the relevant command reference:
 
 ## Optional helper assets
 
-Helper scripts are convenience assets, not permission grants. Before using one, run its help mode to confirm scope and options. Use them only when the target matches the script purpose and the risk/modifier policy allows execution. Do not run broad baseline scripts in production-sensitive contexts without minimization or approval.
+Helper scripts are convenience assets, not permission grants. Before using one, run its help mode to confirm scope and options.
+Use them only when the target matches the script purpose and the risk/modifier policy allows execution. Do not run broad baseline scripts in production-sensitive contexts without minimization or approval.
 
 ```bash
 ./skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help
@@ -92,7 +93,6 @@ Available helpers:
 - `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
-
 
 ## Output
 

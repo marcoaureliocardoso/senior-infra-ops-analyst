@@ -9,10 +9,20 @@ Users report timeouts when saving records in the student portal. Application log
 | Step | Query/command | Risk | Observed result |
 |---|---|---|---|
 | Check active sessions | `select pid, usename, state, wait_event_type, wait_event, now()-query_start age, left(query,120) from pg_stat_activity where state <> 'idle';` | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | 18 active sessions; 11 waiting on locks. |
-| Identify blockers | `select blocked_locks.pid blocked_pid, blocking_locks.pid blocking_pid from pg_locks blocked_locks join pg_locks blocking_locks using (locktype,database,relation,page,tuple,virtualxid,transactionid,classid,objid,objsubid) where not blocked_locks.granted and blocking_locks.granted;` | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | One reporting transaction blocks several writes. |
+| Identify blockers | `select blocked_locks.pid blocked_pid, blocking_locks.pid blocking_pid ...` (full query A below) | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | One reporting transaction blocks several writes. |
 | Check long transactions | `select pid, now()-xact_start age, state, left(query,160) from pg_stat_activity where xact_start is not null order by age desc limit 10;` | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | Oldest transaction age is 42 minutes. |
 | Check replication | `select application_name, state, sync_state, write_lag, flush_lag, replay_lag from pg_stat_replication;` | `SAFE_READ_ONLY` | Replica lag below 2 seconds. |
 | Check disk | `df -h` on database host | `SAFE_READ_ONLY` | Data volume 71% used. |
+
+**Query A** — Full blocker identification query:
+
+```sql
+select blocked_locks.pid blocked_pid, blocking_locks.pid blocking_pid
+from pg_locks blocked_locks
+join pg_locks blocking_locks
+  using (locktype,database,relation,page,tuple,virtualxid,transactionid,classid,objid,objsubid)
+where not blocked_locks.granted and blocking_locks.granted;
+```
 
 ## Interpretation
 

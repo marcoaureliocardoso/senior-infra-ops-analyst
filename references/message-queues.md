@@ -47,7 +47,6 @@ redis-cli XINFO GROUPS <stream>
 redis-cli XINFO CONSUMERS <stream> <group>
 ```
 
-
 ### Additional Kafka checks
 
 ```bash

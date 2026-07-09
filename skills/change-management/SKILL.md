@@ -54,7 +54,6 @@ Escalate risk if the change touches firewall, routing, VPN, VLANs, DNS, DHCP, id
 - `references/diagnostic-order.md`
 - `skills/change-management/templates/change-plan.md`
 
-
 ## Output
 
 Return a complete change plan ready for operator approval and execution.

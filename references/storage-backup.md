@@ -65,12 +65,10 @@ Snapshots are not backups by themselves. Before snapshot removal/consolidation:
 5. Prepare rollback/abort expectations.
 6. Get explicit approval.
 
-
 ## Sensitivity and load notes
 
 - Broad `du`, `find`, recursive `Get-ChildItem`, and full-disk scans are RESOURCE_INTENSIVE. Start at the affected mount/drive and limit depth/time.
 - Backup logs may include hostnames, paths, usernames, repository names, and policy details. Redact before sharing.
-
 
 ## PowerShell examples with regex alternation
 

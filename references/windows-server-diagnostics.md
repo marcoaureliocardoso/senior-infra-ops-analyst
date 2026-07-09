@@ -61,7 +61,6 @@ Get-Service | Where-Object {$_.Status -eq 'Stopped'} | Select -First 30
 Get-WinEvent -LogName System -MaxEvents 50 | Select TimeCreated,ProviderName,Id,LevelDisplayName,Message
 ```
 
-
 ## Sensitivity and load notes
 
 - Event logs, service lists, process lists, firewall rules, and domain information may include usernames, hostnames, IPs, paths, and security details. Redact before sharing.

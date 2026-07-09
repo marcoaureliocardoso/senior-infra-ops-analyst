@@ -64,7 +64,6 @@ Use for ESXi hosts, VMs, datastores, snapshots, networking, and hypervisor healt
 6. Check recent host/VM events in vCenter if available.
 7. Present remediation options requiring approval.
 
-
 ## Sensitivity and load notes
 
 VM inventories, datastore names, network names, and snapshot trees reveal private topology and business context. Summarize relevant findings and redact identifiers when needed. Avoid repeated broad ESXi queries during host instability.

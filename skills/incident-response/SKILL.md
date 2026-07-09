@@ -39,14 +39,12 @@ Use the incident overlay in `references/diagnostic-order.md`:
 5. Communicate status in plain language.
 6. Continue evidence-driven narrowing until stable.
 
-
 ## Required references
 
 - `references/risk-levels.md`
 - `references/incident-severity.md`
 - `references/diagnostic-order.md`
 - `skills/incident-response/templates/incident-worksheet.md`
-
 
 ## Output
 
