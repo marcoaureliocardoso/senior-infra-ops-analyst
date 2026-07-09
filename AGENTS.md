@@ -133,7 +133,7 @@ This project's skills, references, templates, and slash commands are optimized f
 Every character that doesn't carry information costs a token. The project deliberately:
 
 - **Omits blank lines between headings and their lists** (markdownlint MD032). A heading like `Expected input:` followed immediately by `- item` is a single semantic unit — the parser already understands the hierarchy. A blank line adds a token with zero information gain.
-- **Uses bare URLs** in `references/external-sources.md` (markdownlint MD034). The agent needs the URL to fetch, not a human-readable label. `https://www.rfc-editor.org/rfc/rfc8446` is directly actionable; `[RFC 8446](...)` wastes tokens on link text the agent doesn't need.
+- **Uses bare URLs** in `references/external-sources.md` (markdownlint MD034). The agent needs the URL to fetch, not a human-readable label. `https://datatracker.ietf.org/doc/html/rfc8446` is directly actionable; `[RFC 8446](...)` wastes tokens on link text the agent doesn't need.
 - **Omits blank lines around headings** in dense reference files (markdownlint MD022). References are consulted during diagnosis, not read linearly. Information density per token matters more than visual breathing room.
 - **Omits blank lines around tables** (markdownlint MD058). Tables are structural elements — the parser identifies them by pipe syntax, not surrounding whitespace.
 

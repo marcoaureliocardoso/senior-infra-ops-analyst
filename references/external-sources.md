@@ -13,19 +13,19 @@ Use these official references when updating or validating this skillset. Prefer 
 
 ## Protocol standards / RFCs
 
-- RFC 791 - Internet Protocol IPv4: https://www.rfc-editor.org/rfc/rfc791
-- RFC 8200 - Internet Protocol IPv6: https://www.rfc-editor.org/rfc/rfc8200
-- RFC 9293 - Transmission Control Protocol TCP: https://www.rfc-editor.org/rfc/rfc9293
-- RFC 768 - User Datagram Protocol UDP: https://www.rfc-editor.org/rfc/rfc768
-- RFC 8446 - TLS 1.3: https://www.rfc-editor.org/rfc/rfc8446
-- RFC 9110 - HTTP Semantics: https://www.rfc-editor.org/rfc/rfc9110
-- RFC 1034 - Domain Names Concepts and Facilities: https://www.rfc-editor.org/rfc/rfc1034
-- RFC 1035 - Domain Names Implementation and Specification: https://www.rfc-editor.org/rfc/rfc1035
-- RFC 2131 - DHCP for IPv4: https://www.rfc-editor.org/rfc/rfc2131
-- RFC 8415 - DHCPv6: https://www.rfc-editor.org/rfc/rfc8415
-- RFC 1918 - Private IPv4 Address Space: https://www.rfc-editor.org/rfc/rfc1918
-- RFC 5737 - IPv4 Documentation Address Blocks: https://www.rfc-editor.org/rfc/rfc5737
-- RFC 6890 - Special-Purpose IP Address Registries: https://www.rfc-editor.org/rfc/rfc6890
+- RFC 791 - Internet Protocol IPv4: https://datatracker.ietf.org/doc/html/rfc791
+- RFC 8200 - Internet Protocol IPv6: https://datatracker.ietf.org/doc/html/rfc8200
+- RFC 9293 - Transmission Control Protocol TCP: https://datatracker.ietf.org/doc/html/rfc9293
+- RFC 768 - User Datagram Protocol UDP: https://datatracker.ietf.org/doc/html/rfc768
+- RFC 8446 - TLS 1.3: https://datatracker.ietf.org/doc/html/rfc8446
+- RFC 9110 - HTTP Semantics: https://datatracker.ietf.org/doc/html/rfc9110
+- RFC 1034 - Domain Names Concepts and Facilities: https://datatracker.ietf.org/doc/html/rfc1034
+- RFC 1035 - Domain Names Implementation and Specification: https://datatracker.ietf.org/doc/html/rfc1035
+- RFC 2131 - DHCP for IPv4: https://datatracker.ietf.org/doc/html/rfc2131
+- RFC 8415 - DHCPv6: https://datatracker.ietf.org/doc/html/rfc8415
+- RFC 1918 - Private IPv4 Address Space: https://datatracker.ietf.org/doc/html/rfc1918
+- RFC 5737 - IPv4 Documentation Address Blocks: https://datatracker.ietf.org/doc/html/rfc5737
+- RFC 6890 - Special-Purpose IP Address Registries: https://datatracker.ietf.org/doc/html/rfc6890
 
 ## Linux / Unix diagnostics
 
