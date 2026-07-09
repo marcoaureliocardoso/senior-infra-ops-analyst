@@ -74,7 +74,7 @@ jobs:
               print(f'Commented on existing issue #{num}')
           else:
               title = f'🔗 Broken external links — {subprocess.run([\"date\", \"+%Y-%m-%d\"], capture_output=True, text=True).stdout.strip()}'
-              subprocess.run(['gh', 'issue', 'create', '--title', title, '--body', body, '--label', 'maintenance,links'], check=True)
+              subprocess.run(['gh', 'issue', 'create', '--title', title, '--body', body, '--label', 'maintenance', '--label', 'links'], check=True)
               print('Created new issue')
           "
 
