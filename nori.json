@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.4.4",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.4.4 adds YAML frontmatter with operational descriptions to all 20 slash commands.",
+  "version": "0.5.0",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.5.0 adds a complete CI critical revision with modular workflows, security scanning, release automation, and AI-first document conventions.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [

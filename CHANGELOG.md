@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0 - 2026-07-09
+
+- Complete CI critical revision — replaced single monolithic workflow with 4 hardened, modular workflows.
+- New `ci.yml`: 6 parallel jobs (package-validate, lint-hygiene, markdown-lint, spell-check, link-check, nori-schema) with permissions blocks, concurrency groups, pinned runner, hash-pinned actions, and timeouts.
+- New `release.yml`: tag-triggered release with version consistency check between git tag and `nori.json`.
+- New `security.yml`: CodeQL (Python) + ShellCheck on all bash scripts, weekly schedule.
+- New `scheduled-maintenance.yml`: weekly link audit with auto-issue creation and monthly full validation.
+- New validators: `tests/validate-schema.py` (nori.json structural integrity), `tests/validate-ci-workflows.sh` (CI quality enforcement).
+- Markdownlint tuned for AI-first document conventions — rules that conflict with LLM token efficiency disabled, 48 genuine violations fixed across 35 files, rationale documented in `AGENTS.md`.
+- Bug fixes: `set -uo pipefail` → `set -euo pipefail` in link validator, git tracked permissions on bash scripts (100644 → 100755), TBD placeholders replaced with real GitHub URLs, link validation rate-limiting and 429 retry.
+- Configuration: `.markdownlint.json`, `.cspell.json`, `.github/dependabot.yml` (github-actions + pip monthly), `.github/link-audit-issue-template.md`.
+- CI/Security/Release status badges added to `README.md`.
+
 ## 0.4.4 - 2026-07-08
 
 - Added YAML frontmatter with operational descriptions to all 20 slash commands.
