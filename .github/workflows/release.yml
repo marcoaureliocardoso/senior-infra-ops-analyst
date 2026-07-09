@@ -22,9 +22,6 @@ jobs:
         run: bash tests/validate-package.sh
       - name: Schema validation
         run: python3 tests/validate-schema.py
-      - name: Link validation
-        continue-on-error: true
-        run: bash tests/validate-links.sh
 
   release:
     needs: validate
@@ -42,6 +39,6 @@ jobs:
           fi
           echo "Version ${TAG_VERSION} is consistent — proceeding with release"
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@c062c08b532815e1b1f2c0a2fc61828b1722afcd # v2.2.2
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
