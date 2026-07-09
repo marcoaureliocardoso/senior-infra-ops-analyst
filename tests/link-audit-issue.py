@@ -55,11 +55,28 @@ def build_state(current_broken: list[dict], previous: dict | None) -> dict:
     }
 
 
+AUTOFIX_FILE = "auto-fix-report.json"
+
+
+def load_autofix() -> dict | None:
+    """Load Level 1 deterministic auto-fix suggestions if available."""
+    if not os.path.exists(AUTOFIX_FILE):
+        return None
+    try:
+        with open(AUTOFIX_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def build_body(report: dict, state: dict) -> str:
     broken = report.get("broken_urls", [])
     trend = state.get("trend", {})
     new_links = trend.get("new", [])
     fixed_links = trend.get("fixed", [])
+    autofix = load_autofix()
+    suggestions = (autofix or {}).get("suggestions", [])
+    suggested_urls = {s["broken"]: s["suggested"] for s in suggestions}
 
     lines = [
         "## Broken external links",
@@ -71,14 +88,17 @@ def build_body(report: dict, state: dict) -> str:
 
     if broken:
         lines += [
-            "| Status | URL | First seen |",
-            "|--------|-----|------------|",
+            "| Status | URL | Auto-fix | First seen |",
+            "|--------|-----|----------|------------|",
         ]
         urls_map = state.get("urls", {})
         for entry in broken:
             u = entry["url"]
             fs = urls_map.get(u, {}).get("first_seen", TODAY)
-            lines.append(f"| {entry['code']} | {u} | {fs} |")
+            fix = suggested_urls.get(u, "")
+            if fix:
+                fix = f"[→ suggested](#auto-fix-suggestions)"
+            lines.append(f"| {entry['code']} | {u} | {fix} | {fs} |")
         lines.append("")
 
     # Trend summary
@@ -93,15 +113,36 @@ def build_body(report: dict, state: dict) -> str:
             lines.append(f"- Persistent: **{trend['persistent']}**")
         lines.append("")
 
+    # Auto-fix suggestions (Level 1)
+    if suggestions:
+        lines += [
+            '<a name="auto-fix-suggestions"></a>',
+            "### Auto-fix suggestions (Level 1)",
+            "",
+            "These URLs have deterministic corrections — no LLM involved:",
+            "",
+            "| Broken | Suggested replacement |",
+            "|--------|----------------------|",
+        ]
+        for s in suggestions:
+            lines.append(f"| {s['broken']} | {s['suggested']} |")
+        lines += [
+            "",
+            "> Apply these by running: `sed -i 's|OLD_URL|NEW_URL|g' $(grep -rl OLD_URL .)`",
+            "> Then run `bash tests/validate-links.sh` to verify.",
+            "",
+        ]
+
     lines += [
         "### How to fix",
         "",
-        "1. Verify if the link is permanently moved or temporarily down",
-        "2. Update the URL in the source markdown file",
-        "3. Run `bash tests/validate-links.sh` locally to verify",
+        "1. Review auto-fix suggestions above (if any) and apply with `sed`",
+        "2. For unsuggested URLs, verify if permanently moved or temporarily down",
+        "3. Update the URL in the source markdown file",
+        "4. Run `bash tests/validate-links.sh` locally to verify",
     ]
     if RUN_URL:
-        lines.append(f"4. [View full CI run]({RUN_URL}) for detailed logs")
+        lines.append(f"5. [View full CI run]({RUN_URL}) for detailed logs")
     lines.append("")
 
     # Embed state as HTML comment for next run

@@ -25,6 +25,12 @@ jobs:
           bash tests/validate-links.sh --json 2>&1 | tee link-report.json
         continue-on-error: true
 
+      - name: Auto-fix candidates (Level 1)
+        id: autofix
+        run: |
+          bash tests/auto-fix-links.sh link-report.json 2>&1 | tee auto-fix-report.json
+        continue-on-error: true
+
       - name: Manage link-audit issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
