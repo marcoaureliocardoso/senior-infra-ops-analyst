@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.4.4
+Version: 0.5.1
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -15,6 +15,23 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 ## Included skills
 
 This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
+
+## What changed in v0.5.1
+
+- Robust link-checking across all markdown files with GET fallback for HEAD-rejecting servers.
+- Historical link health tracking with living issue (trend data, auto-close/reopen).
+- Level 1 deterministic link auto-fix for known patterns (RFC Editor → datatracker.ietf.org).
+- 13 RFC links corrected after context verification.
+- Documentation audit against Nori Skills standards — `skill_id` redundancy removed, CONTRIBUTING.md and SECURITY.md updated.
+
+## What changed in v0.5.0
+
+- Complete CI critical revision: 4 modular workflows (CI, Release, Security, Scheduled Maintenance).
+- 9 parallel CI jobs: package validation, lint hygiene, markdown lint, spell check, link check, nori.json schema, CodeQL, ShellCheck.
+- Markdownlint tuned for AI-first document conventions (rules that waste LLM tokens disabled).
+- New validators: `validate-schema.py`, `validate-ci-workflows.sh`.
+- Automated release workflow with version consistency check.
+- 48 markdown violations fixed, 6 bugs corrected, TBD placeholders replaced with real URLs.
 
 ## What changed in v0.4.4
 
@@ -123,20 +140,30 @@ These scripts are helpers, not permission grants.
 
 ## Validation
 
-Run:
-
 ```bash
-make validate-local
+# Full local validation (content + schema + CI workflows)
+bash tests/validate-package.sh
+
+# Schema-only check
+python3 tests/validate-schema.py
+
+# CI workflow quality check
+bash tests/validate-ci-workflows.sh
+
+# Link validation (human-readable)
+bash tests/validate-links.sh
+
+# Link validation (machine-readable, for CI)
+bash tests/validate-links.sh --json
 ```
 
-Optional live link check:
-
-```bash
-make validate-links
-```
+CI runs all validators on every PR and push to main. See `.github/workflows/ci.yml`.
 
 PowerShell parser validation requires a host with `pwsh` or Windows PowerShell installed.
 
-## Repository metadata
+## Docs
 
-`nori.json` includes placeholder repository/homepage/bugs metadata. Replace placeholder values before publishing to a public registry.
+- [CHANGELOG](CHANGELOG.md)
+- [ROADMAP](ROADMAP.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [SECURITY](SECURITY.md)
