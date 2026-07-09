@@ -82,7 +82,6 @@ Before SSH or remote PowerShell:
 - Use hostname/IP in the command record.
 - Do not fan out to multiple hosts without an explicit allowlist.
 
-
 ## Exit code and clock evidence
 
 For operational evidence, record command exit codes and the clock source used for timestamps. Prefer UTC for incident timelines. Examples:

@@ -27,4 +27,6 @@ if find . -type f \( -name '*.md' -o -name '*.json' -o -name 'LICENSE' -o -name 
   find . -type f \( -name '*.md' -o -name '*.json' -o -name 'LICENSE' -o -name '.gitattributes' -o -name '.gitignore' \) -perm -0100 >&2
   exit 1
 fi
+python3 tests/validate-schema.py
+bash tests/validate-ci-workflows.sh
 echo "package validation passed"

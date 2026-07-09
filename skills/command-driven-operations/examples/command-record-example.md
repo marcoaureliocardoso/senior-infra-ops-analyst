@@ -10,7 +10,7 @@ A web service is unreachable from users. The operator has shell access to the af
 |---|---|
 | Target | `web-01.example.local` |
 | Hypothesis | Service may be down or not listening on expected port. |
-| Command | `ss -tulpn | grep ':443'` |
+| Command | `ss -tulpn` &#124; `grep ':443'` |
 | Risk | `SAFE_READ_ONLY + PRIVILEGED` |
 | Purpose | Confirm whether a local process is listening on HTTPS. |
 | Observed result | No listener on TCP 443; NGINX process not shown. |

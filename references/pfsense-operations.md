@@ -79,7 +79,6 @@ Use for pfSense-style firewall operations. Prefer GUI/API backups and read-only 
 6. Run targeted packet capture.
 7. Present mitigation requiring approval.
 
-
 ## Sensitivity notes
 
 Runtime firewall/NAT rules, state tables, VPN logs, and packet captures reveal private topology and user/session metadata. Summarize relevant signals and redact addresses, usernames, public IPs, and tunnel identifiers when sharing outside the operator context.

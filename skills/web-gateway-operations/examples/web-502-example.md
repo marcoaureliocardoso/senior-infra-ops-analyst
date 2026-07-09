@@ -10,7 +10,7 @@ Users receive HTTP 502 from `https://library.example.local`. NGINX terminates TL
 |---|---|---|---|
 | Check external response | `curl -vI https://library.example.local/` | `SAFE_READ_ONLY + ACTIVE_PROBE` | TLS succeeds; response is HTTP 502. |
 | Check NGINX config syntax | `nginx -t` | `SAFE_READ_ONLY + PRIVILEGED` | Syntax OK. |
-| Check listener | `ss -tulpn | grep -E ':443|:8080'` | `SAFE_READ_ONLY + PRIVILEGED` | NGINX listens on 443; upstream not listening on 8080. |
+| Check listener | `ss -tulpn` &#124; `grep -E ':443` &#124; `:8080'` | `SAFE_READ_ONLY + PRIVILEGED` | NGINX listens on 443; upstream not listening on 8080. |
 | Check NGINX error logs | `journalctl -u nginx --since '30 min ago'` or error log tail | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | `connect() failed (111: Connection refused) while connecting to upstream`. |
 | Check app service | `systemctl status library-api --no-pager` | `SAFE_READ_ONLY + PRIVILEGED` | Application service failed after config reload. |
 

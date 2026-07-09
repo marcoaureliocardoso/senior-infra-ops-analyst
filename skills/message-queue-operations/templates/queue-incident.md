@@ -24,6 +24,6 @@
 | Recent change | | |
 
 ## Action Gate
-- Purge/replay/reset offsets requested? 
+- Purge/replay/reset offsets requested?
 - Approval and owner:
 - Validation plan:

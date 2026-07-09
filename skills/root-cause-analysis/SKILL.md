@@ -65,7 +65,6 @@ Use:
 - `references/risk-levels.md`
 - `references/rca-artifacts.md`
 
-
 ## Output
 
 Return a complete RCA draft with timeline, evidence map, action table, open questions, and follow-up validation plan.

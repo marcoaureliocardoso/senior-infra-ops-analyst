@@ -41,7 +41,6 @@ Explicit approval is required before:
 - snapshot removal, backup deletion, restore overwrite, hypervisor maintenance action
 - package upgrade, kernel update, deployment, migration, failover, or automation that affects multiple hosts
 
-
 Explicit approval or tight scoping is also required before broad read-only diagnostics that may create operational or privacy risk, including full filesystem scans, broad log extraction, wide packet captures, large cluster-wide log pulls, or enumeration of many user/account records.
 
 ## Default diagnostic order
@@ -74,7 +73,8 @@ When executing or preparing commands, consult:
 
 ## External reference policy
 
-Use `references/external-sources.md` when validating commands, terminology, runbook structure, or cloud/provider-specific assumptions. Prefer official vendor documentation, standards/RFCs, and public SRE material. Do not treat external references as permission to execute broad or risky commands; the command execution policy still applies.
+Use `references/external-sources.md` when validating commands, terminology, runbook structure, or cloud/provider-specific assumptions.
+Prefer official vendor documentation, standards/RFCs, and public SRE material. Do not treat external references as permission to execute broad or risky commands; the command execution policy still applies.
 
 ### Expanded domain references
 
@@ -91,7 +91,6 @@ Use `references/external-sources.md` when validating commands, terminology, runb
 - `references/disaster-recovery-drills.md`
 - `references/vendor-escalation.md`
 - `references/audit-compliance-evidence.md`
-
 
 ## Communication style
 
@@ -124,3 +123,33 @@ Preferred structure:
 - Cloud operations across AWS, Azure, and GCP
 - Hybrid infrastructure, identity, networking, monitoring, and backup boundaries
 - Audit-conscious and compliance-conscious environments
+
+## AI-first document conventions
+
+This project's skills, references, templates, and slash commands are optimized for consumption by large language models (LLMs), not human readers. Document formatting choices that appear to violate traditional markdown style guides are intentional:
+
+### Token efficiency
+
+Every character that doesn't carry information costs a token. The project deliberately:
+
+- **Omits blank lines between headings and their lists** (markdownlint MD032). A heading like `Expected input:` followed immediately by `- item` is a single semantic unit — the parser already understands the hierarchy. A blank line adds a token with zero information gain.
+- **Uses bare URLs** in `references/external-sources.md` (markdownlint MD034). The agent needs the URL to fetch, not a human-readable label. `https://www.rfc-editor.org/rfc/rfc8446` is directly actionable; `[RFC 8446](...)` wastes tokens on link text the agent doesn't need.
+- **Omits blank lines around headings** in dense reference files (markdownlint MD022). References are consulted during diagnosis, not read linearly. Information density per token matters more than visual breathing room.
+- **Omits blank lines around tables** (markdownlint MD058). Tables are structural elements — the parser identifies them by pipe syntax, not surrounding whitespace.
+
+### Real waste is still fixed
+
+The following are objectively harmful for both human and machine consumers and ARE enforced:
+
+- **Multiple consecutive blank lines** (MD012): each extra blank line is a token with zero information content.
+- **Excessive line length** (MD013): lines over 300 characters reduce diff precision and increase cognitive load.
+- **Inconsistent table columns** (MD056): broken tables produce incorrect markdown ASTs, degrading agent comprehension.
+- **Trailing whitespace** (MD009): noise with no semantic value.
+
+### Markdownlint configuration
+
+The `.markdownlint.json` at the repository root disables rules that conflict
+with AI-first conventions (MD032, MD034, MD022, MD058) and enforces rules
+that catch genuine waste (MD012, MD013, MD056, MD009). When proposing changes
+to markdown formatting, evaluate against the criterion:
+*"does this change increase the information-to-token ratio for an LLM reading this file?"*

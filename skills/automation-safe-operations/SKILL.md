@@ -49,7 +49,6 @@ Check quoting, variable expansion, privilege requirements, secrets exposure, rac
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
 
-
 ## Output
 
 Return:

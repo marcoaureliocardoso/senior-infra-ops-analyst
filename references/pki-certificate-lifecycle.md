@@ -49,7 +49,6 @@ Interpretation:
 6. Verify remote handshake and monitoring.
 7. Record fingerprint and expiry in CMDB/certificate inventory.
 
-
 ### ACME and keystore checks
 
 ```bash
@@ -60,7 +59,8 @@ keytool -list -v -keystore <keystore.jks>
 certutil -store My
 ```
 
-Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; keystore and certificate store outputs can reveal aliases, SANs, internal hostnames, and trust anchors. Never display private keys or passphrases. `openssl verify -verify_return_error` requires OpenSSL 1.1.0+; on older versions, document the local OpenSSL version and use equivalent verification flags.
+Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; keystore and certificate store outputs can reveal aliases, SANs, internal hostnames, and trust anchors.
+Never display private keys or passphrases. `openssl verify -verify_return_error` requires OpenSSL 1.1.0+; on older versions, document the local OpenSSL version and use equivalent verification flags.
 
 ## Risk mapping
 

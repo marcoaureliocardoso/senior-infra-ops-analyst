@@ -73,7 +73,6 @@ Use:
 - `references/risk-levels.md`
 - `references/observability-slo-sli.md`
 
-
 ## Output
 
 Return:

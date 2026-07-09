@@ -60,7 +60,6 @@ gcloud compute backend-services list
 gcloud compute backend-services get-health <service> --global
 ```
 
-
 ### Additional HAProxy runtime checks
 
 ```bash

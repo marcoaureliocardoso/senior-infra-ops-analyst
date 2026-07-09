@@ -11,7 +11,7 @@ Grafana dashboards show missing host metrics for `lab-vm-07`. Prometheus alert `
 | Check alert context | Prometheus alert detail | `SAFE_READ_ONLY` | `up{job="node",instance="lab-vm-07:9100"} == 0`. |
 | Check target status | Prometheus `/targets` page or API | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | Last scrape error: connection refused. |
 | Check service on host | `systemctl status node_exporter --no-pager` | `SAFE_READ_ONLY + PRIVILEGED` | Service inactive after reboot. |
-| Check listener | `ss -tulpn | grep 9100` | `SAFE_READ_ONLY + PRIVILEGED` | No listener on 9100. |
+| Check listener | `ss -tulpn` &#124; `grep 9100` | `SAFE_READ_ONLY + PRIVILEGED` | No listener on 9100. |
 | Check dashboard impact | Grafana dashboard for host metrics | `SAFE_READ_ONLY` | Only this host missing; no global scrape issue. |
 
 ## Interpretation

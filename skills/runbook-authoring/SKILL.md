@@ -47,7 +47,6 @@ Write runbooks that an operator can follow under pressure without guessing.
 - `references/diagnostic-order.md`
 - `references/risk-levels.md`
 
-
 ## Runbook versus playbook
 
 - A runbook is a mostly linear operational procedure for a known task.
@@ -57,7 +56,6 @@ Write runbooks that an operator can follow under pressure without guessing.
 ## Output
 
 Return a complete runbook draft in Markdown.
-
 
 ## Template completeness rule
 

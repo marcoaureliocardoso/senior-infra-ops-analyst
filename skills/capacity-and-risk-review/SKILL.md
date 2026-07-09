@@ -66,7 +66,6 @@ Use:
 - `references/risk-levels.md`
 - `references/capacity-risk-taxonomy.md`
 
-
 ## Output
 
 Return:

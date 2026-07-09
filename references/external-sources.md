@@ -115,7 +115,6 @@ Use these official references when updating or validating this skillset. Prefer 
 - Compute Engine get/list instances: https://cloud.google.com/compute/docs/instances/get-list
 - Network Intelligence Center: https://cloud.google.com/network-intelligence-center/docs
 
-
 ## v0.4.0 roadmap domain sources
 
 ### Database operations

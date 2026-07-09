@@ -52,11 +52,10 @@ Interpretation:
 - Yellow cluster -> replicas unassigned.
 - Disk watermark warnings -> shard allocation/storage pressure.
 
-
 ## Shell-history warning
 
-Avoid placing bearer tokens, private tokens, cookies, or credentials directly on the command line because they can be captured in shell history, process listings, terminal logs, or audit tooling. Prefer approved secret stores, short-lived environment variables, `--netrc`/credential helpers where appropriate, or vendor CLI authentication. Redact tokens from examples and outputs.
-
+Avoid placing bearer tokens, private tokens, cookies, or credentials directly on the command line because they can be captured in shell history, process listings, terminal logs, or audit tooling.
+Prefer approved secret stores, short-lived environment variables, `--netrc`/credential helpers where appropriate, or vendor CLI authentication. Redact tokens from examples and outputs.
 
 ### Prometheus API and tooling
 

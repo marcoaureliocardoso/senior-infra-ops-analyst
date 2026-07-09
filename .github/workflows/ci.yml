@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Package validation
+        run: bash tests/validate-package.sh
+
+  lint-hygiene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Trailing whitespace check
+        run: |
+          if grep -RIn "[[:blank:]]$" -- . --exclude-dir=.git --exclude-dir=.worktrees; then
+            echo "Trailing whitespace found"
+            exit 1
+          fi
+      - name: End-of-file newline check
+        run: |
+          python3 -c "
+          from pathlib import Path
+          bad=[]
+          ext = {'.md','.json','.yml','.yaml','.sh','.ps1','.py'}
+          for p in Path('.').rglob('*'):
+              if p.is_file() and '.git' not in p.parts and '.worktrees' not in p.parts and p.suffix in ext:
+                  b=p.read_bytes()
+                  if b and not b.endswith(b'\n'): bad.append(str(p))
+          if bad:
+              print('Missing final newline:', *bad, sep='\n')
+              raise SystemExit(1)
+          "
+      - name: YAML syntax check
+        run: |
+          python3 -c "
+          try:
+              import yaml
+          except Exception:
+              print('PyYAML unavailable; skipping')
+              raise SystemExit(0)
+          from pathlib import Path
+          ok=0
+          for p in list(Path('.').rglob('*.yml'))+list(Path('.').rglob('*.yaml')):
+              if '.git' in p.parts or '.worktrees' in p.parts: continue
+              if 'pre-commit-config' in str(p):
+                  print(f'Skipping (pre-existing embedded heredocs): {p}')
+                  continue
+              yaml.safe_load(p.read_text())
+              ok+=1
+          print(f'YAML syntax OK ({ok} files)')
+          "
+
+  markdown-lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: '**/*.md'
+          config: '.markdownlint.json'
+
+  spell-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: streetsidesoftware/cspell-action@v6
+        with:
+          files: '**/*.md'
+          config: '.cspell.json'
+
+  link-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Live link validation
+        run: bash tests/validate-links.sh
+
+  nori-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Validate nori.json schema
+        run: python3 tests/validate-schema.py
