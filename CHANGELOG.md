@@ -12,6 +12,7 @@
 - Bug fixes: `set -uo pipefail` → `set -euo pipefail` in link validator, git tracked permissions on bash scripts (100644 → 100755), TBD placeholders replaced with real GitHub URLs, link validation rate-limiting and 429 retry.
 - Configuration: `.markdownlint.json`, `.cspell.json`, `.github/dependabot.yml` (github-actions + pip monthly), `.github/link-audit-issue-template.md`.
 - CI/Security/Release status badges added to `README.md`.
+- Dependabot updates: `actions/checkout` v4.2.2→v7.0.0, `actions/setup-python` v5.3.0→v6.3.0, `github/codeql-action` v3→v4, `markdownlint-cli2-action` v19→v24, `cspell-action` v6→v8.
 
 ## 0.4.4 - 2026-07-08
 
