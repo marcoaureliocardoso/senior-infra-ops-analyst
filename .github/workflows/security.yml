@@ -26,17 +26,17 @@ jobs:
       matrix:
         language: [python]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@v3
 
   shellcheck:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Run ShellCheck on all shell scripts
         run: |
           mapfile -t scripts < <(find . -name '*.sh' -not -path './.git/*' -not -path './.worktrees/*')
