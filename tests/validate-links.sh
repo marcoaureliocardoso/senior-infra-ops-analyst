@@ -50,19 +50,30 @@ check_url() {
   case "$code" in
     2*|3*|401|403)
       ok_count=$((ok_count + 1))
+      return
       ;;
     429)
       sleep 3
       code=$(curl -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
       case "$code" in
-        2*|3*|401|403) ok_count=$((ok_count + 1)) ;;
-        *) broken+=("$code $url") ;;
+        2*|3*|401|403) ok_count=$((ok_count + 1)); return ;;
       esac
       ;;
-    *)
-      broken+=("$code $url")
+  esac
+
+  # HEAD failed — some servers reject HEAD but serve GET.
+  # Try GET with Range: bytes=0-0 to verify reachability without downloading content.
+  local get_code
+  get_code=$(curl -L --range 0-0 --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  case "$get_code" in
+    2*|3*|401|403)
+      ok_count=$((ok_count + 1))
+      return
       ;;
   esac
+
+  # Both HEAD and GET failed — link is genuinely broken.
+  broken+=("$code $url")
 }
 
 while IFS= read -r url; do
