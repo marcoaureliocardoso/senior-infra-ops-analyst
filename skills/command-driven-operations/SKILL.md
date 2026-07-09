@@ -1,6 +1,5 @@
 ---
 name: Command Driven Operations
-skill_id: command-driven-operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
 version: 0.4.4
 last_updated: 2026-07-08

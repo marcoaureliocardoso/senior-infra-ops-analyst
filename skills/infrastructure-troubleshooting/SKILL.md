@@ -1,6 +1,5 @@
 ---
 name: Infrastructure Troubleshooting
-skill_id: infrastructure-troubleshooting
 description: Use when diagnosing Linux, Windows, network, DNS, DHCP, firewall, VPN, virtualization, container, storage, authentication, or service availability problems using active command-driven evidence collection.
 version: 0.4.4
 last_updated: 2026-07-08

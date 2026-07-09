@@ -1,6 +1,5 @@
 ---
 name: Change Management
-skill_id: change-management
 description: Use when planning, reviewing, approving, executing, or documenting infrastructure changes, maintenance windows, migrations, upgrades, firewall rules, deployments, patches, or configuration changes.
 version: 0.4.4
 last_updated: 2026-07-08

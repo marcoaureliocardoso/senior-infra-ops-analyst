@@ -1,6 +1,5 @@
 ---
 name: Incident Response
-skill_id: incident-response
 description: Use when triaging, stabilizing, communicating, or coordinating an infrastructure incident, outage, degradation, alert storm, service interruption, or suspected production failure with active evidence gathering.
 version: 0.4.4
 last_updated: 2026-07-08
