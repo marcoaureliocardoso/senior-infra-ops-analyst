@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.5.0",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.5.0 adds a complete CI critical revision with modular workflows, security scanning, release automation, and AI-first document conventions.",
+  "version": "0.5.1",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.5.1 adds robust link-checking with historical tracking, deterministic auto-fix, and GET fallback for HEAD-rejecting servers.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
