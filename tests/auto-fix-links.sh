@@ -67,8 +67,14 @@ check_url() {
   code=$(curl -L -I --max-time 10 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
   case "$code" in
     2*|3*|401|403) return 0 ;;
-    *) return 1 ;;
   esac
+  # HEAD failed — try GET with Range fallback
+  local get_code
+  get_code=$(curl -L --range 0-0 --max-time 10 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  case "$get_code" in
+    2*|3*|401|403) return 0 ;;
+  esac
+  return 1
 }
 
 broken_urls=$(python3 -c "
