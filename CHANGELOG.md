@@ -23,6 +23,7 @@
 - Link-audit strategy documented in `ROADMAP.md` with 3-level plan (deterministic → AI-assisted → automated PR) and cost/benefit matrix.
 - Scheduled maintenance workflow hardened: inline Python heredoc replaced with `tests/link-audit-issue.py`, placeholder URL filtering, proper `gh` CLI issue management, 90-day artifact retention.
 - New labels: `maintenance`, `links`.
+- Documentation audit against Nori Skills standards: removed redundant `skill_id` from 10 skills (YAGNI), updated `CONTRIBUTING.md` with validation pipeline and AI-first conventions, updated `SECURITY.md` with automated scanning info.
 
 ## 0.4.4 - 2026-07-08
 
