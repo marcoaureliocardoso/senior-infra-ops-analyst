@@ -1,6 +1,5 @@
 ---
 name: Runbook Authoring
-skill_id: runbook-authoring
 description: Use when creating or improving infrastructure runbooks, standard operating procedures, maintenance guides, recovery procedures, checklists, or handover documentation.
 version: 0.4.4
 last_updated: 2026-07-08

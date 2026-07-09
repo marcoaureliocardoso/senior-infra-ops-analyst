@@ -1,6 +1,5 @@
 ---
 name: Automation Safe Operations
-skill_id: automation-safe-operations
 description: Use when writing, reviewing, or running automation scripts for infrastructure operations, including shell, PowerShell, Ansible, Python, scheduled jobs, mass changes, shutdown/startup routines, or maintenance automation.
 version: 0.4.4
 last_updated: 2026-07-08

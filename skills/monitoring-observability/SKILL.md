@@ -1,6 +1,5 @@
 ---
 name: Monitoring and Observability
-skill_id: monitoring-observability
 description: Use when designing, reviewing, or improving monitoring, logging, alerting, dashboards, SLOs, SLIs, error budgets, health checks, capacity metrics, or incident detection for infrastructure and cloud services.
 version: 0.4.4
 last_updated: 2026-07-08

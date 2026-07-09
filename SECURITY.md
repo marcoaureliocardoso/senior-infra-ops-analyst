@@ -6,4 +6,13 @@ Do not store secrets, credentials, tokens, private keys, production inventories,
 
 Security-sensitive commands must be classified using `references/risk-levels.md` and documented with scope, minimization, redaction guidance, approval gates, and validation steps.
 
-Report issues by opening the configured issue tracker after the repository URL is finalized. Until then, maintainers should track security findings in a private channel.
+## Automated scanning
+
+CI runs on every PR and push to main via `.github/workflows/security.yml`:
+
+- **CodeQL** (Python): static analysis for security vulnerabilities
+- **ShellCheck**: static analysis for all bash scripts
+
+## Reporting
+
+Report security issues at https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/issues.

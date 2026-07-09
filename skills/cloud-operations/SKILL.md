@@ -1,6 +1,5 @@
 ---
 name: Cloud Operations
-skill_id: cloud-operations
 description: Use when operating or diagnosing AWS, Azure, or GCP infrastructure with CLI/API access, especially inventory, VM health, network rules, load balancers, IAM exposure, monitoring, logs, quotas, backup, cost, and safe cloud change planning.
 version: 0.4.4
 last_updated: 2026-07-08
