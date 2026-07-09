@@ -22,12 +22,10 @@ jobs:
       - name: Link validation
         id: links
         run: |
-          REPORT=$(bash tests/validate-links.sh --json 2>&1) || true
-          echo "$REPORT" > link-report.json
-          cat link-report.json
+          bash tests/validate-links.sh --json 2>&1 | tee link-report.json
+        continue-on-error: true
 
       - name: Create issue from report
-        if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

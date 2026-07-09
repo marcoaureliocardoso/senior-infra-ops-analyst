@@ -20,12 +20,14 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 0
 fi
 
-# Extract all https?:// URLs from all markdown files
+# Extract all https?:// URLs from all markdown files.
+# Filters out placeholder URLs (<host>, <prometheus>, etc.) and strips trailing backticks.
 urls=$(find . -name '*.md' \
   -not -path './.git/*' \
   -not -path './.worktrees/*' \
   -exec grep -Eo 'https?://[^])>[:space:]]+' {} \; \
-  | sed 's/[.,;:]*$//' \
+  | sed -e 's/[.,;:]*$//' -e 's/`$//' \
+  | grep -v '[<>]' \
   | sort -u)
 
 if [ -z "$urls" ]; then
