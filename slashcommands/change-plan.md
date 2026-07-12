@@ -1,5 +1,6 @@
 ---
 description: "Produce an approval-ready infrastructure change plan."
+allowed-tools: Task(subagent_type:change-manager)
 ---
 # /change-plan
 

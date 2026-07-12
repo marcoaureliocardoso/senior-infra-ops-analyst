@@ -1,5 +1,6 @@
 ---
 description: "Diagnose CI/CD pipeline failures, runner capacity, artifact problems, deployment gate failures, and release safety issues."
+allowed-tools: Task(subagent_type:release-cicd-operator)
 ---
 # /cicd-triage
 

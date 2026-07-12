@@ -1,5 +1,6 @@
 ---
 description: "Collect and structure audit/compliance evidence with redaction and traceability."
+allowed-tools: Task(subagent_type:audit-evidence-collector)
 ---
 # /audit-evidence
 

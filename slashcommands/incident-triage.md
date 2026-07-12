@@ -1,5 +1,6 @@
 ---
 description: "Triage and stabilize an infrastructure incident."
+allowed-tools: Task(subagent_type:incident-commander)
 ---
 # /incident-triage
 

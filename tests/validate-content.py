@@ -142,12 +142,65 @@ for cmd in ['ssh-triage.md','lb-triage.md','monitoring-stack-triage.md','web-gat
         err(f'missing slash command: {cmd}')
 
 # Detect broken internal references to non-existent reference or skill files.
-for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/SKILL.md')) + list((root/'slashcommands').glob('*.md')):
+for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/SKILL.md')) + list((root/'slashcommands').glob('*.md')) + list((root/'subagents').glob('*.md')):
     txt = p2.read_text(encoding='utf-8')
     for m in re.findall(r'`(references/[^`]+?\.md|skills/[^`]+?\.md)`', txt):
         if not (root/m).exists():
             err(f'broken internal markdown reference in {p2.relative_to(root)}: {m}')
 
+
+# Subagents validation
+subagents_from_manifest = manifest.get('subagents', [])
+if not subagents_from_manifest:
+    err('nori.json missing subagents array or subagents array is empty')
+
+subagent_ids = {s['id'] for s in subagents_from_manifest if s.get('id')}
+valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch'}
+
+for sa in subagents_from_manifest:
+    sa_id = sa.get('id', '')
+    if not sa_id:
+        err(f'subagent entry missing id field: {sa}')
+        continue
+    sa_file = root / 'subagents' / f'{sa_id}.md'
+    if not sa_file.exists():
+        err(f'subagent file missing: {sa_file.relative_to(root)}')
+        continue
+    t = sa_file.read_text(encoding='utf-8')
+    if '<required>' not in t:
+        err(f'subagent lacks <required> block: {sa_id}')
+    if 'references/risk-levels.md' not in t:
+        err(f'subagent does not reference shared risk levels: {sa_id}')
+    fm = t.split('---', 2)[1] if t.startswith('---') else ''
+    for field in ['name:', 'description:', 'tools:', 'model:']:
+        if not re.search(r'^' + re.escape(field), fm, re.MULTILINE):
+            err(f'subagent lacks frontmatter field {field}: {sa_id}')
+    # Minimum content threshold (anti-stub)
+    nonempty = [ln for ln in t.splitlines() if ln.strip()]
+    if len(nonempty) < 60:
+        err(f'subagent appears too thin (fewer than 60 non-empty lines): {sa_id} ({len(nonempty)} lines)')
+    # Validate tools are from known set
+    tools_match = re.search(r'^tools:\s*(.+)$', fm, re.MULTILINE)
+    if tools_match:
+        declared = {t.strip() for t in tools_match.group(1).split(',') if t.strip()}
+        unknown = declared - valid_tools
+        if unknown:
+            err(f'subagent declares unknown tools: {unknown} — {sa_id}')
+    # Validate model is inherit
+    model_match = re.search(r'^model:\s*(.+)$', fm, re.MULTILINE)
+    if model_match and model_match.group(1).strip() != 'inherit':
+        err(f'subagent model must be "inherit", got "{model_match.group(1).strip()}": {sa_id}')
+
+# Validate allowed-tools in slash commands reference valid subagents
+if subagent_ids:
+    for cmd_file in sorted((root / 'slashcommands').glob('*.md')):
+        cmd_text = cmd_file.read_text(encoding='utf-8')
+        cmd_fm = cmd_text.split('---', 2)[1] if cmd_text.startswith('---') else cmd_text
+        m = re.search(r'^allowed-tools:\s*Task\(subagent_type:\s*(\S+)\)', cmd_fm, re.MULTILINE)
+        if not m:
+            err(f'slash command missing allowed-tools: {cmd_file.name}')
+        elif m.group(1) not in subagent_ids:
+            err(f'slash command references unknown subagent "{m.group(1)}": {cmd_file.name}')
 
 if errors:
     print('Validation failed:')

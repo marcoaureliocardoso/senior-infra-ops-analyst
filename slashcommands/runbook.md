@@ -1,5 +1,6 @@
 ---
 description: "Create a runbook or branching playbook for infrastructure operations."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /runbook
 

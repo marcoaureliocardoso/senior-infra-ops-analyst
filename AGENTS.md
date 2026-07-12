@@ -92,6 +92,27 @@ Prefer official vendor documentation, standards/RFCs, and public SRE material. D
 - `references/vendor-escalation.md`
 - `references/audit-compliance-evidence.md`
 
+## Subagents
+
+When a task falls within a specialized domain, delegate to the appropriate subagent via `Task(subagent_type:<name>)`:
+
+| Subagent | Use when |
+|---|---|
+| `incident-commander` | Active incidents, SEV assignment, stakeholder communication, coordination |
+| `diagnostic-operator` | General diagnostics, domain fallback (containers, PKI, SSH, MQ, DR, vendor, ITSM, runbooks) |
+| `change-manager` | Change planning, risk review, rollback, post-change validation |
+| `rca-facilitator` | Post-incident root cause analysis, evidence mapping, action planning |
+| `observability-sre` | SLO/SLI, error budgets, burn rates, alert audit, dashboard design |
+| `security-operations-reviewer` | Security review of commands/changes, credential exposure, compromise assessment |
+| `cloud-platform-operator` | AWS/Azure/GCP diagnostics, cost anomalies, IAM/security group audit |
+| `kubernetes-operator` | K8s/K3s workloads, services, ingress, storage, RBAC, scheduling |
+| `database-operator` | DB availability, locks, replication, backups, query performance |
+| `network-edge-operator` | Firewall, LB, reverse proxy, DNS, DHCP, VPN, web gateway, pfSense |
+| `release-cicd-operator` | CI/CD pipeline failures, runner health, deployment gates, artifact integrity |
+| `audit-evidence-collector` | Audit evidence, redaction, compliance, vendor escalation packages |
+
+Each subagent inherits the project safety model and references its domain-specific skills and references. See `subagents/` for full definitions.
+
 ## Communication style
 
 Use Portuguese by default unless the user asks otherwise. Be concise, practical, and operational. Organize answers so an operator can act under pressure.

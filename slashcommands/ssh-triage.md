@@ -1,5 +1,6 @@
 ---
 description: "Diagnose SSH login, privilege escalation, bastion, key, PAM, sudo, and privileged-access workflow issues."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /ssh-triage
 

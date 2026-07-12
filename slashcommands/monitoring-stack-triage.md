@@ -1,5 +1,6 @@
 ---
 description: "Diagnose Prometheus, Grafana, Zabbix, and Elastic or OpenSearch monitoring stack issues including alerting, scraping, dashboards, and log pipelines."
+allowed-tools: Task(subagent_type:observability-sre)
 ---
 # /monitoring-stack-triage
 

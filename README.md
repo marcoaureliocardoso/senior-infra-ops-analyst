@@ -16,6 +16,27 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
+## Subagents
+
+This package includes 12 role-focused subagents under `subagents/` that provide domain-specific operating posture for AI agents:
+
+| Subagent | Domain | Tools |
+|---|---|---|
+| `incident-commander` | Incident coordination, severity, communication | `Read, Grep, Glob, TodoWrite` |
+| `diagnostic-operator` | Evidence-first diagnostics across all domains | `Read, Grep, Glob, Bash` |
+| `change-manager` | Change planning, risk review, rollback | `Read, Grep, Glob, Bash` |
+| `rca-facilitator` | Root cause analysis, evidence mapping | `Read, Grep, Glob, Bash` |
+| `observability-sre` | SLO/SLI, error budgets, alert audit | `Read, Grep, Glob, Bash` |
+| `security-operations-reviewer` | Security review, credential exposure | `Read, Grep, Glob` |
+| `cloud-platform-operator` | AWS, Azure, GCP diagnostics | `Read, Grep, Glob, Bash` |
+| `kubernetes-operator` | K8s/K3s workloads, services, RBAC | `Read, Grep, Glob, Bash` |
+| `database-operator` | DB availability, locks, replication | `Read, Grep, Glob, Bash` |
+| `network-edge-operator` | Firewall, LB, proxy, DNS, gateway | `Read, Grep, Glob, Bash` |
+| `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | `Read, Grep, Glob, Bash` |
+| `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
+
+Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+
 ## What changed in v0.5.1
 
 - Robust link-checking across all markdown files with GET fallback for HEAD-rejecting servers.

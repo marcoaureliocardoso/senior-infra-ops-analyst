@@ -1,5 +1,6 @@
 ---
 description: "Produce a blameless root cause analysis from incident evidence."
+allowed-tools: Task(subagent_type:rca-facilitator)
 ---
 # /rca
 

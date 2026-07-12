@@ -1,5 +1,6 @@
 ---
 description: "Actively diagnose an infrastructure symptom with safe read-only commands before giving conclusions."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /ops-diagnose
 

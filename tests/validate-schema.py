@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validate nori.json schema beyond JSON parse — structural and semantic checks."""
+from __future__ import annotations
 import json, re, sys
 from pathlib import Path
 
@@ -84,6 +85,49 @@ def main() -> None:
             seen_tags[t] = seen_tags.get(t, 0) + 1
         dups = [f"{t} (x{c})" for t, c in seen_tags.items() if c > 1]
         err(f"nori.json tags contains duplicates: {dups}")
+
+    # Subagents validation
+    subagents = manifest.get("subagents", [])
+    if not subagents:
+        err("nori.json missing subagents array or subagents array is empty")
+
+    subagent_ids: list[str] = []
+    subagent_names: list[str] = []
+    for idx, sa in enumerate(subagents):
+        entry_label = sa.get("id") or sa.get("name") or f"subagents[{idx}]"
+        for field in ["id", "name", "description"]:
+            if field not in sa:
+                err(f"subagent entry missing required field: {field} — entry: {entry_label}")
+        sa_id = sa.get("id", "")
+        if sa_id:
+            subagent_ids.append(sa_id)
+            sa_file = ROOT / "subagents" / f"{sa_id}.md"
+            if not sa_file.exists():
+                err(f"subagent '{sa_id}' listed in nori.json but file missing: {sa_file}")
+        sa_name = sa.get("name", "")
+        if sa_name:
+            subagent_names.append(sa_name)
+
+    if len(subagent_ids) != len(set(subagent_ids)):
+        seen_ids: dict[str, int] = {}
+        for i in subagent_ids:
+            seen_ids[i] = seen_ids.get(i, 0) + 1
+        dups = [f"{i} (x{c})" for i, c in seen_ids.items() if c > 1]
+        err(f"nori.json subagents contains duplicate ids: {dups}")
+
+    if len(subagent_names) != len(set(subagent_names)):
+        seen_names: dict[str, int] = {}
+        for n in subagent_names:
+            seen_names[n] = seen_names.get(n, 0) + 1
+        dups = [f"{n} (x{c})" for n, c in seen_names.items() if c > 1]
+        err(f"nori.json subagents contains duplicate names: {dups}")
+
+    # Every subagent file on disk should be registered in the manifest
+    if (ROOT / "subagents").is_dir():
+        for sa_file in sorted((ROOT / "subagents").glob("*.md")):
+            sa_id = sa_file.stem
+            if sa_id not in subagent_ids:
+                err(f"subagent file '{sa_file.relative_to(ROOT)}' not registered in nori.json subagents array")
 
     _report()
 
