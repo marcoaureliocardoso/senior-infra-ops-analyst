@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validate nori.json schema beyond JSON parse — structural and semantic checks."""
+from __future__ import annotations
 import json, re, sys
 from pathlib import Path
 
@@ -92,18 +93,20 @@ def main() -> None:
 
     subagent_ids: list[str] = []
     subagent_names: list[str] = []
-    for sa in subagents:
-        entry_label = sa.get("id", sa.get("name", "unknown"))
+    for idx, sa in enumerate(subagents):
+        entry_label = sa.get("id") or sa.get("name") or f"subagents[{idx}]"
         for field in ["id", "name", "description"]:
             if field not in sa:
                 err(f"subagent entry missing required field: {field} — entry: {entry_label}")
-        if "id" in sa:
-            subagent_ids.append(sa["id"])
-            sa_file = ROOT / "subagents" / f"{sa['id']}.md"
+        sa_id = sa.get("id", "")
+        if sa_id:
+            subagent_ids.append(sa_id)
+            sa_file = ROOT / "subagents" / f"{sa_id}.md"
             if not sa_file.exists():
-                err(f"subagent '{sa['id']}' listed in nori.json but file missing: {sa_file}")
-        if "name" in sa:
-            subagent_names.append(sa["name"])
+                err(f"subagent '{sa_id}' listed in nori.json but file missing: {sa_file}")
+        sa_name = sa.get("name", "")
+        if sa_name:
+            subagent_names.append(sa_name)
 
     if len(subagent_ids) != len(set(subagent_ids)):
         seen_ids: dict[str, int] = {}
