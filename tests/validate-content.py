@@ -170,6 +170,27 @@ for sa in subagents_from_manifest:
     nonempty = [ln for ln in t.splitlines() if ln.strip()]
     if len(nonempty) < 60:
         err(f'subagent appears too thin (fewer than 60 non-empty lines): {sa_id} ({len(nonempty)} lines)')
+    # Validate tools are from known set
+    valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch'}
+    tools_match = re.search(r'^tools:\s*(.+)$', fm, re.MULTILINE)
+    if tools_match:
+        declared = {t.strip() for t in tools_match.group(1).split(',') if t.strip()}
+        unknown = declared - valid_tools
+        if unknown:
+            err(f'subagent declares unknown tools: {unknown} — {sa_id}')
+    # Validate model is inherit
+    model_match = re.search(r'^model:\s*(.+)$', fm, re.MULTILINE)
+    if model_match and model_match.group(1).strip() != 'inherit':
+        err(f'subagent model must be "inherit", got "{model_match.group(1).strip()}": {sa_id}')
+    # Validate allowed-tools in slash commands reference valid subagents
+    subagent_ids = {s.get('id', '') for s in subagents_from_manifest}
+    for cmd_file in sorted((root / 'slashcommands').glob('*.md')):
+        cmd_text = cmd_file.read_text(encoding='utf-8')
+        m = re.search(r'^allowed-tools:\s*Task\(subagent_type:(\S+)\)', cmd_text, re.MULTILINE)
+        if not m:
+            err(f'slash command missing allowed-tools: {cmd_file.name}')
+        elif m.group(1) not in subagent_ids:
+            err(f'slash command references unknown subagent "{m.group(1)}": {cmd_file.name}')
 
 # Cross-reference checks in subagents files
 if (root / 'subagents').is_dir():
