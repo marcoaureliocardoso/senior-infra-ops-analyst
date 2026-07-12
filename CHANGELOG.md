@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 - 2026-07-11
+
+- 12 role-focused subagents added under `subagents/` aligned with the official Nori skillset format.
+- Subagents: `incident-commander`, `diagnostic-operator`, `change-manager`, `rca-facilitator`, `observability-sre`, `security-operations-reviewer`, `cloud-platform-operator`, `kubernetes-operator`, `database-operator`, `network-edge-operator`, `release-cicd-operator`, `audit-evidence-collector`.
+- Each subagent includes YAML frontmatter (`name`, `description`, `tools`, `model: inherit`), required references, primary skills, operating boundaries with `<required>` blocks, domain-specific procedures, decision rules, and output specifications (100-150 lines each).
+- `nori.json` extended with `"subagents"` array registering all 12 subagents by `id`, `name`, and `description`.
+- 20 slash commands mapped to subagents via `allowed-tools: Task(subagent_type:<name>)` in YAML frontmatter. `diagnostic-operator` serves as catch-all for domains without dedicated subagents (PKI, SSH, containers, message queues, DR, vendor escalation, ITSM, runbooks).
+- Validation extended in `tests/validate-schema.py`: subagent array presence, required fields per entry (`id`, `name`, `description`), uniqueness enforcement, disk-to-manifest file registration check.
+- Validation extended in `tests/validate-content.py`: frontmatter field completeness, `<required>` block presence, `risk-levels.md` safety model reference, internal cross-reference integrity, 60-line minimum anti-stub threshold, tool-set whitelist validation, `model: inherit` enforcement, and `allowed-tools` cross-validation between slash commands and registered subagents.
+- `AGENTS.md` updated with subagents delegation table for agent discoverability.
+- `README.md` updated with subagents summary table and tool assignments.
+- `.cspell.json` extended with 20 domain-specific terms for spell-check coverage of subagent content.
+- `.claude/` added to `.gitignore`.
+
 ## 0.5.0 - 2026-07-09
 
 - Complete CI critical revision — replaced single monolithic workflow with 4 hardened, modular workflows.

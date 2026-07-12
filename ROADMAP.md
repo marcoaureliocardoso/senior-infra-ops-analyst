@@ -55,6 +55,12 @@ The previous roadmap domains received dedicated skills, references, and template
 | P2 | Runnable labs | Contributors | Disposable containers or mock CLIs for safe skill testing. |
 | P3 | External link maintenance | Maintainer | Scheduled CI link validation and stale-link replacement. |
 
+## Completed in v0.6.0
+
+- 12 role-focused subagents covering all infrastructure operations domains with slash-command integration
+- Subagent validation: schema enforcement, content integrity, cross-references, anti-stub threshold, allowed-tools integrity
+- `AGENTS.md` delegation table for subagent discoverability
+
 ## Completed in v0.5.0
 
 - CI critical revision: modular workflows, security scanning, release automation, AI-first markdownlint tuning

@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.5.1
+Version: 0.6.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -36,6 +36,16 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+
+## What changed in v0.6.0
+
+- 12 role-focused subagents under `subagents/` covering all infrastructure operations domains: incident commander, diagnostic operator, change manager, RCA facilitator, observability SRE, security operations reviewer, cloud platform operator, Kubernetes operator, database operator, network edge operator, release CI/CD operator, and audit evidence collector.
+- Each subagent follows the official Nori format with `name`, `description`, `tools`, and `model: inherit` frontmatter fields.
+- All subagents registered in `nori.json` under the `"subagents"` array.
+- 20 slash commands mapped to subagents via `allowed-tools: Task(subagent_type:<name>)`.
+- Validation extended: schema checks (uniqueness, file correspondence) and content checks (frontmatter completeness, `<required>` blocks, cross-references, 60-line anti-stub threshold, tool-set validation, `allowed-tools` integrity).
+- `AGENTS.md` updated with subagents delegation table.
+- `.claude/` added to `.gitignore`.
 
 ## What changed in v0.5.1
 
