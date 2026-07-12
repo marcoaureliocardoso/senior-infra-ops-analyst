@@ -37,6 +37,9 @@ coverage/
 # Worktrees
 .worktrees/
 
+# Claude/Nori runtime
+.claude/
+
 # Local validation artifacts
 .tmp/
 .tmp-*/
