@@ -1,5 +1,6 @@
 ---
 description: "Plan or document a disaster recovery drill, restore test, or failover readiness exercise."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /dr-drill
 

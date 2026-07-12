@@ -1,5 +1,6 @@
 ---
 description: "Prepare a factual ITSM or CMDB incident, change, or problem update without mutating records unless explicitly requested."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /itsm-update
 

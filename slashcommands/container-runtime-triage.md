@@ -1,5 +1,6 @@
 ---
 description: "Diagnose Docker, Podman, or containerd runtime failures outside Kubernetes control-plane checks."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /container-runtime-triage
 

@@ -1,5 +1,6 @@
 ---
 description: "Diagnose load balancer or reverse proxy backend health, routing, TLS, sticky sessions, PROXY protocol, and upstream errors."
+allowed-tools: Task(subagent_type:network-edge-operator)
 ---
 # /lb-triage
 

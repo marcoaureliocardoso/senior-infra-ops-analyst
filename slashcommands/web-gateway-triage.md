@@ -1,5 +1,6 @@
 ---
 description: "Diagnose web server or application gateway 4xx and 5xx errors, TLS, routing, WAF, upstream, cache, and header issues."
+allowed-tools: Task(subagent_type:network-edge-operator)
 ---
 # /web-gateway-triage
 

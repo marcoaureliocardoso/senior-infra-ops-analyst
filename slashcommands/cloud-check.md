@@ -1,5 +1,6 @@
 ---
 description: "Diagnose AWS, Azure, or GCP resources using scoped read-only cloud CLI and API commands."
+allowed-tools: Task(subagent_type:cloud-platform-operator)
 ---
 # /cloud-check
 

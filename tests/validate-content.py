@@ -149,6 +149,36 @@ for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/
             err(f'broken internal markdown reference in {p2.relative_to(root)}: {m}')
 
 
+# Subagents validation
+subagents_from_manifest = manifest.get('subagents', [])
+for sa in subagents_from_manifest:
+    sa_id = sa.get('id', '')
+    sa_file = root / 'subagents' / f'{sa_id}.md'
+    if not sa_file.exists():
+        err(f'subagent file missing: {sa_file.relative_to(root)}')
+        continue
+    t = sa_file.read_text(encoding='utf-8')
+    if '<required>' not in t:
+        err(f'subagent lacks <required> block: {sa_id}')
+    if 'references/risk-levels.md' not in t:
+        err(f'subagent does not reference shared risk levels: {sa_id}')
+    fm = t.split('---', 2)[1] if t.startswith('---') else ''
+    for field in ['name:', 'description:', 'tools:', 'model:']:
+        if field not in fm:
+            err(f'subagent lacks frontmatter field {field}: {sa_id}')
+    # Minimum content threshold (anti-stub)
+    nonempty = [ln for ln in t.splitlines() if ln.strip()]
+    if len(nonempty) < 60:
+        err(f'subagent appears too thin (fewer than 60 non-empty lines): {sa_id} ({len(nonempty)} lines)')
+
+# Cross-reference checks in subagents files
+if (root / 'subagents').is_dir():
+    for sa_file in sorted((root / 'subagents').glob('*.md')):
+        t = sa_file.read_text(encoding='utf-8')
+        for m in re.findall(r'`(references/[^`]+?\.md|skills/[^`]+?\.md)`', t):
+            if not (root / m).exists():
+                err(f'broken internal reference in {sa_file.relative_to(root)}: {m}')
+
 if errors:
     print('Validation failed:')
     for e in errors: print('-', e)

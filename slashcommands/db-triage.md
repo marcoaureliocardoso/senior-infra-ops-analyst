@@ -1,5 +1,6 @@
 ---
 description: "Diagnose database availability, sessions, locks, replication, storage, and backup health."
+allowed-tools: Task(subagent_type:database-operator)
 ---
 # /db-triage
 

@@ -169,6 +169,68 @@
     "references/vendor-escalation.md",
     "references/audit-compliance-evidence.md"
   ],
+  "subagents": [
+    {
+      "id": "incident-commander",
+      "name": "incident-commander",
+      "description": "Use during active incidents, suspected outages, service degradation, or situations requiring severity assignment, coordination, mitigation planning, stakeholder communication, and incident evidence tracking."
+    },
+    {
+      "id": "diagnostic-operator",
+      "name": "diagnostic-operator",
+      "description": "Use when performing command-driven infrastructure troubleshooting, evidence collection, hypothesis testing, and ordered diagnostics across Linux, Windows, networking, DNS, storage, virtualization, Kubernetes, cloud, and application infrastructure."
+    },
+    {
+      "id": "change-manager",
+      "name": "change-manager",
+      "description": "Use when planning, reviewing, approving, executing, validating, or documenting infrastructure changes, including rollback planning, dependency checks, post-change monitoring, and operational risk review."
+    },
+    {
+      "id": "rca-facilitator",
+      "name": "rca-facilitator",
+      "description": "Use when an incident has been resolved and a root cause analysis is needed, or when a recurring problem requires structured causal investigation, evidence mapping, action planning, and postmortem documentation."
+    },
+    {
+      "id": "observability-sre",
+      "name": "observability-sre",
+      "description": "Use when analyzing service-level objectives, error budgets, alert rules, dashboard design, monitoring coverage gaps, burn rate alerts, SLI definitions, or observability stack health."
+    },
+    {
+      "id": "security-operations-reviewer",
+      "name": "security-operations-reviewer",
+      "description": "Use when reviewing operational actions for security risk, credential exposure, sensitive output, privilege boundaries, firewall/IAM/identity changes, audit evidence, or possible compromise indicators."
+    },
+    {
+      "id": "cloud-platform-operator",
+      "name": "cloud-platform-operator",
+      "description": "Use for AWS, Azure, or GCP read-only diagnostics, resource inspection, cost anomaly detection, IAM/security group audit, cloud networking troubleshooting, and cloud resource lifecycle operations."
+    },
+    {
+      "id": "kubernetes-operator",
+      "name": "kubernetes-operator",
+      "description": "Use for Kubernetes workload, node, namespace, service, ingress, storage, scheduling, RBAC, event, admission webhook, CNI, CSI, and cluster operations, including K3s when relevant."
+    },
+    {
+      "id": "database-operator",
+      "name": "database-operator",
+      "description": "Use for database availability, performance, session and lock analysis, replication health, backup verification, storage consumption, and query-level diagnostics across relational and NoSQL databases."
+    },
+    {
+      "id": "network-edge-operator",
+      "name": "network-edge-operator",
+      "description": "Use for network diagnostics, firewall and pfSense operations, load balancer and reverse proxy health, web gateway troubleshooting, DNS/DHCP issues, routing, VPN, and edge security inspection."
+    },
+    {
+      "id": "release-cicd-operator",
+      "name": "release-cicd-operator",
+      "description": "Use for CI/CD pipeline diagnostics, runner/agent health, artifact integrity, deployment gate failures, build performance, pipeline configuration audit, and deployment rollback assessment."
+    },
+    {
+      "id": "audit-evidence-collector",
+      "name": "audit-evidence-collector",
+      "description": "Use when collecting, minimizing, redacting, organizing, and documenting operational evidence for audit, compliance, incident review, change review, vendor escalation, or control validation."
+    }
+  ],
   "repository": "https://github.com/marcoaureliocardoso/senior-infra-ops-analyst",
   "homepage": "https://github.com/marcoaureliocardoso/senior-infra-ops-analyst",
   "bugs": {

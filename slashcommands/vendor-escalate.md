@@ -1,5 +1,6 @@
 ---
 description: "Prepare a vendor escalation package with bounded evidence and a precise support request."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /vendor-escalate
 

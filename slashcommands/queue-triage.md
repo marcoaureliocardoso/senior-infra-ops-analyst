@@ -1,5 +1,6 @@
 ---
 description: "Diagnose queue backlog, consumer lag, broker alarms, partition leadership, and message flow interruptions."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /queue-triage
 

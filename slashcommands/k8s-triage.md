@@ -1,5 +1,6 @@
 ---
 description: "Diagnose Kubernetes workload, service, ingress, storage, scheduling, RBAC, and cluster symptoms with scoped read-only commands."
+allowed-tools: Task(subagent_type:kubernetes-operator)
 ---
 # /k8s-triage
 

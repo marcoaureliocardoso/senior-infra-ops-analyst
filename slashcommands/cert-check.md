@@ -1,5 +1,6 @@
 ---
 description: "Inspect TLS certificate chain, expiry, SAN coverage, trust, and create renewal or deployment plans."
+allowed-tools: Task(subagent_type:diagnostic-operator)
 ---
 # /cert-check
 
