@@ -129,7 +129,8 @@ def main() -> None:
             if sa_id not in subagent_ids:
                 err(f"subagent file '{sa_file.relative_to(ROOT)}' not registered in nori.json subagents array")
 
-    _report()
+    # errors collected — reporting deferred to __main__ so
+    # validate_packaging_metadata() also runs before the final _report().
 
 
 def _report() -> None:
@@ -183,6 +184,9 @@ def validate_packaging_metadata() -> None:
             for skill in manifest_skills:
                 if skill not in skills_tiers:
                     err(f"skill '{skill}' in nori.json not found in skills.json")
+            for skill in skills_tiers:
+                if skill not in manifest_skills:
+                    err(f"skill '{skill}' in skills.json not found in nori.json")
 
     # --- skills/<skill>/nori.json ---
     with open(MANIFEST_PATH, encoding="utf-8") as fh:

@@ -1,0 +1,38 @@
+[
+  {
+    "file": ".nori-version",
+    "line": 1,
+    "summary": ".nori-version is consumed by nori-skillsets in 5+ modules (provenance.js, profilesMigration.js, uploadSync.js, agentOperations.js, registryDownload.js), but all readers degrade gracefully on missing/malformed content via null returns or empty catches. The file format matches the expected schema.",
+    "failure_scenario": "No breakage expected. If the file were empty (not valid JSON), profilesMigration.js would treat the skillset as 'locally created' rather than registry-sourced. If it were missing, readVersionInfo returns null. The current content is valid JSON with expected fields."
+  },
+  {
+    "file": "profile.json",
+    "line": 3,
+    "summary": "profile.json is NOT read by the nori-skillsets CLI. It is likely consumed by the Claude Code internal profiles loader (@anthropic-ai/claude-code) to distinguish built-in profiles (\"builtin\": true) from user/third-party profiles (\"builtin\": false). The senior-swe installed skillset has the same file with \"builtin\": true.",
+    "failure_scenario": "No breakage expected from the CLI side. If the Claude Code profiles loader expects \"builtin\" as an optional field (which it appears to be since the validator only checks \"name\" and \"description\"), the file is safe. The value \"builtin\": false is correct for a third-party skillset."
+  },
+  {
+    "file": "skills.json",
+    "line": 1,
+    "summary": "skills.json IS read by nori-skillsets skillResolver.js (readSkillsJson, parseSkillsJson, writeSkillsJson, addSkillDependency, resolveSkillVersion). The format is a map of skill-name to semver range string. All values are \"*\" (wildcard/latest). It is NOT used for tier gating despite being labeled 'Skill tier map' in docs.md.",
+    "failure_scenario": "No breakage. The parseSkillsJson function handles string values (like \"*\") by pushing {name, versionRange: value}. The file format matches the expected SkillsJson type (Record<string, string | {version: string}>). readSkillsJson returns null if the file doesn't exist (ENOENT), but would throw if JSON is malformed."
+  },
+  {
+    "file": "skills/<name>/nori.json (24 files)",
+    "line": 1,
+    "summary": "Per-skill nori.json files are read by uploadSync.js (lines 84, 121), uploadPipeline.js (line 34), and skillUpload.js (line 31). All reads are wrapped in try/catch that silently handles missing files. When present, the code reads the file, updates the 'version' field by property assignment, and writes it back — extra fields are preserved.",
+    "failure_scenario": "No breakage. The 24 nori.json files are valid JSON with the expected schema (name, version, type: \"skill\", description). None of the consumers perform schema validation — they just read, update version, and write back. Unknown fields are preserved through the read-modify-write cycle."
+  },
+  {
+    "file": "docs.md",
+    "line": 1,
+    "summary": "docs.md is explicitly EXCLUDED by nori-skillsets from functional installation: filtered out from slash commands (slashCommandsLoader.js:43), subagents (subagentsLoader.js:94), and upload (registryUpload.js:313,376). The only parser is tests/validate-content.py which checks for existence and the \"# Noridoc:\" prefix. No Noridoc content parser exists in the runtime.",
+    "failure_scenario": "No breakage. The file is intentionally excluded from all functional processing. The validate-content.py check is a project-local validation, not a runtime dependency."
+  },
+  {
+    "file": "tests/validate-schema.py",
+    "line": 207,
+    "summary": "CRITICAL FLOW BUG: The __main__ block calls main() -> _report() -> validate_packaging_metadata() -> _report(). If main() succeeds (no nori.json errors), _report() prints 'schema validation passed' and returns. Then validate_packaging_metadata() adds errors to the shared global 'errors' list. Then the final _report() prints 'Schema validation failed:' — producing contradictory output (passed then failed).",
+    "failure_scenario": "Two scenarios: (1) If nori.json is clean but packaging metadata has issues: output would be 'schema validation passed' followed by 'Schema validation failed: ...', which is contradictory and confusing for CI/developers. (2) If nori.json has errors: _report() calls sys.exit(1) inside main(), preventing validate_packaging_metadata() from ever running, requiring multiple fix-and-re-run cycles."
+  }
+]
