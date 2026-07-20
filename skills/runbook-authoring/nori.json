@@ -1,0 +1,6 @@
+{
+  "name": "runbook-authoring",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when creating or improving infrastructure runbooks, standard operating procedures, maintenance guides, recovery procedures, checklists, or handover documentation."
+}

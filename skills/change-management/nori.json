@@ -1,0 +1,6 @@
+{
+  "name": "change-management",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when planning, reviewing, approving, executing, or documenting infrastructure changes, maintenance windows, migrations, upgrades, firewall rules, deployments, patches, or configuration changes."
+}

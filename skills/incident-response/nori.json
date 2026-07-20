@@ -1,0 +1,6 @@
+{
+  "name": "incident-response",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when triaging, stabilizing, communicating, or coordinating an infrastructure incident, outage, degradation, alert storm, service interruption, or suspected production failure with active evidence gathering."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "load-balancer-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing NGINX, HAProxy, Apache reverse proxy, cloud load balancers, backend pool health, routing, TLS termination, or gateway errors."
+}

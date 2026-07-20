@@ -1,0 +1,6 @@
+{
+  "name": "message-queue-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing RabbitMQ, Kafka, Redis Streams, broker health, queue depth, consumer lag, dead-letter queues, partition leadership, or message flow issues."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "cicd-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing failed pipelines, runner capacity, deployment gates, artifact failures, rollback workflows, or release safety issues."
+}

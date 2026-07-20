@@ -1,0 +1,6 @@
+{
+  "name": "monitoring-stack-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing Prometheus, Grafana, Zabbix, ELK/Elastic/OpenSearch, alerting, scraping, ingestion, dashboard, or query failures."
+}

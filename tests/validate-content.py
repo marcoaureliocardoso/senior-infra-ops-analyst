@@ -202,6 +202,14 @@ if subagent_ids:
         elif m.group(1) not in subagent_ids:
             err(f'slash command references unknown subagent "{m.group(1)}": {cmd_file.name}')
 
+# docs.md Noridoc entry point
+if not (root/'docs.md').exists():
+    err('docs.md not found')
+else:
+    docs_content = read('docs.md')
+    if not docs_content.startswith('# Noridoc:'):
+        err('docs.md must start with "# Noridoc:" header')
+
 if errors:
     print('Validation failed:')
     for e in errors: print('-', e)

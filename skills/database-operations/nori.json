@@ -1,0 +1,6 @@
+{
+  "name": "database-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing database availability, sessions, locks, replication, storage, backup health, or performance symptoms before recommending database changes."
+}

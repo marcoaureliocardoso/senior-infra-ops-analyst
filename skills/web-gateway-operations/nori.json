@@ -1,0 +1,6 @@
+{
+  "name": "web-gateway-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing IIS, Apache, NGINX, application gateways, virtual hosts, status codes, access/error logs, static content, upstream integration, or gateway policies."
+}

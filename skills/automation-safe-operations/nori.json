@@ -1,0 +1,6 @@
+{
+  "name": "automation-safe-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when writing, reviewing, or running automation scripts for infrastructure operations, including shell, PowerShell, Ansible, Python, scheduled jobs, mass changes, shutdown/startup routines, or maintenance automation."
+}
