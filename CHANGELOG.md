@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 - 2026-07-20
+
+- `infrastructure-troubleshooting` v0.5.0: hypothesis discipline (one command, one hypothesis, explicit confirm/refute), multi-layer evidence gathering at component boundaries, anti-thrashing mechanism (3+ refuted hypotheses → re-examine layer/fundamentals). Adapted from `systematic-debugging` for infrastructure domains.
+- `root-cause-analysis` v0.5.0: backward tracing (5-step method from symptom to original trigger), trigger vs root cause distinction with concrete trace chain example, defense-in-depth validation at entry boundary and failure layer. Adapted from `root-cause-tracing` for infrastructure domains.
+- `read-the-damn-docs` declared as hard dependency in `nori.json` and `AGENTS.md` — forces web-search for current official docs before acting on third-party infrastructure tools (CLIs, APIs, cloud services).
+- `.cspell.json` extended with `NXDOMAIN`.
+
 ## 0.6.1 - 2026-07-20
 
 - Nori registry packaging metadata: `.nori-version`, `profile.json`, `skills.json`, `docs.md` (comprehensive Noridoc), and 24 `skills/*/nori.json` files for publication readiness.

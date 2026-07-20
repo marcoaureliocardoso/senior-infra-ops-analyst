@@ -32,7 +32,7 @@ Diagnose infrastructure issues methodically. Start from observed symptoms and co
 
 When the problem spans multiple components (client → DNS → load balancer → app server → database), gather evidence at EACH boundary BEFORE forming a hypothesis:
 
-```
+```text
 For EACH component boundary:
   - Verify the component is reachable
   - Check its own health/error indicators
@@ -46,14 +46,14 @@ This reveals WHERE the failure occurs before you investigate WHY. Do not skip la
 
 **Before every diagnostic command**, state the hypothesis it tests. After the result, confirm or refute explicitly:
 
-```
+```text
 Hypothesis: DNS resolution is failing for api.internal
 Test: dig api.internal @10.0.1.53
 Result: NXDOMAIN
 → Hypothesis CONFIRMED. DNS server does not have the record.
 ```
 
-```
+```text
 Hypothesis: Firewall is dropping traffic to port 5432
 Test: nc -zv db-primary 5432 from app host
 Result: Connection refused (not timeout)

@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.6.1",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.6.1 adds Nori registry packaging metadata and fixes link validation for fictional/placeholder URLs.",
+  "version": "0.7.0",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.7.0 strengthens troubleshooting methodology with hypothesis discipline, multi-layer evidence gathering, anti-thrashing, and backward tracing — adapted from senior-swe for infrastructure domains.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [

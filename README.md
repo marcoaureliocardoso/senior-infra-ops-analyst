@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.6.1
+Version: 0.7.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -36,6 +36,12 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+
+## What changed in v0.7.0
+
+- Strengthened troubleshooting methodology: hypothesis discipline (one command, one hypothesis), multi-layer evidence gathering, anti-thrashing mechanism, and backward tracing from symptom to original trigger — adapted from `systematic-debugging` and `root-cause-tracing` for infrastructure domains.
+- `read-the-damn-docs` added as hard dependency — forces current documentation checks before acting on third-party infrastructure tools.
+- Infrastructure troubleshooting and root cause analysis skills upgraded to v0.5.0.
 
 ## What changed in v0.6.1
 

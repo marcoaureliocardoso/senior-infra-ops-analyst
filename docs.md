@@ -8,7 +8,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.6.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.7.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Directory structure
 

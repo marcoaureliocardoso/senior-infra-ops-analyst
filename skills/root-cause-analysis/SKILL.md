@@ -43,7 +43,7 @@ Trace backward through each layer until you find the original trigger:
    - You cannot find further evidence (document as assumption)
 5. **Identify the trigger vs root cause.** The trigger is the event that activated the failure. The root cause is the underlying condition that made the trigger possible. Both matter.
 
-```
+```text
 Example trace chain:
 Symptom: API 500 errors @ 14:32 UTC
   ↑ Caused by: Connection pool exhausted (all 100 connections in use)
