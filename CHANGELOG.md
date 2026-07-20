@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 - 2026-07-20
+
+- Nori registry packaging metadata: `.nori-version`, `profile.json`, `skills.json`, `docs.md` (comprehensive Noridoc), and 24 `skills/*/nori.json` files for publication readiness.
+- Validators extended: `validate-schema.py` checks all packaging metadata files (existence, JSON syntax, required fields, semver, bidirectional `skills.json ↔ nori.json` cross-reference); `validate-content.py` checks `docs.md` Noridoc header.
+- `.cspell.json` extended with `Noridoc`, `Cardoso`, `slashcommands`.
+- Link validation fix: fictional/placeholder URLs (`.local` domains, bare hostnames, `.example.edu`, `tests/reports/`) filtered from link audit to eliminate permanent false positives.
+
 ## 0.6.0 - 2026-07-11
 
 - 12 role-focused subagents added under `subagents/` aligned with the official Nori skillset format.

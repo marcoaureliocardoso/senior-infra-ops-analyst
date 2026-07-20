@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.6.0",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.6.0 adds 12 role-focused subagents for domain-specific infrastructure operations with slash-command integration.",
+  "version": "0.6.1",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.6.1 adds Nori registry packaging metadata and fixes link validation for fictional/placeholder URLs.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
