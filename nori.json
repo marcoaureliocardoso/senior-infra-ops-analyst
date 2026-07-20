@@ -30,6 +30,11 @@
     "vendor-escalation-management",
     "audit-compliance-evidence"
   ],
+  "dependencies": {
+    "skills": [
+      "read-the-damn-docs"
+    ]
+  },
   "tags": [
     "infrastructure",
     "operations",

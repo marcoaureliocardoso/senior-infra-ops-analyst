@@ -43,6 +43,10 @@ Explicit approval is required before:
 
 Explicit approval or tight scoping is also required before broad read-only diagnostics that may create operational or privacy risk, including full filesystem scans, broad log extraction, wide packet captures, large cluster-wide log pulls, or enumeration of many user/account records.
 
+## Dependencies
+
+This skillset requires the `read-the-damn-docs` skill (`public/read-the-damn-docs`). It forces web-search for current official documentation before acting on third-party APIs, CLIs, cloud services, and infrastructure tools — preventing stale or hallucinated commands in high-stakes operational contexts. Declared in `nori.json` dependencies and auto-installed by the Nori CLI.
+
 ## Default diagnostic order
 
 Use `references/diagnostic-order.md` as the canonical diagnostic order. Incident response may add a severity/coordination overlay, and troubleshooting may add client-specific checks, but neither replaces the canonical order unless the reason is stated.
