@@ -1,0 +1,5 @@
+{
+  "name": "senior-infra-ops-analyst",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe, evidence-based hybrid infrastructure operations. 24 skills, 20 slash commands, 12 subagents covering Linux, Windows, cloud, Kubernetes, databases, networking, PKI, incident response, RCA, and more.",
+  "builtin": false
+}

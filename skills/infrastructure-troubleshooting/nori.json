@@ -1,0 +1,6 @@
+{
+  "name": "infrastructure-troubleshooting",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing Linux, Windows, network, DNS, DHCP, firewall, VPN, virtualization, container, storage, authentication, or service availability problems using active command-driven evidence collection."
+}

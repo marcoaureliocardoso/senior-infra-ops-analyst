@@ -1,0 +1,6 @@
+{
+  "name": "pki-certificate-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing certificate expiry, trust chain, SAN mismatch, TLS handshake, renewal, deployment validation, or certificate inventory issues."
+}

@@ -129,7 +129,8 @@ def main() -> None:
             if sa_id not in subagent_ids:
                 err(f"subagent file '{sa_file.relative_to(ROOT)}' not registered in nori.json subagents array")
 
-    _report()
+    # errors collected — reporting deferred to __main__ so
+    # validate_packaging_metadata() also runs before the final _report().
 
 
 def _report() -> None:
@@ -141,5 +142,73 @@ def _report() -> None:
     print("schema validation passed")
 
 
+def validate_packaging_metadata() -> None:
+    """Validate Nori packaging metadata files exist and are well-formed."""
+    # --- .nori-version ---
+    nori_version_path = ROOT / ".nori-version"
+    if not nori_version_path.exists():
+        err(".nori-version not found")
+    else:
+        with open(nori_version_path, encoding="utf-8") as fh:
+            nv = json.load(fh)
+        for field in ["version", "registryUrl"]:
+            if field not in nv:
+                err(f".nori-version missing required field: {field}")
+        nv_ver = nv.get("version", "")
+        if not re.match(r"^\d+\.\d+\.\d+$", str(nv_ver)):
+            err(f".nori-version version '{nv_ver}' is not valid semver (X.Y.Z)")
+
+    # --- profile.json ---
+    profile_path = ROOT / "profile.json"
+    if not profile_path.exists():
+        err("profile.json not found")
+    else:
+        with open(profile_path, encoding="utf-8") as fh:
+            profile = json.load(fh)
+        for field in ["name", "description"]:
+            if field not in profile:
+                err(f"profile.json missing required field: {field}")
+
+    # --- skills.json ---
+    skills_json_path = ROOT / "skills.json"
+    if not skills_json_path.exists():
+        err("skills.json not found")
+    else:
+        with open(skills_json_path, encoding="utf-8") as fh:
+            skills_tiers = json.load(fh)
+        if not isinstance(skills_tiers, dict):
+            err("skills.json must be a JSON object mapping skill names to tiers")
+        else:
+            with open(MANIFEST_PATH, encoding="utf-8") as fh:
+                manifest_skills = json.load(fh).get("skills", [])
+            for skill in manifest_skills:
+                if skill not in skills_tiers:
+                    err(f"skill '{skill}' in nori.json not found in skills.json")
+            for skill in skills_tiers:
+                if skill not in manifest_skills:
+                    err(f"skill '{skill}' in skills.json not found in nori.json")
+
+    # --- skills/<skill>/nori.json ---
+    with open(MANIFEST_PATH, encoding="utf-8") as fh:
+        manifest_skills = json.load(fh).get("skills", [])
+    for skill in manifest_skills:
+        skill_nori = ROOT / "skills" / skill / "nori.json"
+        if not skill_nori.exists():
+            err(f"skills/{skill}/nori.json not found")
+            continue
+        with open(skill_nori, encoding="utf-8") as fh:
+            sn = json.load(fh)
+        for field in ["name", "version", "type", "description"]:
+            if field not in sn:
+                err(f"skills/{skill}/nori.json missing required field: {field}")
+        if sn.get("type") != "skill":
+            err(f"skills/{skill}/nori.json type must be 'skill', got '{sn.get('type')}'")
+        sn_ver = sn.get("version", "")
+        if not re.match(r"^\d+\.\d+\.\d+$", str(sn_ver)):
+            err(f"skills/{skill}/nori.json version '{sn_ver}' is not valid semver (X.Y.Z)")
+
+
 if __name__ == "__main__":
     main()
+    validate_packaging_metadata()
+    _report()

@@ -1,0 +1,6 @@
+{
+  "name": "monitoring-observability",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when designing, reviewing, or improving monitoring, logging, alerting, dashboards, SLOs, SLIs, error budgets, health checks, capacity metrics, or incident detection for infrastructure and cloud services."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "kubernetes-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing Kubernetes clusters, workloads, services, ingress, storage, RBAC, scheduling, autoscaling, network policy, control-plane, or platform symptoms beyond K3s-only checks."
+}

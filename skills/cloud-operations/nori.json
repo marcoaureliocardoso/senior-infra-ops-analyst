@@ -1,0 +1,6 @@
+{
+  "name": "cloud-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when operating or diagnosing AWS, Azure, or GCP infrastructure with CLI/API access, especially inventory, VM health, network rules, load balancers, IAM exposure, monitoring, logs, quotas, backup, cost, and safe cloud change planning."
+}

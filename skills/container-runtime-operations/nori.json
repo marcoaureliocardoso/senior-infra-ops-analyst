@@ -1,0 +1,6 @@
+{
+  "name": "container-runtime-operations",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when diagnosing Docker, Podman, containerd, CRI-O, image, log, resource, port, or runtime failures outside Kubernetes control-plane checks."
+}

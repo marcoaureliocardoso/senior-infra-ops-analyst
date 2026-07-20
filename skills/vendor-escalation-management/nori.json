@@ -1,0 +1,6 @@
+{
+  "name": "vendor-escalation-management",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when preparing or managing support escalations to vendors, ISPs, cloud providers, OEMs, MSPs, or software support teams."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "capacity-and-risk-review",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when reviewing infrastructure capacity, technical debt, operational risk, lifecycle risk, resilience, backup posture, hardware constraints, cloud resource posture, or upgrade priorities using evidence and diagnostic commands."
+}

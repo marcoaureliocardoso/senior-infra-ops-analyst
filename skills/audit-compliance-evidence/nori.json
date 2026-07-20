@@ -1,0 +1,6 @@
+{
+  "name": "audit-compliance-evidence",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when collecting, redacting, organizing, and explaining evidence for audits, controls, access reviews, change evidence, backups, or compliance records."
+}

@@ -1,0 +1,6 @@
+{
+  "name": "disaster-recovery-drills",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use when planning or executing tabletop exercises, restore tests, failover readiness checks, RTO/RPO validation, and DR evidence collection."
+}
