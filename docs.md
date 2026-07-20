@@ -2,7 +2,7 @@
 
 Path: `senior-infra-ops-analyst/`
 
-### Overview
+## Overview
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
@@ -10,9 +10,9 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 Version: 0.6.0 | Author: Marco Aurelio Cardoso | License: MIT
 
-### Directory structure
+## Directory structure
 
-```
+```text
 senior-infra-ops-analyst/
 ├── AGENTS.md                  # Main agent instructions
 ├── nori.json                  # Skillset manifest (skills, references, subagents)
