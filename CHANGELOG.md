@@ -6,6 +6,8 @@
 - Validators extended: `validate-schema.py` checks all packaging metadata files (existence, JSON syntax, required fields, semver, bidirectional `skills.json ↔ nori.json` cross-reference); `validate-content.py` checks `docs.md` Noridoc header.
 - `.cspell.json` extended with `Noridoc`, `Cardoso`, `slashcommands`.
 - Link validation fix: fictional/placeholder URLs (`.local` domains, bare hostnames, `.example.edu`, `tests/reports/`) filtered from link audit to eliminate permanent false positives.
+- CI maintenance: `cspell-action` upgraded to v8, `markdownlint-cli2-action` upgraded to v24 with MD060 (table-column-style) disabled — aligns with AI-first document philosophy where compact tables save tokens.
+- `.cspell.json` extended with `datatracker`.
 
 ## 0.6.0 - 2026-07-11
 
