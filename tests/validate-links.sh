@@ -25,10 +25,21 @@ fi
 urls=$(find . -name '*.md' \
   -not -path './.git/*' \
   -not -path './.worktrees/*' \
+  -not -path './tests/reports/*' \
   -exec grep -Eo 'https?://[^])>[:space:]]+' {} \; \
   | sed -e 's/[.,;:]*$//' -e 's/`$//' \
   | grep -v '[<>]' \
-  | sort -u)
+  | sort -u \
+  | while IFS= read -r url; do
+      host=$(echo "$url" | sed -n 's|^https\?://\([^/:]*\).*|\1|p')
+      # Skip bare hostnames (no dot — e.g., app02, localhost)
+      [[ "$host" != *.* ]] && continue
+      # Skip .local domains (RFC 6762 reserved — never publicly routable)
+      [[ "$host" == *.local ]] && continue
+      # Skip example/placeholder domains used in operational scenarios
+      [[ "$host" == *.example.edu ]] && continue
+      echo "$url"
+    done)
 
 if [ -z "$urls" ]; then
   if $json_output; then
