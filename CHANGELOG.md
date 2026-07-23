@@ -13,8 +13,9 @@
   recovery evidence, and compensating actions for every base level.
 - Replaced broad token matching with context-aware risk-expression validation
   across nested Markdown and skill scripts.
-- Added six mutation-style regression tests for invented levels,
-  modifier-only records, multiple base levels, nested scripts, valid
+- Added twelve mutation-style regression tests for invented levels,
+  modifier-only records and prose, multiple base levels, one-line and
+  multiline script fields, escaped table pipes, nested scripts, valid
   classifications, and false-positive resistance.
 
 ## 0.9.0 - 2026-07-23

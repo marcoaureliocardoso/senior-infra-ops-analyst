@@ -71,17 +71,19 @@ deprecated_risk_tokens = {
     'STATE_CHANGING',
     'DISRUPTIVE',
 }
-risk_token_pattern = re.compile(
-    r'\b(?:'
-    r'[A-Z][A-Z0-9_]*(?:_CHANGE|_READ_ONLY|_RISK)'
-    r'|DESTRUCTIVE|DISRUPTIVE|READ_ONLY|STATE_CHANGING'
-    r'|SENSITIVE_OUTPUT|RESOURCE_INTENSIVE|ACTIVE_PROBE|PRIVILEGED'
-    r'|REMOTE_SESSION_RISK|EXTERNAL_SIDE_EFFECT'
-    r')\b'
+risk_atom_pattern = re.compile(r'\b[A-Z][A-Z0-9_]*\b')
+risk_expression_pattern = re.compile(
+    r'^\s*`?[A-Z][A-Z0-9_]*\b`?'
+    r'(?:\s*(?:\+|/|\bor\b)\s*`?[A-Z][A-Z0-9_]*\b`?)*'
 )
 
+def leading_risk_expression(value):
+    match = risk_expression_pattern.match(value)
+    return match.group(0).strip() if match else ''
+
 def validate_risk_expression(expression, label):
-    tokens = risk_token_pattern.findall(expression)
+    expression = leading_risk_expression(expression)
+    tokens = risk_atom_pattern.findall(expression)
     if not tokens:
         return
     allowed = canonical_risk_levels | canonical_risk_modifiers
@@ -107,14 +109,37 @@ def validate_risk_expression(expression, label):
         )
 
 def risk_expressions(text, label):
+    lines = text.splitlines()
     risk_columns = set()
-    for line_number, line in enumerate(text.splitlines(), start=1):
+    current_section = ''
+    line_index = 0
+    while line_index < len(lines):
+        line = lines[line_index]
+        line_number = line_index + 1
         stripped = line.strip()
+        heading = re.match(r'^#{1,6}\s+(.+?)\s*$', stripped)
+        if heading:
+            current_section = heading.group(1).lower()
         if stripped.startswith('|'):
             cells = [
                 cell.strip().strip('`')
                 for cell in re.split(r'(?<!\\)\|', stripped.strip('|'))
             ]
+            next_is_separator = False
+            if line_index + 1 < len(lines):
+                next_stripped = lines[line_index + 1].strip()
+                if next_stripped.startswith('|'):
+                    next_cells = [
+                        cell.strip()
+                        for cell in re.split(
+                            r'(?<!\\)\|',
+                            next_stripped.strip('|'),
+                        )
+                    ]
+                    next_is_separator = bool(next_cells) and all(
+                        re.fullmatch(r':?-{3,}:?', cell)
+                        for cell in next_cells
+                    )
             normalized_headers = {
                 index: cell.lower().strip()
                 for index, cell in enumerate(cells)
@@ -124,32 +149,77 @@ def risk_expressions(text, label):
                 for index, cell in normalized_headers.items()
                 if cell in {'risk', 'risk level', 'classification'}
             }
-            if header_risk_columns:
+            if next_is_separator:
                 risk_columns = header_risk_columns
-                continue
-            if cells and all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
-                continue
-            if cells and cells[0].lower() in {'risk', 'risk level'}:
+            elif cells and all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
+                pass
+            elif cells and cells[0].lower() in {
+                'risk',
+                'risk level',
+                'risk classification',
+            }:
                 if len(cells) > 1:
                     yield cells[1], f'{label}:{line_number}:cell-2'
-                continue
-            for column in sorted(risk_columns):
-                if column < len(cells):
-                    yield cells[column], f'{label}:{line_number}:cell-{column + 1}'
+            else:
+                for column in sorted(risk_columns):
+                    if column < len(cells):
+                        yield cells[column], (
+                            f'{label}:{line_number}:cell-{column + 1}'
+                        )
         else:
             risk_columns = set()
         risk_field = re.match(
-            r'^\s*(?:[#;]\s*)?(?:Risk|Risk level):\s*(.+?)\s*$',
+            r'^\s*(?:[#;]\s*)?'
+            r'(?:Risk|Risk level|Risk classification):\s*(.*?)\s*$',
             line,
         )
         if risk_field:
-            yield risk_field.group(1), f'{label}:{line_number}'
-        action_mapping = re.match(
-            r'^\s*-\s+[^:\n]+:\s*`([^`]+)`',
+            expression_lines = [risk_field.group(1)]
+            continuation_index = line_index + 1
+            while (
+                continuation_index < len(lines)
+                and lines[continuation_index][:1].isspace()
+                and lines[continuation_index].strip()
+            ):
+                expression_lines.append(lines[continuation_index].strip())
+                continuation_index += 1
+            yield ' '.join(expression_lines), f'{label}:{line_number}'
+        if (
+            'risk mapping' in current_section
+            or 'examples to classify' in current_section
+        ):
+            action_mapping = re.match(
+                r'^\s*-\s+[^:\n]+:\s*(.+?)\s*$',
+                line,
+            )
+            if action_mapping:
+                expression_lines = [action_mapping.group(1)]
+                continuation_index = line_index + 1
+                while (
+                    continuation_index < len(lines)
+                    and lines[continuation_index][:1].isspace()
+                    and lines[continuation_index].strip()
+                ):
+                    expression_lines.append(lines[continuation_index].strip())
+                    continuation_index += 1
+                yield ' '.join(expression_lines), f'{label}:{line_number}'
+        known_risk_terms = (
+            canonical_risk_levels
+            | canonical_risk_modifiers
+            | deprecated_risk_tokens
+        )
+        prose_classification = re.search(
+            r'\b(?:is|are)\s+('
+            r'`?(?:'
+            + '|'.join(sorted(map(re.escape, known_risk_terms), key=len, reverse=True))
+            + r')`?'
+            r'(?:\s*(?:\+|/|\bor\b)\s*`?[A-Z][A-Z0-9_]*`?)*'
+            r')',
             line,
         )
-        if action_mapping:
-            yield action_mapping.group(1), f'{label}:{line_number}'
+        if prose_classification:
+            yield prose_classification.group(1), f'{label}:{line_number}'
+        line_index += 1
 
 risk_reference = read('references/risk-levels.md')
 for level in sorted(canonical_risk_levels):

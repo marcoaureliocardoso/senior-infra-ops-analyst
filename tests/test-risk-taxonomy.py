@@ -16,6 +16,9 @@ SCRIPT_REL = Path("skills/command-driven-operations/scripts/risk-help.sh")
 NESTED_REFERENCE_REL = Path(
     "skills/command-driven-operations/audit/nested-risk.md"
 )
+POWERSHELL_REL = Path(
+    "skills/command-driven-operations/scripts/windows-baseline-readonly.ps1"
+)
 
 
 class RiskTaxonomyValidationTests(unittest.TestCase):
@@ -32,6 +35,8 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         cls.original_reference = cls.reference_path.read_text(encoding="utf-8")
         cls.script_path = cls.sandbox / SCRIPT_REL
         cls.nested_reference_path = cls.sandbox / NESTED_REFERENCE_REL
+        cls.powershell_path = cls.sandbox / POWERSHELL_REL
+        cls.original_powershell = cls.powershell_path.read_text(encoding="utf-8")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -46,6 +51,10 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
             self.script_path.unlink()
         if self.nested_reference_path.exists():
             self.nested_reference_path.unlink()
+        self.powershell_path.write_text(
+            self.original_powershell,
+            encoding="utf-8",
+        )
 
     def run_validator(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -77,6 +86,13 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         )
         self.assert_rejected(content, "unknown risk token HIGH_RISK")
 
+    def test_plain_unknown_risk_label_is_rejected(self) -> None:
+        content = self.replace_once(
+            "| SAFE_READ_ONLY | `hostnamectl`",
+            "| HIGH | `hostnamectl`",
+        )
+        self.assert_rejected(content, "unknown risk token HIGH")
+
     def test_modifier_only_classification_is_rejected(self) -> None:
         content = self.replace_once(
             "| SAFE_READ_ONLY + SENSITIVE_OUTPUT | `last -x",
@@ -93,12 +109,37 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
 
     def test_unknown_risk_label_in_nested_script_is_rejected(self) -> None:
         self.script_path.write_text(
-            "#!/usr/bin/env bash\n# Risk: HIGH_RISK\n",
+            "#!/usr/bin/env bash\n# Risk: HIGH\n",
             encoding="utf-8",
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("unknown risk token HIGH", result.stdout + result.stderr)
+
+    def test_risk_classification_script_label_is_rejected(self) -> None:
+        content = self.original_powershell.replace(
+            "Risk classification: SAFE_READ_ONLY + SENSITIVE_OUTPUT.",
+            "Risk classification: HIGH_RISK.",
+            1,
+        )
+        self.powershell_path.write_text(content, encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("unknown risk token HIGH_RISK", result.stdout + result.stderr)
+
+    def test_multiline_multiple_bases_in_script_are_rejected(self) -> None:
+        content = self.original_powershell.replace(
+            "Risk classification:\n  SAFE_READ_ONLY + SENSITIVE_OUTPUT",
+            "Risk classification:\n  SAFE_READ_ONLY + LOW_RISK_CHANGE",
+            1,
+        )
+        self.powershell_path.write_text(content, encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "classification requires exactly one base level",
+            result.stdout + result.stderr,
+        )
 
     def test_non_classification_change_identifier_is_accepted(self) -> None:
         content = self.original_reference + (
@@ -107,6 +148,21 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         self.reference_path.write_text(content, encoding="utf-8")
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_non_risk_read_only_identifier_is_accepted(self) -> None:
+        content = self.original_reference + "\n- IAM role: `READ_ONLY`\n"
+        self.reference_path.write_text(content, encoding="utf-8")
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_modifier_only_prose_is_rejected(self) -> None:
+        content = self.original_reference + (
+            "\nScoped log reads are SENSITIVE_OUTPUT.\n"
+        )
+        self.assert_rejected(
+            content,
+            "classification requires exactly one base level",
+        )
 
     def test_escaped_pipe_does_not_hide_invalid_risk_cell(self) -> None:
         self.nested_reference_path.parent.mkdir(parents=True, exist_ok=True)

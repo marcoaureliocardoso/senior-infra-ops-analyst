@@ -71,7 +71,13 @@ For Amazon MSK, Azure Service Bus, Google Pub/Sub, NATS, and Pulsar, prefer scop
 ## Risk mapping
 
 - Queue/topic/lag listing: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Payload sampling: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; approval required.
+- A bounded, non-consuming peek or browse that cannot acknowledge, remove, or
+  change delivery state is `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; approval is
+  required.
+- Consuming, acknowledging, requeueing, dead-lettering, or otherwise changing
+  delivery state for sampling is `DISRUPTIVE_CHANGE` + `SENSITIVE_OUTPUT`;
+  require approval and business-owner alignment. If tool semantics are
+  uncertain, do not sample payloads.
 - Replay is `DISRUPTIVE_CHANGE`; purge, offset reset, and delete are `DESTRUCTIVE`.
 
 ## Evidence to capture

@@ -82,8 +82,12 @@ Interpret before proposing changes.
 ## Sensitivity and load notes
 
 - `journalctl`, `dmesg`, application logs, process lists, firewall rules, and service status can expose usernames, paths, tokens, internal hostnames, or private IPs. Redact before sharing.
-- `find`, `du`, and large log scans are RESOURCE_INTENSIVE on busy filesystems. Prefer exact paths, `-xdev`, time windows, and result limits.
-- Commands using `sudo` are PRIVILEGED even when read-only; confirm the target before running.
+- `find`, `du`, and large log scans are `SAFE_READ_ONLY` +
+  `RESOURCE_INTENSIVE` when they do not modify state. Prefer exact paths,
+  `-xdev`, time windows, and result limits.
+- A non-mutating command using `sudo` is `SAFE_READ_ONLY` + `PRIVILEGED`.
+  State-changing commands inherit the higher plausible base level; always
+  confirm the exact target before running.
 
 ## Related references
 

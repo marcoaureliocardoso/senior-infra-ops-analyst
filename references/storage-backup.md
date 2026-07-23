@@ -67,7 +67,9 @@ Snapshots are not backups by themselves. Before snapshot removal/consolidation:
 
 ## Sensitivity and load notes
 
-- Broad `du`, `find`, recursive `Get-ChildItem`, and full-disk scans are RESOURCE_INTENSIVE. Start at the affected mount/drive and limit depth/time.
+- Broad `du`, `find`, recursive `Get-ChildItem`, and non-mutating full-disk
+  scans are `SAFE_READ_ONLY` + `RESOURCE_INTENSIVE`. Start at the affected
+  mount or drive and limit depth and duration.
 - Backup logs may include hostnames, paths, usernames, repository names, and policy details. Redact before sharing.
 
 ## PowerShell examples with regex alternation
