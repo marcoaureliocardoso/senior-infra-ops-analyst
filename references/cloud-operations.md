@@ -10,7 +10,8 @@ Use this when diagnosing AWS, Azure, or GCP resources. Prefer narrow scopes: acc
 | scoped list/describe/show/get | SAFE_READ_ONLY |
 | logs/activity/IAM/security-rule review | SAFE_READ_ONLY + SENSITIVE_OUTPUT |
 | broad inventory across all regions/projects | SAFE_READ_ONLY + RESOURCE_INTENSIVE + SENSITIVE_OUTPUT |
-| start/stop/reboot/resize/delete | DISRUPTIVE_CHANGE or DESTRUCTIVE |
+| start/stop/reboot/resize | DISRUPTIVE_CHANGE |
+| delete | DESTRUCTIVE |
 | IAM, firewall, route, load balancer, DNS, backup, autoscaling changes | DISRUPTIVE_CHANGE |
 | restore overwrite, snapshot deletion, key deletion | DESTRUCTIVE |
 

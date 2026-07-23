@@ -5,7 +5,8 @@ Use this for certificate expiry, trust chains, SAN mismatch, TLS handshake error
 ## Safety rules
 
 - Never print private keys, PFX passphrases, ACME tokens, or CA signing material.
-- Certificate inspection is read-only, but chain contents and internal SANs are `SENSITIVE_OUTPUT`.
+- Certificate inspection is `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT` when chain
+  contents or internal SANs are exposed.
 - Renewal, import, private key movement, trust store changes, and service reloads require approval.
 - Verify before and after deployment using both local file checks and remote handshake checks.
 

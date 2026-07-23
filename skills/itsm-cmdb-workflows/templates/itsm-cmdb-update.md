@@ -14,7 +14,7 @@ Evidence:
 Action taken:
 Exact external target:
 Proposed content/change:
-Risk level: LOW_RISK_CHANGE
+Risk level: LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE
 Modifiers: EXTERNAL_SIDE_EFFECT / SENSITIVE_OUTPUT, when applicable
 Approval status: not requested / requested / approved / denied
 Rollback or compensating action:

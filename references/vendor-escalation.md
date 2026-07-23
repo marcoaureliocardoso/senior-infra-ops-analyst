@@ -41,8 +41,12 @@ openssl version
 ## Risk mapping
 
 - Version/status/log collection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Support bundles, packet captures, core dumps: `SENSITIVE_OUTPUT`; approval required before sharing.
-- Vendor remote session: `REMOTE_SESSION_RISK`; requires explicit authorization and monitoring.
+- Support bundles, packet captures, and core dumps: `SAFE_READ_ONLY` +
+  `SENSITIVE_OUTPUT` + `RESOURCE_INTENSIVE`; require tight scope and approval
+  before collection or sharing.
+- Vendor remote session: `LOW_RISK_CHANGE` + `REMOTE_SESSION_RISK` +
+  `EXTERNAL_SIDE_EFFECT`; require explicit authorization, exact participants,
+  duration, scope, monitoring, and termination criteria.
 
 ## Evidence quality checklist
 

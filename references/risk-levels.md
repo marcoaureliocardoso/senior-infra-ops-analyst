@@ -57,7 +57,8 @@ Examples:
 - hypervisor maintenance mode
 - Kubernetes rollout restart or node drain
 
-Requires explicit operator approval.
+Requires explicit operator approval plus objective, exact target, blast radius,
+expected interruption, validation, and rollback or compensating action.
 
 ## DESTRUCTIVE
 
@@ -72,7 +73,10 @@ Examples:
 - forceful VM removal
 - packet-filter disablement
 
-Requires explicit operator approval, backup/restore evidence, rollback plan, and confirmation of exact target.
+Requires explicit operator approval, confirmation of the exact target,
+backup/restore or other recovery evidence, validation, and a rollback plan when
+rollback is feasible. When the action is irreversible, document the tested
+recovery path and compensating action instead of inventing a rollback.
 
 ## Classification algorithm
 
@@ -81,6 +85,18 @@ Requires explicit operator approval, backup/restore evidence, rollback plan, and
 3. Otherwise, if it changes local or external state, classify it as `LOW_RISK_CHANGE`.
 4. Otherwise, classify it as `SAFE_READ_ONLY`.
 5. Add all applicable modifiers independently. When impact is uncertain, use the higher plausible level and state the uncertainty.
+
+## Control matrix
+
+| Level | Approval | Required before execution | Required after execution or failure |
+|---|---|---|---|
+| SAFE_READ_ONLY | None only when narrow, non-sensitive, and low-load | Exact target and scope; apply all modifiers | Summarize evidence, redact sensitive output, and stop on unexpected impact |
+| LOW_RISK_CHANGE | Explicit operator approval | Objective, exact target, scope, expected effect, validation, rollback or compensating action | Validate the effect; roll back or compensate if validation fails |
+| DISRUPTIVE_CHANGE | Explicit operator approval | Objective, exact target, blast radius, expected interruption, window, validation, rollback or compensating action | Validate service recovery; roll back or compensate on failure |
+| DESTRUCTIVE | Explicit operator approval | Exact target, blast radius, recovery evidence, validation, and rollback when feasible; otherwise tested recovery and compensating action | Validate recovery and preserve an audit record of outcome and remaining impact |
+
+Modifiers add handling requirements to this matrix; they never remove a base
+level requirement.
 
 ## Never run without explicit approval
 
@@ -101,5 +117,5 @@ Requires explicit operator approval, backup/restore evidence, rollback plan, and
 - `pfctl -d`: `DESTRUCTIVE`; it disables packet filtering and can expose protected networks.
 - `kubectl delete namespace <ns>`: `DESTRUCTIVE`; it cascades deletion of namespace resources.
 - `kubectl delete pvc`: `DESTRUCTIVE`; storage reclaim policy can delete data.
-- `nc -vz`, `traceroute`, `mtr`: `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`; they reveal port state or topology.
-- Broad `kubectl get events -A`, `kubectl top pods -A`, large log windows, and broad database process listings: add `RESOURCE_INTENSIVE` when cluster or dataset size is unknown.
+- `nc -vz`, `traceroute`, `mtr`: `SAFE_READ_ONLY` + `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`; they reveal port state or topology.
+- Broad `kubectl get events -A`, `kubectl top pods -A`, large log windows, and broad database process listings: `SAFE_READ_ONLY` + `RESOURCE_INTENSIVE` + `SENSITIVE_OUTPUT` when cluster or dataset size is unknown.

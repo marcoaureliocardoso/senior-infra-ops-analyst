@@ -1,7 +1,7 @@
 ---
 name: Cloud Operations
 description: Use when operating or diagnosing AWS, Azure, or GCP infrastructure with CLI/API access, especially inventory, VM health, network rules, load balancers, IAM exposure, monitoring, logs, quotas, backup, cost, and safe cloud change planning.
-version: 0.4.5
+version: 0.4.6
 last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:

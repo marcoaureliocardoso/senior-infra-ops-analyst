@@ -1,7 +1,7 @@
 ---
 name: Command Driven Operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
-version: 0.5.0
+version: 0.5.1
 last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:

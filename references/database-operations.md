@@ -91,5 +91,7 @@ Interpretation:
 
 ## Connection poolers
 
-- PgBouncer: inspect `SHOW POOLS;`, `SHOW CLIENTS;`, and `SHOW SERVERS;` using the PgBouncer admin database; output is `SENSITIVE_OUTPUT`.
-- ProxySQL: inspect `stats_mysql_connection_pool` and `stats_mysql_processlist`; output is `SENSITIVE_OUTPUT`.
+- PgBouncer: inspecting `SHOW POOLS;`, `SHOW CLIENTS;`, and `SHOW SERVERS;`
+  through the admin database is `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
+- ProxySQL: inspecting `stats_mysql_connection_pool` and
+  `stats_mysql_processlist` is `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.

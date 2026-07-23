@@ -107,7 +107,16 @@ Interpretation:
 - `describe`, `logs`, `events`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; broad scope such as `-A`, high-cardinality event streams, or large log windows can be `RESOURCE_INTENSIVE`.
 - `top`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; cluster-wide or sorted queries can be `RESOURCE_INTENSIVE`; requires metrics server and may fail if unavailable.
 - `auth can-i`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT` when users/service accounts are named.
-- `exec`, port-forward, temporary debug pods: `REMOTE_SESSION_RISK` or `ACTIVE_PROBE`; require operator awareness and tight scope.
+- A narrowly scoped, non-mutating `exec` is at least `LOW_RISK_CHANGE` +
+  `REMOTE_SESSION_RISK`; the invoked command inherits any higher plausible
+  base level and applicable modifiers.
+- Port-forward is `LOW_RISK_CHANGE` + `ACTIVE_PROBE` +
+  `REMOTE_SESSION_RISK`; bind locally, limit duration, and identify the exact
+  service and port.
+- A temporary debug pod is `LOW_RISK_CHANGE`; add `PRIVILEGED` when elevated
+  access is requested and raise the base to `DISRUPTIVE_CHANGE` when the pod
+  can affect shared capacity, policy, traffic, or workloads.
+- Require explicit approval for `exec`, port-forward, and temporary debug pods.
 - `apply`, `patch`, `edit`, `scale`, and `cordon`: `LOW_RISK_CHANGE` when narrowly scoped and non-disruptive; otherwise `DISRUPTIVE_CHANGE`.
 - `rollout restart` and `drain`: `DISRUPTIVE_CHANGE`. All listed changes require explicit approval.
 - `kubectl delete namespace <ns>`, `kubectl delete pvc`, and broad deletes: `DESTRUCTIVE`; require formal approval, recovery evidence, and rollback/restore plan.

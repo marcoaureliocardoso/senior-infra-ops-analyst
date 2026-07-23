@@ -8,7 +8,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.9.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.9.1 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Directory structure
 
@@ -136,7 +136,7 @@ Commands are classified into risk tiers with operational modifiers:
 **Operational modifiers:**
 - `SENSITIVE_OUTPUT` — Output contains secrets, tokens, or PII. Requires redaction.
 - `RESOURCE_INTENSIVE` — High CPU, memory, or I/O. Scope and throttle.
-- `ACTIVE_PROBE` — Sends traffic to external systems. Minimize and target narrowly.
+- `ACTIVE_PROBE` — Sends diagnostic traffic to internal or external target systems. Minimize and target narrowly.
 - `PRIVILEGED` — Requires elevated access. Verify scope and necessity.
 - `REMOTE_SESSION_RISK` — Operates over SSH or remote session. Connection state risk.
 - `EXTERNAL_SIDE_EFFECT` — Changes tickets, messages, comments, approvals, CMDB, or other external workflow state. Requires exact-target approval.

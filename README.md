@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.9.0
+Version: 0.9.1
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -36,6 +36,21 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash, Skill` |
 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+
+## What changed in v0.9.1
+
+- Completed a retroactive independent review of the v0.8.0 risk-taxonomy
+  implementation and corrected all Important findings.
+- Enforced exactly one canonical base risk level in explicit classifications,
+  including nested skill content and scripts.
+- Removed modifier-only and mixed-base classifications from container,
+  Kubernetes, network probe, cloud, audit, vendor, and ITSM instructions.
+- Added a shared control matrix for approval, validation, rollback, recovery,
+  and compensating action requirements.
+- Added mutation-style regression tests for unknown levels, modifier-only
+  records, multiple bases, nested scripts, and false-positive resistance.
+- Kept runtime selection portable without pinning Claude Code, Nori, or model
+  versions.
 
 ## What changed in v0.9.0
 

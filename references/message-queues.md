@@ -71,7 +71,7 @@ For Amazon MSK, Azure Service Bus, Google Pub/Sub, NATS, and Pulsar, prefer scop
 ## Risk mapping
 
 - Queue/topic/lag listing: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Payload sampling: `SENSITIVE_OUTPUT`; approval required.
+- Payload sampling: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; approval required.
 - Replay is `DISRUPTIVE_CHANGE`; purge, offset reset, and delete are `DESTRUCTIVE`.
 
 ## Evidence to capture
