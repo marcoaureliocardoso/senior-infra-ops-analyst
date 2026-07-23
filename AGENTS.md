@@ -116,7 +116,7 @@ When a task falls within a specialized domain, delegate to the appropriate subag
 | `release-cicd-operator` | CI/CD pipeline failures, runner health, deployment gates, artifact integrity |
 | `audit-evidence-collector` | Audit evidence, redaction, compliance, vendor escalation packages |
 
-Each subagent inherits the project safety model and references its domain-specific skills and references. See `subagents/` for full definitions.
+Each subagent inherits the project safety model and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
 
 ## Communication style
 

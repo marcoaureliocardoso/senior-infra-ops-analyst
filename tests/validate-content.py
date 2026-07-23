@@ -233,7 +233,7 @@ for sa in subagents_from_manifest:
     if 'references/risk-levels.md' not in t:
         err(f'subagent does not reference shared risk levels: {sa_id}')
     fm = t.split('---', 2)[1] if t.startswith('---') else ''
-    for field in ['name:', 'description:', 'tools:', 'model:']:
+    for field in ['name:', 'description:', 'tools:', 'model:', 'skills:']:
         if not re.search(r'^' + re.escape(field), fm, re.MULTILINE):
             err(f'subagent lacks frontmatter field {field}: {sa_id}')
     # Minimum content threshold (anti-stub)
@@ -251,6 +251,46 @@ for sa in subagents_from_manifest:
     model_match = re.search(r'^model:\s*(.+)$', fm, re.MULTILINE)
     if model_match and model_match.group(1).strip() != 'inherit':
         err(f'subagent model must be "inherit", got "{model_match.group(1).strip()}": {sa_id}')
+    # Preloaded skills must match the role's documented primary skills. Claude Code
+    # silently skips missing skills, so fail validation instead of degrading at runtime.
+    skills_match = re.search(
+        r'^skills:\s*\n((?:[ \t]+-[ \t]+[a-z0-9-]+[ \t]*\n?)+)',
+        fm,
+        re.MULTILINE,
+    )
+    if not skills_match:
+        err(f'subagent has malformed or empty skills preload: {sa_id}')
+    else:
+        preloaded_skills = re.findall(
+            r'^[ \t]+-[ \t]+([a-z0-9-]+)[ \t]*$',
+            skills_match.group(1),
+            re.MULTILINE,
+        )
+        if not preloaded_skills:
+            err(f'subagent has empty skills preload: {sa_id}')
+        if len(preloaded_skills) != len(set(preloaded_skills)):
+            err(f'subagent has duplicate preloaded skills: {sa_id}')
+        unknown_skills = set(preloaded_skills) - set(skills)
+        if unknown_skills:
+            err(f'subagent preloads skills absent from nori.json: {sorted(unknown_skills)} — {sa_id}')
+
+        primary_section = re.search(
+            r'^## Primary skills\s*\n(.*?)(?=^## |\Z)',
+            t,
+            re.MULTILINE | re.DOTALL,
+        )
+        primary_skills = (
+            re.findall(r'`skills/([a-z0-9-]+)/SKILL\.md`', primary_section.group(1))
+            if primary_section
+            else []
+        )
+        if not primary_skills:
+            err(f'subagent lacks documented primary skills: {sa_id}')
+        elif preloaded_skills != primary_skills:
+            err(
+                f'subagent preload does not match documented primary skills: '
+                f'{sa_id} ({preloaded_skills} != {primary_skills})'
+            )
 
 # Validate allowed-tools in slash commands reference valid subagents
 if subagent_ids:

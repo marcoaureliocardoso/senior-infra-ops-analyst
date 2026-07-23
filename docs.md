@@ -8,7 +8,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.8.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.9.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Directory structure
 
@@ -29,7 +29,7 @@ senior-infra-ops-analyst/
 │       ├── nori.json          # Per-skill metadata
 │       ├── examples/          # Realistic evidence examples
 │       └── templates/         # Reusable artifacts
-├── subagents/                 # 12 role-focused subagents
+├── subagents/                 # 12 role-focused subagents with primary-skill preload
 ├── slashcommands/             # 20 operator slash commands
 ├── references/                # 33 domain reference documents
 └── tests/                     # Validators and CI scripts
@@ -89,6 +89,8 @@ senior-infra-ops-analyst/
 
 ### Subagents
 
+Each subagent preloads only the primary skills listed in its definition through Claude Code's native `skills` frontmatter. The focused preload provides role knowledge at startup while leaving non-primary project skills available for on-demand discovery.
+
 | Subagent | Role |
 |----------|------|
 | `diagnostic-operator` | Initial evidence collection and diagnostic triage |
@@ -143,4 +145,4 @@ Assign exactly one risk tier based on the highest plausible impact, then add all
 
 ### Integration
 
-This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
+This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`. Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.

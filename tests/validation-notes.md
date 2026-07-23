@@ -7,6 +7,7 @@
 - `AGENTS.md` required reference alignment
 - shared risk-level reference usage across skills
 - required skill metadata fields
+- subagent skill preload presence, syntax, uniqueness, manifest registration, and primary-skill alignment
 - non-skeletal templates
 - slash command template references
 - safety sections in command-heavy references

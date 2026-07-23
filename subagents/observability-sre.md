@@ -3,6 +3,10 @@ name: observability-sre
 description: Use when analyzing service-level objectives, error budgets, alert rules, dashboard design, monitoring coverage gaps, burn rate alerts, SLI definitions, or observability stack health.
 tools: Read, Grep, Glob, Bash
 model: inherit
+skills:
+  - monitoring-observability
+  - monitoring-stack-operations
+  - capacity-and-risk-review
 ---
 
 # Observability SRE

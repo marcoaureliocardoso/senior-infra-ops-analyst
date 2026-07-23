@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 - 2026-07-23
+
+- Preloaded all 12 subagents with their documented role-specific primary skills through native Claude Code `skills` frontmatter, while retaining on-demand access to the rest of the catalog.
+- Extended `validate-content.py` to reject missing, malformed, empty, duplicated, unregistered, or documentation-divergent subagent skill preloads.
+- Updated `AGENTS.md`, `README.md`, and `docs.md` to document focused startup preload behavior without pinning Claude Code, Nori, or model versions.
+
 ## 0.8.0 - 2026-07-23
 
 - Unified operational risk under the exclusive levels `SAFE_READ_ONLY`, `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, and `DESTRUCTIVE`; removed the undefined `STATE_CHANGING` and abbreviated `DISRUPTIVE` labels from active instructions.

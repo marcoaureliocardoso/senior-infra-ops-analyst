@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.8.0
+Version: 0.9.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -35,7 +35,13 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | `Read, Grep, Glob, Bash` |
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
 
-Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+
+## What changed in v0.9.0
+
+- Preloaded each of the 12 subagents with its role-specific primary skills so domain instructions are present at startup without loading the full 24-skill catalog.
+- Extended content validation to reject missing, empty, malformed, duplicated, unregistered, or documentation-divergent subagent skill preloads.
+- Kept runtime selection portable through `model: inherit`, without pinning Claude Code, Nori, or model versions.
 
 ## What changed in v0.8.0
 

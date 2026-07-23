@@ -3,6 +3,10 @@ name: release-cicd-operator
 description: Use for CI/CD pipeline diagnostics, runner/agent health, artifact integrity, deployment gate failures, build performance, pipeline configuration audit, and deployment rollback assessment.
 tools: Read, Grep, Glob, Bash
 model: inherit
+skills:
+  - cicd-operations
+  - infrastructure-troubleshooting
+  - change-management
 ---
 
 # Release CI/CD Operator

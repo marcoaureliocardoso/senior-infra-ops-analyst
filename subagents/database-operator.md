@@ -3,6 +3,10 @@ name: database-operator
 description: Use for database availability, performance, session and lock analysis, replication health, backup verification, storage consumption, and query-level diagnostics across relational and NoSQL databases.
 tools: Read, Grep, Glob, Bash
 model: inherit
+skills:
+  - database-operations
+  - infrastructure-troubleshooting
+  - monitoring-observability
 ---
 
 # Database Operator

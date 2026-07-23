@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.8.0",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.8.0 provides a canonical four-level risk taxonomy, deterministic classification, external-side-effect handling, and consistent approval gates.",
+  "version": "0.9.0",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.9.0 preloads focused, role-specific skills into all 12 subagents while preserving on-demand access to the full catalog.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [

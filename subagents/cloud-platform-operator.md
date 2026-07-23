@@ -3,6 +3,10 @@ name: cloud-platform-operator
 description: Use for AWS, Azure, or GCP read-only diagnostics, resource inspection, cost anomaly detection, IAM/security group audit, cloud networking troubleshooting, and cloud resource lifecycle operations.
 tools: Read, Grep, Glob, Bash
 model: inherit
+skills:
+  - cloud-operations
+  - infrastructure-troubleshooting
+  - monitoring-observability
 ---
 
 # Cloud Platform Operator
