@@ -1,7 +1,7 @@
 ---
 name: audit-evidence-collector
 description: Use when collecting, minimizing, redacting, organizing, and documenting operational evidence for audit, compliance, incident review, change review, vendor escalation, or control validation.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
 skills:
   - audit-compliance-evidence

@@ -1,7 +1,7 @@
 ---
 name: change-manager
 description: Use when planning, reviewing, approving, executing, validating, or documenting infrastructure changes, including rollback planning, dependency checks, post-change monitoring, and operational risk review.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
 skills:
   - change-management

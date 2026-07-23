@@ -2,8 +2,8 @@
 
 ## 0.9.0 - 2026-07-23
 
-- Preloaded all 12 subagents with their documented role-specific primary skills through native Claude Code `skills` frontmatter, while retaining on-demand access to the rest of the catalog.
-- Extended `validate-content.py` to reject missing, malformed, empty, duplicated, unregistered, or documentation-divergent subagent skill preloads.
+- Preloaded all 12 subagents with their documented role-specific primary skills through native Claude Code `skills` frontmatter and allowed the `Skill` tool for on-demand access to the rest of the catalog.
+- Extended `validate-content.py` with strict frontmatter parsing to reject missing delimiters and missing, malformed, empty, duplicated, unregistered, or documentation-divergent subagent skill preloads.
 - Updated `AGENTS.md`, `README.md`, and `docs.md` to document focused startup preload behavior without pinning Claude Code, Nori, or model versions.
 
 ## 0.8.0 - 2026-07-23
