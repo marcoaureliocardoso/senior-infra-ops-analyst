@@ -25,6 +25,6 @@ Behavior:
 - Use `skills/change-management/templates/change-plan.md` as the output structure.
 - Use `references/risk-levels.md` for risk and modifiers.
 - Execute only safe pre-checks when tool access exists.
-- Stop before state-changing steps until approval is explicit.
+- Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` step until approval is explicit.
 
 Output: completed change plan with risk, pre-checks, implementation, validation, rollback, backout conditions, and post-change monitoring.

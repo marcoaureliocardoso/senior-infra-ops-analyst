@@ -8,7 +8,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.7.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.8.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Directory structure
 
@@ -127,10 +127,9 @@ Commands are classified into risk tiers with operational modifiers:
 
 **Risk tiers:**
 - `SAFE_READ_ONLY` — Scoped, non-sensitive, low-load commands. Auto-executable.
-- `LOW_RISK_CHANGE` — Minor state changes with clear rollback.
-- `STATE_CHANGING` — Service-impacting changes. Requires explicit approval.
+- `LOW_RISK_CHANGE` — Limited, reversible or compensatable, non-disruptive state changes. Requires explicit approval.
 - `DISRUPTIVE_CHANGE` — Broad service disruption possible. Requires approval and rollback plan.
-- `DESTRUCTIVE` — Data or configuration loss possible. Requires approval, rollback, and verification.
+- `DESTRUCTIVE` — Data/configuration loss, critical safeguard removal, or recovery impairment possible. Requires approval, rollback, and verification.
 
 **Operational modifiers:**
 - `SENSITIVE_OUTPUT` — Output contains secrets, tokens, or PII. Requires redaction.
@@ -138,6 +137,9 @@ Commands are classified into risk tiers with operational modifiers:
 - `ACTIVE_PROBE` — Sends traffic to external systems. Minimize and target narrowly.
 - `PRIVILEGED` — Requires elevated access. Verify scope and necessity.
 - `REMOTE_SESSION_RISK` — Operates over SSH or remote session. Connection state risk.
+- `EXTERNAL_SIDE_EFFECT` — Changes tickets, messages, comments, approvals, CMDB, or other external workflow state. Requires exact-target approval.
+
+Assign exactly one risk tier based on the highest plausible impact, then add all applicable operational modifiers.
 
 ### Integration
 

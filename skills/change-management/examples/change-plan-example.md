@@ -29,7 +29,7 @@ The public certificate for `portal.example.edu` expires in 12 days. Renewal prev
 
 ## Risk and approval
 
-Reloading the proxy is `STATE_CHANGING`; it requires an approved change record. Replacing the private key or certificate file must be scoped to the target vhost.
+Reloading the proxy is `DISRUPTIVE_CHANGE`; it requires an approved change record. Replacing the private key or certificate file must be scoped to the target vhost.
 
 ## Rollback
 

@@ -16,7 +16,7 @@ A web service is unreachable from users. The operator has shell access to the af
 | Observed result | No listener on TCP 443; NGINX process not shown. |
 | Interpretation | The host is reachable, but HTTPS is not bound locally. Next branch is service status and logs. |
 | Next command | `systemctl status nginx --no-pager` |
-| Approval gate | Restarting NGINX is a state change and requires approval unless an existing runbook authorizes it. |
+| Approval gate | Restarting NGINX is `DISRUPTIVE_CHANGE` and requires approval unless an existing runbook authorizes it. |
 
 ## Follow-up evidence
 

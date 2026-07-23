@@ -84,7 +84,7 @@ For Traefik, Envoy, Caddy, Varnish, and appliance load balancers, prefer status/
 
 - Config print and status: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - External curl: `ACTIVE_PROBE`.
-- Reload, drain, weight change, cert replacement: `STATE_CHANGING`, requires approval.
+- Reload, drain, traffic-weight change, and certificate replacement: `DISRUPTIVE_CHANGE`; require approval.
 
 ## Evidence to capture
 

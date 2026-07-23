@@ -1,8 +1,8 @@
 ---
 name: Cloud Operations
 description: Use when operating or diagnosing AWS, Azure, or GCP infrastructure with CLI/API access, especially inventory, VM health, network rules, load balancers, IAM exposure, monitoring, logs, quotas, backup, cost, and safe cloud change planning.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.4.5
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - aws check
@@ -38,7 +38,7 @@ Use `references/cloud-operations.md` for AWS, Azure, and GCP commands, risk leve
 5. Check logs/metrics in narrow time window.
 6. Check IAM/permission symptoms if access-related.
 7. Check quota, capacity, backup, region/zone, and recent changes.
-8. Stop before state-changing mitigation unless approval is explicit.
+8. Stop before `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` mitigation unless approval is explicit.
 
 ## Required references
 

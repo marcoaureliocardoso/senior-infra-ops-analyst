@@ -1,8 +1,8 @@
 ---
 name: Change Management
 description: Use when planning, reviewing, approving, executing, or documenting infrastructure changes, maintenance windows, migrations, upgrades, firewall rules, deployments, patches, or configuration changes.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.4.5
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - change plan
@@ -21,7 +21,7 @@ Treat every infrastructure change as a controlled operation with scope, validati
 2. Identify risk level, blast radius, prerequisites, and backout conditions.
 3. Provide pre-checks, execution steps, validation steps, rollback steps, and post-change monitoring.
 4. Execute only safe pre-checks automatically when tool access exists.
-5. Require explicit approval before state-changing implementation steps.
+5. Require explicit approval before `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` implementation steps.
 6. Record evidence before and after the change.
 </required>
 

@@ -28,7 +28,7 @@ The portal availability SLO alert fired for the 30-minute fast-burn window. User
 
 ## Approval gate
 
-Restarting application workers, changing pool size, disabling a backend, or rolling back deployment is `STATE_CHANGING`/`DISRUPTIVE_CHANGE` and requires approval.
+Restarting application workers, changing pool size, disabling a backend, or rolling back deployment is `DISRUPTIVE_CHANGE` and requires approval.
 
 ## Stakeholder summary
 

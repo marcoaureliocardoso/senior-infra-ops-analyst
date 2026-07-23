@@ -24,7 +24,7 @@ Actively diagnose an infrastructure symptom with safe read-only commands before 
 3. Execute narrowly scoped SAFE_READ_ONLY checks when access exists.
 4. Summarize observed output, not raw dumps.
 5. Interpret and choose next check.
-6. Stop before any state-changing action.
+6. Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action.
 
 ## Example
 

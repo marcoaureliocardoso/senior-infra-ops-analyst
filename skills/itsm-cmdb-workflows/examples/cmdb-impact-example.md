@@ -27,4 +27,4 @@ The requested firewall change has a broader service impact than the ticket initi
 
 ## Approval gate
 
-Do not update CMDB relationships or approve the change automatically. CMDB writes and change approvals are state changes and require the normal ITSM workflow.
+Do not update CMDB relationships or approve the change automatically. These actions are `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT` and require the normal ITSM workflow.

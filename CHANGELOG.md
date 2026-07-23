@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 - 2026-07-23
+
+- Unified operational risk under the exclusive levels `SAFE_READ_ONLY`, `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, and `DESTRUCTIVE`; removed the undefined `STATE_CHANGING` and abbreviated `DISRUPTIVE` labels from active instructions.
+- Added `EXTERNAL_SIDE_EFFECT` for externally persisted ticket, comment, message, approval, assignment, CMDB, and audit-workflow actions, with exact-target/content confirmation and explicit approval.
+- Added deterministic highest-impact classification, modifier composition, and rollback-or-compensating-action rules to the canonical risk reference and command protocol.
+- Reclassified ambiguous operations across CI/CD, containers, Kubernetes, databases, PKI, monitoring, network edge, disaster recovery, audit, and ITSM/CMDB references.
+- Updated skills, subagents, slash commands, examples, and templates so every AI entry point uses the same risk and approval vocabulary.
+- Extended `validate-content.py` to require the canonical levels/modifiers in core policy artifacts and reject deprecated or invented risk-level tokens.
+
 ## 0.7.0 - 2026-07-20
 
 - `infrastructure-troubleshooting` v0.5.0: hypothesis discipline (one command, one hypothesis, explicit confirm/refute), multi-layer evidence gathering at component boundaries, anti-thrashing mechanism (3+ refuted hypotheses → re-examine layer/fundamentals). Adapted from `systematic-debugging` for infrastructure domains.

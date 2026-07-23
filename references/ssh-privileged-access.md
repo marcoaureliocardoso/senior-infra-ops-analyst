@@ -34,7 +34,7 @@ Interpretation:
 - SSH verbose probe: `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`.
 - Config expansion and syntax: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Sudo policy inspection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Key rotation, sudoers/PAM/group changes: `STATE_CHANGING`, requires approval.
+- Key rotation and sudoers/PAM/group changes: `DISRUPTIVE_CHANGE` + `PRIVILEGED`; add `REMOTE_SESSION_RISK` when access could be lost and require approval.
 
 ## Evidence to capture
 

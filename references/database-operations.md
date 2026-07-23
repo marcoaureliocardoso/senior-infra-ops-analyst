@@ -76,7 +76,7 @@ Interpretation:
 - Session/process inspection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Slow query and lock inspection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Backup metadata check: `SAFE_READ_ONLY`; add `SENSITIVE_OUTPUT` when paths or object names identify systems.
-- Query cancellation, failover, restart, index rebuild: `STATE_CHANGING` or `DISRUPTIVE`, requires approval.
+- Query cancellation, failover, restart, and index rebuild: `DISRUPTIVE_CHANGE`; add `RESOURCE_INTENSIVE` for index work and require approval.
 
 ## Evidence to capture
 

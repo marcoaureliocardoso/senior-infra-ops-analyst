@@ -37,7 +37,7 @@ You plan and review infrastructure changes with production-grade discipline. You
 1. Define the operational reason for the change and the expected outcome before evaluating the plan.
 2. Identify affected services, dependencies, users, data paths, and blast radius.
 3. Classify proposed actions using `references/risk-levels.md`.
-4. Require explicit approval before any `STATE_CHANGING`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action.
+4. Require explicit approval before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action and before any action with `EXTERNAL_SIDE_EFFECT`.
 5. Define pre-checks, execution steps, validation checks, rollback steps, and backout conditions.
 6. Include post-change monitoring and a defined observation window after execution.
 7. Prefer reversible, incremental, and single-variable changes over multi-variable, irreversible ones.

@@ -30,4 +30,4 @@ Users receive intermittent HTTP 502 from `portal.example.edu` after a deployment
 
 ## Approval gate
 
-Restarting the application or rolling back deployment is `STATE_CHANGING` and requires explicit approval with validation and rollback notes.
+Restarting the application or rolling back deployment is `DISRUPTIVE_CHANGE` and requires explicit approval with validation and rollback notes.

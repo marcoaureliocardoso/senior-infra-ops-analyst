@@ -41,7 +41,7 @@ For each command executed, keep this mental record:
 | Command | Exact command run |
 | Target | Host/service/component |
 | Risk | SAFE_READ_ONLY / LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |
-| Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK, if any |
+| Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / EXTERNAL_SIDE_EFFECT, if any |
 | Purpose | What it verifies |
 | Observed signal | Relevant output summary |
 | Interpretation | What it confirms/refutes |
@@ -59,7 +59,7 @@ For each command executed, keep this mental record:
 
 ## 5. Approval gates
 
-Stop before executing state-changing commands. Present:
+Stop before executing any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action. Also stop before an action with `EXTERNAL_SIDE_EFFECT`. Present:
 
 - Objective
 - Exact command
@@ -67,7 +67,7 @@ Stop before executing state-changing commands. Present:
 - Expected impact
 - Expected duration
 - Validation
-- Rollback
+- Rollback or compensating action
 - Safer alternative
 
 Proceed only after explicit approval.

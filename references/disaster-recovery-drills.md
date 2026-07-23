@@ -65,7 +65,7 @@ gcloud compute snapshots list
 ## Risk mapping
 
 - Backup inventory: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Isolated restore: `STATE_CHANGING` in test environment; watch data handling.
+- Isolated restore into a new test target: `LOW_RISK_CHANGE` + `SENSITIVE_OUTPUT`; require approval and protect restored data.
 - Component failover/DNS cutover: `DISRUPTIVE_CHANGE`, formal approval required.
 - Restore overwrite/delete, replication break, destructive tests: `DESTRUCTIVE`, formal approval required.
 

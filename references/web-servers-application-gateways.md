@@ -48,7 +48,7 @@ Get-WinEvent -LogName Application -MaxEvents 100
 - HTTP probe: `ACTIVE_PROBE`.
 - Config status/tests: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Log reads: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Reload/restart/rule change: `STATE_CHANGING` or `DISRUPTIVE`.
+- Reload, restart, and routing or security rule changes: `DISRUPTIVE_CHANGE`; require approval.
 
 ## Evidence to capture
 

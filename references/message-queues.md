@@ -72,7 +72,7 @@ For Amazon MSK, Azure Service Bus, Google Pub/Sub, NATS, and Pulsar, prefer scop
 
 - Queue/topic/lag listing: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Payload sampling: `SENSITIVE_OUTPUT`; approval required.
-- Purge/replay/reset offsets/delete: `DESTRUCTIVE` or `STATE_CHANGING`.
+- Replay is `DISRUPTIVE_CHANGE`; purge, offset reset, and delete are `DESTRUCTIVE`.
 
 ## Evidence to capture
 

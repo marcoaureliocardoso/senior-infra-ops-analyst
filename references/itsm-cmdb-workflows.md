@@ -12,7 +12,7 @@ Use this for incident/change/problem records, CI ownership, impact analysis, dep
 
 ## Workflow map
 
-| Workflow | Operational purpose | Common read-only evidence | State-changing boundary |
+| Workflow | Operational purpose | Common read-only evidence | Change boundary |
 |---|---|---|---|
 | Incident | Restore service and reduce impact | Impact, timeline, affected CI, linked alerts | Priority/severity, assignment, resolution, closure |
 | Change | Control risk of alteration | Change window, approvals, implementation plan | Approval, implementation state, closure |
@@ -64,7 +64,12 @@ Observed:
 Impact:
 Evidence:
 Action taken:
-Risk/approval:
+Exact external target:
+Proposed content/change:
+Risk level:
+Modifiers:
+Approval status:
+Rollback or compensating action:
 Next step:
 Owner:
 Timestamp:
@@ -79,9 +84,10 @@ Prefer approved secret stores, short-lived environment variables, `--netrc`/cred
 ## Risk mapping
 
 - Reading records/CMDB: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Adding a work note requested by the operator: `STATE_CHANGING` but usually low technical risk; still affects audit history.
-- Assignment, priority, severity, approval, closure, SLA pause, CMDB relationship edits: `STATE_CHANGING`, approval required.
-- Vendor/customer-visible comments: `STATE_CHANGING` + high communication sensitivity.
+- Add a work note: `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT`; show the exact record and text, then require approval because audit history changes.
+- Assignment, priority, severity, closure, SLA pause, and CMDB relationship edits: `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT`; require approval.
+- An approval action inherits the highest plausible impact it authorizes: use `LOW_RISK_CHANGE` for non-disruptive workflow approval, `DISRUPTIVE_CHANGE` for service-impacting execution, or `DESTRUCTIVE` for destructive execution; add `EXTERNAL_SIDE_EFFECT`.
+- Vendor/customer-visible comments: `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT` + `SENSITIVE_OUTPUT`; show the exact audience and text, then require approval.
 
 ## Evidence to capture
 

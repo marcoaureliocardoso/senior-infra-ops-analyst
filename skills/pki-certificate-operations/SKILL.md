@@ -1,8 +1,8 @@
 ---
 name: PKI and Certificate Lifecycle Operations
 description: Use when diagnosing certificate expiry, trust chain, SAN mismatch, TLS handshake, renewal, deployment validation, or certificate inventory issues.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.4.5
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - pki-certificate-operations
@@ -21,7 +21,7 @@ Use this skill when the operational domain materially changes the diagnostic ord
 5. Run read-only checks first: expiry, issuer, SAN, fingerprint, chain verification, SNI behavior, listener response, and clock assumptions.
 6. Interpret TLS failures as expiry, missing intermediate, wrong trust anchor, hostname mismatch, key mismatch, SNI/listener mismatch, cipher/protocol issue, or clock drift.
 7. Require approval before renewal, import, trust-store update, private key movement, certificate replacement, service reload, DNS cutover, or CA changes.
-8. Use shared risk vocabulary for `SENSITIVE_OUTPUT`, `ACTIVE_PROBE`, `STATE_CHANGING`, and key-handling risk.
+8. Use shared risk vocabulary: classify key-handling changes as `DISRUPTIVE_CHANGE` and add `SENSITIVE_OUTPUT` and `PRIVILEGED` when applicable.
 9. Produce `skills/pki-certificate-operations/templates/certificate-renewal-plan.md` with inventory, checks, renewal path, validation, rollback, and evidence.
 </required>
 

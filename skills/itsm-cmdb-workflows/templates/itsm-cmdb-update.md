@@ -12,7 +12,12 @@ Observed:
 Impact:
 Evidence:
 Action taken:
-Risk/approval:
+Exact external target:
+Proposed content/change:
+Risk level: LOW_RISK_CHANGE
+Modifiers: EXTERNAL_SIDE_EFFECT / SENSITIVE_OUTPUT, when applicable
+Approval status: not requested / requested / approved / denied
+Rollback or compensating action:
 Next step:
 Owner:
 Timestamp/timezone:

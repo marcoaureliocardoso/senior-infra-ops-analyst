@@ -26,7 +26,7 @@ where not blocked_locks.granted and blocking_locks.granted;
 
 ## Interpretation
 
-The primary symptom is lock contention caused by one long-running transaction. Replication and disk capacity do not explain the immediate timeout. Terminating the blocking backend could restore writes, but it is a state-changing action and may roll back work.
+The primary symptom is lock contention caused by one long-running transaction. Replication and disk capacity do not explain the immediate timeout. Terminating the blocking backend could restore writes, but it is `DISRUPTIVE_CHANGE` and may roll back work.
 
 ## Mitigation options
 

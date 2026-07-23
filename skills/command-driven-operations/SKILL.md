@@ -1,8 +1,8 @@
 ---
 name: Command Driven Operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.5.0
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - run commands
@@ -22,9 +22,10 @@ Operate as an assisted infrastructure analyst. Use available tools to gather evi
 3. Execute SAFE_READ_ONLY commands when tool access is available only if they are narrowly scoped and do not expose secrets, personal data, broad logs, packet metadata, or significant resource load.
 4. For SAFE_READ_ONLY commands with SENSITIVE_OUTPUT, RESOURCE_INTENSIVE, ACTIVE_PROBE, PRIVILEGED, or REMOTE_SESSION_RISK modifiers, minimize scope first; request approval when the scope is broad or production-sensitive.
 5. Do not execute LOW_RISK_CHANGE, DISRUPTIVE_CHANGE, or DESTRUCTIVE commands without explicit approval.
-6. For every executed command, record: command, target, purpose, observed output summary, interpretation, and next step.
-7. Never fabricate outputs. If access is missing, say so and provide the exact command plan.
-8. Stop when the next logical action crosses an approval gate.
+6. Do not execute an action with EXTERNAL_SIDE_EFFECT without showing the exact target and intended content/change and obtaining explicit approval.
+7. For every executed command, record: command, target, purpose, observed output summary, interpretation, and next step.
+8. Never fabricate outputs. If access is missing, say so and provide the exact command plan.
+9. Stop when the next logical action crosses an approval gate.
 </required>
 
 ## Execution loop
@@ -43,7 +44,7 @@ Use this loop repeatedly:
 For each command block, use:
 
 - Risk: SAFE_READ_ONLY | LOW_RISK_CHANGE | DISRUPTIVE_CHANGE | DESTRUCTIVE
-- Modifiers: none | SENSITIVE_OUTPUT | RESOURCE_INTENSIVE | ACTIVE_PROBE | PRIVILEGED | REMOTE_SESSION_RISK
+- Modifiers: none | SENSITIVE_OUTPUT | RESOURCE_INTENSIVE | ACTIVE_PROBE | PRIVILEGED | REMOTE_SESSION_RISK | EXTERNAL_SIDE_EFFECT
 - Target: host/service/component
 - Purpose: what this verifies
 - Command

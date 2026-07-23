@@ -6,7 +6,7 @@ Use this for Docker, containerd, Podman, CRI-O, image/runtime issues, container 
 
 - Prefer `ps`, `inspect`, `logs --tail`, `stats --no-stream`, and runtime metadata before exec/restart.
 - Treat env vars, labels, mounts, image names, registry URLs, and logs as `SENSITIVE_OUTPUT`.
-- `exec`, debug shells, image pulls, restarts, prune, rm, stop, kill, and network changes require approval unless explicitly requested.
+- `exec`, debug shells, image pulls, restarts, prune, rm, stop, kill, and network changes require explicit approval. A broad request to troubleshoot is not approval; the approval must identify the exact action, target, and scope.
 - Do not dump full logs or environment variables. Redact secrets and tokens.
 
 ## Read-only checks
@@ -55,7 +55,7 @@ ctr namespaces list
 
 - `curl` from host to exposed port is `ACTIVE_PROBE`.
 - `docker exec` or `podman exec` is `REMOTE_SESSION_RISK` and may alter access/session state; approval recommended.
-- Restart/recreate/pull/prune is `STATE_CHANGING` or `DESTRUCTIVE`.
+- Image pull is `LOW_RISK_CHANGE`; restart or recreate is `DISRUPTIVE_CHANGE`; prune is `DESTRUCTIVE`.
 
 ## Evidence to capture
 

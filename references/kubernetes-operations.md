@@ -108,7 +108,8 @@ Interpretation:
 - `top`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; cluster-wide or sorted queries can be `RESOURCE_INTENSIVE`; requires metrics server and may fail if unavailable.
 - `auth can-i`: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT` when users/service accounts are named.
 - `exec`, port-forward, temporary debug pods: `REMOTE_SESSION_RISK` or `ACTIVE_PROBE`; require operator awareness and tight scope.
-- `apply`, `patch`, `edit`, `scale`, `rollout restart`, `cordon`, `drain`: `STATE_CHANGING` or `DISRUPTIVE`; require explicit approval.
+- `apply`, `patch`, `edit`, `scale`, and `cordon`: `LOW_RISK_CHANGE` when narrowly scoped and non-disruptive; otherwise `DISRUPTIVE_CHANGE`.
+- `rollout restart` and `drain`: `DISRUPTIVE_CHANGE`. All listed changes require explicit approval.
 - `kubectl delete namespace <ns>`, `kubectl delete pvc`, and broad deletes: `DESTRUCTIVE`; require formal approval, recovery evidence, and rollback/restore plan.
 
 ## Evidence to capture

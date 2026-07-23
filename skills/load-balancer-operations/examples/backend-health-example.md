@@ -16,7 +16,7 @@ Users receive intermittent 503 responses from `portal.example.local`. HAProxy is
 
 ## Interpretation
 
-The load balancer is accepting traffic and TLS is healthy. 503s are caused by unhealthy backend application instances, not frontend listener failure. Traffic changes on the load balancer may reduce impact, but removing backends is a state change.
+The load balancer is accepting traffic and TLS is healthy. 503s are caused by unhealthy backend application instances, not frontend listener failure. Traffic changes on the load balancer may reduce impact, but removing backends is `DISRUPTIVE_CHANGE`.
 
 ## Safe next actions
 

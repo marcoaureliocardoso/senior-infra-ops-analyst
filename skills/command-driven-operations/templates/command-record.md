@@ -10,12 +10,14 @@ Use this for every executed or proposed command. Separate observed output from i
 | Environment | production / staging / lab / unknown |
 | Command |  |
 | Risk | SAFE_READ_ONLY / LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |
-| Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / none |
+| Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / EXTERNAL_SIDE_EFFECT / none |
 | Purpose | What hypothesis does this test? |
 | Approval status | not required / requested / approved / denied |
 | Output summary | Short factual summary; redact secrets and personal data. |
 | Interpretation | What does the output confirm or refute? |
 | Next action |  |
+
+For `EXTERNAL_SIDE_EFFECT`, record the exact external target, intended content/change, approval evidence, and rollback or compensating action.
 
 ## Example
 

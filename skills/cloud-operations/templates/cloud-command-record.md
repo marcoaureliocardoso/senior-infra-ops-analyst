@@ -41,7 +41,9 @@ Use this template when recording scoped AWS, Azure, or GCP read-only diagnostics
 
 | Proposed action | Risk | Blast radius | Rollback | Validation command | Approval owner |
 |---|---|---|---|---|---|
-|  | STATE_CHANGING / DISRUPTIVE_CHANGE / DESTRUCTIVE |  |  |  |  |
+|  | LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |  |  |  |  |
+
+Modifiers, when applicable: SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / EXTERNAL_SIDE_EFFECT.
 
 ## Redaction checklist
 

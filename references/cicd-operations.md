@@ -49,8 +49,10 @@ Prefer approved secret stores, short-lived environment variables, `--netrc`/cred
 ## Risk mapping
 
 - List/view runs and failed logs: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Rerun, cancel, approve, deploy, rollback: `STATE_CHANGING` or `DISRUPTIVE`.
-- Secret rotation: `STATE_CHANGING` + high sensitivity.
+- Rerun, cancel, or approve a non-deployment pipeline: `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT`; require explicit approval.
+- If rerun, cancel, or approval controls a deployment or production job, use `DISRUPTIVE_CHANGE` + `EXTERNAL_SIDE_EFFECT`.
+- Deploy or rollback: `DISRUPTIVE_CHANGE`; require explicit approval and a validated rollback path.
+- Secret rotation: `DISRUPTIVE_CHANGE` + `SENSITIVE_OUTPUT`; require explicit approval and coordinated consumer validation.
 
 ## Evidence to capture
 

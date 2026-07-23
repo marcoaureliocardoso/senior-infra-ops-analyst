@@ -16,7 +16,7 @@ An infrastructure operator cannot SSH to `backup-srv-01` using a managed key. Ot
 
 ## Interpretation
 
-The failure is likely server-side file ownership or mode policy, not missing account or absent key. Remediation may require changing permissions on the user home or `.ssh` directory, which is a state change.
+The failure is likely server-side file ownership or mode policy, not missing account or absent key. Remediation may require a `LOW_RISK_CHANGE` + `PRIVILEGED` action on permissions for the user home or `.ssh` directory.
 
 ## Safe next actions
 

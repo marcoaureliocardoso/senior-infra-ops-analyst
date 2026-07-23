@@ -7,7 +7,7 @@ Use this for Prometheus, Alertmanager, Grafana, Zabbix, ELK/Elastic, and OpenSea
 - Treat labels, logs, dashboard variables, datasource URLs, and alert annotations as `SENSITIVE_OUTPUT`.
 - Start with health/status APIs and bounded queries.
 - Avoid broad log searches, expensive PromQL/range queries, index deletes, retention changes, silences, and alert rule edits without approval.
-- A silence is state-changing and can hide outages; require approval and expiration.
+- A silence is `LOW_RISK_CHANGE` and can hide outages; require approval and expiration.
 
 ## Read-only checks
 
@@ -87,7 +87,7 @@ For Loki, Datadog, New Relic, Splunk, Thanos, Cortex, or Mimir, prefer scoped he
 
 - Health and status APIs: `SAFE_READ_ONLY`.
 - Log queries and config dumps: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; broad queries may be `RESOURCE_INTENSIVE`.
-- Silences, rule edits, datasource changes, index deletion: `STATE_CHANGING` or `DESTRUCTIVE`.
+- Silences and narrowly scoped rule or datasource edits: `LOW_RISK_CHANGE`; classify broad changes as `DISRUPTIVE_CHANGE`. Index deletion is `DESTRUCTIVE`.
 
 ## Evidence to capture
 

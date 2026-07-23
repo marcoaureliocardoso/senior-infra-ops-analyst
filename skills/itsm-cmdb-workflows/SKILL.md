@@ -1,8 +1,8 @@
 ---
 name: ITSM and CMDB Workflows
 description: Use when updating or correlating incident, change, problem, CMDB, CI ownership, dependency, impact, support group, or service record workflows.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.5.0
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - itsm-cmdb-workflows
@@ -20,8 +20,8 @@ Use this skill when the operational domain materially changes the diagnostic ord
 4. Treat ticket details, CI names, topology, user reports, asset tags, impact statements, and internal notes as `SENSITIVE_OUTPUT`.
 5. Perform read-only record lookups and relationship checks before proposing updates, reassignment, priority change, approval, or closure.
 6. Interpret workflow data as supporting evidence, not ground truth: stale CMDB, missing owner, unlinked change, duplicate incident, or wrong CI can mislead diagnosis.
-7. Require approval or explicit instruction before changing state, priority, assignment, closure, approval status, SLA pause, or CMDB relationships.
-8. Use shared risk vocabulary even for ticket changes: they are `STATE_CHANGING` because they alter audit history and workflow obligations.
+7. Before changing state, priority, assignment, closure, approval status, SLA pause, or CMDB relationships, show the exact record and proposed update and require explicit operator approval.
+8. Use shared risk vocabulary for ticket changes: classify them as `LOW_RISK_CHANGE` + `EXTERNAL_SIDE_EFFECT` because they alter audit history and workflow obligations.
 9. Produce `skills/itsm-cmdb-workflows/templates/itsm-cmdb-update.md` with record summary, CI mapping, linked evidence, proposed updates, and approval boundary.
 </required>
 

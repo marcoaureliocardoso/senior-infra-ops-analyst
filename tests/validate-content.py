@@ -11,6 +11,67 @@ manifest = json.loads(read('nori.json'))
 skills = manifest.get('skills', [])
 refs = manifest.get('references', [])
 
+canonical_risk_levels = {
+    'SAFE_READ_ONLY',
+    'LOW_RISK_CHANGE',
+    'DISRUPTIVE_CHANGE',
+    'DESTRUCTIVE',
+}
+canonical_risk_modifiers = {
+    'SENSITIVE_OUTPUT',
+    'RESOURCE_INTENSIVE',
+    'ACTIVE_PROBE',
+    'PRIVILEGED',
+    'REMOTE_SESSION_RISK',
+    'EXTERNAL_SIDE_EFFECT',
+}
+deprecated_risk_tokens = {
+    'STATE_CHANGING',
+    'DISRUPTIVE',
+}
+
+risk_reference = read('references/risk-levels.md')
+for level in sorted(canonical_risk_levels):
+    if f'## {level}' not in risk_reference:
+        err(f'risk-levels reference missing canonical level: {level}')
+for modifier in sorted(canonical_risk_modifiers):
+    if not re.search(rf'^\| {modifier} \|', risk_reference, re.MULTILINE):
+        err(f'risk-levels reference missing canonical modifier: {modifier}')
+
+core_risk_policy_files = [
+    root/'AGENTS.md',
+    root/'README.md',
+    root/'docs.md',
+    root/'references/risk-levels.md',
+    root/'references/command-execution-protocol.md',
+    root/'skills/command-driven-operations/SKILL.md',
+    root/'skills/command-driven-operations/templates/command-record.md',
+    root/'skills/cloud-operations/templates/cloud-command-record.md',
+]
+for p in core_risk_policy_files:
+    t = p.read_text(encoding='utf-8')
+    for term in sorted(canonical_risk_levels | canonical_risk_modifiers):
+        if not re.search(rf'\b{term}\b', t):
+            err(f'core risk policy omits canonical term {term}: {p.relative_to(root)}')
+
+risk_policy_files = [
+    *core_risk_policy_files,
+    *sorted((root/'references').glob('*.md')),
+    *sorted((root/'skills').glob('*/SKILL.md')),
+    *sorted((root/'skills').glob('*/examples/*.md')),
+    *sorted((root/'skills').glob('*/templates/*.md')),
+    *sorted((root/'slashcommands').glob('*.md')),
+    *sorted((root/'subagents').glob('*.md')),
+]
+for p in risk_policy_files:
+    t = p.read_text(encoding='utf-8')
+    for token in sorted(deprecated_risk_tokens):
+        if re.search(rf'\b{token}\b', t):
+            err(f'deprecated risk token {token} in {p.relative_to(root)}')
+    declared_levels = set(re.findall(r'\b([A-Z][A-Z0-9_]*(?:_CHANGE|_READ_ONLY)|DESTRUCTIVE)\b', t))
+    for token in sorted(declared_levels - canonical_risk_levels):
+        err(f'unknown risk level {token} in {p.relative_to(root)}')
+
 for skill in skills:
     p = root/'skills'/skill/'SKILL.md'
     if not p.exists():

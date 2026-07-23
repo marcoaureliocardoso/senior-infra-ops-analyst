@@ -1,8 +1,8 @@
 ---
 name: Runbook Authoring
 description: Use when creating or improving infrastructure runbooks, standard operating procedures, maintenance guides, recovery procedures, checklists, or handover documentation.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.4.5
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - runbook
@@ -19,7 +19,7 @@ Write runbooks that an operator can follow under pressure without guessing.
 <required>
 1. State purpose, scope, prerequisites, required access, risk level, and expected duration.
 2. Include pre-checks, step-by-step commands, expected output, interpretation, validation, rollback, and escalation criteria.
-3. Separate read-only diagnostics from state-changing actions.
+3. Separate `SAFE_READ_ONLY` diagnostics from `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, and `DESTRUCTIVE` actions.
 4. Mark disruptive actions and approval gates clearly.
 5. Include evidence to capture for audit, troubleshooting, or handover.
 </required>

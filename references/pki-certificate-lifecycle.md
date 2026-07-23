@@ -66,7 +66,7 @@ Never display private keys or passphrases. `openssl verify -verify_return_error`
 
 - Remote cert inspection: `SAFE_READ_ONLY` + `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`.
 - Local cert metadata inspection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Trust store, key, renewal, service reload: `STATE_CHANGING`; private key handling is high sensitivity.
+- Trust-store changes, key rotation, renewal, and service reload: `DISRUPTIVE_CHANGE`; add `SENSITIVE_OUTPUT` for private-key handling.
 
 ## Related references
 

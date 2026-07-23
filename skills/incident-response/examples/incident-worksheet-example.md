@@ -32,8 +32,8 @@ Users report that internal systems are unreachable by name, but some services re
 
 | Option | Risk | Approval needed | Validation |
 |---|---|---|---|
-| Switch DHCP DNS option to secondary resolver | STATE_CHANGING | Yes | Clients resolve internal names after renew. |
-| Add temporary firewall allow rule for DNS | STATE_CHANGING | Yes | Port 53 reachable from affected VLAN. |
+| Switch DHCP DNS option to secondary resolver | DISRUPTIVE_CHANGE | Yes | Clients resolve internal names after renew. |
+| Add temporary firewall allow rule for DNS | DISRUPTIVE_CHANGE | Yes | Port 53 reachable from affected VLAN. |
 
 ## Communication update
 

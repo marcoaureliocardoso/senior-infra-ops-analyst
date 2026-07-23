@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.7.0
+Version: 0.8.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -36,6 +36,15 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+
+## What changed in v0.8.0
+
+- Unified operational risk under four exclusive levels: `SAFE_READ_ONLY`, `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, and `DESTRUCTIVE`.
+- Added `EXTERNAL_SIDE_EFFECT` for tickets, comments, messages, approvals, CMDB relationships, and other externally persisted workflow actions.
+- Added a deterministic highest-impact classification algorithm, explicit approval gates, and rollback-or-compensating-action handling.
+- Reclassified ambiguous CI/CD, container, Kubernetes, database, PKI, monitoring, network-edge, and ITSM actions using the canonical vocabulary.
+- Updated agent instructions, skills, subagents, slash commands, examples, and templates so Claude Code/Nori-compatible agents receive the same policy at every entry point.
+- Extended content validation to reject deprecated or invented risk levels and require the complete canonical vocabulary in core policy artifacts.
 
 ## What changed in v0.7.0
 
@@ -143,7 +152,6 @@ Commands are classified as:
 
 - `SAFE_READ_ONLY`
 - `LOW_RISK_CHANGE`
-- `STATE_CHANGING`
 - `DISRUPTIVE_CHANGE`
 - `DESTRUCTIVE`
 
@@ -154,8 +162,10 @@ Operational modifiers include:
 - `ACTIVE_PROBE`
 - `PRIVILEGED`
 - `REMOTE_SESSION_RISK`
+- `EXTERNAL_SIDE_EFFECT`
 
-SAFE_READ_ONLY commands may be executed automatically only when scoped, non-sensitive, and low load. Sensitive or broad diagnostics require minimization, redaction, and sometimes approval. State-changing actions require explicit approval.
+Assign exactly one risk level based on the highest plausible impact, then add all applicable modifiers. SAFE_READ_ONLY commands may be executed automatically only when scoped, non-sensitive, and low load.
+Sensitive or broad diagnostics require minimization, redaction, and sometimes approval. LOW_RISK_CHANGE, DISRUPTIVE_CHANGE, DESTRUCTIVE, and EXTERNAL_SIDE_EFFECT actions require explicit approval.
 
 ## Assets
 

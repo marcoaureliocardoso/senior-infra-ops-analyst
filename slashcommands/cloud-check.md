@@ -24,7 +24,7 @@ Diagnose AWS, Azure, or GCP resources using scoped read-only cloud CLI/API comma
 2. Run only scoped read/list/describe/show/get commands.
 3. Treat logs, IAM, security rules, public IPs, and billing as sensitive.
 4. Interpret findings by compute, network, identity, storage, monitoring, quota, backup, or dependency.
-5. Stop before state-changing actions.
+5. Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action.
 
 ## Example
 

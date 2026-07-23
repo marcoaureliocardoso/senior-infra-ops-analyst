@@ -16,7 +16,7 @@ Grafana dashboards show missing host metrics for `lab-vm-07`. Prometheus alert `
 
 ## Interpretation
 
-Prometheus and Grafana are healthy. The failure is host-local: node exporter did not start after reboot. Starting/enabling the service is a state change and needs approval or existing runbook authorization.
+Prometheus and Grafana are healthy. The failure is host-local: node exporter did not start after reboot. Starting/enabling the service is `LOW_RISK_CHANGE` and needs approval or existing runbook authorization.
 
 ## Safe next actions
 

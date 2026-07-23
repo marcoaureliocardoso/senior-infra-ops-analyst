@@ -1,8 +1,8 @@
 ---
 name: CI/CD Operations
 description: Use when diagnosing failed pipelines, runner capacity, deployment gates, artifact failures, rollback workflows, or release safety issues.
-version: 0.4.4
-last_updated: 2026-07-08
+version: 0.4.5
+last_updated: 2026-07-23
 maintainer: Marco Aurelio Cardoso
 triggers:
   - cicd-operations
@@ -21,7 +21,7 @@ Use this skill when the operational domain materially changes the diagnostic ord
 5. Prefer read-only CLI/API queries for workflow/job status, runner health, artifact availability, and recent deployment history before reruns or rollback.
 6. Interpret failures by stage: source checkout, dependency install, test, build, artifact, registry, deploy gate, runner capacity, credential, or target health.
 7. Require approval before rerun with side effects, cancel, rollback, promote, force deploy, clear cache, rotate secret, or modify pipeline definitions.
-8. Classify deployment actions and rollback paths with shared risk levels, and require validation criteria before any state change.
+8. Classify deployment actions and rollback paths with shared risk levels, and require validation criteria before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action.
 9. Produce `skills/cicd-operations/templates/pipeline-incident.md` with pipeline evidence, failed stage, likely layer, approval gate, and validation plan.
 </required>
 

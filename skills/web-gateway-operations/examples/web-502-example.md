@@ -26,4 +26,4 @@ TLS and NGINX frontend are functioning. The 502 is caused by the local upstream 
 
 ## Approval gate
 
-Do not restart the application, edit NGINX upstreams, or roll back deployment without approval. Those actions are state changes and need validation and rollback criteria.
+Do not restart the application, edit NGINX upstreams, or roll back deployment without approval. Those actions are `DISRUPTIVE_CHANGE` and need validation and rollback criteria.
