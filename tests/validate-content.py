@@ -111,7 +111,10 @@ def risk_expressions(text, label):
     for line_number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
         if stripped.startswith('|'):
-            cells = [cell.strip().strip('`') for cell in stripped.strip('|').split('|')]
+            cells = [
+                cell.strip().strip('`')
+                for cell in re.split(r'(?<!\\)\|', stripped.strip('|'))
+            ]
             normalized_headers = {
                 index: cell.lower().strip()
                 for index, cell in enumerate(cells)

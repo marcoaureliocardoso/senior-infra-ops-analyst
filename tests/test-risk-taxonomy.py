@@ -13,6 +13,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_REL = Path("references/linux-diagnostics.md")
 SCRIPT_REL = Path("skills/command-driven-operations/scripts/risk-help.sh")
+NESTED_REFERENCE_REL = Path(
+    "skills/command-driven-operations/audit/nested-risk.md"
+)
 
 
 class RiskTaxonomyValidationTests(unittest.TestCase):
@@ -28,6 +31,7 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         cls.reference_path = cls.sandbox / REFERENCE_REL
         cls.original_reference = cls.reference_path.read_text(encoding="utf-8")
         cls.script_path = cls.sandbox / SCRIPT_REL
+        cls.nested_reference_path = cls.sandbox / NESTED_REFERENCE_REL
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -40,6 +44,8 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         )
         if self.script_path.exists():
             self.script_path.unlink()
+        if self.nested_reference_path.exists():
+            self.nested_reference_path.unlink()
 
     def run_validator(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -101,6 +107,18 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         self.reference_path.write_text(content, encoding="utf-8")
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_escaped_pipe_does_not_hide_invalid_risk_cell(self) -> None:
+        self.nested_reference_path.parent.mkdir(parents=True, exist_ok=True)
+        self.nested_reference_path.write_text(
+            "| Action | Command | Risk |\n"
+            "|---|---|---|\n"
+            "| Inspect | `echo x \\| grep x` | HIGH_RISK |\n",
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("unknown risk token HIGH_RISK", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
