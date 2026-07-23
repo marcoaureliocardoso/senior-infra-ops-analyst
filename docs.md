@@ -145,4 +145,5 @@ Assign exactly one risk tier based on the highest plausible impact, then add all
 
 ### Integration
 
-This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`. Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
+This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`.
+Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
