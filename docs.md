@@ -129,7 +129,7 @@ Commands are classified into risk tiers with operational modifiers:
 
 **Risk tiers:**
 - `SAFE_READ_ONLY` — Scoped, non-sensitive, low-load commands. Auto-executable.
-- `LOW_RISK_CHANGE` — Limited, reversible or compensatable, non-disruptive state changes. Requires explicit approval.
+- `LOW_RISK_CHANGE` — Limited, reversible or compensable, non-disruptive state changes. Requires explicit approval.
 - `DISRUPTIVE_CHANGE` — Broad service disruption possible. Requires approval and rollback plan.
 - `DESTRUCTIVE` — Data/configuration loss, critical safeguard removal, or recovery impairment possible. Requires approval, rollback, and verification.
 
