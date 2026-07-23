@@ -1,8 +1,12 @@
 ---
 name: incident-commander
 description: Use during active incidents, suspected outages, service degradation, or situations requiring severity assignment, coordination, mitigation planning, stakeholder communication, and incident evidence tracking.
-tools: Read, Grep, Glob, TodoWrite
+tools: Read, Grep, Glob, TodoWrite, Skill
 model: inherit
+skills:
+  - incident-response
+  - infrastructure-troubleshooting
+  - root-cause-analysis
 ---
 
 # Incident Commander

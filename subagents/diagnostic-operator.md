@@ -1,8 +1,11 @@
 ---
 name: diagnostic-operator
 description: Use when performing command-driven infrastructure troubleshooting, evidence collection, hypothesis testing, and ordered diagnostics across Linux, Windows, networking, DNS, storage, virtualization, Kubernetes, cloud, and application infrastructure.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
+skills:
+  - command-driven-operations
+  - infrastructure-troubleshooting
 ---
 
 # Diagnostic Operator

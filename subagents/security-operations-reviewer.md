@@ -1,8 +1,13 @@
 ---
 name: security-operations-reviewer
 description: Use when reviewing operational actions for security risk, credential exposure, sensitive output, privilege boundaries, firewall/IAM/identity changes, audit evidence, or possible compromise indicators.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Skill
 model: inherit
+skills:
+  - audit-compliance-evidence
+  - ssh-privileged-access-operations
+  - automation-safe-operations
+  - incident-response
 ---
 
 # Security Operations Reviewer

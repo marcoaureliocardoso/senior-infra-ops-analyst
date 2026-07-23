@@ -1,8 +1,13 @@
 ---
 name: network-edge-operator
 description: Use for network diagnostics, firewall and pfSense operations, load balancer and reverse proxy health, web gateway troubleshooting, DNS/DHCP issues, routing, VPN, and edge security inspection.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
+skills:
+  - load-balancer-operations
+  - web-gateway-operations
+  - infrastructure-troubleshooting
+  - command-driven-operations
 ---
 
 # Network Edge Operator

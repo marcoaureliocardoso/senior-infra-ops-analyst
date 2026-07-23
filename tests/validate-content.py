@@ -7,6 +7,48 @@ errors = []
 def err(msg): errors.append(msg)
 def read(p): return (root/p).read_text(encoding='utf-8')
 
+def extract_frontmatter(text, label):
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != '---':
+        err(f'{label} missing opening frontmatter delimiter')
+        return ''
+    try:
+        closing_index = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == '---')
+    except StopIteration:
+        err(f'{label} missing closing frontmatter delimiter')
+        return ''
+    return '\n'.join(lines[1:closing_index])
+
+def parse_frontmatter_list(frontmatter, field, label):
+    lines = frontmatter.splitlines()
+    header_indexes = [
+        i for i, line in enumerate(lines)
+        if re.fullmatch(rf'{re.escape(field)}:\s*', line)
+    ]
+    if len(header_indexes) != 1:
+        err(f'{label} has malformed or empty {field} preload')
+        return []
+
+    values = []
+    malformed = False
+    for line in lines[header_indexes[0] + 1:]:
+        if line and not line[0].isspace():
+            break
+        if not line.strip():
+            malformed = True
+            continue
+        item = re.fullmatch(r'  - ([a-z0-9-]+)', line)
+        if not item:
+            malformed = True
+            continue
+        values.append(item.group(1))
+
+    if malformed:
+        err(f'{label} has malformed {field} preload')
+    if not values:
+        err(f'{label} has malformed or empty {field} preload')
+    return values
+
 manifest = json.loads(read('nori.json'))
 skills = manifest.get('skills', [])
 refs = manifest.get('references', [])
@@ -216,7 +258,7 @@ if not subagents_from_manifest:
     err('nori.json missing subagents array or subagents array is empty')
 
 subagent_ids = {s['id'] for s in subagents_from_manifest if s.get('id')}
-valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch'}
+valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'Skill'}
 
 for sa in subagents_from_manifest:
     sa_id = sa.get('id', '')
@@ -232,8 +274,8 @@ for sa in subagents_from_manifest:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:
         err(f'subagent does not reference shared risk levels: {sa_id}')
-    fm = t.split('---', 2)[1] if t.startswith('---') else ''
-    for field in ['name:', 'description:', 'tools:', 'model:']:
+    fm = extract_frontmatter(t, f'subagent {sa_id}')
+    for field in ['name:', 'description:', 'tools:', 'model:', 'skills:']:
         if not re.search(r'^' + re.escape(field), fm, re.MULTILINE):
             err(f'subagent lacks frontmatter field {field}: {sa_id}')
     # Minimum content threshold (anti-stub)
@@ -247,10 +289,39 @@ for sa in subagents_from_manifest:
         unknown = declared - valid_tools
         if unknown:
             err(f'subagent declares unknown tools: {unknown} — {sa_id}')
+        if 'Skill' not in declared:
+            err(f'subagent must allow Skill for on-demand skill access: {sa_id}')
     # Validate model is inherit
     model_match = re.search(r'^model:\s*(.+)$', fm, re.MULTILINE)
     if model_match and model_match.group(1).strip() != 'inherit':
         err(f'subagent model must be "inherit", got "{model_match.group(1).strip()}": {sa_id}')
+    # Preloaded skills must match the role's documented primary skills. Claude Code
+    # silently skips missing skills, so fail validation instead of degrading at runtime.
+    preloaded_skills = parse_frontmatter_list(fm, 'skills', f'subagent {sa_id}')
+    if preloaded_skills:
+        if len(preloaded_skills) != len(set(preloaded_skills)):
+            err(f'subagent has duplicate preloaded skills: {sa_id}')
+        unknown_skills = set(preloaded_skills) - set(skills)
+        if unknown_skills:
+            err(f'subagent preloads skills absent from nori.json: {sorted(unknown_skills)} — {sa_id}')
+
+        primary_section = re.search(
+            r'^## Primary skills\s*\n(.*?)(?=^## |\Z)',
+            t,
+            re.MULTILINE | re.DOTALL,
+        )
+        primary_skills = (
+            re.findall(r'`skills/([a-z0-9-]+)/SKILL\.md`', primary_section.group(1))
+            if primary_section
+            else []
+        )
+        if not primary_skills:
+            err(f'subagent lacks documented primary skills: {sa_id}')
+        elif preloaded_skills != primary_skills:
+            err(
+                f'subagent preload does not match documented primary skills: '
+                f'{sa_id} ({preloaded_skills} != {primary_skills})'
+            )
 
 # Validate allowed-tools in slash commands reference valid subagents
 if subagent_ids:

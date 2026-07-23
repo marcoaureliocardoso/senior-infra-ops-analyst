@@ -1,8 +1,12 @@
 ---
 name: kubernetes-operator
 description: Use for Kubernetes workload, node, namespace, service, ingress, storage, scheduling, RBAC, event, admission webhook, CNI, CSI, and cluster operations, including K3s when relevant.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
+skills:
+  - kubernetes-operations
+  - container-runtime-operations
+  - monitoring-stack-operations
 ---
 
 # Kubernetes Operator

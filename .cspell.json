@@ -37,6 +37,9 @@
     "hostnames",
     "Hipóteses",
     "Interpretação",
+    "Comandos",
+    "comandos",
+    "Risco",
     "Rollback",
     "Validação",
     "Situação",
@@ -65,7 +68,8 @@
     "glab",
     "fileshare",
     "exfiltration",
-    "redactions"
+    "redactions",
+    "firewalling"
   ],
   "ignorePaths": [
     ".git/**",

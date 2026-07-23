@@ -1,8 +1,12 @@
 ---
 name: rca-facilitator
 description: Use when an incident has been resolved and a root cause analysis is needed, or when a recurring problem requires structured causal investigation, evidence mapping, action planning, and postmortem documentation.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
+skills:
+  - root-cause-analysis
+  - incident-response
+  - infrastructure-troubleshooting
 ---
 
 # RCA Facilitator

@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.8.0
+Version: 0.9.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -22,20 +22,26 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 
 | Subagent | Domain | Tools |
 |---|---|---|
-| `incident-commander` | Incident coordination, severity, communication | `Read, Grep, Glob, TodoWrite` |
-| `diagnostic-operator` | Evidence-first diagnostics across all domains | `Read, Grep, Glob, Bash` |
-| `change-manager` | Change planning, risk review, rollback | `Read, Grep, Glob, Bash` |
-| `rca-facilitator` | Root cause analysis, evidence mapping | `Read, Grep, Glob, Bash` |
-| `observability-sre` | SLO/SLI, error budgets, alert audit | `Read, Grep, Glob, Bash` |
-| `security-operations-reviewer` | Security review, credential exposure | `Read, Grep, Glob` |
-| `cloud-platform-operator` | AWS, Azure, GCP diagnostics | `Read, Grep, Glob, Bash` |
-| `kubernetes-operator` | K8s/K3s workloads, services, RBAC | `Read, Grep, Glob, Bash` |
-| `database-operator` | DB availability, locks, replication | `Read, Grep, Glob, Bash` |
-| `network-edge-operator` | Firewall, LB, proxy, DNS, gateway | `Read, Grep, Glob, Bash` |
-| `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | `Read, Grep, Glob, Bash` |
-| `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash` |
+| `incident-commander` | Incident coordination, severity, communication | `Read, Grep, Glob, TodoWrite, Skill` |
+| `diagnostic-operator` | Evidence-first diagnostics across all domains | `Read, Grep, Glob, Bash, Skill` |
+| `change-manager` | Change planning, risk review, rollback | `Read, Grep, Glob, Bash, Skill` |
+| `rca-facilitator` | Root cause analysis, evidence mapping | `Read, Grep, Glob, Bash, Skill` |
+| `observability-sre` | SLO/SLI, error budgets, alert audit | `Read, Grep, Glob, Bash, Skill` |
+| `security-operations-reviewer` | Security review, credential exposure | `Read, Grep, Glob, Skill` |
+| `cloud-platform-operator` | AWS, Azure, GCP diagnostics | `Read, Grep, Glob, Bash, Skill` |
+| `kubernetes-operator` | K8s/K3s workloads, services, RBAC | `Read, Grep, Glob, Bash, Skill` |
+| `database-operator` | DB availability, locks, replication | `Read, Grep, Glob, Bash, Skill` |
+| `network-edge-operator` | Firewall, LB, proxy, DNS, gateway | `Read, Grep, Glob, Bash, Skill` |
+| `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | `Read, Grep, Glob, Bash, Skill` |
+| `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash, Skill` |
 
-Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and references its domain-specific skills and references. See `subagents/` for full definitions.
+Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+
+## What changed in v0.9.0
+
+- Preloaded each of the 12 subagents with its role-specific primary skills so domain instructions are present at startup without loading the full 24-skill catalog.
+- Extended content validation to reject missing, empty, malformed, duplicated, unregistered, or documentation-divergent subagent skill preloads.
+- Kept runtime selection portable through `model: inherit`, without pinning Claude Code, Nori, or model versions.
 
 ## What changed in v0.8.0
 
