@@ -24,9 +24,14 @@ class SmokeCommandGuardTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
-    def run_guard(self, event: dict[str, object]) -> subprocess.CompletedProcess[str]:
+    def run_guard(
+        self,
+        event: dict[str, object],
+        *,
+        log_path: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
-        env["P0_03_HOOK_LOG"] = str(self.log)
+        env["P0_03_HOOK_LOG"] = str(log_path or self.log)
         return subprocess.run(
             [sys.executable, str(GUARD)],
             input=json.dumps(event),
@@ -103,6 +108,33 @@ class SmokeCommandGuardTests(unittest.TestCase):
         self.assertEqual(logged["assistant_turns"], 2)
         self.assertNotIn("agent_transcript_path", logged)
         self.assertNotIn("must-not-be-logged", self.log.read_text(encoding="utf-8"))
+
+    def test_log_failure_exits_with_blocking_status(self) -> None:
+        result = self.run_guard(
+            {
+                "hook_event_name": "PreToolUse",
+                "agent_type": "diagnostic-operator",
+                "tool_name": "Bash",
+                "tool_input": {"command": "printf 'p0-03-smoke\\n'"},
+            },
+            log_path=self.work,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn('"permissionDecision": "allow"', result.stdout)
+
+    def test_malformed_input_exits_with_blocking_status(self) -> None:
+        env = os.environ.copy()
+        env["P0_03_HOOK_LOG"] = str(self.log)
+        result = subprocess.run(
+            [sys.executable, str(GUARD)],
+            input="{not-json",
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn('"permissionDecision": "allow"', result.stdout)
 
 
 if __name__ == "__main__":

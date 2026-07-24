@@ -43,7 +43,7 @@ Roles reserve their final two turns for closure or a structured incomplete-work 
 
 ## Validation evidence
 
-- Static package validation passes 19 frontmatter tests, 5 installed-artifact tests, 5 live-smoke safety tests, 4 command-guard behavior tests, 4 schema tests, 12 risk tests, content validation, schema validation, CI workflow checks, Bash syntax, and PowerShell syntax.
+- Static package validation passes 19 frontmatter tests, 5 installed-artifact tests, 5 live-smoke safety tests, 6 command-guard behavior tests, 4 schema tests, 12 risk tests, content validation, schema validation, CI workflow checks, Bash syntax, and PowerShell syntax.
 - A real isolated Nori activation using observed Nori `0.31.0` and Node.js `v26.5.0` registered all 12 subagents and passed semantic installed-artifact comparison.
 - The live-smoke parser self-test passes without API consumption.
 - The host security policy blocked the LLM behavioral probes because they could send workspace content to an external service. This is recorded as blocked validation, not as a pass.
