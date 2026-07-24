@@ -376,10 +376,14 @@ printf 'Observed model: %s\n' "$MODEL_ID"
 
 INSTALLED_AGENTS_DIR="$INSTALL_DIR/agents"
 if [[ ! -d "$INSTALLED_AGENTS_DIR" ]]; then
-  INSTALLED_AGENTS_DIR="$(
-    find "$INSTALL_DIR" -type f -name diagnostic-operator.md -print -quit |
-      xargs -r dirname
+  INSTALLED_AGENT="$(
+    find "$INSTALL_DIR" -type f -name diagnostic-operator.md -print -quit
   )"
+  if [[ -n "$INSTALLED_AGENT" ]]; then
+    INSTALLED_AGENTS_DIR="$(dirname "$INSTALLED_AGENT")"
+  else
+    INSTALLED_AGENTS_DIR=""
+  fi
 fi
 [[ -n "$INSTALLED_AGENTS_DIR" && -d "$INSTALLED_AGENTS_DIR" ]] ||
   blocked "Nori did not produce a Claude Code agents directory"
