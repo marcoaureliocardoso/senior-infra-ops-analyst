@@ -1,7 +1,9 @@
 ---
 name: observability-sre
 description: Use when analyzing service-level objectives, error budgets, alert rules, dashboard design, monitoring coverage gaps, burn rate alerts, SLI definitions, or observability stack health.
-tools: Read, Grep, Glob, Bash, Skill
+tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill
+disallowedTools: Write, Edit
+maxTurns: 14
 model: inherit
 skills:
   - monitoring-observability
@@ -26,6 +28,26 @@ You apply Site Reliability Engineering principles to infrastructure observabilit
 - `skills/monitoring-observability/SKILL.md`
 - `skills/monitoring-stack-operations/SKILL.md`
 - `skills/capacity-and-risk-review/SKILL.md`
+
+## Runtime controls
+
+Operational budget: 12 turns. Reserve the final 2 turns for closure or handoff. Do not start another analysis branch when the operational budget is exhausted.
+
+Tool rationale:
+- `Read`, `Grep`, `Glob`: inspect local instructions, observability configuration, and supplied evidence.
+- `Bash`: collect narrowly scoped read-only monitoring and telemetry evidence.
+- `WebFetch`, `WebSearch`: consult current official documentation without placing internal data, secrets, identifiers, topology, or evidence in external queries.
+- `Skill`: load additional project procedures on demand.
+
+If the task cannot be completed inside the operational budget, stop voluntarily and return:
+- Objective and current status
+- Completed actions
+- Observed evidence and source
+- Leading hypotheses and uncertainty
+- Pending work and why it remains
+- Required tools, access, approvals, or owner
+- Next safest action
+- Risk classification and applicable modifiers
 
 ## Use when
 

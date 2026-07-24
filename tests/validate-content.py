@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json, re, sys, hashlib
 from pathlib import Path
+from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
 errors = []
 
@@ -421,6 +422,8 @@ for sa in subagents_from_manifest:
         err(f'subagent file missing: {sa_file.relative_to(root)}')
         continue
     t = sa_file.read_text(encoding='utf-8')
+    for runtime_error in runtime_control_errors(sa_id, t):
+        err(runtime_error)
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:
