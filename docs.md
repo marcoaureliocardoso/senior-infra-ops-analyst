@@ -8,7 +8,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.9.1 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.10.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Directory structure
 
@@ -23,6 +23,7 @@ senior-infra-ops-analyst/
 ├── README.md                  # Project readme
 ├── CHANGELOG.md               # Release history
 ├── ROADMAP.md                 # Planned improvements
+├── docs/architecture/         # Indexed architecture decision records
 ├── skills/                    # 24 operational skills
 │   └── <skill>/
 │       ├── SKILL.md           # Skill definition
@@ -91,20 +92,22 @@ senior-infra-ops-analyst/
 
 Each subagent preloads only the primary skills listed in its definition through Claude Code's native `skills` frontmatter. The focused preload provides role knowledge at startup while leaving non-primary project skills available for on-demand discovery.
 
-| Subagent | Role |
-|----------|------|
-| `diagnostic-operator` | Initial evidence collection and diagnostic triage |
-| `incident-commander` | Incident coordination, communication, and stabilization |
-| `change-manager` | Change planning, risk assessment, and rollback design |
-| `rca-facilitator` | Blameless post-incident root cause analysis |
-| `cloud-platform-operator` | Scoped cloud infrastructure diagnostics |
-| `database-operator` | Database-specific diagnostics and health assessment |
-| `kubernetes-operator` | Kubernetes cluster and workload diagnostics |
-| `network-edge-operator` | Firewall, load balancer, and edge networking triage |
-| `observability-sre` | SLO/SLI evaluation, alert review, and dashboard analysis |
-| `release-cicd-operator` | Pipeline, deployment gate, and artifact diagnostics |
-| `security-operations-reviewer` | Security posture review and access audit |
-| `audit-evidence-collector` | Structured audit and compliance evidence collection |
+| Subagent | Role | Max turns | Tools |
+|----------|------|----------:|-------|
+| `diagnostic-operator` | Initial evidence collection and diagnostic triage | 16 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `incident-commander` | Incident coordination, communication, and stabilization | 20 | Read, Grep, Glob, TodoWrite, Skill |
+| `change-manager` | Change planning, risk assessment, and rollback design | 10 | Read, Grep, Glob, WebFetch, WebSearch, Skill |
+| `rca-facilitator` | Blameless post-incident root cause analysis | 12 | Read, Grep, Glob, WebFetch, WebSearch, Skill |
+| `cloud-platform-operator` | Scoped cloud infrastructure diagnostics | 16 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `database-operator` | Database-specific diagnostics and health assessment | 16 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `kubernetes-operator` | Kubernetes cluster and workload diagnostics | 16 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `network-edge-operator` | Firewall, load balancer, and edge networking triage | 16 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `observability-sre` | SLO/SLI evaluation, alert review, and dashboard analysis | 14 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `release-cicd-operator` | Pipeline, deployment gate, and artifact diagnostics | 14 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+| `security-operations-reviewer` | Security posture review and access audit | 10 | Read, Grep, Glob, WebFetch, WebSearch, Skill |
+| `audit-evidence-collector` | Structured audit and compliance evidence collection | 12 | Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill |
+
+All roles deny `Write` and `Edit`. Incident coordination, change management, RCA, and security review also deny `Bash`. Every role reserves its final two turns for closure or a structured handoff.
 
 ### References (by domain)
 
@@ -147,3 +150,7 @@ Assign exactly one risk tier based on the highest plausible impact, then add all
 
 This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`.
 Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
+
+### Architecture decisions
+
+Implemented control decisions, enforcement points, rejected alternatives, and validation evidence are indexed in `docs/architecture/README.md`.

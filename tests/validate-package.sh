@@ -5,9 +5,16 @@ python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
 python3 tests/test-risk-taxonomy.py
 python3 tests/test-subagent-frontmatter.py
+python3 tests/test-installed-subagents.py
+python3 tests/test-schema-validation.py
+python3 tests/test-architecture-docs.py
+python3 tests/test-live-smoke-safety.py
+python3 tests/test-smoke-command-guard.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
+bash -n tests/live-subagent-runtime-smoke.sh
 bash -n tests/validate-package.sh
+bash tests/live-subagent-runtime-smoke.sh --self-test
 skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev/null
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then

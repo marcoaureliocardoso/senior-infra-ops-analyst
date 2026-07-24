@@ -22,9 +22,12 @@ def main() -> None:
         manifest = json.load(fh)
 
     # Required top-level fields
-    for field in ["name", "version", "description", "author", "license", "skills", "references"]:
+    for field in ["name", "version", "type", "description", "author", "license", "skills", "references"]:
         if field not in manifest:
             err(f"nori.json missing required field: {field}")
+
+    if manifest.get("type") != "skillset":
+        err(f"nori.json type must be 'skillset', got '{manifest.get('type')}'")
 
     # Version must be valid semver
     version = manifest.get("version", "")
@@ -157,6 +160,13 @@ def validate_packaging_metadata() -> None:
         nv_ver = nv.get("version", "")
         if not re.match(r"^\d+\.\d+\.\d+$", str(nv_ver)):
             err(f".nori-version version '{nv_ver}' is not valid semver (X.Y.Z)")
+        with open(MANIFEST_PATH, encoding="utf-8") as fh:
+            manifest_version = json.load(fh).get("version", "")
+        if nv_ver != manifest_version:
+            err(
+                ".nori-version version must match nori.json: "
+                f"'{nv_ver}' != '{manifest_version}'"
+            )
 
     # --- profile.json ---
     profile_path = ROOT / "profile.json"

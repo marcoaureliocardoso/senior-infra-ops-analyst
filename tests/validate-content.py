@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json, re, sys, hashlib
 from pathlib import Path
+from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
 errors = []
 
@@ -421,6 +422,8 @@ for sa in subagents_from_manifest:
         err(f'subagent file missing: {sa_file.relative_to(root)}')
         continue
     t = sa_file.read_text(encoding='utf-8')
+    for runtime_error in runtime_control_errors(sa_id, t):
+        err(runtime_error)
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:
@@ -492,6 +495,23 @@ else:
     docs_content = read('docs.md')
     if not docs_content.startswith('# Noridoc:'):
         err('docs.md must start with "# Noridoc:" header')
+
+# Versioned architecture decisions required for implemented P0 controls.
+architecture_index = root / 'docs/architecture/README.md'
+required_adrs = [
+    'ADR-001-risk-taxonomy.md',
+    'ADR-002-subagent-skill-preload.md',
+    'ADR-003-subagent-runtime-controls.md',
+]
+if not architecture_index.exists():
+    err('missing architecture decision index')
+else:
+    index_text = architecture_index.read_text(encoding='utf-8')
+    for adr in required_adrs:
+        if adr not in index_text:
+            err(f'architecture index missing ADR: {adr}')
+        if not (architecture_index.parent / adr).exists():
+            err(f'missing architecture decision record: {adr}')
 
 if errors:
     print('Validation failed:')

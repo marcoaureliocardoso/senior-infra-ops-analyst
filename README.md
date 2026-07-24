@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.9.1
+Version: 0.10.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -20,22 +20,33 @@ This package includes 24 skills covering core operations, incident/change/RCA, o
 
 This package includes 12 role-focused subagents under `subagents/` that provide domain-specific operating posture for AI agents:
 
-| Subagent | Domain | Tools |
-|---|---|---|
-| `incident-commander` | Incident coordination, severity, communication | `Read, Grep, Glob, TodoWrite, Skill` |
-| `diagnostic-operator` | Evidence-first diagnostics across all domains | `Read, Grep, Glob, Bash, Skill` |
-| `change-manager` | Change planning, risk review, rollback | `Read, Grep, Glob, Bash, Skill` |
-| `rca-facilitator` | Root cause analysis, evidence mapping | `Read, Grep, Glob, Bash, Skill` |
-| `observability-sre` | SLO/SLI, error budgets, alert audit | `Read, Grep, Glob, Bash, Skill` |
-| `security-operations-reviewer` | Security review, credential exposure | `Read, Grep, Glob, Skill` |
-| `cloud-platform-operator` | AWS, Azure, GCP diagnostics | `Read, Grep, Glob, Bash, Skill` |
-| `kubernetes-operator` | K8s/K3s workloads, services, RBAC | `Read, Grep, Glob, Bash, Skill` |
-| `database-operator` | DB availability, locks, replication | `Read, Grep, Glob, Bash, Skill` |
-| `network-edge-operator` | Firewall, LB, proxy, DNS, gateway | `Read, Grep, Glob, Bash, Skill` |
-| `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | `Read, Grep, Glob, Bash, Skill` |
-| `audit-evidence-collector` | Audit evidence, redaction, compliance | `Read, Grep, Glob, Bash, Skill` |
+| Subagent | Domain | Max turns | Tools |
+|---|---|---:|---|
+| `incident-commander` | Incident coordination, severity, communication | 20 | `Read, Grep, Glob, TodoWrite, Skill` |
+| `diagnostic-operator` | Evidence-first diagnostics across all domains | 16 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `change-manager` | Change planning, risk review, rollback | 10 | `Read, Grep, Glob, WebFetch, WebSearch, Skill` |
+| `rca-facilitator` | Root cause analysis, evidence mapping | 12 | `Read, Grep, Glob, WebFetch, WebSearch, Skill` |
+| `observability-sre` | SLO/SLI, error budgets, alert audit | 14 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `security-operations-reviewer` | Security review, credential exposure | 10 | `Read, Grep, Glob, WebFetch, WebSearch, Skill` |
+| `cloud-platform-operator` | AWS, Azure, GCP diagnostics | 16 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `kubernetes-operator` | K8s/K3s workloads, services, RBAC | 16 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `database-operator` | DB availability, locks, replication | 16 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `network-edge-operator` | Firewall, LB, proxy, DNS, gateway | 16 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `release-cicd-operator` | CI/CD pipelines, deployments, artifacts | 14 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
+| `audit-evidence-collector` | Audit evidence, redaction, compliance | 12 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
 
-Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Native `tools` allowlists, `disallowedTools`, and `maxTurns` bound runtime capability; `Write` and `Edit` are denied to every role, while analytical roles also deny `Bash`.
+Each definition ends with an explicit runtime-precedence block so a budget-exhausted handoff overrides the normal role output.
+Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+
+## What changed in v0.10.0
+
+- Added exact role-specific `maxTurns`, least-privilege tool allowlists, and critical `disallowedTools` to all 12 subagents.
+- Removed `Bash` from incident coordination, change management, RCA, and security review; those roles delegate execution and evidence collection.
+- Added cooperative turn budgets, per-tool rationales, external-query minimization, structured incomplete-work handoffs, and final output precedence.
+- Added fail-closed runtime policy mutations, Nori-installed artifact comparison, schema tests for `type: skillset`, and an opt-in live Claude Code smoke harness.
+- Added indexed ADRs for the P0-01 risk taxonomy, P0-02 skill preload, and P0-03 runtime controls.
+- Preserved runtime portability through `model: inherit`; observed Claude Code, Nori, Node.js, and model identifiers remain test evidence rather than compatibility constraints.
 
 ## What changed in v0.9.1
 
@@ -223,6 +234,12 @@ python3 tests/validate-schema.py
 # CI workflow quality check
 bash tests/validate-ci-workflows.sh
 
+# Live-smoke parser only (no model/API consumption)
+bash tests/live-subagent-runtime-smoke.sh --self-test
+
+# Opt-in isolated Nori + Claude Code behavioral smoke
+bash tests/live-subagent-runtime-smoke.sh
+
 # Link validation (human-readable)
 bash tests/validate-links.sh
 
@@ -237,6 +254,7 @@ PowerShell parser validation requires a host with `pwsh` or Windows PowerShell i
 ## Docs
 
 - [CHANGELOG](CHANGELOG.md)
+- [Architecture decisions](docs/architecture/README.md)
 - [ROADMAP](ROADMAP.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [SECURITY](SECURITY.md)
