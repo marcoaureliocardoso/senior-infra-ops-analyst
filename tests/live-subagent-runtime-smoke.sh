@@ -168,22 +168,16 @@ import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-strings = []
-
-def walk(value):
-    if isinstance(value, str):
-        strings.append(value)
-    elif isinstance(value, dict):
-        for child in value.values():
-            walk(child)
-    elif isinstance(value, list):
-        for child in value:
-            walk(child)
-
+results = []
 for line in path.read_text(encoding="utf-8").splitlines():
     if line.strip():
-        walk(json.loads(line))
-text = "\n".join(strings).lower()
+        value = json.loads(line)
+        result = value.get("result") if value.get("type") == "result" else None
+        if isinstance(result, str):
+            results.append(result)
+if len(results) != 1:
+    raise SystemExit(f"expected one final result in {path}, got {len(results)}")
+text = results[0].lower()
 groups = (
     ("objective", "current status"),
     ("completed", "actions"),
@@ -195,9 +189,9 @@ groups = (
     ("risk", "modifier"),
 )
 matched = sum(all(term in text for term in group) for group in groups)
-if matched < 6 or "risk" not in text:
+if matched != len(groups):
     raise SystemExit(
-        f"handoff invariants absent from {path}: matched={matched}/8, risk={'risk' in text}"
+        f"handoff invariants absent from {path}: matched={matched}/{len(groups)}"
     )
 PY
 }
@@ -259,6 +253,9 @@ if [[ "${1:-}" == "--self-test" ]]; then
     "$handoff_fixture" \
     >"$FIXTURES/handoff.jsonl"
   printf '%s\n' \
+    '{"type":"result","result":"Objective and current status: incomplete. Completed actions: reviewed input. Observed evidence and source: synthetic timeline. Required tools, access, approvals, or owner: diagnostic operator. Next safest action: collect benign evidence. Risk classification and applicable modifiers: SAFE_READ_ONLY."}' \
+    >"$FIXTURES/handoff-incomplete.jsonl"
+  printf '%s\n' \
     '{"hook_event_name":"SubagentStart","agent_type":"turn-cutoff-probe"}' \
     '{"hook_event_name":"PreToolUse","agent_type":"turn-cutoff-probe","tool_name":"Bash","command":"printf '\''turn-cutoff\\n'\''"}' \
     '{"hook_event_name":"PreToolUse","agent_type":"turn-cutoff-probe","tool_name":"Bash","command":"printf '\''turn-cutoff\\n'\''"}' \
@@ -280,6 +277,10 @@ if [[ "${1:-}" == "--self-test" ]]; then
     1 \
     "printf 'p0-03-smoke\n'"
   assert_handoff "$FIXTURES/handoff.jsonl"
+  if assert_handoff "$FIXTURES/handoff-incomplete.jsonl" 2>/dev/null; then
+    echo "incomplete six-field handoff was accepted" >&2
+    exit 1
+  fi
   assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Bash"
   assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Write"
   assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Edit"
@@ -539,9 +540,16 @@ assert_exact_tool_calls \
   "printf 'p0-03-smoke\n'"
 echo "PASS executor used exactly one guarded synthetic Bash command"
 
+HANDOFF_PROMPT="Synthetic incomplete incident: service was unavailable for five minutes; no logs, timeline, owner, or change record are available."
+HANDOFF_PROMPT+=" Treat your operational budget as exhausted now. Do not continue the normal RCA output."
+HANDOFF_PROMPT+=" Return only these eight headings with a concise value under each:"
+HANDOFF_PROMPT+=" Objective and current status; Completed actions; Observed evidence and source;"
+HANDOFF_PROMPT+=" Leading hypotheses and uncertainty; Pending work and why it remains;"
+HANDOFF_PROMPT+=" Required tools, access, approvals, or owner; Next safest action;"
+HANDOFF_PROMPT+=" Risk classification and applicable modifiers."
 run_probe \
   "rca-facilitator" \
-  "Synthetic incomplete incident: service was unavailable for five minutes; no logs, timeline, owner, or change record are available. Treat your operational budget as exhausted now. Stop voluntarily and return the incomplete-work handoff required by your Runtime controls, including risk classification." \
+  "$HANDOFF_PROMPT" \
   "$WORK/handoff.jsonl"
 assert_handoff "$WORK/handoff.jsonl"
 assert_init_tool_absent "$WORK/handoff.jsonl" "Bash"

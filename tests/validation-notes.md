@@ -63,6 +63,7 @@ The test records observed versions but does not require fixed Claude Code, Nori,
 
 Every model process runs with a minimal environment inside a Bubblewrap mount namespace that exposes the temporary tree and required read-only system runtime paths, not the operator workspace or home. A temporary fail-closed `PreToolUse` hook allows only the exact synthetic `printf` commands; every other Bash input is denied.
 The delegated cutoff requires one `SubagentStart` and exactly `maxTurns` guarded commands. An abrupt cutoff can omit `SubagentStop`; when that event is emitted, its assistant-turn count must also match `maxTurns`.
+The handoff probe requires all eight field groups in the single final `result` event; prompt, hook, and tool-event strings cannot satisfy the assertion.
 Model transport still requires network access, but the guarded Bash tool cannot issue a network command. The test never targets production
 infrastructure.
 

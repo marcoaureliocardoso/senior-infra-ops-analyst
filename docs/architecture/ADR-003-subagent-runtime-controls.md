@@ -48,7 +48,7 @@ Roles reserve their final two turns for closure or a structured incomplete-work 
 - Static package validation passes 21 frontmatter tests, 6 installed-artifact tests, 6 live-smoke safety tests, 6 command-guard behavior tests, 4 schema tests, 12 risk tests, content validation, schema validation, CI workflow checks, Bash syntax, and PowerShell syntax.
 - A real isolated Nori activation using observed Nori `0.31.0` and Node.js `v26.5.0` registered all 12 subagents and passed semantic installed-artifact comparison.
 - The live-smoke parser self-test passes without API consumption.
-- An authorized live behavioral smoke passed all analytical least-privilege, exact executor command, cooperative handoff, and delegated `maxTurns` probes. The run observed Claude Code `2.1.218`, Nori `0.31.0`, Node.js `v26.5.0`, and the operator-selected `deepseek-v4-pro[1m]`;
+- An authorized live behavioral smoke passed all analytical least-privilege, exact executor command, complete eight-field final-result handoff, and delegated `maxTurns` probes. The run observed Claude Code `2.1.218`, Nori `0.31.0`, Node.js `v26.5.0`, and the operator-selected `deepseek-v4-pro[1m]`;
   these identifiers are evidence, not project requirements.
 
 ## Consequences and limitations
