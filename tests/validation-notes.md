@@ -53,13 +53,17 @@ PowerShell parser validation with `pwsh`/`powershell` was not possible in this e
 
 ## Live subagent runtime smoke test
 
-Run only in an isolated Linux or WSL environment with Linux Node.js 22 or newer, Claude Code, Nori, and operator-configured model credentials:
+Run only in an isolated Linux or WSL environment with Linux Node.js 22 or newer, Bubblewrap (`bwrap`), Claude Code, Nori, and operator-configured model credentials:
 
 ```bash
 bash tests/live-subagent-runtime-smoke.sh
 ```
 
-The test records observed versions but does not require fixed Claude Code, Nori, or model versions. It creates an isolated temporary Claude home, installs the local worktree through Nori, validates the installed subagents, and runs synthetic analytical, executor, handoff, and hard-cutoff probes. Commands are benign and local; the test never targets production infrastructure.
+The test records observed versions but does not require fixed Claude Code, Nori, or model versions. It creates an isolated temporary Claude home, installs the local worktree through Nori, validates the installed subagents, and runs synthetic analytical, executor, handoff, and delegated hard-cutoff probes.
+
+Every model process runs with a minimal environment inside a Bubblewrap mount namespace that exposes the temporary tree and required read-only system runtime paths, not the operator workspace or home. A temporary fail-closed `PreToolUse` hook allows only the exact synthetic `printf` commands; every other Bash input is denied.
+Model transport still requires network access, but the guarded Bash tool cannot issue a network command. The test never targets production
+infrastructure.
 
 Exit `2` means a prerequisite is blocked, not that validation passed. Transcripts contain model output and remain temporary and untracked unless the operator explicitly passes `--keep-artifacts`. Authentication values are imported from the existing Claude Code settings without being printed or copied into the retained artifacts.
 

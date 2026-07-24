@@ -8,6 +8,8 @@ python3 tests/test-subagent-frontmatter.py
 python3 tests/test-installed-subagents.py
 python3 tests/test-schema-validation.py
 python3 tests/test-architecture-docs.py
+python3 tests/test-live-smoke-safety.py
+python3 tests/test-smoke-command-guard.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
 bash -n tests/live-subagent-runtime-smoke.sh

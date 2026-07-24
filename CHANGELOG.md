@@ -7,7 +7,7 @@
 - Added cooperative budgets, tool rationales, safe external-query instructions, and eight-field incomplete-work handoffs.
 - Added a canonical runtime-policy validator with mutation coverage for limits, tool drift, duplicates, unknown tools, critical denials, rationales, and handoffs.
 - Added semantic comparison of all source and Nori-installed subagents plus manifest validation for root `type: skillset`.
-- Added an opt-in Claude Code/Nori behavioral smoke harness and a no-API parser self-test.
+- Added an opt-in OS-sandboxed Claude Code/Nori behavioral smoke harness with exact-command guards, delegated cutoff evidence, and a no-API parser self-test.
 - Added indexed ADRs for P0-01, P0-02, and P0-03.
 - Kept Claude Code, Nori, and model versions unpinned; `model: inherit` remains mandatory.
 
