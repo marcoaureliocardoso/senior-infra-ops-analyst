@@ -39,9 +39,9 @@ Use this template when recording scoped AWS, Azure, or GCP read-only diagnostics
 
 ## Approval-required actions
 
-| Proposed action | Risk | Blast radius | Rollback | Validation command | Approval owner |
-|---|---|---|---|---|---|
-|  | LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |  |  |  |  |
+| Proposed action | Risk | Blast radius | Validation command | Rollback or compensating action | Recovery evidence | Approval owner |
+|---|---|---|---|---|---|---|
+|  | LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |  |  |  |  |  |
 
 Modifiers, when applicable: SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / EXTERNAL_SIDE_EFFECT.
 

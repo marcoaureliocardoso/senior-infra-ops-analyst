@@ -57,7 +57,9 @@ Owner:
 ## Risk mapping
 
 - Evidence collection: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
-- Exporting full logs/user lists/config dumps: `SENSITIVE_OUTPUT`; approval and redaction required.
+- Exporting full logs, user lists, or config dumps: `SAFE_READ_ONLY` +
+  `SENSITIVE_OUTPUT` + `RESOURCE_INTENSIVE`; approval, tight scope, and
+  redaction required.
 - Remediation actions: classify as `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` according to impact; keep them separate from evidence collection.
 
 ## Related references

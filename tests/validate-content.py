@@ -71,6 +71,155 @@ deprecated_risk_tokens = {
     'STATE_CHANGING',
     'DISRUPTIVE',
 }
+risk_atom_pattern = re.compile(r'\b[A-Z][A-Z0-9_]*\b')
+risk_expression_pattern = re.compile(
+    r'^\s*`?[A-Z][A-Z0-9_]*\b`?'
+    r'(?:\s*(?:\+|/|\bor\b)\s*`?[A-Z][A-Z0-9_]*\b`?)*'
+)
+
+def leading_risk_expression(value):
+    match = risk_expression_pattern.match(value)
+    return match.group(0).strip() if match else ''
+
+def validate_risk_expression(expression, label):
+    expression = leading_risk_expression(expression)
+    tokens = risk_atom_pattern.findall(expression)
+    if not tokens:
+        return
+    allowed = canonical_risk_levels | canonical_risk_modifiers
+    unknown = sorted(set(tokens) - allowed)
+    for token in unknown:
+        err(f'unknown risk token {token} in {label}')
+    if unknown:
+        return
+    # Slash-separated level lists are template choices, not classifications.
+    if (
+        '/' in expression
+        and '+' not in expression
+        and ' or ' not in expression
+        and len(tokens) > 1
+        and set(tokens) <= canonical_risk_levels
+    ):
+        return
+    base_count = sum(token in canonical_risk_levels for token in tokens)
+    if base_count != 1:
+        err(
+            'classification requires exactly one base level '
+            f'in {label}: {expression.strip()}'
+        )
+
+def risk_expressions(text, label):
+    lines = text.splitlines()
+    risk_columns = set()
+    current_section = ''
+    line_index = 0
+    while line_index < len(lines):
+        line = lines[line_index]
+        line_number = line_index + 1
+        stripped = line.strip()
+        heading = re.match(r'^#{1,6}\s+(.+?)\s*$', stripped)
+        if heading:
+            current_section = heading.group(1).lower()
+        if stripped.startswith('|'):
+            cells = [
+                cell.strip().strip('`')
+                for cell in re.split(r'(?<!\\)\|', stripped.strip('|'))
+            ]
+            next_is_separator = False
+            if line_index + 1 < len(lines):
+                next_stripped = lines[line_index + 1].strip()
+                if next_stripped.startswith('|'):
+                    next_cells = [
+                        cell.strip()
+                        for cell in re.split(
+                            r'(?<!\\)\|',
+                            next_stripped.strip('|'),
+                        )
+                    ]
+                    next_is_separator = bool(next_cells) and all(
+                        re.fullmatch(r':?-{3,}:?', cell)
+                        for cell in next_cells
+                    )
+            normalized_headers = {
+                index: cell.lower().strip()
+                for index, cell in enumerate(cells)
+            }
+            header_risk_columns = {
+                index
+                for index, cell in normalized_headers.items()
+                if cell in {'risk', 'risk level', 'classification'}
+            }
+            if next_is_separator:
+                risk_columns = header_risk_columns
+            elif cells and all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
+                pass
+            elif cells and cells[0].lower() in {
+                'risk',
+                'risk level',
+                'risk classification',
+            }:
+                if len(cells) > 1:
+                    yield cells[1], f'{label}:{line_number}:cell-2'
+            else:
+                for column in sorted(risk_columns):
+                    if column < len(cells):
+                        yield cells[column], (
+                            f'{label}:{line_number}:cell-{column + 1}'
+                        )
+        else:
+            risk_columns = set()
+        risk_field = re.match(
+            r'^\s*(?:[#;]\s*)?'
+            r'(?:Risk|Risk level|Risk classification):\s*(.*?)\s*$',
+            line,
+        )
+        if risk_field:
+            expression_lines = [risk_field.group(1)]
+            continuation_index = line_index + 1
+            while (
+                continuation_index < len(lines)
+                and lines[continuation_index][:1].isspace()
+                and lines[continuation_index].strip()
+            ):
+                expression_lines.append(lines[continuation_index].strip())
+                continuation_index += 1
+            yield ' '.join(expression_lines), f'{label}:{line_number}'
+        if (
+            'risk mapping' in current_section
+            or 'examples to classify' in current_section
+        ):
+            action_mapping = re.match(
+                r'^\s*-\s+[^:\n]+:\s*(.+?)\s*$',
+                line,
+            )
+            if action_mapping:
+                expression_lines = [action_mapping.group(1)]
+                continuation_index = line_index + 1
+                while (
+                    continuation_index < len(lines)
+                    and lines[continuation_index][:1].isspace()
+                    and lines[continuation_index].strip()
+                ):
+                    expression_lines.append(lines[continuation_index].strip())
+                    continuation_index += 1
+                yield ' '.join(expression_lines), f'{label}:{line_number}'
+        known_risk_terms = (
+            canonical_risk_levels
+            | canonical_risk_modifiers
+            | deprecated_risk_tokens
+        )
+        prose_classification = re.search(
+            r'\b(?:is|are)\s+('
+            r'`?(?:'
+            + '|'.join(sorted(map(re.escape, known_risk_terms), key=len, reverse=True))
+            + r')`?'
+            r'(?:\s*(?:\+|/|\bor\b)\s*`?[A-Z][A-Z0-9_]*`?)*'
+            r')',
+            line,
+        )
+        if prose_classification:
+            yield prose_classification.group(1), f'{label}:{line_number}'
+        line_index += 1
 
 risk_reference = read('references/risk-levels.md')
 for level in sorted(canonical_risk_levels):
@@ -96,23 +245,25 @@ for p in core_risk_policy_files:
         if not re.search(rf'\b{term}\b', t):
             err(f'core risk policy omits canonical term {term}: {p.relative_to(root)}')
 
-risk_policy_files = [
+risk_policy_files = sorted({
     *core_risk_policy_files,
-    *sorted((root/'references').glob('*.md')),
-    *sorted((root/'skills').glob('*/SKILL.md')),
-    *sorted((root/'skills').glob('*/examples/*.md')),
-    *sorted((root/'skills').glob('*/templates/*.md')),
-    *sorted((root/'slashcommands').glob('*.md')),
-    *sorted((root/'subagents').glob('*.md')),
-]
+    *list((root/'references').rglob('*.md')),
+    *[
+        p
+        for p in (root/'skills').rglob('*')
+        if p.is_file() and p.suffix in {'.md', '.sh', '.ps1'}
+    ],
+    *list((root/'slashcommands').rglob('*.md')),
+    *list((root/'subagents').rglob('*.md')),
+})
 for p in risk_policy_files:
     t = p.read_text(encoding='utf-8')
+    label = p.relative_to(root).as_posix()
     for token in sorted(deprecated_risk_tokens):
         if re.search(rf'\b{token}\b', t):
-            err(f'deprecated risk token {token} in {p.relative_to(root)}')
-    declared_levels = set(re.findall(r'\b([A-Z][A-Z0-9_]*(?:_CHANGE|_READ_ONLY)|DESTRUCTIVE)\b', t))
-    for token in sorted(declared_levels - canonical_risk_levels):
-        err(f'unknown risk level {token} in {p.relative_to(root)}')
+            err(f'deprecated risk token {token} in {label}')
+    for expression, expression_label in risk_expressions(t, label):
+        validate_risk_expression(expression, expression_label)
 
 for skill in skills:
     p = root/'skills'/skill/'SKILL.md'

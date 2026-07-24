@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
+python3 tests/test-risk-taxonomy.py
 python3 tests/test-subagent-frontmatter.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh

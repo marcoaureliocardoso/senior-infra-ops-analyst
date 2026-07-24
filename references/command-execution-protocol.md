@@ -42,6 +42,11 @@ For each command executed, keep this mental record:
 | Target | Host/service/component |
 | Risk | SAFE_READ_ONLY / LOW_RISK_CHANGE / DISRUPTIVE_CHANGE / DESTRUCTIVE |
 | Modifiers | SENSITIVE_OUTPUT / RESOURCE_INTENSIVE / ACTIVE_PROBE / PRIVILEGED / REMOTE_SESSION_RISK / EXTERNAL_SIDE_EFFECT, if any |
+| Scope and expected effect | Exact boundary and intended impact |
+| Approval evidence | Required for every approval-gated action |
+| Validation | Expected post-action signal |
+| Rollback or compensating action | Required for every approval-gated action |
+| Recovery evidence | Required for DESTRUCTIVE actions |
 | Purpose | What it verifies |
 | Observed signal | Relevant output summary |
 | Interpretation | What it confirms/refutes |
@@ -58,6 +63,8 @@ For each command executed, keep this mental record:
 - Never claim a command was executed when it was only suggested.
 
 ## 5. Approval gates
+
+Apply the canonical control matrix in `references/risk-levels.md`.
 
 Stop before executing any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action. Also stop before an action with `EXTERNAL_SIDE_EFFECT`. Present:
 

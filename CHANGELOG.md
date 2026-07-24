@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.1 - 2026-07-23
+
+- Completed a retroactive independent review of P0-01 and resolved all six
+  Important findings; no Critical findings were reported.
+- Corrected modifier-only and mixed-base classifications across the canonical
+  reference, containers, Kubernetes, cloud, network probes, message queues,
+  privileged access, audit, vendor escalation, and ITSM/CMDB workflows.
+- Made ITSM approval actions inherit the highest plausible impact of the
+  execution they authorize instead of hard-coding `LOW_RISK_CHANGE`.
+- Added a canonical control matrix covering approval, validation, rollback,
+  recovery evidence, and compensating actions for every base level.
+- Replaced broad token matching with context-aware risk-expression validation
+  across nested Markdown and skill scripts.
+- Added twelve mutation-style regression tests for invented levels,
+  modifier-only records and prose, multiple base levels, one-line and
+  multiline script fields, escaped table pipes, nested scripts, valid
+  classifications, and false-positive resistance.
+
 ## 0.9.0 - 2026-07-23
 
 - Preloaded all 12 subagents with their documented role-specific primary skills through native Claude Code `skills` frontmatter and allowed the `Skill` tool for on-demand access to the rest of the catalog.

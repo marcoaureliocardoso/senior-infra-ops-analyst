@@ -53,8 +53,12 @@ ctr namespaces list
 
 ## Active checks
 
-- `curl` from host to exposed port is `ACTIVE_PROBE`.
-- `docker exec` or `podman exec` is `REMOTE_SESSION_RISK` and may alter access/session state; approval recommended.
+- `curl` from host to an exposed port is `SAFE_READ_ONLY` + `ACTIVE_PROBE`.
+- A narrowly scoped, non-mutating `docker exec` or `podman exec` is at least
+  `LOW_RISK_CHANGE` + `REMOTE_SESSION_RISK` because it starts a process in the
+  container. The invoked command inherits any higher plausible base level and
+  applicable modifiers. Require explicit approval for the exact command and
+  target.
 - Image pull is `LOW_RISK_CHANGE`; restart or recreate is `DISRUPTIVE_CHANGE`; prune is `DESTRUCTIVE`.
 
 ## Evidence to capture

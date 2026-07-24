@@ -45,7 +45,7 @@ Get-WinEvent -LogName Application -MaxEvents 100
 
 ## Risk mapping
 
-- HTTP probe: `ACTIVE_PROBE`.
+- HTTP probe: `SAFE_READ_ONLY` + `ACTIVE_PROBE` + `SENSITIVE_OUTPUT`.
 - Config status/tests: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Log reads: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`.
 - Reload, restart, and routing or security rule changes: `DISRUPTIVE_CHANGE`; require approval.
