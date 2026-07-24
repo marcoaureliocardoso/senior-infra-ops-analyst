@@ -22,9 +22,12 @@ def main() -> None:
         manifest = json.load(fh)
 
     # Required top-level fields
-    for field in ["name", "version", "description", "author", "license", "skills", "references"]:
+    for field in ["name", "version", "type", "description", "author", "license", "skills", "references"]:
         if field not in manifest:
             err(f"nori.json missing required field: {field}")
+
+    if manifest.get("type") != "skillset":
+        err(f"nori.json type must be 'skillset', got '{manifest.get('type')}'")
 
     # Version must be valid semver
     version = manifest.get("version", "")

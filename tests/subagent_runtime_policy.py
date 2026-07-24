@@ -159,6 +159,22 @@ def frontmatter_fields(text: str) -> dict[str, object]:
     }
 
 
+def frontmatter_skills(text: str) -> tuple[str, ...]:
+    """Return the ordered native Claude Code skills preload."""
+    frontmatter = _frontmatter(text)
+    match = re.search(
+        r"^skills:\s*\n((?:[ \t]+-[^\n]*\n?)+)",
+        frontmatter,
+        re.MULTILINE,
+    )
+    if not match:
+        return ()
+    return tuple(
+        item.strip()
+        for item in re.findall(r"^[ \t]+-\s*([a-z0-9-]+)\s*$", match.group(1), re.MULTILINE)
+    )
+
+
 def runtime_control_errors(agent_id: str, text: str) -> list[str]:
     """Return all runtime-policy violations for one registered subagent."""
     policy = ROLE_POLICY[agent_id]
