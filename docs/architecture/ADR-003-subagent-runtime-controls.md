@@ -1,8 +1,8 @@
 # ADR-003 — Bounded, least-privilege subagent runtime
 
-**Status:** Accepted  
-**Date:** 2026-07-24  
-**Decision owners:** Project maintainers
+- **Status:** Accepted
+- **Date:** 2026-07-24
+- **Decision owners:** Project maintainers
 
 ## Context
 

@@ -1,8 +1,8 @@
 # ADR-001 — Canonical operational risk taxonomy
 
-**Status:** Accepted  
-**Date:** 2026-07-23  
-**Decision owners:** Project maintainers
+- **Status:** Accepted
+- **Date:** 2026-07-23
+- **Decision owners:** Project maintainers
 
 ## Context
 

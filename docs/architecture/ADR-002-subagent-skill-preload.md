@@ -1,8 +1,8 @@
 # ADR-002 — Focused native skill preload for subagents
 
-**Status:** Accepted  
-**Date:** 2026-07-23  
-**Decision owners:** Project maintainers
+- **Status:** Accepted
+- **Date:** 2026-07-23
+- **Decision owners:** Project maintainers
 
 ## Context
 
