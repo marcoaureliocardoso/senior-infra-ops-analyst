@@ -137,12 +137,12 @@ import sys
 from pathlib import Path
 
 path, expected_agent = Path(sys.argv[1]), sys.argv[2]
-calls = []
+agent_calls = []
 
 def walk(value):
     if isinstance(value, dict):
-        if value.get("type") == "tool_use":
-            calls.append(value)
+        if value.get("type") == "tool_use" and value.get("name") == "Agent":
+            agent_calls.append(value)
         for child in value.values():
             walk(child)
     elif isinstance(value, list):
@@ -152,11 +152,11 @@ def walk(value):
 for line in path.read_text(encoding="utf-8").splitlines():
     if line.strip():
         walk(json.loads(line))
-if len(calls) != 1:
-    raise SystemExit(f"expected one delegated tool call in {path}: {calls}")
-call = calls[0]
+if len(agent_calls) != 1:
+    raise SystemExit(f"expected one Agent delegation in {path}: {agent_calls}")
+call = agent_calls[0]
 tool_input = call.get("input", {})
-if call.get("name") != "Agent" or tool_input.get("subagent_type") != expected_agent:
+if tool_input.get("subagent_type") != expected_agent:
     raise SystemExit(f"unexpected delegation in {path}: {call}")
 PY
 }
@@ -221,13 +221,13 @@ for line in path.read_text(encoding="utf-8").splitlines():
 starts = [e for e in events if e.get("hook_event_name") == "SubagentStart"]
 stops = [e for e in events if e.get("hook_event_name") == "SubagentStop"]
 calls = [e for e in events if e.get("hook_event_name") == "PreToolUse"]
-if len(starts) != 1 or len(stops) != 1:
+if len(starts) != 1 or len(stops) > 1:
     raise SystemExit(f"delegated lifecycle incomplete in {path}: {events}")
 if len(calls) != limit:
     raise SystemExit(f"subagent did not reach exact turn budget in {path}: {calls}")
 if any(e.get("tool_name") != "Bash" or e.get("command") != command for e in calls):
     raise SystemExit(f"unexpected delegated command in {path}: {calls}")
-if stops[0].get("assistant_turns") != limit:
+if stops and stops[0].get("assistant_turns") != limit:
     raise SystemExit(f"subagent transcript did not reach maxTurns in {path}: {stops[0]}")
 PY
 }
@@ -253,16 +253,21 @@ if [[ "${1:-}" == "--self-test" ]]; then
   handoff_fixture+=' Required tools, access, approvals, or owner: diagnostic operator.'
   handoff_fixture+=' Next safest action: collect benign evidence.'
   handoff_fixture+=' Risk classification and applicable modifiers: SAFE_READ_ONLY."}'
-  printf '%s\n' "$handoff_fixture" >"$FIXTURES/handoff.jsonl"
+  printf '%s\n' \
+    '{"type":"system","subtype":"init","tools":["Read","Grep","Glob","WebFetch","WebSearch","Skill"]}' \
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/synthetic/reference.md"}}]}}' \
+    "$handoff_fixture" \
+    >"$FIXTURES/handoff.jsonl"
   printf '%s\n' \
     '{"hook_event_name":"SubagentStart","agent_type":"turn-cutoff-probe"}' \
     '{"hook_event_name":"PreToolUse","agent_type":"turn-cutoff-probe","tool_name":"Bash","command":"printf '\''turn-cutoff\\n'\''"}' \
     '{"hook_event_name":"PreToolUse","agent_type":"turn-cutoff-probe","tool_name":"Bash","command":"printf '\''turn-cutoff\\n'\''"}' \
-    '{"hook_event_name":"SubagentStop","agent_type":"turn-cutoff-probe","assistant_turns":2}' \
     >"$FIXTURES/cutoff-hooks.jsonl"
   printf '%s\n' \
     '{"type":"system","subtype":"init","tools":["Agent"]}' \
     '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"turn-cutoff-probe","prompt":"synthetic"}}]}}' \
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"printf '\''turn-cutoff\\n'\''"}}]}}' \
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"printf '\''turn-cutoff\\n'\''"}}]}}' \
     '{"type":"result","result":"delegated","num_turns":1}' \
     >"$FIXTURES/cutoff-driver.jsonl"
 
@@ -275,6 +280,12 @@ if [[ "${1:-}" == "--self-test" ]]; then
     1 \
     "printf 'p0-03-smoke\n'"
   assert_handoff "$FIXTURES/handoff.jsonl"
+  assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Bash"
+  assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Write"
+  assert_init_tool_absent "$FIXTURES/handoff.jsonl" "Edit"
+  assert_json_has_no_tool "$FIXTURES/handoff.jsonl" "Bash"
+  assert_json_has_no_tool "$FIXTURES/handoff.jsonl" "Write"
+  assert_json_has_no_tool "$FIXTURES/handoff.jsonl" "Edit"
   assert_agent_delegation \
     "$FIXTURES/cutoff-driver.jsonl" \
     "turn-cutoff-probe"
@@ -313,7 +324,7 @@ command -v node >/dev/null 2>&1 || blocked "Linux Node.js not found"
 BWRAP_BIN="${BWRAP_BIN:-$(command -v bwrap || true)}"
 [[ -n "$BWRAP_BIN" && -x "$BWRAP_BIN" ]] ||
   blocked "bubblewrap (bwrap) is required for OS-level probe isolation"
-NODE_MAJOR="$(node -p 'process.versions.node.split(\".\")[0]')"
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] || blocked "unable to detect Node.js version"
 (( NODE_MAJOR >= 22 )) || blocked "Nori requires Linux Node.js 22 or newer; observed $(node --version)"
 
@@ -534,7 +545,11 @@ run_probe \
   "$WORK/handoff.jsonl"
 assert_handoff "$WORK/handoff.jsonl"
 assert_init_tool_absent "$WORK/handoff.jsonl" "Bash"
-assert_no_tool_calls "$WORK/handoff.jsonl"
+assert_init_tool_absent "$WORK/handoff.jsonl" "Write"
+assert_init_tool_absent "$WORK/handoff.jsonl" "Edit"
+assert_json_has_no_tool "$WORK/handoff.jsonl" "Bash"
+assert_json_has_no_tool "$WORK/handoff.jsonl" "Write"
+assert_json_has_no_tool "$WORK/handoff.jsonl" "Edit"
 echo "PASS cooperative handoff invariants"
 
 cat >"$INSTALLED_AGENTS_DIR/turn-cutoff-probe.md" <<'EOF'

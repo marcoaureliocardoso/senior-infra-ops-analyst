@@ -62,6 +62,7 @@ bash tests/live-subagent-runtime-smoke.sh
 The test records observed versions but does not require fixed Claude Code, Nori, or model versions. It creates an isolated temporary Claude home, installs the local worktree through Nori, validates the installed subagents, and runs synthetic analytical, executor, handoff, and delegated hard-cutoff probes.
 
 Every model process runs with a minimal environment inside a Bubblewrap mount namespace that exposes the temporary tree and required read-only system runtime paths, not the operator workspace or home. A temporary fail-closed `PreToolUse` hook allows only the exact synthetic `printf` commands; every other Bash input is denied.
+The delegated cutoff requires one `SubagentStart` and exactly `maxTurns` guarded commands. An abrupt cutoff can omit `SubagentStop`; when that event is emitted, its assistant-turn count must also match `maxTurns`.
 Model transport still requires network access, but the guarded Bash tool cannot issue a network command. The test never targets production
 infrastructure.
 

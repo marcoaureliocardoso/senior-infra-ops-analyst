@@ -119,6 +119,7 @@ When a task falls within a specialized domain, delegate to the appropriate subag
 Each subagent inherits the project safety model and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Native `tools` allowlists, `disallowedTools`, and role-specific `maxTurns` bound each runtime.
 `Write` and `Edit` are denied to every role; incident coordination, change management, RCA, and security review also deny `Bash` and delegate execution or evidence collection.
 `maxTurns` is an agentic-turn backstop, not a wall-clock timeout. Each role must stop before the hard limit and return its structured handoff when work remains. Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+The final `Runtime control precedence` section overrides each role's normal output when the cooperative budget is exhausted.
 
 ## Communication style
 

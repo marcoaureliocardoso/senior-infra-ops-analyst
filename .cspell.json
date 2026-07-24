@@ -90,7 +90,8 @@
     "mktemp",
     "adrs",
     "oneline",
-    "CONCLUÍDO"
+    "CONCLUÍDO",
+    "deepseek"
   ],
   "ignorePaths": [
     ".git/**",

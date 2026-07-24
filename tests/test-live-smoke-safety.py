@@ -25,6 +25,10 @@ class LiveSmokeSafetyTests(unittest.TestCase):
     def test_probe_process_uses_minimal_environment(self) -> None:
         self.assertIn("env -i", SCRIPT)
 
+    def test_node_preflight_uses_valid_javascript(self) -> None:
+        self.assertIn('process.versions.node.split(".")[0]', SCRIPT)
+        self.assertNotIn(r'process.versions.node.split(\".\")[0]', SCRIPT)
+
     def test_exact_command_guard_is_installed(self) -> None:
         self.assertIn('"PreToolUse"', SCRIPT)
         self.assertIn("smoke-command-guard.py", SCRIPT)

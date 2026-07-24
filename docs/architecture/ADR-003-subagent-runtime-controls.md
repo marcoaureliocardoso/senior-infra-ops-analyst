@@ -18,10 +18,12 @@ Roles reserve their final two turns for closure or a structured incomplete-work 
 
 - `subagents/*.md` enforce the approved role matrix in Claude Code frontmatter.
 - Each `## Runtime controls` section justifies every allowed tool, states the cooperative budget, restricts sensitive web queries, and defines eight handoff fields.
+- Each agent ends with `## Runtime control precedence`, which explicitly overrides its normal output at budget exhaustion and repeats the eight handoff fields for model-recency reliability.
 - `tests/subagent_runtime_policy.py` centralizes exact role policy, known tools, parsing, and validation.
 - `tests/test-subagent-frontmatter.py` provides positive and mutation coverage.
 - `tests/validate-installed-subagents.py` compares source and Nori-installed semantics for all 12 agents.
 - `tests/live-subagent-runtime-smoke.sh` supplies opt-in analytical, executor, handoff, and delegated-cutoff probes using synthetic inputs. It requires an OS-level Bubblewrap sandbox, a minimal environment, and a test-only fail-closed hook that allows only exact synthetic `printf` commands.
+  Delegated cutoff evidence requires one start event and exactly `maxTurns` guarded calls; a stop event is validated when emitted but is not assumed after an abrupt cutoff.
 - `nori.json` declares `type: skillset`, required for local/Git-backed Nori activation.
 
 ## Enforcement points
@@ -43,10 +45,11 @@ Roles reserve their final two turns for closure or a structured incomplete-work 
 
 ## Validation evidence
 
-- Static package validation passes 19 frontmatter tests, 5 installed-artifact tests, 5 live-smoke safety tests, 6 command-guard behavior tests, 4 schema tests, 12 risk tests, content validation, schema validation, CI workflow checks, Bash syntax, and PowerShell syntax.
+- Static package validation passes 21 frontmatter tests, 6 installed-artifact tests, 6 live-smoke safety tests, 6 command-guard behavior tests, 4 schema tests, 12 risk tests, content validation, schema validation, CI workflow checks, Bash syntax, and PowerShell syntax.
 - A real isolated Nori activation using observed Nori `0.31.0` and Node.js `v26.5.0` registered all 12 subagents and passed semantic installed-artifact comparison.
 - The live-smoke parser self-test passes without API consumption.
-- The host security policy blocked the LLM behavioral probes because they could send workspace content to an external service. This is recorded as blocked validation, not as a pass.
+- An authorized live behavioral smoke passed all analytical least-privilege, exact executor command, cooperative handoff, and delegated `maxTurns` probes. The run observed Claude Code `2.1.218`, Nori `0.31.0`, Node.js `v26.5.0`, and the operator-selected `deepseek-v4-pro[1m]`;
+  these identifiers are evidence, not project requirements.
 
 ## Consequences and limitations
 

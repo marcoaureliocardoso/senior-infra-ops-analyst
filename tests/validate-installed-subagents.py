@@ -10,6 +10,7 @@ from subagent_runtime_policy import (
     ROLE_POLICY,
     frontmatter_fields,
     frontmatter_skills,
+    runtime_precedence_section,
     runtime_section,
 )
 
@@ -43,6 +44,10 @@ def installed_subagent_errors(installed_dir: Path) -> list[str]:
             errors.append(f"installed skills differ: {agent_id}")
         if runtime_section(installed).strip() != runtime_section(source).strip():
             errors.append(f"installed runtime controls differ: {agent_id}")
+        if runtime_precedence_section(installed).strip() != (
+            runtime_precedence_section(source).strip()
+        ):
+            errors.append(f"installed runtime precedence differs: {agent_id}")
 
     return errors
 

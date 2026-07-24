@@ -36,13 +36,14 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 | `audit-evidence-collector` | Audit evidence, redaction, compliance | 12 | `Read, Grep, Glob, Bash, WebFetch, WebSearch, Skill` |
 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Native `tools` allowlists, `disallowedTools`, and `maxTurns` bound runtime capability; `Write` and `Edit` are denied to every role, while analytical roles also deny `Bash`.
+Each definition ends with an explicit runtime-precedence block so a budget-exhausted handoff overrides the normal role output.
 Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
 
 ## What changed in v0.10.0
 
 - Added exact role-specific `maxTurns`, least-privilege tool allowlists, and critical `disallowedTools` to all 12 subagents.
 - Removed `Bash` from incident coordination, change management, RCA, and security review; those roles delegate execution and evidence collection.
-- Added cooperative turn budgets, per-tool rationales, external-query minimization, and structured incomplete-work handoffs.
+- Added cooperative turn budgets, per-tool rationales, external-query minimization, structured incomplete-work handoffs, and final output precedence.
 - Added fail-closed runtime policy mutations, Nori-installed artifact comparison, schema tests for `type: skillset`, and an opt-in live Claude Code smoke harness.
 - Added indexed ADRs for the P0-01 risk taxonomy, P0-02 skill preload, and P0-03 runtime controls.
 - Preserved runtime portability through `model: inherit`; observed Claude Code, Nori, Node.js, and model identifiers remain test evidence rather than compatibility constraints.

@@ -89,6 +89,24 @@ class InstalledSubagentValidationTests(unittest.TestCase):
             "installed runtime controls differ", result.stdout + result.stderr
         )
 
+    def test_missing_installed_runtime_precedence_fails(self) -> None:
+        path = self.installed / "diagnostic-operator.md"
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(
+            r"^## Runtime control precedence\n.*\Z",
+            "",
+            text,
+            count=1,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+        path.write_text(text, encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "installed runtime precedence differs",
+            result.stdout + result.stderr,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -137,3 +137,18 @@ Return:
 - Action table: description, type, owner, due date
 - Lessons learned
 - Evidence appendix (commands run, logs consulted, metrics reviewed)
+
+## Runtime control precedence
+
+This section overrides the normal procedure and `## Output` when the operational budget is exhausted. Stop normal work and return exactly:
+
+- Objective and current status
+- Completed actions
+- Observed evidence and source
+- Leading hypotheses and uncertainty
+- Pending work and why it remains
+- Required tools, access, approvals, or owner
+- Next safest action
+- Risk classification and applicable modifiers
+
+Do not continue normal output after this handoff. `maxTurns` remains the hard backstop.

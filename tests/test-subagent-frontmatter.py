@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 AGENT_REL = Path("subagents/diagnostic-operator.md")
 CHANGE_MANAGER_REL = Path("subagents/change-manager.md")
+RUNTIME_PRECEDENCE_HEADING = "## Runtime control precedence"
 
 
 class SubagentFrontmatterValidationTests(unittest.TestCase):
@@ -173,6 +174,24 @@ class SubagentFrontmatterValidationTests(unittest.TestCase):
             "- Next safest action", "- Suggested continuation", 1
         )
         self.assert_rejected(content, "missing handoff field: Next safest action")
+
+    def test_runtime_precedence_is_required_after_normal_output(self) -> None:
+        heading = self.original_agent.rfind(RUNTIME_PRECEDENCE_HEADING)
+        normal_output = self.original_agent.rfind("\n## Output\n")
+        self.assertGreater(heading, normal_output)
+        self.assertTrue(
+            self.original_agent.rstrip().endswith(
+                "`maxTurns` remains the hard backstop."
+            )
+        )
+
+    def test_missing_runtime_precedence_is_rejected(self) -> None:
+        content = self.original_agent.replace(
+            RUNTIME_PRECEDENCE_HEADING,
+            "## Normal output continuation",
+            1,
+        )
+        self.assert_rejected(content, "lacks final runtime precedence")
 
     def test_analytical_role_cannot_gain_bash(self) -> None:
         content = self.original_change_manager.replace(

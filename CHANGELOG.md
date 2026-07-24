@@ -5,6 +5,7 @@
 - Added role-specific native Claude Code `maxTurns`, exclusive `tools` allowlists, and defense-in-depth `disallowedTools` to all 12 subagents.
 - Denied `Write` and `Edit` globally and removed `Bash` from incident coordination, change management, RCA, and security review.
 - Added cooperative budgets, tool rationales, safe external-query instructions, and eight-field incomplete-work handoffs.
+- Added final runtime-precedence blocks so budget-exhausted handoffs override each agent's normal output.
 - Added a canonical runtime-policy validator with mutation coverage for limits, tool drift, duplicates, unknown tools, critical denials, rationales, and handoffs.
 - Added semantic comparison of all source and Nori-installed subagents plus manifest validation for root `type: skillset`.
 - Added an opt-in OS-sandboxed Claude Code/Nori behavioral smoke harness with exact-command guards, delegated cutoff evidence, and a no-API parser self-test.

@@ -134,6 +134,16 @@ def runtime_section(text: str) -> str:
     return match.group(1) if match else ""
 
 
+def runtime_precedence_section(text: str) -> str:
+    """Return the final Runtime control precedence section."""
+    match = re.search(
+        r"^## Runtime control precedence\s*\n(.*)\Z",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group(1) if match else ""
+
+
 def frontmatter_fields(text: str) -> dict[str, object]:
     """Parse fields whose installed semantics must remain stable."""
     frontmatter = _frontmatter(text)
@@ -241,4 +251,23 @@ def runtime_control_errors(agent_id: str, text: str) -> list[str]:
             errors.append(f"subagent missing handoff field: {field} — {agent_id}")
     if turns is not None and f"Operational budget: {turns - 2} turns" not in section:
         errors.append(f"subagent runtime budget does not match maxTurns: {agent_id}")
+
+    precedence = runtime_precedence_section(text)
+    precedence_position = text.rfind("## Runtime control precedence")
+    output_headings = [
+        match.start() for match in re.finditer(r"^## Output\s*$", text, re.MULTILINE)
+    ]
+    output_position = max(output_headings, default=-1)
+    if (
+        not precedence
+        or precedence_position <= output_position
+        or not text.rstrip().endswith("`maxTurns` remains the hard backstop.")
+    ):
+        errors.append(f"subagent lacks final runtime precedence: {agent_id}")
+    else:
+        for field in HANDOFF_FIELDS:
+            if field not in precedence:
+                errors.append(
+                    f"subagent precedence missing handoff field: {field} — {agent_id}"
+                )
     return errors
