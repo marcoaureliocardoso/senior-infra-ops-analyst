@@ -160,6 +160,13 @@ def validate_packaging_metadata() -> None:
         nv_ver = nv.get("version", "")
         if not re.match(r"^\d+\.\d+\.\d+$", str(nv_ver)):
             err(f".nori-version version '{nv_ver}' is not valid semver (X.Y.Z)")
+        with open(MANIFEST_PATH, encoding="utf-8") as fh:
+            manifest_version = json.load(fh).get("version", "")
+        if nv_ver != manifest_version:
+            err(
+                ".nori-version version must match nori.json: "
+                f"'{nv_ver}' != '{manifest_version}'"
+            )
 
     # --- profile.json ---
     profile_path = ROOT / "profile.json"

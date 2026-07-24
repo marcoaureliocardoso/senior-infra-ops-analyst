@@ -1,8 +1,8 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "type": "skillset",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.9.1 enforces one canonical base risk level per action, complete modifier composition, and consistent approval and recovery controls.",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.10.0 adds bounded turns, least-privilege tools, installed-artifact validation, and indexed architecture decisions.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [
@@ -189,7 +189,7 @@
     {
       "id": "change-manager",
       "name": "change-manager",
-      "description": "Use when planning, reviewing, approving, executing, validating, or documenting infrastructure changes, including rollback planning, dependency checks, post-change monitoring, and operational risk review."
+      "description": "Use when planning, reviewing, coordinating approval, validating, or documenting infrastructure changes, including rollback planning, dependency checks, post-change monitoring, and operational risk review."
     },
     {
       "id": "rca-facilitator",
