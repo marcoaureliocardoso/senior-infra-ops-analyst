@@ -1,6 +1,6 @@
 # P0-04 Native Command Guard Design
 
-**Status:** Approved
+**Status:** Approved, revised after operator review
 **Date:** 2026-07-25
 **Scope:** P0-04 — apply native `PreToolUse` enforcement to executor subagents
 
@@ -36,6 +36,8 @@ The design was approved with two explicit product requirements:
 - Allow recognized operational changes in autonomous mode.
 - Require an exact native decision in non-autonomous mode.
 - Fail closed when a command cannot be analyzed conclusively.
+- Support bounded operational pipelines without treating shell composition as
+  automatically unsafe.
 - Support legitimate credential use while preventing additional disclosure.
 - Preserve the hook and validator path after Nori installation.
 - Record hook decisions independently from the model's justification.
@@ -102,10 +104,13 @@ The validator reads one JSON event from stdin and requires:
 - optional `tool_input.timeout` within policy;
 - `tool_input.run_in_background` absent or `false`.
 
-It returns only the current structured Claude Code contract:
+It returns only fields from the current structured Claude Code contract. A
+policy `deny` includes the top-level `systemMessage` so the operator receives
+the redacted explanation directly; `ask` uses the native permission prompt:
 
 ```json
 {
+  "systemMessage": "optional redacted operator warning for deny",
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "allow|ask|deny",
@@ -117,6 +122,40 @@ It returns only the current structured Claude Code contract:
 Malformed input, unknown schema, internal exceptions, audit failure when audit
 is required, and unsupported policy states exit with code `2`. No allow
 decision is emitted on an error path.
+
+### Decision semantics and operator feedback
+
+The three decisions have non-overlapping meanings:
+
+- `allow` means the complete operation is permitted by the current policy;
+- `ask` means the complete operation is understood but requires an exact
+  operator decision;
+- `deny` means the operation is prohibited or cannot be analyzed safely and is
+  not overridable for that tool call.
+
+An authorizable condition must never be represented as `deny`. In an
+interactive session, `ask` deliberately requests operator confirmation even
+when the effective mode is `bypassPermissions`. In a non-interactive surface
+where that prompt cannot be completed, the operation does not execute and the
+validator must not downgrade `ask` to `allow`.
+
+Every `ask` and `deny` response contains a deterministic, redacted explanation
+with:
+
+- a stable policy reason code;
+- the affected command or composition stage;
+- the risk and policy category;
+- non-sensitive target, environment, and scope when known;
+- the required operator decision for `ask`, or safe remediation guidance for
+  `deny`;
+- an explicit indication when sensitive fields were redacted.
+
+The explanation never contains a raw credential or an unredacted command that
+contains one. For `ask`, `permissionDecisionReason` is displayed in the native
+operator prompt. For `deny`, the same safe summary is routed to the operator
+through `systemMessage`, while `permissionDecisionReason` provides enforcement
+feedback to the model so it can safely reformulate the operation. A `deny` is
+not converted into a generic operator override prompt.
 
 ## Permission-mode-aware policy
 
@@ -139,6 +178,13 @@ Normal modes are `default`, `plan`, `acceptEdits`, `auto`, and `dontAsk`.
 Claude Code remains responsible for the final behavior of an `ask` decision
 in modes or non-interactive surfaces where a prompt cannot be completed.
 
+The guard uses `ask`, rather than `deny`, for every fully analyzed operation
+that policy permits only after human confirmation. This includes catalogued
+`DESTRUCTIVE` operations and any composition whose aggregate policy requires
+an exact decision. Native `PreToolUse` evaluation occurs before the permission
+mode check, so this decision remains an intentional approval boundary in
+interactive `bypassPermissions` sessions.
+
 `bypassPermissions` is session-level authorization for catalogued
 non-destructive operations. It is not a new risk level and does not suppress
 deterministic validation. Every call is parsed again and receives its own
@@ -153,8 +199,11 @@ The validator never executes the proposed command and never asks an LLM to
 classify it. It performs bounded lexical analysis and command-family policy
 matching.
 
-The initial grammar accepts one foreground command with a deterministically
-tokenizable argument vector. A family policy declares:
+The initial grammar accepts either one foreground command or a bounded
+composition that the shell-specific lexer can tokenize deterministically.
+Bash-compatible and PowerShell syntax are analyzed by separate lexical
+profiles because their quoting, escaping, and pipeline semantics differ. A
+family policy declares:
 
 - executable aliases;
 - allowed operational verbs;
@@ -169,10 +218,38 @@ including local diagnostics and controlled families for system services,
 Kubernetes, containers, cloud providers, databases, networking, SSH, sudo,
 PowerShell, Git/CI, and authenticated HTTP operations.
 
-Pipelines, redirections, command substitution, background execution,
-interpreter wrappers, remote nested commands, and command chaining are denied
-unless a family-specific parser proves every component and data flow safe.
-Broad substring or regex matches cannot authorize a command.
+The composition analyzer builds an ordered representation of command stages,
+operators, redirections, and data-flow edges. It validates every stage against
+its command-family policy, then evaluates the composition as a whole. The
+aggregate decision is not merely the highest individual risk: independently
+valid commands can create an unsafe source-to-sink flow when combined.
+
+The initial composition rules are:
+
+- `A | B` is supported when every stage is catalogued and the stdout-to-stdin
+  flow is permitted; narrow read-only filters and bounded selectors are the
+  first supported subset;
+- PowerShell object pipelines are evaluated using a separate catalogue of
+  permitted cmdlets, bounded script blocks, and object sinks;
+- `A && B`, `A || B`, `A ; B`, and newline-separated commands require every
+  branch or sequence member to be independently valid, with the aggregate
+  state effects and risk evaluated;
+- output and input redirections are treated as explicit read or write sinks
+  whose destination must be determinable and permitted;
+- background execution, command or process substitution, unsupported nested
+  interpreters, dynamically constructed commands, and remote nested commands
+  are denied until a specific parser can establish their complete semantics;
+- `eval`, `Invoke-Expression`, dynamic `sh -c` equivalents, and unbounded
+  command constructors such as unsupported `xargs` forms are not initially
+  authorizable;
+- a credential or sensitive-data source flowing to logging, persistence, an
+  unrelated process, or an unvalidated network destination is denied;
+- a supported credential transport flowing directly to its catalogued
+  consumer can remain authorizable under the operation's risk policy.
+
+The parser fails closed on unmatched quoting, unsupported operators, control
+characters, ambiguous shell selection, an unknown stage, or an unproven data
+flow. Broad substring or regex matches cannot authorize a command.
 
 Unknown commands remain denied in both modes. The catalog grows through
 versioned policy changes and positive plus adversarial tests.
@@ -193,6 +270,11 @@ An exact native approval applies only to that tool call. Changing an argument,
 target, environment, scope, credential transport, timeout, or background flag
 causes a new evaluation. In autonomous mode, the new call can still be allowed
 only if it independently satisfies the policy.
+
+For a composed command, the exact approval also binds the ordered stages,
+operators, redirections, and normalized redacted data-flow representation.
+Adding, removing, reordering, or rewriting any component causes a new
+evaluation.
 
 ## Credential handling
 
@@ -251,7 +333,7 @@ the minimum redacted fields needed to explain enforcement:
 - credential type and transport, never the credential value;
 - normalized redacted-command fingerprint;
 - `allow`, `ask`, or `deny`;
-- redacted reason code.
+- stable redacted reason code and affected stage number when applicable.
 
 Raw commands, transcripts, tool output, credentials, cookies, authorization
 headers, connection strings, private keys, and unnecessary personal data are
@@ -267,6 +349,11 @@ Tests first establish failing cases for:
 - missing or unexpected event, tool, agent, mode, or command fields;
 - background commands and invalid timeouts;
 - normal versus `bypassPermissions` decisions for every risk level;
+- `ask` forcing an exact interactive decision in `bypassPermissions`;
+- `deny` remaining non-overridable for the rejected tool call;
+- redacted explanatory messages for every `ask` and `deny` family;
+- direct operator visibility through the native `ask` prompt and deny
+  `systemMessage`;
 - exact target and environment requirements;
 - source-to-installed hook preservation;
 - fail-closed exception and audit paths.
@@ -275,7 +362,11 @@ Tests first establish failing cases for:
 
 Adversarial fixtures cover:
 
-- pipes and redirections;
+- permitted narrow read-only Bash and PowerShell pipelines;
+- mixed-risk pipelines and source-to-sink policy escalation;
+- destructive pipelines that produce `ask` when fully understood;
+- forbidden or inconclusive pipelines that produce `deny` with remediation;
+- pipes and redirections carrying synthetic sensitive data;
 - `&&`, `||`, `;`, newlines, and background jobs;
 - `$()`, backticks, process substitution, and nested interpreters;
 - environment expansion and assignment;
@@ -299,6 +390,8 @@ Synthetic markers cover every supported credential transport:
 Tests assert that normal mode asks, autonomous mode follows the operation's
 policy, destructive actions still ask, exfiltration denies, and no synthetic
 secret appears in stdout, stderr, audit output, or retained test artifacts.
+They also assert that an authorizable operation is never labelled `deny`, and
+that a denied operation cannot be executed by accepting a generic prompt.
 
 ### Installed and live behavior
 
@@ -308,8 +401,11 @@ synthetic or disposable targets and includes:
 
 - a normal-mode read and controlled mutation;
 - a `bypassPermissions` read and controlled mutation;
+- a bounded read-only pipeline in each supported shell profile;
 - a destructive command that still asks or is safely prevented from reaching
   a real executor;
+- a rejected composition whose detailed redacted reason is visible and cannot
+  be overridden for that call;
 - a malformed-command denial;
 - a hook-failure denial;
 - a synthetic credential flow with retained artifacts scanned for leakage.
@@ -337,6 +433,8 @@ strings:
   <https://code.claude.com/docs/en/hooks>;
 - Claude Code permission modes:
   <https://code.claude.com/docs/en/permission-modes>;
+- Claude Code permission rules and hook ordering:
+  <https://code.claude.com/docs/en/permissions>;
 - Nori Claude Code subagent installation at the observed reference:
   <https://github.com/tilework-tech/nori-skillsets/blob/skillsets-v0.31.0/src/cli/features/shared/subagentsLoader.ts>;
 - Nori installed-path substitution at the observed reference:
@@ -353,6 +451,9 @@ compatibility contract.
   disclosure.
 - Command-family policy cannot cover every current or future infrastructure
   CLI immediately. Unknown commands fail closed until reviewed.
+- The bounded composition grammar intentionally supports fewer constructs than
+  the underlying shells. Unsupported composition is reformulated or added
+  through a reviewed policy and adversarial-test change.
 - A parser can establish syntactic target and scope but cannot prove the
   operator's real-world intent.
 - `bypassPermissions` is deliberately broad session authorization. It
