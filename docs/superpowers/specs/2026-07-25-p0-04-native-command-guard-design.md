@@ -99,7 +99,8 @@ The validator reads one JSON event from stdin and requires:
 - `hook_event_name` exactly `PreToolUse`;
 - `tool_name` exactly `Bash`;
 - `agent_type` in the executor allowlist;
-- `permission_mode` in the currently documented Claude Code mode set;
+- `permission_mode` as a non-empty bounded string; only documented semantics
+  receive a mode-specific policy;
 - `tool_input.command` as a non-empty bounded string;
 - optional `tool_input.timeout` within policy;
 - `tool_input.run_in_background` absent or `false`.
@@ -177,6 +178,14 @@ settings, or an in-session mode change.
 Normal modes are `default`, `plan`, `acceptEdits`, `auto`, and `dontAsk`.
 Claude Code remains responsible for the final behavior of an `ask` decision
 in modes or non-interactive surfaces where a prompt cannot be completed.
+
+An unknown future mode name does not receive autonomous privileges and does
+not reject the whole runtime merely because its label is new. It follows the
+conservative normal-mode policy: narrow `SAFE_READ_ONLY` can remain `allow`,
+catalogued changes require `ask`, and forbidden or inconclusive operations
+remain `deny`. The decision carries an `UNKNOWN_MODE_CONSERVATIVE` modifier so
+live capability tests can determine whether a reviewed semantic mapping should
+be added later.
 
 The guard uses `ask`, rather than `deny`, for every fully analyzed operation
 that policy permits only after human confirmation. This includes catalogued
@@ -341,22 +350,89 @@ not written by the guard.
 
 ## Validation strategy
 
+### Coverage contract
+
+"All cases" means every finite behavior declared by this project, not every
+possible byte string accepted by Bash or PowerShell. The supported grammar,
+command catalogue, policy matrix, reason-code registry, limits, and edge-case
+inventory are versioned finite sets. Tests exhaust those sets; bounded
+property and fuzz tests explore input outside them.
+
+The release gate requires:
+
+- every supported grammar production and operator;
+- every command family, verb, risk level, modifier, and policy rule;
+- every supported `permission_mode` path and the conservative unknown-mode
+  fallback;
+- every `allow`, `ask`, and `deny` reason code;
+- minimum, exact-limit, and over-limit values for every numeric or size bound;
+- present, missing, empty, malformed, ambiguous, and conflicting forms of each
+  required field;
+- positive, boundary, negative, and composition cases for every policy rule;
+- 100% branch coverage for the security-critical parser, normalizer/redactor,
+  policy evaluator, decision serializer, and audit sanitizer modules;
+- zero untested policy or reason-code IDs in a machine-checked coverage map;
+- zero secret-marker occurrences across process output, diagnostics, coverage
+  output, snapshots, audit records, and retained test artifacts.
+
+Coverage percentage is a secondary signal. A 100% metric does not satisfy the
+gate if the behavior matrix, edge-case inventory, mutation checks, or installed
+tests are incomplete. Conversely, unreachable defensive branches must be
+justified and removed or exercised rather than excluded silently.
+
+Each catalogue or policy entry carries stable test references. The validator
+build fails when an entry has no positive, boundary, or negative case, when a
+test references a removed rule, or when an emitted reason code is absent from
+the registry. Every defect adds a failing regression fixture before its fix.
+
+Tests run in six layers:
+
+1. pure lexer, parser, redactor, policy, and serializer unit tests;
+2. generated decision-table and command-family contract tests;
+3. composition, adversarial, property, and deterministic fuzz tests;
+4. subprocess tests of stdin, stdout, stderr, exit codes, timeout, and failure
+   behavior;
+5. isolated Nori installation and installed-artifact tests;
+6. opt-in live Claude Code smoke tests against synthetic or disposable
+   targets.
+
+Randomized tests use recorded seeds and bounded resources so CI is
+reproducible. Every discovered failure is minimized into a permanent fixture.
+An extended seed corpus may run outside the pull-request gate, but the bounded
+deterministic corpus is mandatory on every change.
+
 ### Contract and policy tests
 
 Tests first establish failing cases for:
 
 - malformed and oversized JSON;
+- empty input, whitespace-only input, byte-order marks, invalid encoding,
+  trailing data, duplicate security-sensitive keys, non-object roots, excessive
+  nesting, unexpected arrays, and prototype-like property names;
 - missing or unexpected event, tool, agent, mode, or command fields;
-- background commands and invalid timeouts;
+- exact minimum, maximum, and one-over boundaries for command length, timeout,
+  composition stages, output, fan-out, query scope, and audit fields;
+- wrong scalar types, empty strings, non-finite numbers, negative values,
+  unknown fields, background commands, and invalid timeouts;
 - normal versus `bypassPermissions` decisions for every risk level;
+- every normal mode individually, unknown future modes using conservative
+  non-autonomous behavior without a name-based version gate, and mode changes
+  between otherwise identical calls;
 - `ask` forcing an exact interactive decision in `bypassPermissions`;
+- non-interactive `ask` never being downgraded to `allow`;
 - `deny` remaining non-overridable for the rejected tool call;
 - redacted explanatory messages for every `ask` and `deny` family;
 - direct operator visibility through the native `ask` prompt and deny
   `systemMessage`;
 - exact target and environment requirements;
+- approval invalidation after changes to any argument, stage, operator,
+  redirection, target, environment, scope, credential transport, timeout, or
+  background flag;
+- complete decision-table coverage for risk modifiers alone and in supported
+  combinations;
 - source-to-installed hook preservation;
-- fail-closed exception and audit paths.
+- fail-closed exception, timeout, malformed hook output, stdout pollution,
+  audit failure, missing script, and unavailable runtime paths.
 
 ### Shell and evasion tests
 
@@ -367,14 +443,34 @@ Adversarial fixtures cover:
 - destructive pipelines that produce `ask` when fully understood;
 - forbidden or inconclusive pipelines that produce `deny` with remediation;
 - pipes and redirections carrying synthetic sensitive data;
-- `&&`, `||`, `;`, newlines, and background jobs;
+- zero, one, exact-maximum, and over-maximum pipeline stages;
+- operators adjacent to tokens, operators inside quoted arguments, empty
+  stages, repeated operators, mixed line endings, and comments near operators;
+- `|`, `|&`, `&&`, `||`, `;`, newlines, input/output/append redirection,
+  descriptor duplication, PowerShell all-stream redirection, and background
+  jobs;
 - `$()`, backticks, process substitution, and nested interpreters;
-- environment expansion and assignment;
+- here-documents, here-strings, line continuations, functions, aliases, dot
+  sourcing, Bash arithmetic and brace expansion, and PowerShell script blocks,
+  subexpressions, call operator, splatting, and stop-parsing token;
+- environment expansion, assignment, indirection, unset variables, empty
+  values, and assignments whose values contain operators;
 - shell, PowerShell, Python, Node.js, SSH, and sudo wrappers;
-- base64, hex, escaped Unicode, control characters, and quoting variations;
+- `cmd /c`, encoded PowerShell, dynamic interpreter flags, `eval`,
+  `Invoke-Expression`, and command-building `xargs` forms;
+- single, double, nested, unmatched, and escaped quoting; empty arguments;
+  whitespace variants; tabs; carriage returns; nulls; and control characters;
+- base64, hex, percent encoding, escaped and normalized Unicode, bidirectional
+  controls, zero-width characters, homoglyphs, and operator lookalikes;
 - path traversal, symlink-sensitive paths, wildcards, and glob expansion;
+- relative, absolute, UNC, drive-qualified, spaced, dashed, reserved, and
+  case-variant paths;
 - downloads, remote scripts, and authenticated redirects;
-- fan-out, broad logs, packet capture, and resource-intensive queries.
+- fan-out, broad logs, packet capture, and resource-intensive queries at every
+  configured boundary;
+- separately safe source and sink stages that become unsafe when composed;
+- stage reordering, repeated stages, early failure, alternate branches, and
+  data flows crossing read, write, process, file, and network boundaries.
 
 ### Credential tests
 
@@ -387,11 +483,42 @@ Synthetic markers cover every supported credential transport:
 - cloud, Kubernetes, and Git credential helpers;
 - generic token, password, key, and secret variables.
 
+Each transport is tested by reference and literal value, with empty, repeated,
+quoted, escaped, Unicode, delimiter-bearing, operator-bearing, and
+percent-encoded synthetic values. Tests include URI userinfo, headers, cookies,
+connection strings, files, environment assignments, stdin, and supported
+direct pipeline consumers, plus benign lookalikes to control false positives.
+
 Tests assert that normal mode asks, autonomous mode follows the operation's
 policy, destructive actions still ask, exfiltration denies, and no synthetic
 secret appears in stdout, stderr, audit output, or retained test artifacts.
 They also assert that an authorizable operation is never labelled `deny`, and
 that a denied operation cannot be executed by accepting a generic prompt.
+Forced exceptions at every processing stage assert that redaction occurs
+before normalization, fingerprinting, explanation, audit, test reporting, and
+failure serialization.
+
+### Property, fuzz, and mutation tests
+
+Bounded generators produce valid and invalid commands for both shell profiles.
+The invariant suite asserts:
+
+- no malformed, unknown, ambiguous, or over-limit input returns `allow`;
+- parsing and normalization are deterministic and do not execute input;
+- redaction is idempotent and no known synthetic marker survives any output;
+- adding an unknown stage or unsafe source-to-sink edge cannot make a decision
+  less restrictive;
+- changing a bound from within policy to outside policy cannot preserve
+  `allow`;
+- serialized output is exactly one valid JSON object on successful hook paths;
+- any uncaught exception or timeout prevents execution;
+- equivalent quoted separators remain arguments, while real separators remain
+  composition operators.
+
+Mutation checks remove or invert each policy predicate, risk escalation,
+redaction rule, and decision-precedence branch in turn. The suite must fail for
+every such mutation. Surviving mutations block release until a test is added
+or the allegedly redundant code is removed with review.
 
 ### Installed and live behavior
 
@@ -409,6 +536,12 @@ synthetic or disposable targets and includes:
 - a malformed-command denial;
 - a hook-failure denial;
 - a synthetic credential flow with retained artifacts scanned for leakage.
+
+Installed tests repeat the contract manifest against source and installed
+paths so packaging cannot silently drop a fixture, policy entry, reason code,
+hook, or validator module. Live tests validate representative outcomes, while
+the exhaustive finite matrices remain in deterministic local tests and do not
+depend on model wording.
 
 The harness discovers runtime commands and records observed versions without
 converting them into compatibility gates.
