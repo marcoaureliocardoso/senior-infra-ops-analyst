@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,14 +8,19 @@ import test from 'node:test';
 const SOURCE = path.resolve('skills/command-driven-operations/scripts/command-guard-launcher.sh');
 const BASH = process.env.BASH_PATH ?? (process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash');
 
-async function fixture(entrypoint, postEntrypoint = null) {
+async function fixture(entrypoint, postEntrypoint = null, transformLauncher = null) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'guard-launcher-'));
   const scripts = path.join(root, 'scripts');
   await mkdir(path.join(scripts, 'command-guard'), { recursive: true });
-  await copyFile(SOURCE, path.join(scripts, 'command-guard-launcher.sh'));
+  const launcher = path.join(scripts, 'command-guard-launcher.sh');
+  if (transformLauncher) {
+    await writeFile(launcher, transformLauncher(await readFile(SOURCE, 'utf8')), 'utf8');
+  } else {
+    await copyFile(SOURCE, launcher);
+  }
   if (entrypoint) await writeFile(path.join(scripts, 'validate-ops-command.mjs'), entrypoint, 'utf8');
   if (postEntrypoint) await writeFile(path.join(scripts, 'record-command-approval.mjs'), postEntrypoint, 'utf8');
-  return { root, launcher: path.join(scripts, 'command-guard-launcher.sh') };
+  return { root, launcher };
 }
 
 function run(launcher, mode = 'pre', extraEnv = {}) {
@@ -47,9 +52,13 @@ test('launcher accepts a silent successful PostToolUse recorder', async () => {
 });
 
 test('launcher blocks an unavailable Node runtime and its internal deadline', async () => {
-  const unavailable = await fixture("process.stdout.write('{}\\n');\n");
+  const unavailable = await fixture("process.stdout.write('{}\\n');\n", null, (source) => {
+    const lookup = 'NODE_BIN="$(command -v node || true)"';
+    assert.equal(source.split(lookup).length, 2, 'runtime lookup fault-injection anchor');
+    return source.replace(lookup, 'NODE_BIN=""');
+  });
   try {
-    const result = run(unavailable.launcher, 'pre', { PATH: '' });
+    const result = run(unavailable.launcher);
     assert.equal(result.status, 2);
     assert.match(result.stderr, /launcher failed/u);
   } finally { await rm(unavailable.root, { recursive: true, force: true }); }

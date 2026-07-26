@@ -27,15 +27,17 @@ urls=$(find . -name '*.md' \
   -not -path './.worktrees/*' \
   -not -path './tests/reports/*' \
   -exec grep -Eo 'https?://[^])>[:space:]]+' {} \; \
-  | sed -e 's/[.,;:]*$//' -e 's/`$//' \
+  | sed -e 's/[.,;:]*$//' -e 's/`$//' -e "s/'$//" -e 's/"$//' \
   | grep -v '[<>]' \
-  | sort -u \
+  | LC_ALL=C sort -u \
   | while IFS= read -r url; do
       host=$(echo "$url" | sed -n 's|^https\?://\([^/:]*\).*|\1|p')
       # Skip bare hostnames (no dot — e.g., app02, localhost)
       [[ "$host" != *.* ]] && continue
       # Skip .local domains (RFC 6762 reserved — never publicly routable)
       [[ "$host" == *.local ]] && continue
+      # Skip .invalid domains (RFC 2606 reserved for deliberately invalid names)
+      [[ "$host" == *.invalid ]] && continue
       # Skip example/placeholder domains used in operational scenarios
       [[ "$host" == *.example.edu ]] && continue
       echo "$url"
