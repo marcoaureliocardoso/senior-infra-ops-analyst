@@ -41,9 +41,12 @@ Other project skills remain available for on-demand discovery. See `subagents/` 
 
 ## Native command guard
 
-The eight executor roles with `Bash` carry a native `PreToolUse` hook that
-invokes a shared deterministic Node.js validator from the Nori-installed
-`command-driven-operations` skill. The four analytical roles remain shell-free.
+The eight executor roles with `Bash` carry native `PreToolUse` and
+`PostToolUse` hooks. A fail-closed launcher invokes the shared deterministic
+Node.js validator and approval recorder from the Nori-installed
+`command-driven-operations` skill. Missing runtimes or artifacts, timeouts,
+crashes, malformed output, and unexpected stdout block the call. The four
+analytical roles remain shell-free.
 
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,
 operator, redirect, and data-flow graph, and validates every stage against a
@@ -59,10 +62,11 @@ before authorization.
 Profiles, agents, keychains, cached sessions, credential helpers, runtime
 variables, and protected-file direct flows are preferred. A literal supplied
 in conversation is already model/provider/transcript-visible. The guard
-prevents additional disclosure and permits same-session, same-domain,
-same-identity, same-transport reuse in `bypassPermissions`, while independently
-re-evaluating every command. It never stores or derives a credential
-identifier.
+prevents additional disclosure. First literal use always asks. Only a matching,
+successful `PostToolUse` event activates bounded, non-secret state for
+same-session, same-domain, same-identity, same-transport reuse in
+`bypassPermissions`, while every command is independently re-evaluated. The
+state contains no value, hash, raw command, or secret-derived identifier.
 
 Mandatory static and installed-form validation:
 
@@ -76,13 +80,18 @@ The real Claude Code/Nori harness is opt-in because it requires a configured
 Linux/WSL environment with Bubblewrap and operator credentials:
 
 ```bash
-bash tests/live-command-guard-smoke.sh --run-live
+P0_04_LIVE_NORMAL_CREDENTIALS_ACK=I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK \
+  bash tests/live-command-guard-smoke.sh --run-live
 ```
 
-The live harness uses a generated Claude home, non-root Bubblewrap isolation,
-minimal read-only DNS/TLS mounts, an explicit Claude/Anthropic environment
-allowlist loaded without copying operator settings, and a disposable
-loopback-only service that records no headers or bodies.
+The live harness currently imports the operator's normal provider credentials
+into the Claude process and leaves provider egress available. The explicit
+acknowledgement records this temporary accepted exception. A generated Claude
+home, non-root Bubblewrap isolation, minimal read-only DNS/TLS mounts,
+provider-control-variable denials, retained-output scans, and disposable
+loopback targets reduce but do not eliminate credential-exfiltration risk.
+Disposable provider credentials or egress allowlisting remain the required
+future replacement.
 
 Observed runtime/model versions are recorded as evidence and are not package
 requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
@@ -90,9 +99,10 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 ## What changed in v0.11.0
 
 - Added native `PreToolUse` hooks to the eight executor subagents and semantic source-to-installed validation of their shared guard path.
+- Added a fail-closed launcher, matching `PostToolUse` approval recording, and bounded non-secret credential-binding state.
 - Added strict event validation, separate Bash/PowerShell lexers, composition analysis, a finite infrastructure command catalogue, target binding, and mode-aware `allow`/`ask`/`deny` policy.
-- Added redaction-before-normalization, stateless model-visible credential handling, direct protected-file flows, minimal append-only audit metadata, and fail-closed process behavior.
-- Added 100% critical line/function/branch coverage, finite inventory/orphan checks, four property seeds, eleven killed security mutations, installed-form probes, and an opt-in OS-isolated live harness.
+- Added parser-aware redaction, structural non-secret action identities, direct protected-file flows, bounded per-stage findings, minimal append-only audit metadata, and fail-closed process behavior.
+- Added 100% critical line/function/branch coverage, executable fixture-ledger checks, four property seeds, eleven killed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 
 ## What changed in v0.10.0

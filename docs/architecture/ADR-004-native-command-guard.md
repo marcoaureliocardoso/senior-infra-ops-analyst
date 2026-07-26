@@ -19,9 +19,12 @@ DeepSeek API parser, or fixed Claude Code, Nori, Node.js, or model version.
 
 ## Decision
 
-Attach a native `PreToolUse` hook with matcher `Bash` to the eight executor
-subagents. The hook invokes a shared deterministic Node.js validator from the
-installed `command-driven-operations` skill through `{{skills_dir}}`.
+Attach native `PreToolUse` and `PostToolUse` hooks with matcher `Bash` to the
+eight executor subagents. Both hooks invoke a fail-closed launcher from the
+installed `command-driven-operations` skill through `{{skills_dir}}`. The
+launcher applies an internal deadline, checks the runtime and artifact, and
+rejects crashes, malformed output, and unexpected stdout before delegating to
+the validator or approval recorder.
 
 The validator returns Claude Code's native `allow`, `ask`, or `deny` response.
 Normal modes allow narrow reads and ask for bounded sensitive reads and
@@ -33,29 +36,36 @@ uses conservative normal-mode semantics rather than a version allowlist.
 ## Implemented architecture
 
 1. A strict stdin contract accepts one bounded `PreToolUse`/`Bash` event for a
-   registered executor, including bounded `prompt_id` and the documented
-   `effort.level` envelope, while rejecting duplicate security keys,
-   unexpected fields, excessive nesting, background requests, and invalid
-   timeouts.
+   registered executor. Execution-affecting fields remain closed; bounded
+   scalar observational fields and future effort labels are tolerated without
+   changing the decision. Duplicate security keys, nested extensions,
+   excessive input, background requests, and invalid timeouts fail closed.
 2. Separate bounded Bash and PowerShell lexers preserve quoting and escapes,
    recognize literal operators and redirects, and reject substitution,
    dynamic interpreters, unmatched syntax, and control characters.
 3. A composition graph binds ordered stages, operators, redirects, and
    source-to-sink edges instead of blanket-blocking pipes.
-4. A finite catalogue classifies host/log reads, services, Kubernetes,
+4. A finite executable-specific catalogue classifies host/log reads, services,
    containers, AWS/Azure/GCP, PostgreSQL/MySQL/MongoDB/Redis, network probes,
    packet capture, HTTP, SSH/file transfer, sudo, Git/CI, PowerShell reads, and
    Windows service control. Mutations require explicit target/environment
    bindings.
-5. The policy aggregates the highest risk and approval modifiers, then applies
-   the permission-mode matrix. Every changed call is evaluated independently.
-6. Redaction precedes normalization and SHA-256 fingerprinting. Append-only
-   audit records contain only bounded non-secret metadata and fail closed when
-   they cannot be written.
-7. The process writes exactly one native JSON response after successful audit.
+5. The policy retains bounded per-stage findings, aggregates the highest risk
+   and approval modifiers, then applies the permission-mode matrix. Every
+   changed call is evaluated independently.
+6. Parser-aware redaction precedes model-visible output. Audit uses a SHA-256
+   identity derived only from the canonical non-secret action structure, never
+   from raw command or credential material. Append-only records fail closed
+   when they cannot be written.
+7. First literal credential use returns `ask`. A matching successful
+   `PostToolUse` event activates a time-bounded, owner-only record keyed by
+   session, domain, identity, transport, family, and target class. The state
+   stores no credential, raw command, or secret-derived hash and is bounded in
+   size, lifetime, and entry count.
+8. The process writes exactly one native JSON response after successful audit.
    Parsing, policy, serialization, encoding, or audit failure emits no allow
    decision and exits `2`.
-8. The opt-in live harness installs the worktree through Nori into a generated
+9. The opt-in live harness installs the worktree through Nori into a generated
    home, imports only allowlisted Claude transport settings through a
    non-persistent FIFO, and runs non-root model processes inside Bubblewrap.
    It preserves usrmerge links, mounts only minimal read-only resolver and CA
@@ -70,8 +80,9 @@ uses conservative normal-mode semantics rather than a version allowlist.
   `kubernetes-operator`, `network-edge-operator`, `observability-sre`, and
   `release-cicd-operator`; the four analytical roles remain hook-free and lack
   `Bash`.
-- Installed-artifact validation resolves the validator under the installed
-  skills root and compares source and Nori-installed hook semantics.
+- Installed-artifact validation byte-compares every security-critical launcher,
+  entrypoint, and module with source and executes the same adversarial fixture
+  corpus against both forms.
 - The deterministic guard validates the current tool call. Model-facing
   instructions preserve session/context rules the hook cannot observe.
 - Claude Code remains responsible for displaying and resolving native `ask`.
@@ -88,17 +99,19 @@ credential supplied in conversation is classified as
 Claude Code transcript, so the guard promises only to prevent additional
 output, audit, persistence, or unsafe-flow disclosure.
 
-In normal modes, a detected literal raises the current call to at least
-`ask`. In `bypassPermissions`, the model may reuse the available value only in
-the same session, credential domain, identity, and transport, including
-different explicit catalogued targets in that domain. Every command is still
-re-evaluated and destructive use still asks. Mode, session, or model-context
-loss requires a new prompt.
+In every mode, first literal use raises the current call to `ask`. Only a
+matching successful `PostToolUse` event can activate reuse. In
+`bypassPermissions`, the model may then reuse the available value only in the
+same session, credential domain, identity, and transport, including different
+explicit catalogued targets in that domain. Every command is still
+re-evaluated and destructive use still asks. Mode, session, expiry, or
+model-context loss requires a new prompt.
 
-The hook is intentionally stateless about secret material. It never stores,
-hashes, fingerprints, derives an identifier from, compares, or searches the
-transcript for credential values; therefore it cannot prove that two literals
-are equal or reconstruct historical provenance. Encrypted-file use is
+The hook stores state about approval scope but remains stateless about secret
+material. It never stores, hashes, fingerprints, derives an identifier from,
+compares, or searches the transcript for credential values; therefore it
+cannot prove that two literals are equal or reconstruct historical provenance.
+Encrypted-file use is
 authorizable only through a direct catalogued decryptor-to-consumer stdin flow.
 Display, logs, generic files, background jobs, unrelated consumers, and
 ambiguous destinations deny.
@@ -123,35 +136,45 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The deterministic gate runs 62 active Node tests plus one intentionally
+- The remediated deterministic gate runs 85 active Node tests plus one intentionally
   skipped mutation-only fixture, four recorded property seeds, a finite
   inventory orphan check, and exact mutation-site validation.
-- Critical contract, lexer, composition, credential-flow, policy, redaction,
-  response, audit, and entrypoint modules achieve 100% line, function, and
-  branch coverage with native Node test coverage.
+- Critical contract, lexer, composition, credential-flow, binding-state,
+  policy, redaction, response, audit, and both entrypoint modules achieve 100%
+  line, function, and branch coverage with native Node test coverage.
 - Eleven registered security mutations are killed, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
   redaction, forbidden audit fields, and fail-closed exit.
-- The installed-form self-test validates both agents and skills roots and
-  probes normal, bypass, destructive, unknown, Bash pipeline, PowerShell
-  pipeline, credential, malformed-input, and audit-failure behavior using
-  synthetic data.
+- Installed validation byte-compares the launcher, entrypoints, and all guard
+  modules with source, then executes the same stable-ID adversarial corpus
+  against both forms.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
-  synthetic credentials, and redacted retained evidence.
-- An authorized live run passed on Debian WSL2 with observed Bubblewrap
-  `0.11.0`, Node.js `v20.19.2`, Nori `0.27.0`, and Claude Code `2.1.218`; its
-  model route was inherited from operator settings. Nori registered all 12
-  subagents, 24 skills, 20 slash commands, and the hooks. Both
-  `--permission-mode bypassPermissions` and
-  `--dangerously-skip-permissions` completed, and the latter reached the
-  synthetic `POST /reload` fixture without retaining the token. These are
-  observed identifiers, not requirements.
-- That live run exposed additive `prompt_id` and `effort` common fields in the
-  actual `PreToolUse` envelope. A regression fixture now accepts a bounded
-  `prompt_id` and only the documented `effort.level` values while keeping all
-  other top-level and Bash-input fields fail-closed.
+  retained-output scans, and redacted evidence.
+- The explicitly acknowledged remediated live run passed on Debian WSL2 with
+  observed Node.js `v20.19.2`, Nori `0.27.0`, and Claude Code `2.1.218`. It
+  registered all 12 subagents, 24 skills, 20 slash commands, and both hook
+  phases, then passed the installed corpus and `default` plus
+  `bypassPermissions` probes. The harness emitted the mandatory open-egress
+  warning. These observed identifiers are evidence, not requirements.
+- The complete package gate passed on host Node.js `v24.17.0`, whose native
+  test runner exposes the required line, function, and branch threshold flags.
+  The WSL runtime was sufficient for guard execution and live evidence but did
+  not expose those coverage-gate capabilities; capability probing, rather than
+  a version allowlist, determined which runtime executed that development gate.
+
+## Accepted live-smoke exception
+
+The operator approved temporary use of normal provider credentials for the
+opt-in live smoke. The harness requires
+`P0_04_LIVE_NORMAL_CREDENTIALS_ACK=I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK`
+before loading settings or credentials, warns that credentials enter the
+Claude process, and reports that provider egress remains open. A generated
+home, Bubblewrap mounts, provider-control-variable command denials,
+loopback-only operational targets, and retained-output scans reduce but do not
+eliminate exfiltration risk. Disposable provider credentials or provider-egress
+allowlisting remain the preferred replacement.
 
 ## Consequences and limitations
 

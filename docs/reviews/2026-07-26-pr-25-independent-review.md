@@ -92,3 +92,26 @@ This verdict can be changed to ready only when all of the following are true:
    disposition of every finding.
 
 No merge is authorized by this review record.
+
+## Remediation evidence pending final independent disposition
+
+The implementation owner recorded the following evidence after the initial
+verdict. This section does not change the verdict; an independent reviewer
+must inspect the remediated head and update every finding before merge.
+
+- Stable fixture IDs execute every reproduced regression and fail on orphan,
+  undeclared, duplicate, or unexecuted cases.
+- The source gate passes 85 active tests plus one intentional mutation-only
+  skip, 100 percent line/function/branch coverage, four deterministic property
+  seeds, and 11 killed security mutations.
+- Source-to-installed validation byte-compares every security-critical
+  launcher, entrypoint, and module, then executes the same 17-fixture review
+  corpus against both forms.
+- Launcher tests prove missing runtime, missing artifact, timeout, crash,
+  malformed output, and unexpected stdout block before command execution.
+- The complete package gate, architecture tests, static smoke contract,
+  installed validation, and `git diff --check` pass.
+- The explicitly acknowledged Debian WSL2 live smoke passes and reports that
+  normal provider credentials entered the Claude process while provider egress
+  remained open. This is evidence for the compensating controls, not closure
+  of RV-11.
