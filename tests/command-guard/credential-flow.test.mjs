@@ -14,10 +14,10 @@ function analyze(command, permissionMode = 'default') {
   }))));
 }
 
-test('literal credential raises normal decision but follows bypass operation policy', () => {
+test('first literal credential use asks in every permission mode', () => {
   const command = `curl -H "Authorization: Bearer ${SECRET}" https://api.example.invalid/health`;
   assert.equal(analyze(command).decision, 'ask');
-  assert.equal(analyze(command, 'bypassPermissions').decision, 'allow');
+  assert.equal(analyze(command, 'bypassPermissions').decision, 'ask');
 });
 
 test('credential printing, persistence, background, and unknown consumer deny', () => {
@@ -36,10 +36,17 @@ test('encrypted credential may flow only directly to a catalogued consumer', () 
   assert.equal(analyze(remote, 'bypassPermissions').decision, 'allow');
   const passphrase = `gpg --batch --pinentry-mode loopback --passphrase ${SECRET} --decrypt sudo-password.gpg | sudo -S systemctl restart nginx`;
   const passphraseResult = analyze(passphrase, 'bypassPermissions');
-  assert.equal(passphraseResult.decision, 'allow');
+  assert.equal(passphraseResult.decision, 'ask');
   assert.doesNotMatch(JSON.stringify(passphraseResult), new RegExp(SECRET));
   assert.equal(analyze('gpg --decrypt sudo-password.gpg | tee /tmp/password').decision, 'deny');
   assert.equal(analyze('gpg --encrypt plaintext | sudo -S systemctl restart nginx').decision, 'deny');
+  for (const command of [
+    'gpg --decrypt sudo-password.gpg ; sudo -S systemctl restart nginx',
+    'gpg --decrypt sudo-password.gpg |& sudo -S systemctl restart nginx',
+    'gpg --decrypt sudo-password.gpg | sudo -S systemctl restart nginx | head -n 1',
+    'gpg --decrypt sudo-password.gpg > /tmp/password | sudo -S systemctl restart nginx',
+    'sudo -S systemctl restart nginx | gpg --decrypt sudo-password.gpg',
+  ]) assert.equal(analyze(command, 'bypassPermissions').decision, 'deny', command);
 });
 
 test('credential metadata and messages never contain the literal value', () => {
@@ -48,7 +55,7 @@ test('credential metadata and messages never contain the literal value', () => {
   assert.equal(result.credential.source, 'MODEL_VISIBLE_LITERAL');
 });
 
-test('supported literal transports ask normally and follow operation policy in bypass mode', () => {
+test('supported literal transports ask on first use in every mode', () => {
   const commands = [
     `PGPASSWORD=${SECRET} psql -h db.example.invalid -d app -c "SELECT 1"`,
     `mysql -h db.example.invalid -D app --password=${SECRET} -e "SHOW STATUS"`,
@@ -60,7 +67,7 @@ test('supported literal transports ask normally and follow operation policy in b
   ];
   for (const command of commands) {
     assert.equal(analyze(command).decision, 'ask', command);
-    assert.equal(analyze(command, 'bypassPermissions').decision, 'allow', command);
+    assert.equal(analyze(command, 'bypassPermissions').decision, 'ask', command);
     assert.doesNotMatch(JSON.stringify(analyze(command)), new RegExp(SECRET), command);
   }
 });
@@ -96,10 +103,13 @@ test('quoted, escaped, Unicode, repeated, and empty credential literals are hand
     'TOKEN="" curl https://api.example.invalid/health',
     `TOKEN=${SECRET} GH_TOKEN=${SECRET}_again gh repo view --repo owner/project`,
   ];
-  for (const command of variants) {
+  for (const command of variants.slice(3, 5)) {
     const result = analyze(command);
     assert.equal(result.credential?.literal, true, command);
     assert.equal(result.decision, 'ask', command);
     assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_/u, command);
+  }
+  for (const command of [...variants.slice(0, 3), ...variants.slice(5)]) {
+    assert.equal(analyze(command).decision, 'deny', command);
   }
 });

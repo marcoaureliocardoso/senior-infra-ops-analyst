@@ -3,15 +3,17 @@ import { lexPowerShell } from './powershell-lexer.mjs';
 import { buildComposition } from './composition.mjs';
 import { lookupFamily } from './catalogue.mjs';
 import { classifyCredentials, credentialFlowErrors } from './credential-flow.mjs';
-import { detectSensitiveSpans, normalizeAndFingerprint } from './redaction.mjs';
+import { detectSensitiveSpans } from './redaction.mjs';
 import { NORMAL_MODES } from './limits.mjs';
 
 const RANK = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
 export const REASON_CODES = Object.freeze([
   'ALLOW_NARROW_READ', 'ALLOW_BYPASS_BOUNDED_READ', 'ALLOW_BYPASS_CATALOGUED_CHANGE',
   'ASK_BOUNDED_READ', 'ASK_NORMAL_MODE_CHANGE', 'ASK_DESTRUCTIVE', 'ASK_LITERAL_CREDENTIAL_NORMAL',
+  'ASK_EXTERNAL_SIDE_EFFECT', 'ASK_SENSITIVE_OPERATION',
   'DENY_UNSUPPORTED_SYNTAX', 'DENY_SECRET_PERSISTENCE', 'DENY_SECRET_OUTPUT',
   'DENY_AUTHENTICATED_REDIRECT',
+  'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
   'DENY_UNKNOWN_CREDENTIAL_CONSUMER', 'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
 ]);
 export const SECURITY_PREDICATE_IDS = Object.freeze([
@@ -26,6 +28,7 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_SECRET_PERSISTENCE: 'Remove file, log, history, or other persistence sinks and pass the sensitive value only to a supported direct consumer.',
   DENY_SECRET_OUTPUT: 'Remove display, clipboard, or generic output sinks and pass the sensitive value only to a supported direct consumer.',
   DENY_AUTHENTICATED_REDIRECT: 'Use the final explicit origin directly; authenticated redirects are not followed.',
+  DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS: 'Use an operational credential source; Claude provider control credentials are outside the command boundary.',
   DENY_UNKNOWN_CREDENTIAL_CONSUMER: 'Use a catalogued credential consumer and an explicit supported transport without intermediate stages.',
   DENY_UNKNOWN_COMMAND: 'Reformulate with a catalogued executable, verb, literal operands, and finite options.',
   DENY_AMBIGUOUS_TARGET: 'Reformulate with explicit target and environment selectors; variables, globs, and implicit remote context are not sufficient.',
@@ -40,8 +43,17 @@ function lexCommand(command) {
   const outer = lexBash(command);
   const words = outer.tokens.filter(({ kind }) => kind === 'word');
   if (['pwsh', 'powershell'].includes(words[0]?.cooked.toLowerCase())) {
-    const commandIndex = words.findIndex(({ cooked }) => cooked.toLowerCase() === '-command');
-    if (commandIndex < 0 || !words[commandIndex + 1]) throw new Error('unsupported PowerShell wrapper');
+    if (outer.tokens.some(({ kind }) => kind !== 'word')) throw new Error('PowerShell wrapper has outer composition');
+    const commandIndexes = words
+      .map(({ cooked }, index) => cooked.toLowerCase() === '-command' ? index : -1)
+      .filter((index) => index >= 0);
+    if (commandIndexes.length !== 1) throw new Error('unsupported PowerShell wrapper');
+    const [commandIndex] = commandIndexes;
+    const allowedWrapperOptions = new Set(['-noprofile', '-noninteractive', '-nolog', '-sta', '-mta']);
+    if (words.slice(1, commandIndex).some(({ cooked }) => !allowedWrapperOptions.has(cooked.toLowerCase()))) {
+      throw new Error('unsupported PowerShell wrapper option');
+    }
+    if (!words[commandIndex + 1] || commandIndex + 2 !== words.length) throw new Error('unconsumed PowerShell wrapper argument');
     return lexPowerShell(words[commandIndex + 1].cooked);
   }
   return outer;
@@ -69,14 +81,20 @@ export function analyzeCommand(event) {
   }
   const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
   const modifiers = [...new Set(analyses.flatMap(({ modifiers: values }) => values))];
+  const findings = analyses.map(({ stage, policyId, risk, modifiers: stageModifiers }) => ({
+    stage, policyId, risk, modifiers: stageModifiers,
+  }));
   const knownMode = event.permissionMode === 'bypassPermissions' || NORMAL_MODES.includes(event.permissionMode);
   if (!knownMode) modifiers.push('UNKNOWN_MODE_CONSERVATIVE');
   const autonomous = event.permissionMode === 'bypassPermissions';
   const boundedRead = aggregate.risk === 'SAFE_READ_ONLY' && modifiers.includes('APPROVAL_REQUIRED');
+  const alwaysAsk = modifiers.includes('ALWAYS_ASK');
+  const externalEffect = modifiers.includes('EXTERNAL_SIDE_EFFECT');
   let decision = aggregate.risk === 'SAFE_READ_ONLY' ? (boundedRead && !autonomous ? 'ask' : 'allow') : aggregate.risk === 'DESTRUCTIVE' ? 'ask' : autonomous ? 'allow' : 'ask';
   let reasonCode = decision === 'allow' ? (boundedRead ? 'ALLOW_BYPASS_BOUNDED_READ' : aggregate.risk === 'SAFE_READ_ONLY' ? 'ALLOW_NARROW_READ' : 'ALLOW_BYPASS_CATALOGUED_CHANGE') : aggregate.risk === 'DESTRUCTIVE' ? 'ASK_DESTRUCTIVE' : boundedRead ? 'ASK_BOUNDED_READ' : 'ASK_NORMAL_MODE_CHANGE';
-  if (credentialAnalysis.metadata?.literal && !autonomous) { decision = 'ask'; reasonCode = 'ASK_LITERAL_CREDENTIAL_NORMAL'; }
-  const { fingerprint } = normalizeAndFingerprint(event.command, spans);
+  if (alwaysAsk) { decision = 'ask'; reasonCode = 'ASK_SENSITIVE_OPERATION'; }
+  if (externalEffect) { decision = 'ask'; reasonCode = 'ASK_EXTERNAL_SIDE_EFFECT'; }
+  if (credentialAnalysis.metadata?.literal) { decision = 'ask'; reasonCode = 'ASK_LITERAL_CREDENTIAL_NORMAL'; }
   const action = decision === 'ask'
     ? 'Operator confirmation is required before execution.'
     : 'The effective permission mode authorizes this bounded operation.';
@@ -84,6 +102,6 @@ export function analyzeCommand(event) {
     decision, reasonCode, message: `${reasonCode}: ${aggregate.policyId} stage ${aggregate.stage} classified ${aggregate.risk}. ${action} Sensitive values are redacted.`,
     risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
-    credential: credentialAnalysis.metadata, fingerprint, stage: aggregate.stage,
+    credential: credentialAnalysis.metadata, findings, stage: aggregate.stage,
   };
 }

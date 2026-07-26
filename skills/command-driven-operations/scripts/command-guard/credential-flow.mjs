@@ -20,14 +20,17 @@ export function classifyCredentials(composition, command, spans = detectSensitiv
   const literal = spans.length > 0;
   const decryptor = composition.stages.find((stage) => ['gpg', 'age'].includes(stage.argv[0]?.toLowerCase()));
   const metadata = literal
-    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: composition.stages.at(-1)?.index ?? 1, literal: true }
+    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: composition.stages.at(-1).index, literal: true }
     : decryptor
       ? { source: 'PROTECTED_FILE', type: 'SECRET', transport: 'STDIN_DIRECT', stage: decryptor.index, literal: false }
       : referenceMetadata(command);
-  return { spans, metadata, decryptorStage: decryptor?.index ?? null };
+  return { spans, metadata, decryptorStage: decryptor?.index ?? null, command };
 }
 
 export function credentialFlowErrors(composition, analysis) {
+  if (/\b(?:ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY)\b/u.test(analysis.command)) {
+    return [{ reasonCode: 'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS', stage: 1 }];
+  }
   if (!analysis.metadata) return [];
   for (const stage of composition.stages) {
     const executable = stage.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
@@ -42,18 +45,19 @@ export function credentialFlowErrors(composition, analysis) {
     }
   }
   if (analysis.decryptorStage !== null) {
-    const edge = composition.edges.find(({ from }) => from === analysis.decryptorStage);
+    const edges = composition.edges.filter(({ from, to }) => from === analysis.decryptorStage || to === analysis.decryptorStage);
+    const edge = edges.length === 1 ? edges[0] : null;
     const consumer = edge ? composition.stages[edge.to - 1] : null;
     const executable = consumer?.argv[0]?.toLowerCase();
     const directSudo = executable === 'sudo' && consumer.argv.includes('-S');
     const descriptor = executable === 'sshpass' ? consumer.argv.indexOf('-d') : -1;
     const directSshpass = descriptor >= 0 && consumer.argv[descriptor + 1] === '0';
-    if (!consumer || (!directSudo && !directSshpass)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
+    if (composition.stages.length !== 2 || composition.edges.length !== 1 || edge?.operator !== '|' || edge.from !== analysis.decryptorStage || !consumer || consumer.redirects.length || (!directSudo && !directSshpass)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
   }
   if (analysis.metadata.literal) {
     const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh']);
     const executable = composition.stages.at(-1)?.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
-    if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: composition.stages.at(-1)?.index ?? 1 }];
+    if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: composition.stages.at(-1).index }];
   }
   return [];
 }

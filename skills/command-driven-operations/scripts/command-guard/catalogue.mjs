@@ -2,7 +2,7 @@ import { lexBash } from './bash-lexer.mjs';
 import { buildComposition } from './composition.mjs';
 import { LIMITS } from './limits.mjs';
 
-const POSIX_READ = new Set(['uname', 'uptime', 'free', 'df', 'ps', 'ss', 'lsblk', 'findmnt']);
+const POSIX_READ = new Set(['uname', 'uptime', 'free', 'df', 'lsblk', 'findmnt']);
 const FILTER = new Set(['grep', 'rg', 'head', 'tail', 'cut', 'sort', 'uniq', 'wc']);
 const PS_FILTER = new Set(['where-object', 'select-object', 'sort-object', 'group-object', 'measure-object', 'format-table']);
 const CONTAINERS = new Set(['docker', 'podman', 'nerdctl', 'ctr', 'crictl']);
@@ -23,7 +23,18 @@ export const COMMAND_FAMILIES = Object.freeze(POLICY_IDS.filter((id) => id !== '
 export const FILTER_FAMILIES = Object.freeze(['FILTER']);
 
 function executableIndex(argv) {
-  return argv.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word));
+  const allowedAssignments = new Set([
+    'AWS_PROFILE', 'AZURE_CONFIG_DIR', 'CLOUDSDK_CONFIG', 'KUBECONFIG',
+    'SSH_AUTH_SOCK', 'GIT_ASKPASS', 'PGPASSWORD', 'MYSQL_PWD', 'SSHPASS',
+    'GH_TOKEN', 'GITHUB_TOKEN', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
+    'AWS_SESSION_TOKEN', 'OPS_CREDENTIAL_IDENTITY',
+  ]);
+  for (let index = 0; index < argv.length; index += 1) {
+    const match = argv[index].match(/^([A-Za-z_][A-Za-z0-9_]*)=/u);
+    if (!match) return index;
+    if (!allowedAssignments.has(match[1])) return -1;
+  }
+  return -1;
 }
 
 function option(argv, ...names) {
@@ -53,7 +64,7 @@ function boundedRelationalRead(query) {
   const normalized = query.trim().replace(/^["']|["']$/gu, '').trim().toUpperCase();
   const withoutTerminal = normalized.replace(/;\s*$/u, '');
   if (withoutTerminal.includes(';') || /--|\/\*|\*\//u.test(withoutTerminal)) return false;
-  if (/\b(?:INTO\s+OUTFILE|INTO\s+DUMPFILE|FOR\s+UPDATE|PG_READ_FILE|LO_EXPORT|COPY)\b/u.test(withoutTerminal)) return false;
+  if (/\b(?:INTO\s+OUTFILE|INTO\s+DUMPFILE|FOR\s+UPDATE|PG_READ_FILE|LO_EXPORT|COPY|PG_TERMINATE_BACKEND|PG_CANCEL_BACKEND|DBMS_|SLEEP\s*\()\b/u.test(withoutTerminal)) return false;
   if (!/^SELECT\b/u.test(withoutTerminal) || !/\bFROM\b/u.test(withoutTerminal)) return true;
   const match = withoutTerminal.match(/\bLIMIT\s+(\d+)\b/u);
   return Boolean(match && boundedInteger(match[1], LIMITS.outputRows));
@@ -136,7 +147,7 @@ function gitCiFamily(words, lower) {
     if (/^(?:status|log|diff|show)(?:\s|$)/u.test(joined) || /^branch(?:\s+--list)?$/u.test(joined)) {
       return result('GIT_CI', 'SAFE_READ_ONLY', 'local', 'local');
     }
-    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|push\s+.*(?:--force(?:-with-lease)?|-f\b|--delete)|branch\s+-(?:d|D)\b|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
+    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|push\s+.*(?:--force(?:-with-lease)?|-f\b|--delete|--mirror|--prune|(?:^|\s):[^\s]+|(?:^|\s)\+[^\s]+)|branch\s+-(?:d|D)\b|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
       return result('GIT_CI', 'DESTRUCTIVE', words.at(-1) ?? 'local', 'local');
     }
     if (/^(?:add|commit|tag|branch|push)(?:\s|$)/u.test(joined)) {
@@ -151,10 +162,10 @@ function gitCiFamily(words, lower) {
     return result('GIT_CI', 'DESTRUCTIVE', remote, remote ?? null, [], { requiresExplicitBinding: true, credentialConsumer: true });
   }
   if (/^(?:workflow (?:run|rerun|cancel)|run (?:rerun|cancel)|deployment)(?:\s|$)/u.test(joined)) {
-    return result('GIT_CI', 'DISRUPTIVE_CHANGE', remote, remote ?? null, [], { requiresExplicitBinding: true, credentialConsumer: true });
+    return result('GIT_CI', 'DISRUPTIVE_CHANGE', remote, remote ?? null, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true });
   }
   if (/^(?:pr (?:create|edit|comment|review|close|reopen)|issue (?:create|edit|comment|close|reopen)|release (?:create|edit|upload)|repo (?:clone|fork))\b/u.test(joined)) {
-    return result('GIT_CI', 'LOW_RISK_CHANGE', remote, remote ?? null, [], { requiresExplicitBinding: true, credentialConsumer: true });
+    return result('GIT_CI', 'LOW_RISK_CHANGE', remote, remote ?? null, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true });
   }
   return null;
 }
@@ -183,6 +194,14 @@ export function lookupFamily(stage) {
   const lower = exe.toLowerCase();
 
   if (POSIX_READ.has(lower)) return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
+  if (lower === 'ps') {
+    if (words.slice(1).some((word) => /e/u.test(word.replace(/^-+/u, '')) || /--(?:format|cols|columns)=?.*(?:env|command)/iu.test(word))) return null;
+    return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
+  }
+  if (lower === 'ss') {
+    if (words.includes('-K') || words.includes('--kill')) return result('POSIX_HOST_READ', 'DESTRUCTIVE', words.at(-1) ?? 'socket', 'local');
+    return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
+  }
   if (lower === 'mount') {
     if (words.slice(1).some((word) => !['-l', '--show-labels', '-v', '--verbose'].includes(word))) return null;
     return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
@@ -196,6 +215,9 @@ export function lookupFamily(stage) {
   if (lower === 'journalctl') {
     const lines = option(words, '-n', '--lines');
     if (!boundedInteger(lines, LIMITS.outputRows)) return null;
+    if (words.some((word) => /^(?:--vacuum-|--rotate|--flush|--sync|--relinquish-var)/u.test(word))) {
+      return result('LOG_READ', 'DESTRUCTIVE', option(words, '-u', '--unit') ?? 'journal', 'local');
+    }
     return result('LOG_READ', 'SAFE_READ_ONLY', option(words, '-u', '--unit') ?? 'local-log');
   }
   if (lower === 'dmesg') {
@@ -249,10 +271,11 @@ export function lookupFamily(stage) {
     const context = option(words, '--context');
     const namespace = option(words, '--namespace', '-n');
     const operands = command ? operandsAfter(words, command.index, ['--tail', '--replicas', '-f', '--filename', '--type', '-p', '--patch']) : [];
+    const secretRead = ['get', 'describe'].includes(verb) && operands.some((word) => /^(?:secret|secrets|configmap|configmaps)$/iu.test(word));
     const fileTarget = option(words, '-f', '--filename');
     const singleton = ['cordon', 'uncordon', 'drain'].includes(verb);
     const target = words.includes('--all') ? null : fileTarget ?? (singleton ? operands[0] : operands.length >= 2 ? `${operands[0]}/${operands[1]}` : null);
-    return result('KUBERNETES', risk, risk === 'SAFE_READ_ONLY' ? context : target, [context, namespace].filter(Boolean).join('@') || null, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    return result('KUBERNETES', risk, risk === 'SAFE_READ_ONLY' ? context : target, [context, namespace].filter(Boolean).join('@') || null, secretRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
   if (CONTAINERS.has(lower)) {
@@ -360,15 +383,22 @@ export function lookupFamily(stage) {
   }
   if (lower === 'curl' || lower === 'invoke-restmethod' || lower === 'invoke-webrequest') {
     if (words.some((word) => /^(?:-K|--config)(?:=|$)/u.test(word))) return null;
-    const uploadIndex = words.findIndex((word) => ['-T', '--upload-file', '-d', '--data', '--data-binary'].includes(word));
+    const bodyOptions = ['-d', '--data', '--data-ascii', '--data-binary', '--data-raw', '--data-urlencode', '--json', '-F', '--form', '--form-string'];
+    const uploadOptions = ['-T', '--upload-file', '-InFile'];
+    const sinkOptions = ['-o', '--output', '-O', '--remote-name', '-D', '--dump-header', '-c', '--cookie-jar', '--etag-save', '--trace', '-OutFile'];
+    const uploadIndex = words.findIndex((word) => [...bodyOptions, ...uploadOptions].includes(word));
     if (uploadIndex >= 0 && words[uploadIndex + 1]?.startsWith('@')) return null;
     const urls = words.filter((word) => /^https?:\/\//iu.test(word));
     if (urls.length !== 1 || words.includes('--next')) return null;
     const [url] = urls;
     let parsed; try { parsed = new URL(url); } catch { return null; }
-    const method = (option(words, '-X', '--request', '-Method') ?? 'GET').toUpperCase();
+    const hasBody = words.some((word) => bodyOptions.includes(word) || bodyOptions.some((name) => word.startsWith(`${name}=`)));
+    const hasUpload = words.some((word) => uploadOptions.includes(word) || uploadOptions.some((name) => word.startsWith(`${name}=`)));
+    const hasSink = words.some((word) => sinkOptions.includes(word) || sinkOptions.some((name) => word.startsWith(`${name}=`)));
+    const method = (option(words, '-X', '--request', '-Method') ?? (hasUpload ? 'PUT' : hasBody ? 'POST' : 'GET')).toUpperCase();
     const risk = ['GET', 'HEAD'].includes(method) ? 'SAFE_READ_ONLY' : method === 'DELETE' ? 'DESTRUCTIVE' : ['PUT', 'PATCH', 'POST'].includes(method) ? 'LOW_RISK_CHANGE' : null;
-    return risk ? result('HTTP', risk, parsed.pathname || '/', parsed.origin, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
+    const effectiveRisk = hasSink && risk === 'SAFE_READ_ONLY' ? 'LOW_RISK_CHANGE' : risk;
+    return effectiveRisk ? result('HTTP', effectiveRisk, parsed.pathname || '/', parsed.origin, hasSink ? ['FILE_WRITE'] : [], { requiresExplicitBinding: effectiveRisk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
   }
   if (lower === 'ssh') return remoteFamily(words);
   if (lower === 'scp' || lower === 'sftp') {

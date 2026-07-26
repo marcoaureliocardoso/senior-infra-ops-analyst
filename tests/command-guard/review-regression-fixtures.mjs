@@ -28,7 +28,8 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
   {
     id: 'RV04-CURL-OUTPUT-SINK',
     command: 'curl -o /tmp/result https://api.example.invalid/items',
-    expectedDecision: 'ask',
+    expectedDecision: 'allow',
+    expectedRisk: 'LOW_RISK_CHANGE',
   },
   {
     id: 'RV05-DECRYPT-SEQUENCE',
@@ -83,7 +84,7 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
   },
   {
     id: 'RV16-GITHUB-EXTERNAL-EFFECT',
-    command: 'gh pr comment 25 --body reviewed',
+    command: 'gh pr comment 25 --repo owner/repo --body reviewed',
     expectedDecision: 'ask',
   },
 ]);

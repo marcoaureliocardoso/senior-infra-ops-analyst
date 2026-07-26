@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 const PATTERNS = [
   { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:Bearer|Basic)\s+([^\s"']+)/giu },
+  { kind: 'AUTHORIZATION', regex: /(?:X-API-Key|PRIVATE-TOKEN):\s*([^\s"']+)/giu },
   { kind: 'COOKIE', regex: /(?:Cookie|Set-Cookie):\s*([^\r\n"']+)/giu },
   {
     kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"/gu, valueGroup: 2,
@@ -18,6 +19,9 @@ const PATTERNS = [
   { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)"([^"]*)"/giu },
   { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)'([^']*)'/giu },
   { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'FLAG', regex: /\bredis-cli\b[^\r\n;&|]*\s-a(?:\s+)?((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'FLAG', regex: /\bmysql(?:admin)?\b[^\r\n;&|]*\s-p((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'QUERY', regex: /[?&](?:access_token|api_key|apikey|password|token|secret)=([^&#\s"']+)/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+"[^\s:"']+:([^"]*)"/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+'[^\s:"']+:([^']*)'/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+[^\s:"']+:((?:\\.|[^\s"'\\])+)/giu },
