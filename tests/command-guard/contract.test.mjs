@@ -19,6 +19,7 @@ test('valid hook event is normalized to the guard contract', () => {
     agentType: 'diagnostic-operator',
     permissionMode: 'default',
     command: 'uname -a',
+    toolUseId: null,
     timeoutMs: null,
     runInBackground: false,
   });
@@ -48,11 +49,14 @@ test('current native PreToolUse Bash payload accepts documented common fields', 
   assert.equal(event.agentType, 'diagnostic-operator');
 });
 
-test('current common prompt and effort metadata is validated narrowly', () => {
-  for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+test('current and future observational metadata is bounded without gating execution', () => {
+  for (const level of ['low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'future-effort']) {
     assert.doesNotThrow(() => parseHookEvent(JSON.stringify(validEvent({
       prompt_id: 'prompt-bounded',
       effort: { level },
+      future_string: 'bounded',
+      future_boolean: true,
+      future_number: 42,
     }))));
   }
   const invalid = [
@@ -62,11 +66,15 @@ test('current common prompt and effort metadata is validated narrowly', () => {
     { effort: null },
     { effort: [] },
     { effort: {} },
-    { effort: { level: 'auto' } },
     { effort: { level: 'high', extra: true } },
+    { future_object: {} },
+    { future_array: [] },
+    { future_null: null },
+    { future_number: Number.POSITIVE_INFINITY },
+    { future_string: 'x'.repeat(LIMITS.auditFieldChars + 1) },
   ];
   for (const extra of invalid) {
-    assert.throws(() => parseHookEvent(JSON.stringify(validEvent(extra))), /prompt_id|effort/);
+    assert.throws(() => parseHookEvent(JSON.stringify(validEvent(extra))), /prompt_id|effort|unexpected hook field/);
   }
 });
 

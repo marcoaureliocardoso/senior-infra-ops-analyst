@@ -3,7 +3,7 @@ import { Readable, Writable } from 'node:stream';
 import path from 'node:path';
 import test from 'node:test';
 
-import { appendAudit, resolveAuditPath, sanitizeAuditValue } from '../../skills/command-driven-operations/scripts/command-guard/audit.mjs';
+import { appendAudit, resolveAuditPath, sanitizeAuditValue, structuralActionIdentity } from '../../skills/command-driven-operations/scripts/command-guard/audit.mjs';
 import { BASH_OPERATORS, lexBash } from '../../skills/command-driven-operations/scripts/command-guard/bash-lexer.mjs';
 import { buildComposition } from '../../skills/command-driven-operations/scripts/command-guard/composition.mjs';
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
@@ -29,7 +29,7 @@ test('contract rejects every malformed field branch and accepts exact boundaries
     ['x'.repeat(LIMITS.inputBytes + 1), /size/],
     ['{', /JSON/],
     ['[]', /object/],
-    [event({ extra: true }), /unexpected hook field/],
+    [event({ extra: {} }), /unexpected hook field/],
     [event({ hook_event_name: 'PostToolUse' }), /PreToolUse/],
     [event({ tool_name: 'Read' }), /Bash/],
     [event({ session_id: '' }), /session_id/],
@@ -71,11 +71,20 @@ test('audit fallbacks and default environment contain only the minimal schema', 
     assert.equal(record.risk, null);
     assert.deepEqual(record.modifiers, []);
     assert.equal(record.credential, null);
+    assert.match(record.actionId, /^[a-f0-9]{64}$/u);
+    assert.equal('fingerprint' in record, false);
   } finally {
     if (previous === undefined) delete process.env.OPS_COMMAND_GUARD_AUDIT_PATH;
     else process.env.OPS_COMMAND_GUARD_AUDIT_PATH = previous;
     await temporary.cleanup();
   }
+});
+
+test('structural action identity excludes credential values and raw commands', () => {
+  const first = policy('curl -H "Authorization: Bearer SYNTH_SECRET_first" https://api.example.invalid/health');
+  const second = policy('curl -H "Authorization: Bearer SYNTH_SECRET_second" https://api.example.invalid/health');
+  assert.equal(structuralActionIdentity(first), structuralActionIdentity(second));
+  assert.doesNotMatch(structuralActionIdentity(first), /SYNTH_SECRET/u);
 });
 
 test('Bash lexer covers every operator, escape, quote, and finite bound branch', () => {
@@ -157,6 +166,23 @@ test('native response covers allow, ask, deny, and invalid decisions', () => {
     assert.equal('systemMessage' in response, decision === 'deny');
   }
   assert.throws(() => decisionResponse({ decision: 'maybe', message: 'x' }), /invalid decision/);
+});
+
+test('multi-stage explanations and audit preserve every bounded stage finding', async () => {
+  const result = policy('uname -a ; uptime');
+  assert.equal(result.findings.length, 2);
+  assert.match(result.message, /stage 1 POSIX_HOST_READ\/SAFE_READ_ONLY/u);
+  assert.match(result.message, /stage 2 POSIX_HOST_READ\/SAFE_READ_ONLY/u);
+
+  const temporary = await temporaryAudit();
+  try {
+    appendAudit(result, { sessionId: 's', agentType: 'diagnostic-operator', permissionMode: 'default' }, { OPS_COMMAND_GUARD_AUDIT_PATH: temporary.auditPath });
+    const record = JSON.parse((await temporary.read()).trim());
+    assert.deepEqual(record.findings.map(({ stage }) => stage), [1, 2]);
+    assert.equal(record.findings.every(({ ruleId }) => ruleId === 'POSIX_HOST_READ'), true);
+  } finally {
+    await temporary.cleanup();
+  }
 });
 
 test('entrypoint main covers string chunks, bounded-reader failure, and injected streams', async () => {

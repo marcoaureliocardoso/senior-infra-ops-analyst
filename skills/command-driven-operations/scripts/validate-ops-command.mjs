@@ -3,6 +3,9 @@
 import { pathToFileURL } from 'node:url';
 
 import { appendAudit } from './command-guard/audit.mjs';
+import {
+  bindingFromResult, hasActiveBinding, writePendingBinding,
+} from './command-guard/binding-store.mjs';
 import { parseHookEvent } from './command-guard/contract.mjs';
 import { LIMITS } from './command-guard/limits.mjs';
 import { analyzeCommand } from './command-guard/policy.mjs';
@@ -22,7 +25,22 @@ async function readBoundedInput(stream) {
 
 export function evaluateHook(raw, env = process.env) {
   const event = parseHookEvent(raw);
-  const result = analyzeCommand(event);
+  let result = analyzeCommand(event);
+  const binding = bindingFromResult(result, event);
+  if (binding && event.permissionMode === 'bypassPermissions' && hasActiveBinding(binding, env)) {
+    const cannotReuse = result.risk === 'DESTRUCTIVE' ||
+      result.modifiers.includes('EXTERNAL_SIDE_EFFECT') || result.modifiers.includes('ALWAYS_ASK');
+    if (!cannotReuse) {
+      result = {
+        ...result,
+        decision: 'allow',
+        reasonCode: result.risk === 'SAFE_READ_ONLY' ? 'ALLOW_NARROW_READ' : 'ALLOW_BYPASS_CATALOGUED_CHANGE',
+        message: `ALLOW_APPROVED_CREDENTIAL_BINDING: ${result.policyId} uses an active non-secret session binding. Sensitive values are redacted.`,
+      };
+    }
+  } else if (binding && result.decision === 'ask') {
+    writePendingBinding(binding, env);
+  }
   appendAudit(result, event, env);
   return decisionResponse(result);
 }

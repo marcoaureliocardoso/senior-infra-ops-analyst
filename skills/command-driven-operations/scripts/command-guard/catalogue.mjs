@@ -47,6 +47,19 @@ function option(argv, ...names) {
   return null;
 }
 
+function optionCaseInsensitive(argv, ...names) {
+  const lowered = names.map((name) => name.toLowerCase());
+  for (let index = 0; index < argv.length; index += 1) {
+    const word = argv[index];
+    const lower = word.toLowerCase();
+    const exact = lowered.indexOf(lower);
+    if (exact >= 0) return argv[index + 1] ?? null;
+    const inline = lowered.findIndex((name) => lower.startsWith(`${name}=`));
+    if (inline >= 0) return word.slice(names[inline].length + 1) || null;
+  }
+  return null;
+}
+
 function result(policyId, risk, target, environment = null, modifiers = [], extra = {}) {
   return { policyId, risk, target: target ?? null, environment: environment ?? null, modifiers, ...extra };
 }
@@ -65,6 +78,9 @@ function boundedRelationalRead(query) {
   const withoutTerminal = normalized.replace(/;\s*$/u, '');
   if (withoutTerminal.includes(';') || /--|\/\*|\*\//u.test(withoutTerminal)) return false;
   if (/\b(?:INTO\s+OUTFILE|INTO\s+DUMPFILE|FOR\s+UPDATE|PG_READ_FILE|LO_EXPORT|COPY|PG_TERMINATE_BACKEND|PG_CANCEL_BACKEND|DBMS_|SLEEP\s*\()\b/u.test(withoutTerminal)) return false;
+  const safeFunctions = new Set(['AVG', 'COALESCE', 'COUNT', 'DATE_TRUNC', 'LOWER', 'MAX', 'MIN', 'NOW', 'SUM', 'UPPER']);
+  const functions = [...withoutTerminal.matchAll(/\b([A-Z_][A-Z0-9_.]*)\s*\(/gu)].map((match) => match[1]);
+  if (functions.some((name) => !safeFunctions.has(name))) return false;
   if (!/^SELECT\b/u.test(withoutTerminal) || !/\bFROM\b/u.test(withoutTerminal)) return true;
   const match = withoutTerminal.match(/\bLIMIT\s+(\d+)\b/u);
   return Boolean(match && boundedInteger(match[1], LIMITS.outputRows));
@@ -227,6 +243,11 @@ export function lookupFamily(stage) {
   if ((FILTER.has(lower) || PS_FILTER.has(lower) || ['sed', 'awk', 'jq'].includes(lower)) && isBoundedFilter(words, lower)) {
     return result('FILTER', 'SAFE_READ_ONLY', null);
   }
+  if (lower === 'test-connection') {
+    const count = optionCaseInsensitive(words, '-Count');
+    if (!boundedInteger(count, LIMITS.fanOut)) return null;
+    return result('POWERSHELL_READ', 'SAFE_READ_ONLY', words[1] ?? 'network', 'network', ['ACTIVE_PROBE', 'APPROVAL_REQUIRED']);
+  }
   if (PS_READ.has(lower)) return result('POWERSHELL_READ', 'SAFE_READ_ONLY', 'local');
   if (lower === 'gpg' || lower === 'age') {
     if (!words.some((word) => word === '-d' || word === '--decrypt')) return null;
@@ -286,7 +307,8 @@ export function lookupFamily(stage) {
     if (verb === 'logs' && !boundedInteger(option(words, '--tail'), LIMITS.outputRows)) return null;
     const risk = ['ps', 'inspect', 'logs', 'stats', 'images', 'info'].includes(verb) ? 'SAFE_READ_ONLY' : ['pull', 'tag', 'rename'].includes(verb) ? 'LOW_RISK_CHANGE' : ['rm', 'rmi', 'prune', 'reset'].includes(verb) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
     const target = command ? operandsAfter(words, command.index, ['--time', '-t'])[0] : null;
-    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' ? 'local' : target, option(words, '--context'), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    const modifiers = verb === 'inspect' ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [];
+    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' ? 'local' : target, option(words, '--context'), modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
   if (lower === 'aws') {
@@ -298,7 +320,8 @@ export function lookupFamily(stage) {
     const risk = /^(describe|get|list|head)-/u.test(action) ? 'SAFE_READ_ONLY' : /^(create-tags|delete-tags)$/u.test(action) ? 'LOW_RISK_CHANGE' : /^(delete|terminate|deregister)-/u.test(action) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
     const environment = [option(words, '--profile'), option(words, '--region')].filter(Boolean).join('@') || null;
     const target = option(words, '--instance-ids', '--resource-arn', '--resources', '--resource-id', '--bucket');
-    return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    const sensitiveRead = risk === 'SAFE_READ_ONLY' && /^(?:get-secret-value|get-parameter|get-parameters|get-parameters-by-path)$/u.test(action);
+    return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
   if (lower === 'az') {
@@ -308,7 +331,8 @@ export function lookupFamily(stage) {
     if (!verb) return null;
     if (verb === 'list' && !boundedInteger(option(words, '--top'), LIMITS.fanOut)) return null;
     const risk = ['show', 'list'].includes(verb) ? 'SAFE_READ_ONLY' : ['create'].includes(verb) && words.includes('tag') ? 'LOW_RISK_CHANGE' : ['delete', 'purge'].includes(verb) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
-    return result('AZURE', risk, risk === 'SAFE_READ_ONLY' ? option(words, '--name') ?? verb : option(words, '--name'), option(words, '--subscription'), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    const sensitiveRead = risk === 'SAFE_READ_ONLY' && prefix.includes('keyvault') && prefix.includes('secret');
+    return result('AZURE', risk, risk === 'SAFE_READ_ONLY' ? option(words, '--name') ?? verb : option(words, '--name'), option(words, '--subscription'), sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
   if (lower === 'gcloud' || lower === 'gsutil') {
@@ -383,19 +407,41 @@ export function lookupFamily(stage) {
   }
   if (lower === 'curl' || lower === 'invoke-restmethod' || lower === 'invoke-webrequest') {
     if (words.some((word) => /^(?:-K|--config)(?:=|$)/u.test(word))) return null;
-    const bodyOptions = ['-d', '--data', '--data-ascii', '--data-binary', '--data-raw', '--data-urlencode', '--json', '-F', '--form', '--form-string'];
-    const uploadOptions = ['-T', '--upload-file', '-InFile'];
-    const sinkOptions = ['-o', '--output', '-O', '--remote-name', '-D', '--dump-header', '-c', '--cookie-jar', '--etag-save', '--trace', '-OutFile'];
-    const uploadIndex = words.findIndex((word) => [...bodyOptions, ...uploadOptions].includes(word));
+    const isCurl = lower === 'curl';
+    const bodyOptions = isCurl
+      ? ['-d', '--data', '--data-ascii', '--data-binary', '--data-raw', '--data-urlencode', '--json', '-F', '--form', '--form-string']
+      : ['-Body'];
+    const uploadOptions = isCurl ? ['-T', '--upload-file'] : ['-InFile'];
+    const sinkOptions = isCurl
+      ? ['-o', '--output', '-O', '--remote-name', '-D', '--dump-header', '-c', '--cookie-jar', '--etag-save', '--trace']
+      : ['-OutFile'];
+    const valueOptions = isCurl
+      ? [...bodyOptions, ...uploadOptions, ...sinkOptions, '-X', '--request', '-H', '--header', '-u', '--user', '--token', '--oauth2-bearer', '--url', '--connect-timeout', '--max-time', '--retry', '--cert', '--key', '--cacert', '--resolve', '--proxy', '-x', '-b', '--cookie']
+      : [...bodyOptions, ...uploadOptions, ...sinkOptions, '-Uri', '-Method', '-Headers', '-ContentType', '-Credential', '-Authentication', '-TimeoutSec', '-MaximumRedirection'];
+    const flagOptions = isCurl
+      ? ['-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2', '-k', '--insecure']
+      : ['-SkipCertificateCheck', '-UseBasicParsing'];
+    const knownOptions = [...valueOptions, ...flagOptions].map((name) => name.toLowerCase());
+    for (const word of words.slice(1)) {
+      if (!word.startsWith('-')) continue;
+      const name = word.split('=', 1)[0].toLowerCase();
+      if (!knownOptions.includes(name)) return null;
+    }
+    const lowerWords = words.map((word) => word.toLowerCase());
+    const hasNamedOption = (names) => names.some((name) => {
+      const candidate = name.toLowerCase();
+      return lowerWords.some((word) => word === candidate || word.startsWith(`${candidate}=`));
+    });
+    const uploadIndex = lowerWords.findIndex((word) => [...bodyOptions, ...uploadOptions].some((name) => word === name.toLowerCase()));
     if (uploadIndex >= 0 && words[uploadIndex + 1]?.startsWith('@')) return null;
     const urls = words.filter((word) => /^https?:\/\//iu.test(word));
     if (urls.length !== 1 || words.includes('--next')) return null;
     const [url] = urls;
     let parsed; try { parsed = new URL(url); } catch { return null; }
-    const hasBody = words.some((word) => bodyOptions.includes(word) || bodyOptions.some((name) => word.startsWith(`${name}=`)));
-    const hasUpload = words.some((word) => uploadOptions.includes(word) || uploadOptions.some((name) => word.startsWith(`${name}=`)));
-    const hasSink = words.some((word) => sinkOptions.includes(word) || sinkOptions.some((name) => word.startsWith(`${name}=`)));
-    const method = (option(words, '-X', '--request', '-Method') ?? (hasUpload ? 'PUT' : hasBody ? 'POST' : 'GET')).toUpperCase();
+    const hasBody = hasNamedOption(bodyOptions);
+    const hasUpload = hasNamedOption(uploadOptions);
+    const hasSink = hasNamedOption(sinkOptions);
+    const method = (optionCaseInsensitive(words, '-X', '--request', '-Method') ?? (hasUpload ? 'PUT' : hasBody ? 'POST' : 'GET')).toUpperCase();
     const risk = ['GET', 'HEAD'].includes(method) ? 'SAFE_READ_ONLY' : method === 'DELETE' ? 'DESTRUCTIVE' : ['PUT', 'PATCH', 'POST'].includes(method) ? 'LOW_RISK_CHANGE' : null;
     const effectiveRisk = hasSink && risk === 'SAFE_READ_ONLY' ? 'LOW_RISK_CHANGE' : risk;
     return effectiveRisk ? result('HTTP', effectiveRisk, parsed.pathname || '/', parsed.origin, hasSink ? ['FILE_WRITE'] : [], { requiresExplicitBinding: effectiveRisk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;

@@ -86,8 +86,8 @@ class CommandGuardInstallPolicyTests(unittest.TestCase):
 
     def test_shell_string_hook_is_rejected(self) -> None:
         changed = self.executor_text.replace(
-            "command: node\n          args:",
-            "command: node command-guard\n          args:",
+            'command: "{{skills_dir}}/command-driven-operations/scripts/command-guard-launcher.sh"',
+            "command: node command-guard",
             1,
         )
         self.assert_source_error(
@@ -95,9 +95,9 @@ class CommandGuardInstallPolicyTests(unittest.TestCase):
         )
 
     def test_hook_timeout_drift_is_rejected(self) -> None:
-        changed = self.executor_text.replace("timeout: 5", "timeout: 30", 1)
+        changed = self.executor_text.replace("timeout: 7", "timeout: 30", 1)
         self.assert_source_error(
-            "diagnostic-operator", changed, "timeout must be 5 seconds"
+            "diagnostic-operator", changed, "timeout must be 7 seconds"
         )
 
     def test_duplicate_pretooluse_is_rejected(self) -> None:
@@ -109,8 +109,8 @@ class CommandGuardInstallPolicyTests(unittest.TestCase):
 
     def test_unexpected_hook_argument_is_rejected(self) -> None:
         changed = self.executor_text.replace(
-            "          timeout: 5",
-            "            - --unsafe\n          timeout: 5",
+            "            - pre\n          timeout: 7",
+            "            - pre\n            - --unsafe\n          timeout: 7",
             1,
         )
         self.assert_source_error(

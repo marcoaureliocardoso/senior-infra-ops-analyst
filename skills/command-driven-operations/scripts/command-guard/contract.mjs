@@ -6,7 +6,6 @@ const TOP_KEYS = new Set([
   'prompt_id', 'effort',
 ]);
 const TOOL_KEYS = new Set(['command', 'description', 'timeout', 'run_in_background']);
-const EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const SECURITY_KEYS = new Set([...TOP_KEYS, ...TOOL_KEYS, '__proto__', 'prototype', 'constructor']);
 
 function assertObject(value, label) {
@@ -45,6 +44,17 @@ function requiredString(value, label, maximum = LIMITS.auditFieldChars) {
   return value;
 }
 
+function assertObservationalScalar(value, key) {
+  if (typeof value === 'string') {
+    if (value.length > 0 && value.length <= LIMITS.auditFieldChars) return;
+  } else if (typeof value === 'boolean') {
+    return;
+  } else if (typeof value === 'number' && Number.isFinite(value)) {
+    return;
+  }
+  throw new Error(`unexpected hook field: ${key}`);
+}
+
 export function parseHookEvent(raw) {
   if (typeof raw !== 'string' || Buffer.byteLength(raw, 'utf8') > LIMITS.inputBytes) {
     throw new Error('hook input size exceeds limit');
@@ -55,7 +65,7 @@ export function parseHookEvent(raw) {
   assertBoundedDepth(value);
   assertObject(value, 'hook event');
   for (const key of Object.keys(value)) {
-    if (!TOP_KEYS.has(key)) throw new Error(`unexpected hook field: ${key}`);
+    if (!TOP_KEYS.has(key)) assertObservationalScalar(value[key], key);
   }
   if (value.hook_event_name !== 'PreToolUse') throw new Error('hook event must be PreToolUse');
   if (value.tool_name !== 'Bash') throw new Error('tool name must be Bash');
@@ -72,8 +82,7 @@ export function parseHookEvent(raw) {
     for (const key of Object.keys(value.effort)) {
       if (key !== 'level') throw new Error(`unexpected effort field: ${key}`);
     }
-    const level = requiredString(value.effort.level, 'effort level');
-    if (!EFFORT_LEVELS.has(level)) throw new Error('effort level is unsupported');
+    requiredString(value.effort.level, 'effort level');
   }
   assertObject(value.tool_input, 'tool_input');
   for (const key of Object.keys(value.tool_input)) {
@@ -95,5 +104,9 @@ export function parseHookEvent(raw) {
     }
     timeoutMs = value.tool_input.timeout;
   }
-  return Object.freeze({ sessionId, agentType, permissionMode, command, timeoutMs, runInBackground: false });
+  return Object.freeze({
+    sessionId, agentType, permissionMode, command,
+    toolUseId: value.tool_use_id ?? null,
+    timeoutMs, runInBackground: false,
+  });
 }

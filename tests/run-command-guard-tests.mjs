@@ -29,10 +29,11 @@ run(['--test', ...tests], 'command guard unit/property/finite-matrix tests');
 
 const critical = [
   'contract.mjs', 'redaction.mjs', 'response.mjs', 'bash-lexer.mjs',
-  'powershell-lexer.mjs', 'composition.mjs', 'credential-flow.mjs',
+  'powershell-lexer.mjs', 'composition.mjs', 'credential-flow.mjs', 'binding-store.mjs',
   'policy.mjs', 'audit.mjs',
 ].map((name) => `--test-coverage-include=skills/command-driven-operations/scripts/command-guard/${name}`);
 critical.push('--test-coverage-include=skills/command-driven-operations/scripts/validate-ops-command.mjs');
+critical.push('--test-coverage-include=skills/command-driven-operations/scripts/record-command-approval.mjs');
 run([
   '--test', '--experimental-test-coverage',
   '--test-coverage-lines=100', '--test-coverage-branches=100', '--test-coverage-functions=100',

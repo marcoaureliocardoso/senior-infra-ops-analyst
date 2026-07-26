@@ -13,7 +13,11 @@ from subagent_runtime_policy import (
     runtime_precedence_section,
     runtime_section,
 )
-from command_guard_install_policy import installed_hook_errors
+from command_guard_install_policy import (
+    installed_artifact_errors,
+    installed_corpus_errors,
+    installed_hook_errors,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +31,10 @@ def installed_subagent_errors(
     errors: list[str] = []
     if not installed_dir.is_dir():
         return [f"installed agents directory not found: {installed_dir}"]
+
+    errors.extend(installed_artifact_errors(installed_skills_dir))
+    if not errors:
+        errors.extend(installed_corpus_errors(installed_skills_dir))
 
     for agent_id in sorted(ROLE_POLICY):
         source_path = ROOT / "subagents" / f"{agent_id}.md"

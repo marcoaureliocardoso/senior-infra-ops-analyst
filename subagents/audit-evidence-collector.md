@@ -14,10 +14,18 @@ hooks:
     - matcher: Bash
       hooks:
         - type: command
-          command: node
+          command: "{{skills_dir}}/command-driven-operations/scripts/command-guard-launcher.sh"
           args:
-            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
-          timeout: 5
+            - pre
+          timeout: 7
+  PostToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: "{{skills_dir}}/command-driven-operations/scripts/command-guard-launcher.sh"
+          args:
+            - post
+          timeout: 7
 ---
 
 # Audit Evidence Collector

@@ -122,18 +122,18 @@ class InstalledSubagentValidationTests(unittest.TestCase):
             result.stdout + result.stderr,
         )
 
-    def test_missing_installed_validator_fails(self) -> None:
-        validator = (
+    def test_missing_installed_launcher_fails(self) -> None:
+        launcher = (
             self.skills
             / "command-driven-operations"
             / "scripts"
-            / "validate-ops-command.mjs"
+            / "command-guard-launcher.sh"
         )
-        if validator.exists():
-            validator.unlink()
+        if launcher.exists():
+            launcher.unlink()
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("installed validator missing", result.stdout + result.stderr)
+        self.assertIn("installed launcher missing", result.stdout + result.stderr)
 
     def test_unresolved_installed_hook_placeholder_fails(self) -> None:
         path = self.installed / "diagnostic-operator.md"
@@ -145,7 +145,7 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("installed validator path differs", result.stdout + result.stderr)
+        self.assertIn("installed hook differs", result.stdout + result.stderr)
 
     def test_changed_installed_hook_matcher_fails(self) -> None:
         path = self.installed / "diagnostic-operator.md"
@@ -158,6 +158,16 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("installed hook differs", result.stdout + result.stderr)
+
+    def test_changed_installed_guard_module_fails(self) -> None:
+        path = (
+            self.skills / "command-driven-operations" / "scripts" /
+            "command-guard" / "policy.mjs"
+        )
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("installed command guard artifact differs", result.stdout + result.stderr)
 
     def test_analytical_agent_cannot_gain_installed_hook(self) -> None:
         path = self.installed / "change-manager.md"

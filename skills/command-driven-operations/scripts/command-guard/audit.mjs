@@ -1,4 +1,5 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -24,6 +25,24 @@ export function resolveAuditPath(env = process.env, homeDirectory = os.homedir()
     : path.join(homeDirectory, '.claude', 'senior-infra-ops-analyst', 'command-guard-audit.jsonl');
 }
 
+export function structuralActionIdentity(result) {
+  const structure = {
+    policyId: result.policyId ?? null,
+    risk: result.risk ?? null,
+    modifiers: [...(result.modifiers ?? [])].sort(),
+    target: result.target ?? null,
+    environment: result.environment ?? null,
+    scope: result.scope ?? null,
+    decision: result.decision,
+    reason: result.reasonCode,
+    stage: result.stage ?? null,
+    findings: (result.findings ?? []).map(({ stage, ruleId, risk, modifiers }) => ({
+      stage, ruleId, risk, modifiers: [...modifiers].sort(),
+    })),
+  };
+  return createHash('sha256').update(JSON.stringify(structure)).digest('hex');
+}
+
 export function appendAudit(result, event, env = process.env) {
   const auditPath = resolveAuditPath(env);
   const record = sanitizeAuditValue({
@@ -32,8 +51,9 @@ export function appendAudit(result, event, env = process.env) {
     modifiers: result.modifiers ?? [], policyId: result.policyId ?? null,
     target: result.target ?? null, environment: result.environment ?? null,
     scope: result.scope ?? null, credential: result.credential ?? null,
-    fingerprint: result.fingerprint ?? null, decision: result.decision,
+    actionId: structuralActionIdentity(result), decision: result.decision,
     reason: result.reasonCode, stage: result.stage ?? null,
+    findings: result.findings ?? [],
   });
   mkdirSync(path.dirname(auditPath), { recursive: true, mode: 0o700 });
   appendFileSync(auditPath, `${JSON.stringify(record)}\n`, { encoding: 'utf8', mode: 0o600 });

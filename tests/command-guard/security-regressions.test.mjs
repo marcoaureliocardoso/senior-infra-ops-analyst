@@ -48,6 +48,61 @@ test('authenticated HTTP denies redirect and persistence sinks', () => {
   }
 });
 
+test('HTTP clients derive effective methods, uploads, and file sinks from every supported form', () => {
+  const mutations = [
+    'curl -d value https://api.example.invalid/items',
+    'curl --data=value https://api.example.invalid/items',
+    'curl --json={} https://api.example.invalid/items',
+    'curl -F field=value https://api.example.invalid/items',
+    'curl -T payload.bin https://api.example.invalid/items/1',
+    'Invoke-RestMethod -Uri https://api.example.invalid/items -Body value',
+    'Invoke-WebRequest -Uri https://api.example.invalid/items -InFile payload.bin',
+  ];
+  for (const command of mutations) assert.notEqual(analyze(command).risk, 'SAFE_READ_ONLY', command);
+
+  const sinks = [
+    'curl -o response.json https://api.example.invalid/items',
+    'curl --output=response.json https://api.example.invalid/items',
+    'curl -D headers.txt https://api.example.invalid/items',
+    'curl -c cookies.txt https://api.example.invalid/items',
+    'Invoke-WebRequest -Uri https://api.example.invalid/items -OutFile response.json',
+  ];
+  for (const command of sinks) {
+    const result = analyze(command);
+    assert.equal(result.risk, 'LOW_RISK_CHANGE', command);
+    assert.ok(result.modifiers.includes('FILE_WRITE'), command);
+  }
+
+  for (const command of [
+    'curl --unknown-option value https://api.example.invalid/items',
+    'Invoke-WebRequest -Uri https://api.example.invalid/items -Unknown value',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
+test('sensitive platform reads always ask and active probes remain bounded', () => {
+  for (const command of [
+    'docker inspect web',
+    'aws --profile ops --region us-east-1 secretsmanager get-secret-value --secret-id app',
+    'az keyvault secret show --subscription lab --vault-name vault --name app',
+  ]) {
+    const result = analyze(command);
+    assert.equal(result.decision, 'ask', command);
+    assert.ok(result.modifiers.includes('ALWAYS_ASK'), command);
+  }
+
+  assert.equal(analyze('Test-Connection example.invalid').decision, 'deny');
+  assert.equal(analyze('Test-Connection example.invalid -Count 21').decision, 'deny');
+  assert.equal(analyze('Test-Connection example.invalid -Count 3').decision, 'allow');
+});
+
+test('relational reads reject unmodelled server-side functions', () => {
+  for (const command of [
+    `psql -h db.example.invalid -d app -c "SELECT pg_ls_dir('/tmp')"`,
+    `mysql -h db.example.invalid -D app -e "SELECT LOAD_FILE('/etc/passwd')"`,
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+  assert.equal(analyze('psql -h db.example.invalid -d app -c "SELECT COUNT(*) FROM events LIMIT 10"').decision, 'allow');
+});
+
 test('catalogue denies wrapper and verb-smuggling forms', () => {
   for (const command of [
     'docker exec web ps',

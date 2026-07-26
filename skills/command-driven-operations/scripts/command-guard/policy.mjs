@@ -82,7 +82,7 @@ export function analyzeCommand(event) {
   const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
   const modifiers = [...new Set(analyses.flatMap(({ modifiers: values }) => values))];
   const findings = analyses.map(({ stage, policyId, risk, modifiers: stageModifiers }) => ({
-    stage, policyId, risk, modifiers: stageModifiers,
+    stage, ruleId: policyId, risk, modifiers: stageModifiers,
   }));
   const knownMode = event.permissionMode === 'bypassPermissions' || NORMAL_MODES.includes(event.permissionMode);
   if (!knownMode) modifiers.push('UNKNOWN_MODE_CONSERVATIVE');
@@ -98,8 +98,11 @@ export function analyzeCommand(event) {
   const action = decision === 'ask'
     ? 'Operator confirmation is required before execution.'
     : 'The effective permission mode authorizes this bounded operation.';
+  const stageSummary = findings
+    .map(({ stage, ruleId, risk }) => `stage ${stage} ${ruleId}/${risk}`)
+    .join('; ');
   return {
-    decision, reasonCode, message: `${reasonCode}: ${aggregate.policyId} stage ${aggregate.stage} classified ${aggregate.risk}. ${action} Sensitive values are redacted.`,
+    decision, reasonCode, message: `${reasonCode}: ${stageSummary}. ${action} Sensitive values are redacted.`,
     risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
     credential: credentialAnalysis.metadata, findings, stage: aggregate.stage,

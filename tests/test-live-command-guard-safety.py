@@ -14,6 +14,13 @@ SCRIPT = (ROOT / "tests" / "live-command-guard-smoke.sh").read_text(
 
 
 class LiveCommandGuardSafetyTests(unittest.TestCase):
+    def test_live_normal_credentials_require_explicit_residual_risk_ack(self) -> None:
+        self.assertIn("P0_04_LIVE_NORMAL_CREDENTIALS_ACK", SCRIPT)
+        self.assertIn("I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK", SCRIPT)
+        self.assertIn("normal provider credentials enter the live Claude process", SCRIPT)
+        self.assertIn("provider egress remains open", SCRIPT)
+        self.assertIn("does not eliminate exfiltration risk", SCRIPT)
+
     def test_isolated_generated_home_and_history(self) -> None:
         self.assertIn('WORK="$(mktemp -d "$TMP_PARENT/p0-04-command-guard.XXXXXX")"', SCRIPT)
         self.assertIn('HOME="$WORK/home"', SCRIPT)
@@ -91,6 +98,7 @@ class LiveCommandGuardSafetyTests(unittest.TestCase):
     def test_artifacts_are_scanned_for_synthetic_markers(self) -> None:
         self.assertIn("scan_retained_artifacts", SCRIPT)
         self.assertIn("synthetic credential retained", SCRIPT)
+        self.assertIn("provider credential variable name retained", SCRIPT)
 
     def test_no_unscoped_destructive_target_is_embedded(self) -> None:
         forbidden = re.compile(r"\b(?:kubectl|aws|az|gcloud|ssh)\s+(?:delete|drain|terminate|rm)\b")

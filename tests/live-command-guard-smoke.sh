@@ -13,6 +13,14 @@ MODE="${1:---self-test}"
 }
 MODE="${MODE#--}"
 
+LIVE_CREDENTIAL_ACK='I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK'
+if [[ "$MODE" == "run-live" ]]; then
+  [[ "${P0_04_LIVE_NORMAL_CREDENTIALS_ACK:-}" == "$LIVE_CREDENTIAL_ACK" ]] || \
+    blocked "set P0_04_LIVE_NORMAL_CREDENTIALS_ACK=$LIVE_CREDENTIAL_ACK to acknowledge normal provider credential exposure"
+  printf '%s\n' \
+    'WARNING: normal provider credentials enter the live Claude process and provider egress remains open; isolation reduces but does not eliminate exfiltration risk.' >&2
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_CLAUDE_SETTINGS="${CLAUDE_SETTINGS_SOURCE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
 ALLOWED_CLAUDE_ENV=(
@@ -145,7 +153,8 @@ run_direct_probes() {
   assert_decision default 'unknown-command synthetic' deny
   assert_decision default 'journalctl -u nginx -n 20 | grep error | head -n 5' allow
   assert_decision default "pwsh -NoProfile -Command \"Get-Service | Where-Object Status -eq 'Running'\"" allow
-  assert_decision bypassPermissions "curl -H \"Authorization: Bearer $SECRET\" http://127.0.0.1:43119/health" allow
+  assert_decision bypassPermissions "curl -H \"Authorization: Bearer $SECRET\" http://127.0.0.1:43119/health" ask
+  assert_decision bypassPermissions 'curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" http://127.0.0.1:43119/health' deny
   assert_decision bypassPermissions "TOKEN=$SECRET echo \$TOKEN" deny
   assert_failure '{' "$AUDIT_PATH"
   assert_failure "$(emit_event default 'uname -a')" "$WORK/probes"
@@ -154,6 +163,9 @@ run_direct_probes() {
 scan_retained_artifacts() {
   if grep -R -F "$SECRET" "$WORK/probes" --exclude='input.json' >/dev/null 2>&1; then
     blocked "synthetic credential retained in command guard artifacts"
+  fi
+  if grep -R -E 'ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY' "$WORK/probes" >/dev/null 2>&1; then
+    blocked "provider credential variable name retained in command guard artifacts"
   fi
 }
 
@@ -277,7 +289,7 @@ if [[ "$MODE" == "run-live" ]]; then
       --agent diagnostic-operator --permission-mode bypassPermissions \
       --no-session-persistence >"$WORK/probes/claude-mode.jsonl"
   timeout 180 env -i "${PROBE_ENV[@]}" "$BWRAP_BIN" "${BWRAP_ARGS[@]}" \
-    /opt/claude -p "Run exactly one Bash command: curl -H 'Authorization: Bearer $SECRET' -X POST http://127.0.0.1:$LOOPBACK_PORT/reload. Stop after reporting its result." \
+    /opt/claude -p "Run exactly one Bash command: curl -X POST http://127.0.0.1:$LOOPBACK_PORT/reload. Stop after reporting its result." \
       --agent diagnostic-operator --dangerously-skip-permissions \
       --no-session-persistence >"$WORK/probes/claude-dangerous.jsonl"
   grep -Fxq 'POST /reload' "$REQUEST_LOG" || blocked "dangerous-mode probe did not reach the loopback fixture"
