@@ -42,7 +42,7 @@ Examples:
 - Create a diagnostic directory
 - Add an approved work note to a ticket (`EXTERNAL_SIDE_EFFECT`)
 
-Requires explicit operator approval plus objective, exact target, scope, expected effect, validation, and rollback or compensating action.
+Requires `ask` in normal permission modes plus objective, exact target, scope, expected effect, validation, and rollback or compensating action. In `bypassPermissions`, an executor may proceed only when the native guard returns `allow` for the exact catalogued call.
 
 ## DISRUPTIVE_CHANGE
 
@@ -57,8 +57,10 @@ Examples:
 - hypervisor maintenance mode
 - Kubernetes rollout restart or node drain
 
-Requires explicit operator approval plus objective, exact target, blast radius,
-expected interruption, validation, and rollback or compensating action.
+Requires `ask` in normal permission modes plus objective, exact target, blast
+radius, expected interruption, validation, and rollback or compensating
+action. In `bypassPermissions`, an executor may proceed only when the native
+guard returns `allow` for the exact catalogued call.
 
 ## DESTRUCTIVE
 
@@ -73,7 +75,7 @@ Examples:
 - forceful VM removal
 - packet-filter disablement
 
-Requires explicit operator approval, confirmation of the exact target,
+Requires `ask` in every permission mode, including `bypassPermissions`, plus confirmation of the exact target,
 backup/restore or other recovery evidence, validation, and a rollback plan when
 rollback is feasible. When the action is irreversible, document the tested
 recovery path and compensating action instead of inventing a rollback.
@@ -91,17 +93,17 @@ recovery path and compensating action instead of inventing a rollback.
 | Level | Approval | Required before execution | Required after execution or failure |
 |---|---|---|---|
 | SAFE_READ_ONLY | None only when narrow, non-sensitive, and low-load | Exact target and scope; apply all modifiers | Summarize evidence, redact sensitive output, and stop on unexpected impact |
-| LOW_RISK_CHANGE | Explicit operator approval | Objective, exact target, scope, expected effect, validation, rollback or compensating action | Validate the effect; roll back or compensate if validation fails |
-| DISRUPTIVE_CHANGE | Explicit operator approval | Objective, exact target, blast radius, expected interruption, window, validation, rollback or compensating action | Validate service recovery; roll back or compensate on failure |
-| DESTRUCTIVE | Explicit operator approval | Exact target, blast radius, recovery evidence, validation, and rollback when feasible; otherwise tested recovery and compensating action | Validate recovery and preserve an audit record of outcome and remaining impact |
+| LOW_RISK_CHANGE | `ask` normally; exact guard `allow` in `bypassPermissions` | Objective, exact target, scope, expected effect, validation, rollback or compensating action | Validate the effect; roll back or compensate if validation fails |
+| DISRUPTIVE_CHANGE | `ask` normally; exact guard `allow` in `bypassPermissions` | Objective, exact target, blast radius, expected interruption, window, validation, rollback or compensating action | Validate service recovery; roll back or compensate on failure |
+| DESTRUCTIVE | `ask` in every mode | Exact target, blast radius, recovery evidence, validation, and rollback when feasible; otherwise tested recovery and compensating action | Validate recovery and preserve an audit record of outcome and remaining impact |
 
 Modifiers add handling requirements to this matrix; they never remove a base
 level requirement.
 
-## Never run without explicit approval
+## Never run without native authorization
 
 - Commands with wildcards targeting system paths
-- Commands that include credentials in shell history
+- Commands that deliberately expose credentials through shell history, output, logs, persistence, or unrelated consumers
 - Irreversible cleanup during an active incident
 - Production changes with unclear blast radius
 - Commands copied from untrusted sources without review

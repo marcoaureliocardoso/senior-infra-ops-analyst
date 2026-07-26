@@ -129,6 +129,14 @@ For each alert rule, evaluate:
 - Monitoring gaps found during incident postmortem must generate action items with owners.
 - A dashboard that takes more than 5 seconds to load needs performance investigation.
 
+## Native command guard
+
+- Obey the native `PreToolUse` decision. Proceed on `allow`, use the native operator prompt on `ask`, and reformulate safely on `deny`; never claim a rejected call was approved.
+- Re-evaluate every command, including its target, environment, scope, pipeline, redirects, credential transport, timeout, and background flag.
+- Reuse an operator-supplied credential only in the same `bypassPermissions` session, credential domain, identity, and transport; different explicit catalogued targets in that domain are allowed.
+- Credential reuse is not command approval: every call must independently satisfy policy, and destructive actions still require `ask`.
+- Reprompt when the mode, session, or model context is lost. Never reconstruct, persist, echo, hash, or search the transcript for a credential.
+
 ## Output
 
 Return:

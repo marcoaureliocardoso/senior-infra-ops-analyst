@@ -2,7 +2,7 @@
 name: Command Driven Operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
 version: 0.5.1
-last_updated: 2026-07-23
+last_updated: 2026-07-26
 maintainer: Marco Aurelio Cardoso
 triggers:
   - run commands
@@ -20,13 +20,28 @@ Operate as an assisted infrastructure analyst. Use available tools to gather evi
 1. First identify the execution context: local shell, remote host, OS, privileges, production/non-production, and tool limitations.
 2. Classify each command using `references/risk-levels.md` before running it, including any operational modifiers.
 3. Execute SAFE_READ_ONLY commands when tool access is available only if they are narrowly scoped and do not expose secrets, personal data, broad logs, packet metadata, or significant resource load.
-4. For SAFE_READ_ONLY commands with SENSITIVE_OUTPUT, RESOURCE_INTENSIVE, ACTIVE_PROBE, PRIVILEGED, or REMOTE_SESSION_RISK modifiers, minimize scope first; request approval when the scope is broad or production-sensitive.
-5. Do not execute LOW_RISK_CHANGE, DISRUPTIVE_CHANGE, or DESTRUCTIVE commands without explicit approval.
+4. For SAFE_READ_ONLY commands with SENSITIVE_OUTPUT, RESOURCE_INTENSIVE, ACTIVE_PROBE, PRIVILEGED, or REMOTE_SESSION_RISK modifiers, minimize scope first and obey the native `PreToolUse` result.
+5. In normal modes, LOW_RISK_CHANGE and DISRUPTIVE_CHANGE require `ask`; in `bypassPermissions`, execute them only when the guard returns `allow`. DESTRUCTIVE always requires `ask`; `deny` must be reformulated, never bypassed.
 6. Do not execute an action with EXTERNAL_SIDE_EFFECT without showing the exact target and intended content/change and obtaining explicit approval.
 7. For every executed command, record: command, target, purpose, observed output summary, interpretation, and next step.
 8. Never fabricate outputs. If access is missing, say so and provide the exact command plan.
-9. Stop when the next logical action crosses an approval gate.
+9. Stop when the next logical action returns `ask` or `deny`; continue only after the native prompt approves the exact `ask` call or after a denied command is safely reformulated.
 </required>
+
+## Native guard and credential reuse
+
+Treat each hook result as authorization for the current call only. A changed
+target, environment, scope, pipeline, redirect, credential transport, timeout,
+or background flag requires a fresh evaluation.
+
+Prefer profiles, agents, keychains, cached sessions, credential helpers,
+runtime variables, and protected-file direct flows. A literal supplied through
+the conversation is already visible to the model/provider/transcript. In
+`bypassPermissions`, reuse it only in the same session, credential domain,
+identity, and transport; different explicit catalogued targets in that domain
+are permitted, but credential reuse is not command approval. Reprompt after
+mode, session, or model-context loss. Never reconstruct, persist, echo, log,
+hash, compare, or search the transcript for the credential.
 
 ## Execution loop
 
@@ -34,7 +49,7 @@ Use this loop repeatedly:
 
 1. State hypothesis.
 2. Pick the least risky command that can confirm or refute it.
-3. Run the command only if it is SAFE_READ_ONLY, tool access exists, and the modifier policy allows execution without approval.
+3. Run the command only when tool access exists and the native command guard returns `allow`, or after the native prompt approves an exact `ask` call.
 4. Summarize only relevant output.
 5. Interpret the result.
 6. Decide next check or mitigation.

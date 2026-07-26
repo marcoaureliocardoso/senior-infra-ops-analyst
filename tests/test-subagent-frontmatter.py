@@ -24,7 +24,9 @@ class SubagentFrontmatterValidationTests(unittest.TestCase):
         shutil.copytree(
             ROOT,
             cls.sandbox,
-            ignore=shutil.ignore_patterns(".git", ".worktrees", "__pycache__"),
+            ignore=shutil.ignore_patterns(
+                ".git", ".worktrees", ".tmp", "__pycache__"
+            ),
         )
         cls.agent_path = cls.sandbox / AGENT_REL
         cls.original_agent = cls.agent_path.read_text(encoding="utf-8")
@@ -69,24 +71,24 @@ class SubagentFrontmatterValidationTests(unittest.TestCase):
 
     def test_trailing_malformed_skill_is_rejected(self) -> None:
         content = self.original_agent.replace(
-            "  - infrastructure-troubleshooting\n---",
-            "  - infrastructure-troubleshooting\n  - INVALID_SKILL\n---",
+            "  - infrastructure-troubleshooting\nhooks:",
+            "  - infrastructure-troubleshooting\n  - INVALID_SKILL\nhooks:",
             1,
         )
         self.assert_rejected(content, "malformed skills preload")
 
     def test_quoted_unknown_skill_is_rejected(self) -> None:
         content = self.original_agent.replace(
-            "  - infrastructure-troubleshooting\n---",
-            '  - infrastructure-troubleshooting\n  - "unknown-skill"\n---',
+            "  - infrastructure-troubleshooting\nhooks:",
+            '  - infrastructure-troubleshooting\n  - "unknown-skill"\nhooks:',
             1,
         )
         self.assert_rejected(content, "malformed skills preload")
 
     def test_duplicate_skill_is_rejected(self) -> None:
         content = self.original_agent.replace(
-            "  - infrastructure-troubleshooting\n---",
-            "  - infrastructure-troubleshooting\n  - infrastructure-troubleshooting\n---",
+            "  - infrastructure-troubleshooting\nhooks:",
+            "  - infrastructure-troubleshooting\n  - infrastructure-troubleshooting\nhooks:",
             1,
         )
         self.assert_rejected(content, "duplicate preloaded skills")
@@ -203,6 +205,17 @@ class SubagentFrontmatterValidationTests(unittest.TestCase):
             CHANGE_MANAGER_REL,
             content,
             "tools differ from role policy",
+        )
+
+    def test_executor_cannot_drop_native_command_guard_invariants(self) -> None:
+        content = self.original_agent.replace(
+            "Credential reuse is not command approval",
+            "Credential reuse permits the command",
+            1,
+        )
+        self.assert_rejected(
+            content,
+            "subagent missing native command guard clause",
         )
 
 

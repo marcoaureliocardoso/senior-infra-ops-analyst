@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, re, sys, hashlib
 from pathlib import Path
-from command_guard_install_policy import source_hook_errors
+from command_guard_install_policy import EXECUTOR_AGENTS, source_hook_errors
 from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
 errors = []
@@ -412,6 +412,19 @@ if not subagents_from_manifest:
 
 subagent_ids = {s['id'] for s in subagents_from_manifest if s.get('id')}
 valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'Skill'}
+native_guard_clauses = (
+    "## Native command guard",
+    "Obey the native `PreToolUse` decision",
+    "Proceed on `allow`",
+    "use the native operator prompt on `ask`",
+    "reformulate safely on `deny`",
+    "same `bypassPermissions` session, credential domain, identity, and transport",
+    "different explicit catalogued targets in that domain",
+    "Re-evaluate every command",
+    "Credential reuse is not command approval",
+    "mode, session, or model context is lost",
+    "Never reconstruct, persist, echo, hash, or search the transcript for a credential",
+)
 
 for sa in subagents_from_manifest:
     sa_id = sa.get('id', '')
@@ -427,6 +440,10 @@ for sa in subagents_from_manifest:
         err(runtime_error)
     for hook_error in source_hook_errors(sa_id, t):
         err(hook_error)
+    if sa_id in EXECUTOR_AGENTS:
+        for clause in native_guard_clauses:
+            if clause not in t:
+                err(f'subagent missing native command guard clause: {sa_id}: {clause}')
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:

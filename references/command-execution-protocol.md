@@ -62,11 +62,26 @@ For each command executed, keep this mental record:
 - Do not run broad filesystem scans, broad account enumeration, cluster-wide log pulls, or wide packet captures automatically in production without tight scoping or approval.
 - Never claim a command was executed when it was only suggested.
 
-## 5. Approval gates
+## 5. Native authorization gates
 
 Apply the canonical control matrix in `references/risk-levels.md`.
 
-Stop before executing any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action. Also stop before an action with `EXTERNAL_SIDE_EFFECT`. Present:
+For executor `Bash` calls, obey the native `PreToolUse` result for the exact
+command. `allow` authorizes only that call. `ask` invokes the native operator
+prompt and cannot be downgraded in a non-interactive surface. `deny` is
+non-overridable for that call: use its redacted explanation to reformulate the
+operation safely.
+
+| Classification | Normal permission modes | `bypassPermissions` |
+|---|---|---|
+| Narrow SAFE_READ_ONLY | `allow` | `allow` |
+| Bounded read with approval modifier | `ask` | `allow` |
+| Catalogued LOW_RISK_CHANGE | `ask` | `allow` |
+| Catalogued DISRUPTIVE_CHANGE | `ask` | `allow` |
+| Catalogued DESTRUCTIVE | `ask` | `ask` |
+| Ambiguous, encoded, evasive, unmodelled, or exfiltrating | `deny` | `deny` |
+
+Before proposing a command that can produce `ask`, prepare:
 
 - Objective
 - Exact command
@@ -77,7 +92,30 @@ Stop before executing any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIV
 - Rollback or compensating action
 - Safer alternative
 
-Proceed only after explicit approval.
+Proceed only when the native result is `allow`, or after Claude Code completes
+the exact `ask` decision. External tools not covered by the executor Bash hook
+retain their own explicit approval requirements.
+
+## Credential use and reuse
+
+Prefer provider-managed authentication, profiles, SSO/cached sessions,
+agents, askpass, keychains, credential helpers, runtime variables, and
+protected credential files. A credential supplied in the conversation is
+already model/provider/transcript-visible; the guard reduces further
+disclosure but cannot make that input secret from the model.
+
+In normal modes, a detected model-visible literal raises the decision to at
+least `ask`. In `bypassPermissions`, it may be reused without asking for the
+value again only in the same session, domain, identity, and transport, even
+across different explicit catalogued targets in that domain. Re-evaluate the
+complete current command every time. Credential reuse is not command approval,
+and destructive actions still ask. Reprompt after a mode, session, or model
+context boundary. Never reconstruct, persist, echo, log, hash, compare, or
+search the transcript for credential material.
+
+Encrypted credentials may flow only from a catalogued decryptor directly to a
+catalogued stdin consumer. Intermediate filters, display, logging, generic
+files, background jobs, or unrelated consumers are denied.
 
 ## 6. Remote execution caution
 
