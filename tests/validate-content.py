@@ -522,7 +522,14 @@ required_adrs = [
     'ADR-001-risk-taxonomy.md',
     'ADR-002-subagent-skill-preload.md',
     'ADR-003-subagent-runtime-controls.md',
+    'ADR-004-native-command-guard.md',
 ]
+adr004_headings = (
+    '## Context', '## Decision', '## Implemented architecture',
+    '## Enforcement points', '## Credential handling',
+    '## Alternatives rejected', '## Validation evidence',
+    '## Consequences and limitations', '## Forward compatibility',
+)
 if not architecture_index.exists():
     err('missing architecture decision index')
 else:
@@ -532,6 +539,12 @@ else:
             err(f'architecture index missing ADR: {adr}')
         if not (architecture_index.parent / adr).exists():
             err(f'missing architecture decision record: {adr}')
+    adr004_path = architecture_index.parent / 'ADR-004-native-command-guard.md'
+    if adr004_path.exists():
+        adr004_text = adr004_path.read_text(encoding='utf-8')
+        for heading in adr004_headings:
+            if heading not in adr004_text:
+                err(f'ADR-004 missing required heading: {heading}')
 
 if errors:
     print('Validation failed:')

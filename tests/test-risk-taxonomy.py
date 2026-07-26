@@ -29,7 +29,9 @@ class RiskTaxonomyValidationTests(unittest.TestCase):
         shutil.copytree(
             ROOT,
             cls.sandbox,
-            ignore=shutil.ignore_patterns(".git", ".worktrees", "__pycache__"),
+            ignore=shutil.ignore_patterns(
+                ".git", ".worktrees", ".tmp", "__pycache__"
+            ),
         )
         cls.reference_path = cls.sandbox / REFERENCE_REL
         cls.original_reference = cls.reference_path.read_text(encoding="utf-8")

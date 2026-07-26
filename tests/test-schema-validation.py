@@ -22,7 +22,9 @@ class SchemaValidationTests(unittest.TestCase):
         shutil.copytree(
             ROOT,
             cls.sandbox,
-            ignore=shutil.ignore_patterns(".git", ".worktrees", "__pycache__"),
+            ignore=shutil.ignore_patterns(
+                ".git", ".worktrees", ".tmp", "__pycache__"
+            ),
         )
         cls.manifest_path = cls.sandbox / "nori.json"
         cls.original_manifest = cls.manifest_path.read_text(encoding="utf-8")

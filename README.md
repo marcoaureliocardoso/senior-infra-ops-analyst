@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.10.0
+Version: 0.11.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -10,7 +10,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 ## Core behavior
 
-The agent should not merely suggest diagnostics when tool access exists. It should execute narrowly scoped `SAFE_READ_ONLY` commands, summarize observed evidence, interpret results, and stop before approval-gated actions.
+The agent should not merely suggest diagnostics when tool access exists. It should execute commands when the native guard returns `allow`, use Claude Code's exact prompt for `ask`, reformulate `deny`, summarize observed evidence, and interpret results.
 
 ## Included skills
 
@@ -38,6 +38,54 @@ This package includes 12 role-focused subagents under `subagents/` that provide 
 Each subagent inherits the project-wide safety model (`references/risk-levels.md`, `references/command-execution-protocol.md`) and preloads only its documented primary skills through the native Claude Code `skills` frontmatter. Native `tools` allowlists, `disallowedTools`, and `maxTurns` bound runtime capability; `Write` and `Edit` are denied to every role, while analytical roles also deny `Bash`.
 Each definition ends with an explicit runtime-precedence block so a budget-exhausted handoff overrides the normal role output.
 Other project skills remain available for on-demand discovery. See `subagents/` for full definitions.
+
+## Native command guard
+
+The eight executor roles with `Bash` carry a native `PreToolUse` hook that
+invokes a shared deterministic Node.js validator from the Nori-installed
+`command-driven-operations` skill. The four analytical roles remain shell-free.
+
+The guard uses separate Bash and PowerShell lexers, builds the complete stage,
+operator, redirect, and data-flow graph, and validates every stage against a
+finite operational catalogue. Pipes are therefore analyzed rather than
+blanket-blocked. Normal modes allow narrow reads and ask for bounded sensitive
+reads and catalogued changes. `bypassPermissions` allows catalogued
+non-destructive work; destructive work still asks. Unknown, ambiguous,
+dynamic, unbounded, or exfiltrating calls deny with a redacted explanation.
+
+Profiles, agents, keychains, cached sessions, credential helpers, runtime
+variables, and protected-file direct flows are preferred. A literal supplied
+in conversation is already model/provider/transcript-visible. The guard
+prevents additional disclosure and permits same-session, same-domain,
+same-identity, same-transport reuse in `bypassPermissions`, while independently
+re-evaluating every command. It never stores or derives a credential
+identifier.
+
+Mandatory static and installed-form validation:
+
+```bash
+node tests/run-command-guard-tests.mjs
+python3 tests/test-command-guard-install-policy.py
+bash tests/live-command-guard-smoke.sh --self-test
+```
+
+The real Claude Code/Nori harness is opt-in because it requires a configured
+Linux/WSL environment with Bubblewrap and operator credentials:
+
+```bash
+bash tests/live-command-guard-smoke.sh --run-live
+```
+
+Observed runtime/model versions are recorded as evidence and are not package
+requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
+
+## What changed in v0.11.0
+
+- Added native `PreToolUse` hooks to the eight executor subagents and semantic source-to-installed validation of their shared guard path.
+- Added strict event validation, separate Bash/PowerShell lexers, composition analysis, a finite infrastructure command catalogue, target binding, and mode-aware `allow`/`ask`/`deny` policy.
+- Added redaction-before-normalization, stateless model-visible credential handling, direct protected-file flows, minimal append-only audit metadata, and fail-closed process behavior.
+- Added 100% critical line/function/branch coverage, finite inventory/orphan checks, four property seeds, eleven killed security mutations, installed-form probes, and an opt-in OS-isolated live harness.
+- Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 
 ## What changed in v0.10.0
 

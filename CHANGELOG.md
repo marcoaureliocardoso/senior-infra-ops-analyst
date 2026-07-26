@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0 - 2026-07-26
+
+- Added native Claude Code `PreToolUse` hooks to all eight executor subagents, invoking one shared deterministic validator through the Nori-installed skills root.
+- Added strict bounded event parsing, separate Bash and PowerShell lexers, full pipeline/redirection graphs, a finite infrastructure command catalogue, explicit target binding, and conservative unknown-mode handling.
+- Added mode-aware authorization: normal modes ask for catalogued changes, `bypassPermissions` allows non-destructive catalogued changes, destructive calls always ask, and unknown or unsafe calls deny with operator-visible redacted reasons.
+- Added stateless model-visible credential handling, provider/helper/reference support, direct decryptor-to-consumer flows, redaction before normalization/fingerprinting, and minimal append-only audit metadata.
+- Added fail-closed process behavior for malformed input, encoding, policy, serialization, and audit failures.
+- Added finite inventory/orphan gates, four deterministic property seeds, 100% critical line/function/branch coverage, eleven killed security mutations, installed-form behavior probes, and an opt-in Bubblewrap-isolated Claude Code/Nori harness.
+- Added ADR-004 and aligned all model-facing command and credential instructions while keeping Claude Code, Nori, Node.js, and model versions unpinned.
+
 ## 0.10.0 - 2026-07-24
 
 - Added role-specific native Claude Code `maxTurns`, exclusive `tools` allowlists, and defense-in-depth `disallowedTools` to all 12 subagents.

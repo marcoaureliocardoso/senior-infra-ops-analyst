@@ -8,7 +8,34 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 
 24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
 
-Version: 0.10.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.11.0 | Author: Marco Aurelio Cardoso | License: MIT
+
+## Native executor command authorization
+
+Eight executor subagents receive a native Claude Code `PreToolUse` hook through
+their Nori-installed definitions. The shared deterministic validator analyzes
+Bash and explicit PowerShell payloads, complete pipelines and redirects,
+operational command families, target/environment bindings, aggregate risk, and
+credential source-to-sink flow before returning native `allow`, `ask`, or
+`deny`.
+
+Normal modes allow narrow reads and ask for bounded sensitive reads and
+catalogued changes. `bypassPermissions` permits catalogued non-destructive
+operations without another confirmation; destructive operations still ask,
+and unknown or inconclusive operations deny. Pipes remain usable when every
+stage and edge is understood.
+
+Operator-supplied literal credentials are treated as already visible to the
+model/provider/transcript. Same-session, same-domain, same-identity,
+same-transport reuse is allowed in `bypassPermissions` across explicit
+catalogued targets, but every command is re-evaluated and the guard retains no
+secret or secret-derived identifier. Prefer provider caches, profiles, agents,
+helpers, keychains, runtime variables, and direct protected-file consumers.
+
+Run `node tests/run-command-guard-tests.mjs` for the deterministic gate,
+`bash tests/live-command-guard-smoke.sh --self-test` for installed-form probes,
+and opt in to `--run-live` only in a configured Linux/WSL Bubblewrap
+environment. Runtime and model identifiers are observed evidence, not pins.
 
 ## Directory structure
 

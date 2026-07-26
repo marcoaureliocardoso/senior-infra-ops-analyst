@@ -104,7 +104,7 @@ repository validators, Bash/Git Bash, PowerShell 7, Markdown ADRs.
 - `skills/command-driven-operations/scripts/command-guard/catalogue.mjs`:
   immutable command families, verbs, targets, limits, risks, modifiers,
   credential positions, consumers, sources, and sinks.
-- `skills/command-driven-operations/scripts/command-guard/credentials.mjs`:
+- `skills/command-driven-operations/scripts/command-guard/credential-flow.mjs`:
   credential/reference classification and current-call sensitive data flow.
 - `skills/command-driven-operations/scripts/command-guard/policy.mjs`:
   target binding, per-stage analysis, aggregate risk, mode-aware precedence,
@@ -692,7 +692,7 @@ git commit -m "feat: add operational command catalogue and graph"
 ### Task 5: Enforce credential transports and sensitive data flow
 
 **Files:**
-- Create: `skills/command-driven-operations/scripts/command-guard/credentials.mjs`
+- Create: `skills/command-driven-operations/scripts/command-guard/credential-flow.mjs`
 - Create: `tests/command-guard/credentials.test.mjs`
 
 **Interfaces:**
@@ -767,7 +767,7 @@ every synthetic marker, then commit:
 node --test tests/command-guard/contract.test.mjs \
   tests/command-guard/policy.test.mjs \
   tests/command-guard/credentials.test.mjs
-git add skills/command-driven-operations/scripts/command-guard/credentials.mjs \
+git add skills/command-driven-operations/scripts/command-guard/credential-flow.mjs \
   tests/command-guard/credentials.test.mjs
 git commit -m "feat: enforce credential data flow"
 ```
@@ -957,7 +957,7 @@ the runner-created verified temporary directory.
 
 Run Node's native test coverage with branch, function, and line thresholds of
 100 for `contract.mjs`, `redaction.mjs`, `response.mjs`, `bash-lexer.mjs`,
-`powershell-lexer.mjs`, `composition.mjs`, `credentials.mjs`, `policy.mjs`,
+`powershell-lexer.mjs`, `composition.mjs`, `credential-flow.mjs`, `policy.mjs`,
 `audit.mjs`, and the entrypoint orchestration. Fail with an explicit capability
 message if the observed Node runtime lacks the native coverage flags; record
 the version as evidence, never as a compatibility allowlist.
