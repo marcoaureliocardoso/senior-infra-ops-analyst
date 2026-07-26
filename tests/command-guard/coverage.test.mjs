@@ -19,4 +19,11 @@ test('orphan detection reports the exact finite item', () => {
   const boundary = structuredClone(COVERAGE_MANIFEST);
   boundary.limits.tokens.boundary = ['n'];
   assert.throws(() => validateCoverageManifest(boundary), /orphan:limits:tokens:boundary/);
+
+  const executable = structuredClone(COVERAGE_MANIFEST);
+  executable.reviewRegressions['RV02-PS-OUTER-SEQUENCE'].executable = [];
+  assert.throws(
+    () => validateCoverageManifest(executable),
+    /orphan:reviewRegressions:RV02-PS-OUTER-SEQUENCE/u,
+  );
 });

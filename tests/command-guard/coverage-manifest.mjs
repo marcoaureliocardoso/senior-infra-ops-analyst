@@ -5,6 +5,7 @@ import { CREDENTIAL_TRANSPORTS } from '../../skills/command-driven-operations/sc
 import { LIMITS } from '../../skills/command-driven-operations/scripts/command-guard/limits.mjs';
 import { REASON_CODES } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
 import { POWERSHELL_OPERATORS } from '../../skills/command-driven-operations/scripts/command-guard/powershell-lexer.mjs';
+import { REVIEW_REGRESSION_FIXTURES } from './review-regression-fixtures.mjs';
 
 export const EDGE_CASE_IDS = Object.freeze([
   'QUOTED_SEPARATOR', 'UNMATCHED_QUOTE', 'DYNAMIC_SUBSTITUTION', 'EMPTY_STAGE',
@@ -28,6 +29,9 @@ export const COVERAGE_MANIFEST = Object.freeze({
   limits: casesFor('limit', Object.keys(LIMITS), true),
   credentialTransports: casesFor('credential', CREDENTIAL_TRANSPORTS),
   edgeCases: casesFor('edge', EDGE_CASE_IDS),
+  reviewRegressions: Object.fromEntries(
+    REVIEW_REGRESSION_FIXTURES.map(({ id }) => [id, { executable: [id] }]),
+  ),
 });
 
 export function validateCoverageManifest(manifest = COVERAGE_MANIFEST) {
@@ -40,11 +44,16 @@ export function validateCoverageManifest(manifest = COVERAGE_MANIFEST) {
     limits: Object.keys(LIMITS),
     credentialTransports: CREDENTIAL_TRANSPORTS,
     edgeCases: EDGE_CASE_IDS,
+    reviewRegressions: REVIEW_REGRESSION_FIXTURES.map(({ id }) => id),
   };
   for (const [category, inventory] of Object.entries(expected)) {
     const entries = manifest[category] ?? {};
     for (const item of inventory) {
       const cases = entries[item];
+      if (category === 'reviewRegressions') {
+        if (cases?.executable?.length !== 1 || cases.executable[0] !== item) throw new Error(`orphan:${category}:${item}`);
+        continue;
+      }
       if (!cases?.positive?.length || !cases?.negative?.length) throw new Error(`orphan:${category}:${item}`);
       if (category === 'limits' && cases.boundary?.length !== 3) throw new Error(`orphan:${category}:${item}:boundary`);
     }

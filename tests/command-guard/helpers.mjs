@@ -23,4 +23,3 @@ export async function temporaryAudit() {
     cleanup: async () => rm(directory, { recursive: true, force: true }),
   };
 }
-
