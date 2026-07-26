@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+node tests/run-command-guard-tests.mjs
+python3 tests/test-command-guard-install-policy.py
 python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
 python3 tests/test-risk-taxonomy.py
 python3 tests/test-subagent-frontmatter.py
-python3 tests/test-command-guard-install-policy.py
 python3 tests/test-installed-subagents.py
 python3 tests/test-schema-validation.py
 python3 tests/test-architecture-docs.py
