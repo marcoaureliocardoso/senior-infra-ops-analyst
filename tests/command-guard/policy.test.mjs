@@ -45,3 +45,72 @@ test('explicit literal PowerShell read pipeline is analyzed separately', () => {
   assert.equal(analyze(command).decision, 'allow');
 });
 
+test('initial operational catalogue covers documented infrastructure families', () => {
+  const reads = [
+    ['docker ps', 'CONTAINER'],
+    ['aws --profile ops --region us-east-1 ec2 describe-instances', 'AWS'],
+    ['az account show --subscription lab', 'AZURE'],
+    ['gcloud compute instances list --project lab', 'GCP'],
+    ['psql -h db.example.invalid -d app -c "SELECT 1"', 'POSTGRES'],
+    ['mysql -h db.example.invalid -D app -e "SHOW STATUS"', 'MYSQL'],
+    ['mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()"', 'MONGODB'],
+    ['redis-cli -h cache.example.invalid INFO', 'REDIS'],
+    ['git status', 'GIT_CI'],
+    ['gh repo view --repo owner/project', 'GIT_CI'],
+  ];
+  for (const [command, policyId] of reads) {
+    const result = analyze(command);
+    assert.equal(result.decision, 'allow', command);
+    assert.equal(result.policyId, policyId, command);
+  }
+});
+
+test('bounded probes and packet captures ask normally and allow in bypass mode', () => {
+  for (const command of [
+    'ping -c 3 192.0.2.10',
+    'tcpdump -i eth0 -c 20 host 192.0.2.10',
+  ]) {
+    assert.equal(analyze(command).decision, 'ask', command);
+    assert.equal(analyze(command, 'bypassPermissions').decision, 'allow', command);
+  }
+});
+
+test('catalogued remote and platform mutations require explicit binding', () => {
+  const mutations = [
+    'docker --context lab restart web',
+    'aws --profile ops --region us-east-1 ec2 stop-instances --instance-ids i-123',
+    'az vm restart --subscription lab --resource-group rg --name vm1',
+    'gcloud compute instances stop vm1 --project lab --zone us-central1-a',
+    'curl -X POST https://api.example.invalid/v1/reload',
+    'Restart-Service -Name spooler',
+  ];
+  for (const command of mutations) {
+    assert.equal(analyze(command).decision, 'ask', command);
+    assert.equal(analyze(command, 'bypassPermissions').decision, 'allow', command);
+  }
+  assert.equal(analyze('docker restart web').reasonCode, 'DENY_AMBIGUOUS_TARGET');
+  assert.equal(analyze('aws ec2 stop-instances --instance-ids i-123').reasonCode, 'DENY_AMBIGUOUS_TARGET');
+});
+
+test('destructive database, container, cloud, HTTP, and Git operations always ask', () => {
+  const destructive = [
+    'docker --context lab rm web',
+    'aws --profile ops --region us-east-1 ec2 terminate-instances --instance-ids i-123',
+    'psql -h db.example.invalid -d app -c "DROP TABLE demo"',
+    'redis-cli -h cache.example.invalid DEL key',
+    'curl -X DELETE https://api.example.invalid/v1/resource/1',
+    'gh repo delete owner/project --yes --repo owner/project',
+  ];
+  for (const command of destructive) {
+    assert.equal(analyze(command).decision, 'ask', command);
+    assert.equal(analyze(command, 'bypassPermissions').decision, 'ask', command);
+  }
+});
+
+test('SSH accepts only an explicit host and one literal catalogued remote stage', () => {
+  assert.equal(analyze('ssh ops@example.invalid "uname -a"').decision, 'allow');
+  assert.equal(analyze('ssh ops@example.invalid "systemctl restart nginx"').decision, 'ask');
+  assert.equal(analyze('ssh ops@example.invalid "systemctl restart nginx"', 'bypassPermissions').decision, 'allow');
+  assert.equal(analyze('ssh ops@example.invalid "uname; id"').decision, 'deny');
+  assert.equal(analyze('ssh "$HOST" "uname -a"').decision, 'deny');
+});

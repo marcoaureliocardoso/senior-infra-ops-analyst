@@ -1,6 +1,7 @@
 import { LIMITS } from './limits.mjs';
 
 const UNSUPPORTED = [/\$\(/u, /\bInvoke-Expression\b/iu, /\s-[Ee]ncodedCommand\b/u, /--%/u, /[{}]/u, /(^|\s)&\s/u];
+export const POWERSHELL_OPERATORS = Object.freeze(['&&', '||', '>>', '*>', '2>', '|', ';', '\n', '>']);
 
 export function lexPowerShell(command, limits = LIMITS) {
   for (const pattern of UNSUPPORTED) if (pattern.test(command)) throw new Error('unsupported PowerShell construct');
@@ -29,7 +30,7 @@ export function lexPowerShell(command, limits = LIMITS) {
     }
     if (quote !== null) { raw += character; cooked += character; index += 1; continue; }
     if (/\s/u.test(character) && character !== '\n') { flush(index); index += 1; continue; }
-    const operator = ['&&', '||', '>>', '*>', '2>', '|', ';', '\n', '>'].find((candidate) => command.startsWith(candidate, index));
+    const operator = POWERSHELL_OPERATORS.find((candidate) => command.startsWith(candidate, index));
     if (operator) {
       flush(index);
       tokens.push({ kind: operator.includes('>') ? 'redirect' : 'operator', raw: operator, cooked: operator, quote: null, start: index, end: index + operator.length });

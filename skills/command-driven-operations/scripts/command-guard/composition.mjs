@@ -1,3 +1,5 @@
+import { LIMITS } from './limits.mjs';
+
 export const GRAMMAR_PRODUCTIONS = Object.freeze(['stage', 'pipeline', 'and', 'or', 'sequence', 'redirect']);
 
 export function buildComposition(lexed) {
@@ -14,9 +16,15 @@ export function buildComposition(lexed) {
     const token = lexed.tokens[index];
     if (token.kind === 'word') { words.push(token.cooked); continue; }
     if (token.kind === 'redirect') {
+      if (token.cooked === '2>&1') {
+        redirects.push({ operator: token.cooked, destination: '&1' });
+        if (redirects.length > LIMITS.redirects) throw new Error('redirect limit exceeded');
+        continue;
+      }
       const destination = lexed.tokens[index + 1];
       if (!destination || destination.kind !== 'word') throw new Error('redirection destination is missing');
       redirects.push({ operator: token.cooked, destination: destination.cooked });
+      if (redirects.length > LIMITS.redirects) throw new Error('redirect limit exceeded');
       index += 1; continue;
     }
     flush(); operators.push(token.cooked);

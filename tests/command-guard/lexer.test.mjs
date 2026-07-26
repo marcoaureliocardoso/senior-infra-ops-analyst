@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { lexBash } from '../../skills/command-driven-operations/scripts/command-guard/bash-lexer.mjs';
 import { lexPowerShell } from '../../skills/command-driven-operations/scripts/command-guard/powershell-lexer.mjs';
+import { buildComposition } from '../../skills/command-driven-operations/scripts/command-guard/composition.mjs';
 
 test('bash lexer distinguishes quoted separators from pipeline operators', () => {
   const result = lexBash(`printf 'a|b' | grep b && echo done`);
@@ -40,4 +41,11 @@ test('lexing is deterministic and never expands variables or globs', () => {
   const command = 'printf "$PATH" *.log';
   assert.deepEqual(lexBash(command), lexBash(command));
   assert.equal(lexBash(command).tokens.at(-1).cooked, '*.log');
+});
+
+test('composition models descriptor duplication and enforces redirect count', () => {
+  const descriptor = buildComposition(lexBash('uname 2>&1 | head'));
+  assert.deepEqual(descriptor.stages[0].redirects, [{ operator: '2>&1', destination: '&1' }]);
+  const excessive = `uname ${Array.from({ length: 9 }, () => '> /dev/null').join(' ')}`;
+  assert.throws(() => buildComposition(lexBash(excessive)), /redirect limit/);
 });

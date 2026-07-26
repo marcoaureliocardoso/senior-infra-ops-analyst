@@ -40,6 +40,16 @@ test('background and over-limit commands are rejected', () => {
   );
 });
 
+test('JSON depth, timeout, and redirect bounds fail closed at n plus one', () => {
+  let nested = {};
+  for (let index = 0; index <= LIMITS.jsonDepth; index += 1) nested = { child: nested };
+  assert.throws(() => parseHookEvent(JSON.stringify(nested)), /depth/);
+  assert.throws(
+    () => parseHookEvent(JSON.stringify(validEvent({ tool_input: { command: 'uname', timeout: LIMITS.timeoutMs + 1 } }))),
+    /timeout/,
+  );
+});
+
 test('literal credential is redacted before normalization and fingerprinting', () => {
   const secret = 'SYNTH_SECRET_4f0a7c';
   const command = `curl -H "Authorization: Bearer ${secret}" https://example.invalid`;

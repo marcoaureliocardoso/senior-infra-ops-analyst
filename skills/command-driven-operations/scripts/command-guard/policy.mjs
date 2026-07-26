@@ -7,9 +7,21 @@ import { detectSensitiveSpans, normalizeAndFingerprint } from './redaction.mjs';
 import { NORMAL_MODES } from './limits.mjs';
 
 const RANK = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
+export const REASON_CODES = Object.freeze([
+  'ALLOW_NARROW_READ', 'ALLOW_BYPASS_BOUNDED_READ', 'ALLOW_BYPASS_CATALOGUED_CHANGE',
+  'ASK_BOUNDED_READ', 'ASK_NORMAL_MODE_CHANGE', 'ASK_DESTRUCTIVE', 'ASK_LITERAL_CREDENTIAL_NORMAL',
+  'DENY_UNSUPPORTED_SYNTAX', 'DENY_SECRET_PERSISTENCE', 'DENY_SECRET_OUTPUT',
+  'DENY_UNKNOWN_CREDENTIAL_CONSUMER', 'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
+]);
+export const SECURITY_PREDICATE_IDS = Object.freeze([
+  'CONTRACT_BACKGROUND_REJECT', 'CONTRACT_COMMAND_BOUND', 'LEXER_DYNAMIC_REJECT',
+  'POLICY_UNKNOWN_REJECT', 'POLICY_TARGET_REQUIRED', 'POLICY_DESTRUCTIVE_ALWAYS_ASK',
+  'POLICY_RISK_ESCALATION', 'CREDENTIAL_UNSAFE_SINK_REJECT',
+  'REDACTION_AUTHORIZATION', 'AUDIT_FORBIDDEN_FIELD_REJECT', 'ENTRYPOINT_CATCH_EXIT',
+]);
 
-function denied(reasonCode, stage = 1, modifiers = []) {
-  return { decision: 'deny', reasonCode, message: `${reasonCode}: command stage ${stage} is prohibited or inconclusive.`, risk: null, modifiers, policyId: null, target: null, environment: null, scope: null, credential: null, stage };
+function denied(reasonCode, stage = 1) {
+  return { decision: 'deny', reasonCode, message: `${reasonCode}: command stage ${stage} is prohibited or inconclusive.`, risk: null, modifiers: [], policyId: null, target: null, environment: null, scope: null, credential: null, stage };
 }
 
 function lexCommand(command) {
@@ -32,11 +44,11 @@ export function analyzeCommand(event) {
   if (credentialErrors.length) return { ...denied(credentialErrors[0].reasonCode, credentialErrors[0].stage), credential: credentialAnalysis.metadata };
   const analyses = [];
   for (const stage of composition.stages) {
-    if (stage.redirects.some(({ destination }) => !['/dev/null', 'NUL'].includes(destination))) return denied(credentialAnalysis.metadata ? 'DENY_SECRET_PERSISTENCE' : 'DENY_UNSUPPORTED_SYNTAX', stage.index);
+    if (stage.redirects.some(({ destination }) => !['/dev/null', 'NUL', '&1'].includes(destination))) return denied(credentialAnalysis.metadata ? 'DENY_SECRET_PERSISTENCE' : 'DENY_UNSUPPORTED_SYNTAX', stage.index);
     const match = lookupFamily(stage);
     if (!match) return denied('DENY_UNKNOWN_COMMAND', stage.index);
     if (match.policyId === 'FILTER' && stage.index === 1) return denied('DENY_UNKNOWN_COMMAND', stage.index);
-    if (match.risk !== 'SAFE_READ_ONLY' && (!match.target || (match.policyId === 'KUBERNETES' && !match.environment))) return denied('DENY_AMBIGUOUS_TARGET', stage.index);
+    if (match.requiresExplicitBinding && (!match.target || !match.environment)) return denied('DENY_AMBIGUOUS_TARGET', stage.index);
     analyses.push({ ...match, stage: stage.index });
   }
   const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
@@ -44,13 +56,14 @@ export function analyzeCommand(event) {
   const knownMode = event.permissionMode === 'bypassPermissions' || NORMAL_MODES.includes(event.permissionMode);
   if (!knownMode) modifiers.push('UNKNOWN_MODE_CONSERVATIVE');
   const autonomous = event.permissionMode === 'bypassPermissions';
-  let decision = aggregate.risk === 'SAFE_READ_ONLY' ? 'allow' : aggregate.risk === 'DESTRUCTIVE' ? 'ask' : autonomous ? 'allow' : 'ask';
-  let reasonCode = decision === 'allow' ? (aggregate.risk === 'SAFE_READ_ONLY' ? 'ALLOW_NARROW_READ' : 'ALLOW_BYPASS_CATALOGUED_CHANGE') : aggregate.risk === 'DESTRUCTIVE' ? 'ASK_DESTRUCTIVE' : 'ASK_NORMAL_MODE_CHANGE';
+  const boundedRead = aggregate.risk === 'SAFE_READ_ONLY' && modifiers.includes('APPROVAL_REQUIRED');
+  let decision = aggregate.risk === 'SAFE_READ_ONLY' ? (boundedRead && !autonomous ? 'ask' : 'allow') : aggregate.risk === 'DESTRUCTIVE' ? 'ask' : autonomous ? 'allow' : 'ask';
+  let reasonCode = decision === 'allow' ? (boundedRead ? 'ALLOW_BYPASS_BOUNDED_READ' : aggregate.risk === 'SAFE_READ_ONLY' ? 'ALLOW_NARROW_READ' : 'ALLOW_BYPASS_CATALOGUED_CHANGE') : aggregate.risk === 'DESTRUCTIVE' ? 'ASK_DESTRUCTIVE' : boundedRead ? 'ASK_BOUNDED_READ' : 'ASK_NORMAL_MODE_CHANGE';
   if (credentialAnalysis.metadata?.literal && !autonomous) { decision = 'ask'; reasonCode = 'ASK_LITERAL_CREDENTIAL_NORMAL'; }
   const { fingerprint } = normalizeAndFingerprint(event.command, spans);
   return {
     decision, reasonCode, message: `${reasonCode}: ${aggregate.policyId} stage ${aggregate.stage}; sensitive values redacted.`,
-    risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target ?? null,
+    risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
     credential: credentialAnalysis.metadata, fingerprint, stage: aggregate.stage,
   };

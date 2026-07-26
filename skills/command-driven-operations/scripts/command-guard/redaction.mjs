@@ -3,22 +3,28 @@ import { createHash } from 'node:crypto';
 const PATTERNS = [
   { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:Bearer|Basic)\s+([^\s"']+)/giu },
   { kind: 'COOKIE', regex: /(?:Cookie|Set-Cookie):\s*([^\r\n"']+)/giu },
-  { kind: 'VARIABLE', regex: /(?:PASSWORD|PASS|TOKEN|SECRET|API_KEY|CREDENTIAL)=([^\s"']+)/giu },
-  { kind: 'FLAG', regex: /(?:--password|--token|--secret|--api-key)(?:=|\s+)([^\s"']+)/giu },
+  {
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=([^\s"']+)/gu, valueGroup: 2,
+    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+  },
+  { kind: 'FLAG', regex: /(?:--password|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)([^\s"']+)/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+[^\s:"']+:([^\s"']+)/giu },
+  { kind: 'POWERSHELL_PLAINTEXT', regex: /ConvertTo-SecureString\s+["']([^"']+)["']\s+-AsPlainText/giu },
   { kind: 'URI_USERINFO', regex: /:\/\/[^\s:@/]+:([^\s@/]+)@/giu },
 ];
 
 export function detectSensitiveSpans(text) {
   const spans = [];
-  for (const { kind, regex } of PATTERNS) {
+  for (const { kind, regex, valueGroup = 1, accept = () => true } of PATTERNS) {
     regex.lastIndex = 0;
     for (const match of text.matchAll(regex)) {
-      const value = match[1];
+      if (!accept(match)) continue;
+      const value = match[valueGroup];
       const offset = match[0].lastIndexOf(value);
       spans.push({ start: match.index + offset, end: match.index + offset + value.length, kind });
     }
   }
-  spans.sort((a, b) => a.start - b.start || b.end - a.end);
+  spans.sort((a, b) => a.start - b.start);
   return spans.filter((span, index) => index === 0 || span.start >= spans[index - 1].end);
 }
 

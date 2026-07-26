@@ -1,7 +1,7 @@
 import { LIMITS } from './limits.mjs';
 
-const OPERATORS = ['2>&1', '|&', '&&', '||', '>>', '2>', '|', ';', '\n', '<', '>'];
-const UNSUPPORTED = [/\$\(/u, /`/u, /<\(/u, />\(/u, /\beval\b/iu, /\bsh\s+-c\b/iu, /\bxargs\b/iu];
+export const BASH_OPERATORS = Object.freeze(['2>&1', '|&', '&&', '||', '>>', '2>', '|', ';', '\n', '<', '>']);
+const UNSUPPORTED = [/\$\(/u, /`/u, /<\(/u, />\(/u, /(?:^|\s|[;&|])eval(?:\s|$)/iu, /\bsh\s+-c\b/iu, /\bxargs\b/iu];
 
 export function lexBash(command, limits = LIMITS) {
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(command)) throw new Error('control character is unsupported');
@@ -29,7 +29,7 @@ export function lexBash(command, limits = LIMITS) {
     }
     if (quote !== null) { raw += character; cooked += character; index += 1; continue; }
     if (/\s/u.test(character) && character !== '\n') { flush(index); index += 1; continue; }
-    const operator = OPERATORS.find((candidate) => command.startsWith(candidate, index));
+    const operator = BASH_OPERATORS.find((candidate) => command.startsWith(candidate, index));
     if (operator) {
       flush(index);
       tokens.push({ kind: operator.includes('>') || operator === '<' ? 'redirect' : 'operator', raw: operator, cooked: operator, quote: null, start: index, end: index + operator.length });

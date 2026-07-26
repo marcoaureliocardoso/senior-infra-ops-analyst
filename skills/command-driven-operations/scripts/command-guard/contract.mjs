@@ -13,6 +13,17 @@ function assertObject(value, label) {
   }
 }
 
+function assertBoundedDepth(value) {
+  const pending = [[value, 1]];
+  while (pending.length) {
+    const [current, depth] = pending.pop();
+    if (depth > LIMITS.jsonDepth) throw new Error('hook JSON depth exceeds limit');
+    if (current !== null && typeof current === 'object') {
+      for (const child of Object.values(current)) pending.push([child, depth + 1]);
+    }
+  }
+}
+
 function assertUniqueSecurityKeys(raw) {
   const seen = new Set();
   const pattern = /"((?:\\.|[^"\\])*)"\s*:/g;
@@ -39,6 +50,7 @@ export function parseHookEvent(raw) {
   assertUniqueSecurityKeys(raw);
   let value;
   try { value = JSON.parse(raw); } catch { throw new Error('invalid hook JSON'); }
+  assertBoundedDepth(value);
   assertObject(value, 'hook event');
   for (const key of Object.keys(value)) {
     if (!TOP_KEYS.has(key)) throw new Error(`unexpected hook field: ${key}`);

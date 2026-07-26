@@ -1,11 +1,29 @@
 import { detectSensitiveSpans } from './redaction.mjs';
 
 const UNSAFE = new Set(['echo', 'printf', 'printenv', 'tee', 'out-file', 'write-output', 'set-clipboard']);
+export const CREDENTIAL_TRANSPORTS = Object.freeze(['AUTHORIZATION', 'COOKIE', 'VARIABLE', 'FLAG', 'BASIC_AUTH', 'POWERSHELL_PLAINTEXT', 'URI_USERINFO', 'STDIN_DIRECT', 'PROVIDER_CACHE', 'PROTECTED_FILE']);
+
+function referenceMetadata(command) {
+  if (/\b(?:AWS_PROFILE|AZURE_CONFIG_DIR|CLOUDSDK_CONFIG|KUBECONFIG|SSH_AUTH_SOCK|GIT_ASKPASS)=/u.test(command) || /\s--profile(?:=|\s)/u.test(command)) {
+    return { source: 'PROVIDER_CACHE', type: 'REFERENCE', transport: 'PROVIDER_CACHE', literal: false };
+  }
+  if (/\s(?:--cert|--key|--cacert|--password-file|--identity-file)(?:=|\s)/u.test(command)) {
+    return { source: 'PROTECTED_FILE', type: 'REFERENCE', transport: 'PROTECTED_FILE', literal: false };
+  }
+  if (/\$(?:[A-Za-z0-9_]*(?:PASSWORD|PASS|TOKEN|SECRET|API_KEY|ACCESS_KEY|CREDENTIAL|PRIVATE_KEY)[A-Za-z0-9_]*)\b/u.test(command)) {
+    return { source: 'RUNTIME_VARIABLE', type: 'REFERENCE', transport: 'VARIABLE', literal: false };
+  }
+  return null;
+}
 
 export function classifyCredentials(composition, command, spans = detectSensitiveSpans(command)) {
   const literal = spans.length > 0;
   const decryptor = composition.stages.find((stage) => ['gpg', 'age'].includes(stage.argv[0]?.toLowerCase()));
-  const metadata = literal ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, literal: true } : decryptor ? { source: 'PROTECTED_FILE', type: 'SECRET', transport: 'STDIN_DIRECT', literal: false } : null;
+  const metadata = literal
+    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: composition.stages.at(-1)?.index ?? 1, literal: true }
+    : decryptor
+      ? { source: 'PROTECTED_FILE', type: 'SECRET', transport: 'STDIN_DIRECT', stage: decryptor.index, literal: false }
+      : referenceMetadata(command);
   return { spans, metadata, decryptorStage: decryptor?.index ?? null };
 }
 
@@ -21,7 +39,7 @@ export function credentialFlowErrors(composition, analysis) {
     if (!consumer || consumer.argv[0]?.toLowerCase() !== 'sudo' || !consumer.argv.includes('-S')) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
   }
   if (analysis.metadata.literal) {
-    const consumers = new Set(['curl', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli']);
+    const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh']);
     const executable = composition.stages.at(-1)?.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
     if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: composition.stages.at(-1)?.index ?? 1 }];
   }
