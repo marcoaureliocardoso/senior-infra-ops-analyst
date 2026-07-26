@@ -74,3 +74,50 @@ The parser can be validated without model/API consumption:
 ```bash
 bash tests/live-subagent-runtime-smoke.sh --self-test
 ```
+
+## Native command guard validation
+
+The P0-04 release gate is deterministic and mandatory. It runs the unit,
+finite-inventory, property/fuzz, 100% critical line/function/branch coverage,
+mutation, synthetic-secret retention, and installed-layout checks:
+
+```bash
+node tests/run-command-guard-tests.mjs
+python3 tests/test-command-guard-install-policy.py
+bash tests/live-command-guard-smoke.sh --self-test
+```
+
+The self-test creates a generated isolated Claude home, materializes an
+installed-form fixture, validates both the installed agents and skills roots,
+and directly exercises normal-mode `allow`/`ask`, bypass-mode `allow`, the
+destructive `ask` boundary, detailed `deny`, Bash and PowerShell pipelines,
+malformed input, audit failure, and permitted/forbidden synthetic credential
+flows. It uses only local fixture data and loopback URL metadata; the direct
+guard never executes a proposed command.
+
+On Windows, run the Python tests with PowerShell and the shell harness through
+Git Bash:
+
+```powershell
+python tests/test-live-command-guard-safety.py
+& 'C:\Program Files\Git\usr\bin\bash.exe' -lc 'bash tests/live-command-guard-smoke.sh --self-test'
+```
+
+From a configured WSL distribution, run the same Bash commands in the mounted
+worktree. The opt-in live probe additionally requires Linux Bubblewrap, local
+Claude Code and Nori CLIs, operator-configured model credentials, and network
+access for the model transport:
+
+```bash
+bash tests/live-command-guard-smoke.sh --run-live
+```
+
+`--run-live` installs the current worktree with the discovered Nori CLI,
+records the observed Node.js, Nori, Claude Code, platform, permission modes,
+and model label, then confines model probes to a generated home and a
+loopback-only disposable service. It checks both the native
+`--permission-mode bypassPermissions` form and, only inside Bubblewrap, the
+`--dangerously-skip-permissions` form. Observed versions are evidence, not
+compatibility pins. Exit `2` means a prerequisite or capability is unavailable;
+it is not a passing live result. Authentication values and raw model
+transcripts are never retained by the harness.
