@@ -83,7 +83,12 @@ test('sensitive platform reads always ask and active probes remain bounded', () 
   for (const command of [
     'docker inspect web',
     'aws --profile ops --region us-east-1 secretsmanager get-secret-value --secret-id app',
+    'aws --profile ops --region us-east-1 ecr get-login-password',
+    'aws --profile ops --region us-east-1 ecr get-authorization-token',
+    'aws --profile ops --region us-east-1 sts get-session-token',
     'az keyvault secret show --subscription lab --vault-name vault --name app',
+    'ps aux',
+    'ps -f',
   ]) {
     const result = analyze(command);
     assert.equal(result.decision, 'ask', command);

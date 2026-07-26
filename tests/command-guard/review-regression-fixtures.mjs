@@ -63,6 +63,26 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedDecision: 'ask',
   },
   {
+    id: 'RV08-PROCESS-ARGUMENTS',
+    command: 'ps aux',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-LOGIN-PASSWORD',
+    command: 'aws --profile ops --region us-east-1 ecr get-login-password',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-AUTHORIZATION-TOKEN',
+    command: 'aws --profile ops --region us-east-1 ecr get-authorization-token',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-SESSION-TOKEN',
+    command: 'aws --profile ops --region us-east-1 sts get-session-token',
+    expectedDecision: 'ask',
+  },
+  {
     id: 'RV09-SQL-SIDE-EFFECT-FUNCTION',
     command: 'psql -h db.example.invalid -d app -c "SELECT pg_terminate_backend(123) LIMIT 1"',
     expectedDecision: 'deny',

@@ -101,11 +101,11 @@ must inspect the remediated head and update every finding before merge.
 
 - Stable fixture IDs execute every reproduced regression and fail on orphan,
   undeclared, duplicate, or unexecuted cases.
-- The source gate passes 85 active tests plus one intentional mutation-only
+- The source gate passes 87 active tests plus one intentional mutation-only
   skip, 100 percent line/function/branch coverage, four deterministic property
   seeds, and 11 killed security mutations.
 - Source-to-installed validation byte-compares every security-critical
-  launcher, entrypoint, and module, then executes the same 17-fixture review
+  launcher, entrypoint, and module, then executes the same 21-fixture review
   corpus against both forms.
 - Launcher tests prove missing runtime, missing artifact, timeout, crash,
   malformed output, and unexpected stdout block before command execution.

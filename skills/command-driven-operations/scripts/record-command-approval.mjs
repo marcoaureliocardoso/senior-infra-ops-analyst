@@ -21,8 +21,7 @@ export function evaluateApprovalHook(raw, env = process.env, now = Date.now()) {
     sessionId: requiredString(value.session_id, 'session_id'),
     toolUseId: requiredString(value.tool_use_id, 'tool_use_id'),
   };
-  if (!activatePendingBinding(binding, env, now)) throw new Error('matching pending binding not found');
-  return true;
+  return activatePendingBinding(binding, env, now);
 }
 
 async function readInput(stream) {

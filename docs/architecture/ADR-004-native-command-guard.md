@@ -61,7 +61,9 @@ uses conservative normal-mode semantics rather than a version allowlist.
    `PostToolUse` event activates a time-bounded, owner-only record keyed by
    session, domain, identity, transport, family, and target class. The state
    stores no credential, raw command, or secret-derived hash and is bounded in
-   size, lifetime, and entry count.
+   size, lifetime, and entry count. Successful Bash calls with no matching
+   pending state are silent no-ops in `PostToolUse`; malformed events or unsafe
+   state still fail closed.
 8. The process writes exactly one native JSON response after successful audit.
    Parsing, policy, serialization, encoding, or audit failure emits no allow
    decision and exits `2`.
@@ -136,7 +138,7 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 85 active Node tests plus one intentionally
+- The remediated deterministic gate runs 87 active Node tests plus one intentionally
   skipped mutation-only fixture, four recorded property seeds, a finite
   inventory orphan check, and exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
@@ -147,8 +149,12 @@ ambiguous destinations deny.
   precedence, risk aggregation, unsafe credential sink, authorization
   redaction, forbidden audit fields, and fail-closed exit.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same stable-ID adversarial corpus
-  against both forms.
+  modules with source, then executes the same 21-case stable-ID adversarial
+  corpus against both forms.
+- Each finite grammar, shell operator, command family, reason code, limit,
+  credential transport, edge case, and review regression is bound to an
+  executable semantic fixture. One ledger proves every declared fixture ran
+  exactly once and fails on stale, missing, duplicate, or unexecuted evidence.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
   retained-output scans, and redacted evidence.

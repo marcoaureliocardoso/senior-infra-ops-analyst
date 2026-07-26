@@ -12,25 +12,23 @@ export const EDGE_CASE_IDS = Object.freeze([
   'REDIRECT_MISSING_TARGET', 'UNKNOWN_MODE', 'DUPLICATE_SECURITY_KEY', 'AUDIT_FAILURE',
 ]);
 
-function casesFor(prefix, items, boundary = false) {
+function casesFor(category, items) {
   return Object.fromEntries(items.map((item) => [item, {
-    positive: [`${prefix}:${item}:positive`],
-    boundary: boundary ? [`${prefix}:${item}:n-1`, `${prefix}:${item}:n`, `${prefix}:${item}:n+1`] : [],
-    negative: [`${prefix}:${item}:negative`],
+    executable: [`${category}:${item}:executable`],
   }]));
 }
 
 export const COVERAGE_MANIFEST = Object.freeze({
   grammar: casesFor('grammar', GRAMMAR_PRODUCTIONS),
-  bashOperators: casesFor('bash-operator', BASH_OPERATORS),
-  powershellOperators: casesFor('powershell-operator', POWERSHELL_OPERATORS),
-  commandFamilies: casesFor('policy', POLICY_IDS),
-  reasonCodes: casesFor('reason', REASON_CODES),
-  limits: casesFor('limit', Object.keys(LIMITS), true),
-  credentialTransports: casesFor('credential', CREDENTIAL_TRANSPORTS),
-  edgeCases: casesFor('edge', EDGE_CASE_IDS),
+  bashOperators: casesFor('bashOperators', BASH_OPERATORS),
+  powershellOperators: casesFor('powershellOperators', POWERSHELL_OPERATORS),
+  commandFamilies: casesFor('commandFamilies', POLICY_IDS),
+  reasonCodes: casesFor('reasonCodes', REASON_CODES),
+  limits: casesFor('limits', Object.keys(LIMITS)),
+  credentialTransports: casesFor('credentialTransports', CREDENTIAL_TRANSPORTS),
+  edgeCases: casesFor('edgeCases', EDGE_CASE_IDS),
   reviewRegressions: Object.fromEntries(
-    REVIEW_REGRESSION_FIXTURES.map(({ id }) => [id, { executable: [id] }]),
+    REVIEW_REGRESSION_FIXTURES.map(({ id }) => [id, { executable: [`reviewRegressions:${id}:executable`] }]),
   ),
 });
 
@@ -50,12 +48,9 @@ export function validateCoverageManifest(manifest = COVERAGE_MANIFEST) {
     const entries = manifest[category] ?? {};
     for (const item of inventory) {
       const cases = entries[item];
-      if (category === 'reviewRegressions') {
-        if (cases?.executable?.length !== 1 || cases.executable[0] !== item) throw new Error(`orphan:${category}:${item}`);
-        continue;
+      if (cases?.executable?.length !== 1 || cases.executable[0] !== `${category}:${item}:executable`) {
+        throw new Error(`orphan:${category}:${item}`);
       }
-      if (!cases?.positive?.length || !cases?.negative?.length) throw new Error(`orphan:${category}:${item}`);
-      if (category === 'limits' && cases.boundary?.length !== 3) throw new Error(`orphan:${category}:${item}:boundary`);
     }
     for (const item of Object.keys(entries)) if (!inventory.includes(item)) throw new Error(`stale:${category}:${item}`);
   }

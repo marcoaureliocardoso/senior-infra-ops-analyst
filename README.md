@@ -67,6 +67,8 @@ successful `PostToolUse` event activates bounded, non-secret state for
 same-session, same-domain, same-identity, same-transport reuse in
 `bypassPermissions`, while every command is independently re-evaluated. The
 state contains no value, hash, raw command, or secret-derived identifier.
+Successful Bash calls without a pending binding leave `PostToolUse` as a silent
+no-op.
 
 Mandatory static and installed-form validation:
 
@@ -102,7 +104,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added a fail-closed launcher, matching `PostToolUse` approval recording, and bounded non-secret credential-binding state.
 - Added strict event validation, separate Bash/PowerShell lexers, composition analysis, a finite infrastructure command catalogue, target binding, and mode-aware `allow`/`ask`/`deny` policy.
 - Added parser-aware redaction, structural non-secret action identities, direct protected-file flows, bounded per-stage findings, minimal append-only audit metadata, and fail-closed process behavior.
-- Added 100% critical line/function/branch coverage, executable fixture-ledger checks, four property seeds, eleven killed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added 100% critical line/function/branch coverage, executable semantic fixtures for every finite inventory item, four property seeds, eleven killed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 
 ## What changed in v0.10.0

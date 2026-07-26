@@ -90,8 +90,22 @@ test('PostToolUse entrypoint activates only exact Bash success metadata', async 
     for (const changed of [
       { ...JSON.parse(raw), hook_event_name: 'PostToolUseFailure' },
       { ...JSON.parse(raw), tool_name: 'Read' },
-      { ...JSON.parse(raw), tool_use_id: 'other' },
     ]) assert.throws(() => evaluateApprovalHook(JSON.stringify(changed), env, NOW + 3));
+    assert.equal(evaluateApprovalHook(JSON.stringify({ ...JSON.parse(raw), tool_use_id: 'other' }), env, NOW + 3), false);
+  });
+});
+
+test('PostToolUse is a silent no-op when a successful Bash call has no pending binding', async () => {
+  await withState(async (env) => {
+    const raw = JSON.stringify({
+      session_id: 'ordinary-session', tool_use_id: 'ordinary-tool',
+      hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    });
+    assert.equal(evaluateApprovalHook(raw, env, NOW), false);
+    let errorText = '';
+    const error = new Writable({ write(chunk, encoding, callback) { errorText += chunk.toString(); callback(); } });
+    assert.equal(await approvalMain({ input: Readable.from([raw]), error, env }), 0);
+    assert.equal(errorText, '');
   });
 });
 

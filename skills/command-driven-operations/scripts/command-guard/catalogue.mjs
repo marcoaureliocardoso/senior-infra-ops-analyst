@@ -212,7 +212,7 @@ export function lookupFamily(stage) {
   if (POSIX_READ.has(lower)) return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
   if (lower === 'ps') {
     if (words.slice(1).some((word) => /e/u.test(word.replace(/^-+/u, '')) || /--(?:format|cols|columns)=?.*(?:env|command)/iu.test(word))) return null;
-    return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
+    return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local', 'local', ['SENSITIVE_OUTPUT', 'ALWAYS_ASK']);
   }
   if (lower === 'ss') {
     if (words.includes('-K') || words.includes('--kill')) return result('POSIX_HOST_READ', 'DESTRUCTIVE', words.at(-1) ?? 'socket', 'local');
@@ -320,7 +320,7 @@ export function lookupFamily(stage) {
     const risk = /^(describe|get|list|head)-/u.test(action) ? 'SAFE_READ_ONLY' : /^(create-tags|delete-tags)$/u.test(action) ? 'LOW_RISK_CHANGE' : /^(delete|terminate|deregister)-/u.test(action) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
     const environment = [option(words, '--profile'), option(words, '--region')].filter(Boolean).join('@') || null;
     const target = option(words, '--instance-ids', '--resource-arn', '--resources', '--resource-id', '--bucket');
-    const sensitiveRead = risk === 'SAFE_READ_ONLY' && /^(?:get-secret-value|get-parameter|get-parameters|get-parameters-by-path)$/u.test(action);
+    const sensitiveRead = risk === 'SAFE_READ_ONLY' && /^(?:get-secret-value|get-parameter|get-parameters|get-parameters-by-path|get-login-password|get-authorization-token|get-session-token)$/u.test(action);
     return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
