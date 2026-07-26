@@ -10,6 +10,15 @@ skills:
   - web-gateway-operations
   - infrastructure-troubleshooting
   - command-driven-operations
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Network Edge Operator

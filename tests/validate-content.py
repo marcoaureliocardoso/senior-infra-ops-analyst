@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json, re, sys, hashlib
 from pathlib import Path
+from command_guard_install_policy import source_hook_errors
 from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
 errors = []
@@ -424,6 +425,8 @@ for sa in subagents_from_manifest:
     t = sa_file.read_text(encoding='utf-8')
     for runtime_error in runtime_control_errors(sa_id, t):
         err(runtime_error)
+    for hook_error in source_hook_errors(sa_id, t):
+        err(hook_error)
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:

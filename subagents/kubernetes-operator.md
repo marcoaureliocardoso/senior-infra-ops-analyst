@@ -9,6 +9,15 @@ skills:
   - kubernetes-operations
   - container-runtime-operations
   - monitoring-stack-operations
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Kubernetes Operator

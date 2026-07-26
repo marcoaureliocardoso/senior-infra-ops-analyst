@@ -9,6 +9,15 @@ skills:
   - audit-compliance-evidence
   - vendor-escalation-management
   - root-cause-analysis
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Audit Evidence Collector

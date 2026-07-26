@@ -13,13 +13,16 @@ from subagent_runtime_policy import (
     runtime_precedence_section,
     runtime_section,
 )
+from command_guard_install_policy import installed_hook_errors
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ("maxTurns", "tools", "disallowedTools", "model")
 
 
-def installed_subagent_errors(installed_dir: Path) -> list[str]:
+def installed_subagent_errors(
+    installed_dir: Path, installed_skills_dir: Path
+) -> list[str]:
     """Return source-to-installed semantic differences."""
     errors: list[str] = []
     if not installed_dir.is_dir():
@@ -48,6 +51,11 @@ def installed_subagent_errors(installed_dir: Path) -> list[str]:
             runtime_precedence_section(source).strip()
         ):
             errors.append(f"installed runtime precedence differs: {agent_id}")
+        errors.extend(
+            installed_hook_errors(
+                agent_id, source, installed, installed_skills_dir
+            )
+        )
 
     return errors
 
@@ -60,8 +68,16 @@ def main() -> int:
         type=Path,
         help="Claude Code agents directory produced by Nori",
     )
+    parser.add_argument(
+        "--installed-skills-dir",
+        required=True,
+        type=Path,
+        help="Claude Code skills directory produced by Nori",
+    )
     args = parser.parse_args()
-    errors = installed_subagent_errors(args.installed_agents_dir.resolve())
+    errors = installed_subagent_errors(
+        args.installed_agents_dir.resolve(), args.installed_skills_dir.resolve()
+    )
     if errors:
         print("Installed subagent validation failed:")
         for error in errors:

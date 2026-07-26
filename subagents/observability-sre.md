@@ -9,6 +9,15 @@ skills:
   - monitoring-observability
   - monitoring-stack-operations
   - capacity-and-risk-review
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Observability SRE

@@ -8,6 +8,15 @@ model: inherit
 skills:
   - command-driven-operations
   - infrastructure-troubleshooting
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Diagnostic Operator

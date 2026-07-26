@@ -9,6 +9,15 @@ skills:
   - cloud-operations
   - infrastructure-troubleshooting
   - monitoring-observability
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node
+          args:
+            - "{{skills_dir}}/command-driven-operations/scripts/validate-ops-command.mjs"
+          timeout: 5
 ---
 
 # Cloud Platform Operator
