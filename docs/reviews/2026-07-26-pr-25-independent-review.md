@@ -29,13 +29,13 @@ the remediated gates and a new independent review records no blocking finding.
 
 ## Final independent disposition
 
-An independent rereview of the final head found no remaining blocker. RV-01
+The second independent review of the final head found no remaining blocker. RV-01
 through RV-10 and RV-12 through RV-17 are resolved. RV-11 remains an explicitly
 accepted temporary exception: normal provider credentials may enter the live
 smoke process only after the dedicated acknowledgement, while provider egress
 remains open and is reported as residual risk.
 
-The final rereview independently executed 31 targeted cases and the complete
+The final independent review executed 31 targeted cases and the complete
 suite of 87 active tests with one intentional mutation-only skip. It observed
 100 percent line, function, and branch coverage, killed all 11 security
 mutations, validated all 11 installed-artifact checks, executed the same

@@ -5,6 +5,7 @@ import path from 'node:path';
 const REQUIRED_FLAGS = [
   '--experimental-test-coverage', '--test-coverage-lines',
   '--test-coverage-branches', '--test-coverage-functions', '--test-coverage-include',
+  '--test-concurrency',
 ];
 const help = spawnSync(process.execPath, ['--help'], { encoding: 'utf8' });
 if (help.status !== 0) throw new Error(`Node ${process.version} capability probe failed`);
@@ -25,7 +26,7 @@ const tests = (await readdir(testDirectory))
   .filter((name) => name.endsWith('.test.mjs'))
   .map((name) => path.join(testDirectory, name));
 
-run(['--test', ...tests], 'command guard unit/property/finite-matrix tests');
+run(['--test', '--test-concurrency=1', ...tests], 'command guard unit/property/finite-matrix tests');
 
 const critical = [
   'contract.mjs', 'redaction.mjs', 'response.mjs', 'bash-lexer.mjs',
@@ -35,7 +36,7 @@ const critical = [
 critical.push('--test-coverage-include=skills/command-driven-operations/scripts/validate-ops-command.mjs');
 critical.push('--test-coverage-include=skills/command-driven-operations/scripts/record-command-approval.mjs');
 run([
-  '--test', '--experimental-test-coverage',
+  '--test', '--test-concurrency=1', '--experimental-test-coverage',
   '--test-coverage-lines=100', '--test-coverage-branches=100', '--test-coverage-functions=100',
   ...critical, ...tests,
 ], '100% critical coverage gate');

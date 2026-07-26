@@ -154,6 +154,7 @@ run_direct_probes() {
   assert_decision default 'journalctl -u nginx -n 20 | grep error | head -n 5' allow
   assert_decision default "pwsh -NoProfile -Command \"Get-Service | Where-Object Status -eq 'Running'\"" allow
   assert_decision bypassPermissions "curl -H \"Authorization: Bearer $SECRET\" http://127.0.0.1:43119/health" ask
+  # shellcheck disable=SC2016 # Literal provider variable must reach the guard unchanged.
   assert_decision bypassPermissions 'curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" http://127.0.0.1:43119/health' deny
   assert_decision bypassPermissions "TOKEN=$SECRET echo \$TOKEN" deny
   assert_failure '{' "$AUDIT_PATH"
