@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
+import { appendAudit } from '../../skills/command-driven-operations/scripts/command-guard/audit.mjs';
 import { lexBash } from '../../skills/command-driven-operations/scripts/command-guard/bash-lexer.mjs';
 import { lookupFamily } from '../../skills/command-driven-operations/scripts/command-guard/catalogue.mjs';
 import { buildComposition } from '../../skills/command-driven-operations/scripts/command-guard/composition.mjs';
@@ -204,7 +208,18 @@ function runEdge(item) {
     REDIRECT_MISSING_TARGET: () => assert.throws(() => buildComposition(lexBash('uname >')), /destination/u),
     UNKNOWN_MODE: () => assert.equal(analyze('systemctl restart nginx', 'future-mode').decision, 'ask'),
     DUPLICATE_SECURITY_KEY: () => assert.throws(() => parseHookEvent(JSON.stringify(validEvent()).replace('"session_id"', '"session_id":"duplicate","session_id"')), /duplicate/u),
-    AUDIT_FAILURE: () => assert.equal(analyze('uname -a').decision, 'allow'),
+    AUDIT_FAILURE: () => {
+      const directory = mkdtempSync(path.join(os.tmpdir(), 'coverage-audit-failure-'));
+      try {
+        assert.throws(() => appendAudit(
+          analyze('uname -a'),
+          { sessionId: 'coverage', agentType: 'diagnostic-operator', permissionMode: 'default' },
+          { OPS_COMMAND_GUARD_AUDIT_PATH: directory },
+        ));
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
   };
   cases[item]();
 }

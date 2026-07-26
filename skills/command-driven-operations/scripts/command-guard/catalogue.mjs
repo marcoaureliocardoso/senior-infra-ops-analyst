@@ -320,7 +320,7 @@ export function lookupFamily(stage) {
     const risk = /^(describe|get|list|head)-/u.test(action) ? 'SAFE_READ_ONLY' : /^(create-tags|delete-tags)$/u.test(action) ? 'LOW_RISK_CHANGE' : /^(delete|terminate|deregister)-/u.test(action) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
     const environment = [option(words, '--profile'), option(words, '--region')].filter(Boolean).join('@') || null;
     const target = option(words, '--instance-ids', '--resource-arn', '--resources', '--resource-id', '--bucket');
-    const sensitiveRead = risk === 'SAFE_READ_ONLY' && /^(?:get-secret-value|get-parameter|get-parameters|get-parameters-by-path|get-login-password|get-authorization-token|get-session-token)$/u.test(action);
+    const sensitiveRead = risk === 'SAFE_READ_ONLY' && /(?:credential|password|secret|token)/u.test(action);
     return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 

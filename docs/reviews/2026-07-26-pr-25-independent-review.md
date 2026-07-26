@@ -105,7 +105,7 @@ must inspect the remediated head and update every finding before merge.
   skip, 100 percent line/function/branch coverage, four deterministic property
   seeds, and 11 killed security mutations.
 - Source-to-installed validation byte-compares every security-critical
-  launcher, entrypoint, and module, then executes the same 21-fixture review
+  launcher, entrypoint, and module, then executes the same 26-fixture review
   corpus against both forms.
 - Launcher tests prove missing runtime, missing artifact, timeout, crash,
   malformed output, and unexpected stdout block before command execution.

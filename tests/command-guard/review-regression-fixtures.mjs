@@ -83,6 +83,31 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedDecision: 'ask',
   },
   {
+    id: 'RV08-AWS-EKS-TOKEN',
+    command: 'aws --profile ops --region us-east-1 eks get-token',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-REDSHIFT-CREDENTIALS',
+    command: 'aws --profile ops --region us-east-1 redshift get-cluster-credentials',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-LIGHTSAIL-PASSWORD',
+    command: 'aws --profile ops --region us-east-1 lightsail get-relational-database-master-user-password',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-SSO-CREDENTIALS',
+    command: 'aws --profile ops --region us-east-1 sso get-role-credentials',
+    expectedDecision: 'ask',
+  },
+  {
+    id: 'RV08-AWS-COGNITO-CREDENTIALS',
+    command: 'aws --profile ops --region us-east-1 cognito-identity get-credentials-for-identity',
+    expectedDecision: 'ask',
+  },
+  {
     id: 'RV09-SQL-SIDE-EFFECT-FUNCTION',
     command: 'psql -h db.example.invalid -d app -c "SELECT pg_terminate_backend(123) LIMIT 1"',
     expectedDecision: 'deny',
