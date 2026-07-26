@@ -17,7 +17,7 @@ command-level enforcement at that remaining capability boundary. Runtime,
 installer, and model identifiers are observed during validation and are not
 package requirements.
 
-The design was approved with two explicit product requirements:
+The design was approved with three explicit product requirements:
 
 1. `bypassPermissions`, including sessions started with
    `--dangerously-skip-permissions`, represents deliberate operator selection
@@ -26,6 +26,10 @@ The design was approved with two explicit product requirements:
    credentials, HTTP/API tokens, PowerShell credentials, cloud and Kubernetes
    identities, credential helpers, and generic secret-bearing environment
    variables.
+3. A literal credential explicitly supplied in the Claude Code conversation
+   may be reused during the same `bypassPermissions` session for the same
+   credential domain and identity, including different explicit catalogued
+   targets in that domain, without asking the operator to enter it again.
 
 ## Goals
 
@@ -39,6 +43,8 @@ The design was approved with two explicit product requirements:
 - Support bounded operational pipelines without treating shell composition as
   automatically unsafe.
 - Support legitimate credential use while preventing additional disclosure.
+- Permit session-scoped reuse of an operator-supplied model-visible credential
+  without turning the guard into a secret store or reusing command approval.
 - Preserve the hook and validator path after Nori installation.
 - Record hook decisions independently from the model's justification.
 
@@ -329,6 +335,65 @@ The project recommends provider profiles, credential helpers, agents,
 keychains, preloaded environment variables, and direct operator login. These
 are recommendations, not mandatory blockers.
 
+### Model-visible literal credentials and session reuse
+
+`MODEL_VISIBLE_LITERAL` is the handling class for a literal credential that
+appears in a model-produced tool call after the operator supplied it through
+the Claude Code conversation. This is a supported fallback, not a masked input
+or secret channel: the value has crossed the model/provider and Claude Code
+transcript boundary before `PreToolUse` runs. The hook can detect a credential
+literal in the current tool call, but it cannot independently prove who
+originally supplied it; operator provenance is a model-facing instruction, not
+a guard assertion.
+
+In a normal permission mode, every use of a `MODEL_VISIBLE_LITERAL` raises the
+decision to at least `ask`. In `bypassPermissions`, the operator authorizes the
+model to reuse that credential without asking for the value again when all of
+the following remain true:
+
+- the Claude Code `session_id` is unchanged;
+- the effective mode remains `bypassPermissions`;
+- the non-sensitive credential domain, principal or identity, and transport
+  remain the same;
+- every destination is explicit, catalogued, and belongs to that credential
+  domain; different catalogued targets in the same domain are permitted;
+- the current command independently satisfies the complete operation policy.
+
+Credential reuse is not command-approval reuse. Every later command is parsed,
+classified, scoped, and authorized again. A destructive operation still
+returns `ask`; forbidden, inconclusive, misbound, persisted, logged, or
+exfiltrating credential flow still returns `deny`.
+
+The reuse contract has two enforcement layers. Model-facing agent instructions
+require the session, mode, domain, identity, transport, and target invariants.
+The deterministic hook authorizes only the current call from the metadata and
+command it actually receives. It does not read the transcript or model
+reasoning to reconstruct credential history.
+
+The guard is stateless with respect to secret material. It never stores,
+hashes, fingerprints, derives an identifier from, or compares credential
+values. It may validate only the current call's non-sensitive domain,
+identity, transport, target, and session metadata. Consequently, the guard
+does not claim cryptographic proof that two literal values are the same
+secret or that a prior call used the same domain. The deterministic hook
+enforces the current call's target and data flow and fails closed when those
+cannot be established; installed behavioral tests verify the model-facing
+same-domain and same-identity rule.
+
+Leaving `bypassPermissions`, ending the session, or losing the value from
+model context ends the no-reprompt reuse behavior. The system must request the
+credential again when it is no longer available and must never reconstruct or
+invent it. Context compaction, session resumption, or a provider change can
+therefore make reuse unavailable. Native provider caches and helpers such as
+SSH/GPG agents, sudo timestamps, cloud sessions, keychains, and credential
+helpers remain the preferred reliable reuse mechanisms.
+
+For an encrypted credential file, the supported inline path is a catalogued
+decryptor whose sensitive output flows directly to a catalogued consumer. The
+passphrase and decrypted credential are both treated as sensitive; neither
+may flow through stdout presentation, logs, command history created by the
+project, intermediate files, unrelated processes, or background jobs.
+
 ## Audit model
 
 Hook decisions are distinct from model reasoning. Audit records contain only
@@ -339,7 +404,8 @@ the minimum redacted fields needed to explain enforcement:
 - risk level and modifiers;
 - policy family and deterministic rule identifier;
 - parsed target, environment, and scope when non-sensitive;
-- credential type and transport, never the credential value;
+- credential source classification, type, domain, identity, and transport when
+  non-sensitive, never the credential value or a derivative of it;
 - normalized redacted-command fingerprint;
 - `allow`, `ask`, or `deny`;
 - stable redacted reason code and affected stage number when applicable.
@@ -489,6 +555,17 @@ percent-encoded synthetic values. Tests include URI userinfo, headers, cookies,
 connection strings, files, environment assignments, stdin, and supported
 direct pipeline consumers, plus benign lookalikes to control false positives.
 
+Deterministic guard fixtures cover repeated literal-bearing calls, independent
+authorization of every call, mode changes, explicit and ambiguous current
+bindings, and encrypted-file decryptor-to-consumer flows. They do not claim to
+prove conversation provenance, prior-domain equality, or context retention.
+Installed behavioral scenarios cover initial and repeated use in the same
+session, the model-facing same-domain and same-identity rule across different
+catalogued targets, a new session, and lost model context. Together the tests
+distinguish a reusable credential value from command approval: destructive
+reuse asks, while persistence, logging, exfiltration, ambiguous current
+binding, and unsupported consumers deny.
+
 Tests assert that normal mode asks, autonomous mode follows the operation's
 policy, destructive actions still ask, exfiltration denies, and no synthetic
 secret appears in stdout, stderr, audit output, or retained test artifacts.
@@ -535,7 +612,10 @@ synthetic or disposable targets and includes:
   be overridden for that call;
 - a malformed-command denial;
 - a hook-failure denial;
-- a synthetic credential flow with retained artifacts scanned for leakage.
+- a synthetic credential flow with retained artifacts scanned for leakage;
+- repeated use of a synthetic `MODEL_VISIBLE_LITERAL` in one
+  `bypassPermissions` session, followed by a mode-change or session-boundary
+  case that does not silently claim continued reuse.
 
 Installed tests repeat the contract manifest against source and installed
 paths so packaging cannot silently drop a fixture, policy entry, reason code,
@@ -582,6 +662,18 @@ compatibility contract.
 - A credential pasted into a prompt has already reached the model/provider
   boundary before `PreToolUse`; the hook can only prevent additional
   disclosure.
+- Session-scoped model-context reuse is best effort. Context compaction,
+  session resumption, or provider behavior can remove the value, and the guard
+  deliberately cannot recover it.
+- Because the guard stores no secret or secret-derived identifier, it cannot
+  prove that two literal values are the same credential. It validates the
+  current call's non-sensitive binding and data flow; conversation provenance,
+  prior-domain equality, and same-identity reuse remain model-facing
+  invariants validated by installed behavioral tests rather than deterministic
+  historical claims from the hook.
+- Native credential helpers can cache authentication outside the guard. Their
+  lifetime and revocation behavior must be governed by the provider and
+  operator environment.
 - Command-family policy cannot cover every current or future infrastructure
   CLI immediately. Unknown commands fail closed until reviewed.
 - The bounded composition grammar intentionally supports fewer constructs than
