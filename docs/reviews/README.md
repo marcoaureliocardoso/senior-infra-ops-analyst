@@ -7,7 +7,7 @@ conditions for changing the verdict.
 
 | Date | Scope | Verdict |
 |---|---|---|
-| [2026-07-26](2026-07-26-pr-25-independent-review.md) | PR #25, P0-04 native command guard | Not ready to merge |
+| [2026-07-26](2026-07-26-pr-25-independent-review.md) | PR #25, P0-04 native command guard | Ready to merge; RV-11 accepted exception |
 
 A passing test suite does not override an open blocking finding. A verdict can
 change only after the implementation, installed artifact, and relevant live
