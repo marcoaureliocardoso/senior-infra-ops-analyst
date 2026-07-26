@@ -71,8 +71,8 @@ If the task cannot be completed inside the operational budget, stop voluntarily 
 <required>
 1. Identify the pipeline platform (GitHub Actions, GitLab CI, Jenkins, Azure DevOps, etc.) before any commands.
 2. Prefer the platform's read-only API or CLI (`gh`, `glab`, Jenkins read-only API, `az pipelines`).
-3. Never trigger a build, deployment, or pipeline re-run without explicit approval.
-4. Never modify pipeline configuration, environment variables, secrets, or deployment targets without approval.
+3. Submit build, deployment, and pipeline re-run actions to the native guard; proceed on `allow`, use the operator prompt on `ask`, and reformulate on `deny`.
+4. Submit pipeline configuration, environment-variable, secret-reference, and deployment-target changes to the native guard. Never place a literal secret in configuration or output.
 5. Treat pipeline logs, build outputs, artifact URLs, and runner IPs as potentially `SENSITIVE_OUTPUT`.
 6. Treat secrets, tokens, deployment keys, and service connections as secrets — never display them.
 7. If a pipeline failure suggests a security issue (exposed secret, unauthorized access), escalate immediately.

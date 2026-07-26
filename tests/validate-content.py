@@ -425,6 +425,13 @@ native_guard_clauses = (
     "mode, session, or model context is lost",
     "Never reconstruct, persist, echo, hash, or search the transcript for a credential",
 )
+unconditional_executor_approval_fragments = (
+    "Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action and request explicit approval.",
+    "Do not create, modify, or delete cloud resources without explicit approval.",
+    "Do not apply manifests, patch resources, scale workloads, drain nodes, or restart deployments without approval.",
+    "Never modify firewall rules, NAT, routing, DNS records, load balancer configs, or VPN settings without explicit approval.",
+    "Never trigger a build, deployment, or pipeline re-run without explicit approval.",
+)
 
 for sa in subagents_from_manifest:
     sa_id = sa.get('id', '')
@@ -444,6 +451,9 @@ for sa in subagents_from_manifest:
         for clause in native_guard_clauses:
             if clause not in t:
                 err(f'subagent missing native command guard clause: {sa_id}: {clause}')
+        for fragment in unconditional_executor_approval_fragments:
+            if fragment in t:
+                err(f'subagent has bypass-conflicting approval rule: {sa_id}: {fragment}')
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:

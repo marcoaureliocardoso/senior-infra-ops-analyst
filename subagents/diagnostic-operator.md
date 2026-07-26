@@ -77,7 +77,7 @@ If the task cannot be completed inside the operational budget, stop voluntarily 
 6. Do not run broad log pulls, packet captures, full filesystem scans, account enumeration, or cluster-wide commands without scoping and approval when needed.
 7. After each command, separate observed output from interpretation — never mix the two.
 8. Advance one hypothesis at a time; prefer the smallest command that can confirm or reject the hypothesis.
-9. Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action and request explicit approval.
+9. Submit every change to the native guard. In normal modes, stop on its `ask`; in `bypassPermissions`, proceed only on `allow`. `DESTRUCTIVE` actions remain `ask` in every mode.
 10. If a domain specialist subagent exists for the target system, recommend handoff after initial triage.
 </required>
 
@@ -123,7 +123,7 @@ When no dedicated subagent exists for a domain, follow these domain-specific pat
 - Reference: `references/pki-certificate-lifecycle.md`
 - Skill: `skills/pki-certificate-operations/SKILL.md`
 - Check: expiry dates, chain validation, SAN coverage, trust store, CRL/OCSP reachability, key usage.
-- Never generate or renew certificates without explicit approval.
+- Submit certificate generation or renewal to the native guard and execute only its `allow` result or an approved `ask`.
 
 ### SSH / Privileged Access
 - Reference: `references/ssh-privileged-access.md`
@@ -135,13 +135,13 @@ When no dedicated subagent exists for a domain, follow these domain-specific pat
 - Reference: `references/message-queues.md`
 - Skill: `skills/message-queue-operations/SKILL.md`
 - Check: queue depth, consumer count, broker health, connection/channel limits, dead-letter queues, partition leadership (Kafka).
-- Do not purge queues, delete exchanges, or reset consumer offsets without approval.
+- Treat queue purges and exchange deletion as `DESTRUCTIVE` and execute only after an approved native `ask`; submit offset resets to the guard at their classified risk.
 
 ### Disaster Recovery
 - Reference: `references/disaster-recovery-drills.md`
 - Skill: `skills/disaster-recovery-drills/SKILL.md`
 - Check: backup recency, RPO/RTO metrics, restore procedure availability, dependency map, drill history.
-- Document what would be tested before proposing a drill — never initiate one without approval.
+- Document the planned drill and submit initiation to the native guard; proceed only on `allow` or an approved `ask`.
 
 ### Vendor Escalation
 - Reference: `references/vendor-escalation.md`
@@ -153,7 +153,7 @@ When no dedicated subagent exists for a domain, follow these domain-specific pat
 - Reference: `references/itsm-cmdb-workflows.md`
 - Skill: `skills/itsm-cmdb-workflows/SKILL.md`
 - Check: CI relationships, change history, dependency mapping, ticket linkage, approval status.
-- Only query CMDB; never update CI records or close tickets without approval.
+- Query CMDB narrowly; submit CI-record updates or ticket closure to the native guard as external side effects and obey its result.
 
 ### Runbook Authoring
 - Reference: `references/diagnostic-order.md` (base), domain-specific references

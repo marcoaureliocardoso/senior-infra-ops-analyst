@@ -21,7 +21,7 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'POLICY_TARGET_REQUIRED', file: 'command-guard/policy.mjs',
-    search: "if (match.requiresExplicitBinding && (!match.target || !match.environment)) return denied('DENY_AMBIGUOUS_TARGET', stage.index);",
+    search: "if (match.requiresExplicitBinding && (!explicitBinding(match.target) || !explicitBinding(match.environment))) return denied('DENY_AMBIGUOUS_TARGET', stage.index);",
     replacement: "if (false) return denied('DENY_AMBIGUOUS_TARGET', stage.index);",
   },
   {

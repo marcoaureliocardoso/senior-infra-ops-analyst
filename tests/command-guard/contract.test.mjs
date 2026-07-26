@@ -24,6 +24,28 @@ test('valid hook event is normalized to the guard contract', () => {
   });
 });
 
+test('current native PreToolUse Bash payload accepts documented common fields', () => {
+  const event = parseHookEvent(JSON.stringify({
+    session_id: 'session-native',
+    transcript_path: '/tmp/transcript.jsonl',
+    cwd: '/srv/project',
+    permission_mode: 'bypassPermissions',
+    agent_id: 'agent-17',
+    agent_type: 'diagnostic-operator',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_use_id: 'toolu_01ABC',
+    tool_input: {
+      command: 'uname -a',
+      description: 'Inspect kernel identity',
+      timeout: 5000,
+      run_in_background: false,
+    },
+  }));
+  assert.equal(event.command, 'uname -a');
+  assert.equal(event.agentType, 'diagnostic-operator');
+});
+
 test('duplicate security key is rejected before JSON semantics can overwrite it', () => {
   const raw = '{"session_id":"a","session_id":"b","hook_event_name":"PreToolUse","agent_type":"diagnostic-operator","permission_mode":"default","tool_name":"Bash","tool_input":{"command":"uname"}}';
   assert.throws(() => parseHookEvent(raw), /duplicate key: session_id/);

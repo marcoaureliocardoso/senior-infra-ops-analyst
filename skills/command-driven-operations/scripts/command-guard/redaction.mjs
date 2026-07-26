@@ -4,11 +4,23 @@ const PATTERNS = [
   { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:Bearer|Basic)\s+([^\s"']+)/giu },
   { kind: 'COOKIE', regex: /(?:Cookie|Set-Cookie):\s*([^\r\n"']+)/giu },
   {
-    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=([^\s"']+)/gu, valueGroup: 2,
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"/gu, valueGroup: 2,
     accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
   },
-  { kind: 'FLAG', regex: /(?:--password|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)([^\s"']+)/giu },
-  { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+[^\s:"']+:([^\s"']+)/giu },
+  {
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)='([^']*)'/gu, valueGroup: 2,
+    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+  },
+  {
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=((?:\\.|[^\s"'\\])+)/gu, valueGroup: 2,
+    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+  },
+  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)"([^"]*)"/giu },
+  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)'([^']*)'/giu },
+  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+"[^\s:"']+:([^"]*)"/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+'[^\s:"']+:([^']*)'/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+[^\s:"']+:((?:\\.|[^\s"'\\])+)/giu },
   { kind: 'POWERSHELL_PLAINTEXT', regex: /ConvertTo-SecureString\s+["']([^"']+)["']\s+-AsPlainText/giu },
   { kind: 'URI_USERINFO', regex: /:\/\/[^\s:@/]+:([^\s@/]+)@/giu },
 ];
@@ -20,7 +32,7 @@ export function detectSensitiveSpans(text) {
     for (const match of text.matchAll(regex)) {
       if (!accept(match)) continue;
       const value = match[valueGroup];
-      const offset = match[0].lastIndexOf(value);
+      const offset = value.length ? match[0].lastIndexOf(value) : match[0].length - 1;
       spans.push({ start: match.index + offset, end: match.index + offset + value.length, kind });
     }
   }

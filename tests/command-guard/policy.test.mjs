@@ -20,6 +20,9 @@ test('narrow read and bounded read pipeline allow in normal mode', () => {
 test('catalogued change asks normally and allows in bypassPermissions', () => {
   assert.equal(analyze('systemctl restart nginx').decision, 'ask');
   assert.equal(analyze('systemctl restart nginx', 'bypassPermissions').decision, 'allow');
+  assert.equal(analyze('service nginx status').decision, 'allow');
+  assert.equal(analyze('service nginx restart').decision, 'ask');
+  assert.equal(analyze('service nginx restart', 'bypassPermissions').decision, 'allow');
 });
 
 test('destructive action asks in every permission mode', () => {
@@ -48,9 +51,9 @@ test('explicit literal PowerShell read pipeline is analyzed separately', () => {
 test('initial operational catalogue covers documented infrastructure families', () => {
   const reads = [
     ['docker ps', 'CONTAINER'],
-    ['aws --profile ops --region us-east-1 ec2 describe-instances', 'AWS'],
+    ['aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20', 'AWS'],
     ['az account show --subscription lab', 'AZURE'],
-    ['gcloud compute instances list --project lab', 'GCP'],
+    ['gcloud compute instances list --project lab --limit 20', 'GCP'],
     ['psql -h db.example.invalid -d app -c "SELECT 1"', 'POSTGRES'],
     ['mysql -h db.example.invalid -D app -e "SHOW STATUS"', 'MYSQL'],
     ['mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()"', 'MONGODB'],

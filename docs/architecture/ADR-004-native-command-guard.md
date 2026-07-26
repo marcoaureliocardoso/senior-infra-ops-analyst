@@ -33,7 +33,8 @@ uses conservative normal-mode semantics rather than a version allowlist.
 ## Implemented architecture
 
 1. A strict stdin contract accepts one bounded `PreToolUse`/`Bash` event for a
-   registered executor, rejects duplicate security keys, unexpected fields,
+   registered executor, including the documented common hook fields and Bash
+   description, while rejecting duplicate security keys, unexpected fields,
    excessive nesting, background requests, and invalid timeouts.
 2. Separate bounded Bash and PowerShell lexers preserve quoting and escapes,
    recognize literal operators and redirects, and reject substitution,
@@ -114,7 +115,7 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The deterministic gate runs 49 active Node tests plus one intentionally
+- The deterministic gate runs 61 active Node tests plus one intentionally
   skipped mutation-only fixture, four recorded property seeds, a finite
   inventory orphan check, and exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, policy, redaction,

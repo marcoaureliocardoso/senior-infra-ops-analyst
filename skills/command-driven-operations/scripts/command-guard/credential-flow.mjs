@@ -32,11 +32,23 @@ export function credentialFlowErrors(composition, analysis) {
   for (const stage of composition.stages) {
     const executable = stage.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
     if (UNSAFE.has(executable)) return [{ reasonCode: executable === 'tee' ? 'DENY_SECRET_PERSISTENCE' : 'DENY_SECRET_OUTPUT', stage: stage.index }];
+    if (executable === 'curl') {
+      const options = new Set(stage.argv);
+      const redirect = ['-L', '--location', '--location-trusted'].some((name) => options.has(name));
+      if (redirect) return [{ reasonCode: 'DENY_AUTHENTICATED_REDIRECT', stage: stage.index }];
+      const persistence = ['-o', '--output', '-O', '--remote-name', '--remote-header-name', '--dump-header', '-D', '--cookie-jar', '-c']
+        .some((name) => options.has(name) || stage.argv.some((word) => word.startsWith(`${name}=`)));
+      if (persistence) return [{ reasonCode: 'DENY_SECRET_PERSISTENCE', stage: stage.index }];
+    }
   }
   if (analysis.decryptorStage !== null) {
     const edge = composition.edges.find(({ from }) => from === analysis.decryptorStage);
     const consumer = edge ? composition.stages[edge.to - 1] : null;
-    if (!consumer || consumer.argv[0]?.toLowerCase() !== 'sudo' || !consumer.argv.includes('-S')) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
+    const executable = consumer?.argv[0]?.toLowerCase();
+    const directSudo = executable === 'sudo' && consumer.argv.includes('-S');
+    const descriptor = executable === 'sshpass' ? consumer.argv.indexOf('-d') : -1;
+    const directSshpass = descriptor >= 0 && consumer.argv[descriptor + 1] === '0';
+    if (!consumer || (!directSudo && !directSshpass)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
   }
   if (analysis.metadata.literal) {
     const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh']);

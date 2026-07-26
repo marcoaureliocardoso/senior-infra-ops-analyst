@@ -52,6 +52,9 @@ blanket-blocked. Normal modes allow narrow reads and ask for bounded sensitive
 reads and catalogued changes. `bypassPermissions` allows catalogued
 non-destructive work; destructive work still asks. Unknown, ambiguous,
 dynamic, unbounded, or exfiltrating calls deny with a redacted explanation.
+Verbs must occupy their family-defined position, filters cannot add independent
+file inputs, and log, scan, query, packet, and cloud-list bounds are checked
+before authorization.
 
 Profiles, agents, keychains, cached sessions, credential helpers, runtime
 variables, and protected-file direct flows are preferred. A literal supplied

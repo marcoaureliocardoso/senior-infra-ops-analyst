@@ -2,9 +2,9 @@ import { EXECUTOR_AGENTS, LIMITS } from './limits.mjs';
 
 const TOP_KEYS = new Set([
   'session_id', 'hook_event_name', 'agent_type', 'permission_mode',
-  'tool_name', 'tool_input',
+  'tool_name', 'tool_input', 'transcript_path', 'cwd', 'agent_id', 'tool_use_id',
 ]);
-const TOOL_KEYS = new Set(['command', 'timeout', 'run_in_background']);
+const TOOL_KEYS = new Set(['command', 'description', 'timeout', 'run_in_background']);
 const SECURITY_KEYS = new Set([...TOP_KEYS, ...TOOL_KEYS, '__proto__', 'prototype', 'constructor']);
 
 function assertObject(value, label) {
@@ -61,12 +61,18 @@ export function parseHookEvent(raw) {
   const agentType = requiredString(value.agent_type, 'agent_type');
   if (!EXECUTOR_AGENTS.includes(agentType)) throw new Error('agent is not an executor');
   const permissionMode = requiredString(value.permission_mode, 'permission_mode');
+  for (const key of ['transcript_path', 'cwd', 'agent_id', 'tool_use_id']) {
+    if (value[key] !== undefined) requiredString(value[key], key, LIMITS.commandChars);
+  }
   assertObject(value.tool_input, 'tool_input');
   for (const key of Object.keys(value.tool_input)) {
     if (!TOOL_KEYS.has(key)) throw new Error(`unexpected tool_input field: ${key}`);
   }
   const command = requiredString(value.tool_input.command, 'command', Number.MAX_SAFE_INTEGER);
   if (command.length > LIMITS.commandChars) throw new Error('command length exceeds limit');
+  if (value.tool_input.description !== undefined) {
+    requiredString(value.tool_input.description, 'description', LIMITS.auditFieldChars);
+  }
   if (value.tool_input.run_in_background === true) throw new Error('background execution is denied');
   if (value.tool_input.run_in_background !== undefined && value.tool_input.run_in_background !== false) {
     throw new Error('run_in_background must be false');

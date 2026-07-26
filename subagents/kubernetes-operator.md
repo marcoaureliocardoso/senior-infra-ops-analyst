@@ -74,8 +74,8 @@ If the task cannot be completed inside the operational budget, stop voluntarily 
 2. Prefer namespace-scoped commands before `-A` or cluster-wide commands.
 3. Treat `-o wide`, cluster-wide events, logs, node names, pod IPs, and labels as potentially `SENSITIVE_OUTPUT`.
 4. Treat broad event, log, or top queries as potentially `RESOURCE_INTENSIVE` — scope them tightly.
-5. Do not delete pods, namespaces, PVCs, CRDs, webhooks, or workloads without explicit approval.
-6. Do not apply manifests, patch resources, scale workloads, drain nodes, or restart deployments without approval.
+5. Treat deletion of pods, namespaces, PVCs, CRDs, webhooks, or workloads as `DESTRUCTIVE`; execute only after the native `ask` is approved.
+6. Submit apply, patch, scale, drain, and rollout-restart operations to the native guard. In normal modes use its `ask`; in `bypassPermissions` proceed only on `allow`. Destructive variants still ask.
 7. Separate workload failure from runtime, CNI, CSI, DNS, ingress, and node failure — do not assume one is the other.
 8. Preserve evidence (events, logs, describe output) before any remediation.
 9. For K3s: check host-level services and iptables before concluding a Kubernetes-level issue.
