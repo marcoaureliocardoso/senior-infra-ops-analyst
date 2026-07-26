@@ -51,6 +51,7 @@ senior-infra-ops-analyst/
 ├── CHANGELOG.md               # Release history
 ├── ROADMAP.md                 # Planned improvements
 ├── docs/architecture/         # Indexed architecture decision records
+├── docs/reviews/              # Indexed independent review verdicts
 ├── skills/                    # 24 operational skills
 │   └── <skill>/
 │       ├── SKILL.md           # Skill definition
@@ -181,3 +182,8 @@ Each subagent uses native `skills` frontmatter to preload its role-specific inst
 ### Architecture decisions
 
 Implemented control decisions, enforcement points, rejected alternatives, and validation evidence are indexed in `docs/architecture/README.md`.
+
+### Independent review records
+
+Security-critical implementation verdicts, reproduced findings, accepted
+residual risks, and closure criteria are indexed in `docs/reviews/README.md`.

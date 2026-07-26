@@ -311,6 +311,7 @@ PowerShell parser validation requires a host with `pwsh` or Windows PowerShell i
 
 - [CHANGELOG](CHANGELOG.md)
 - [Architecture decisions](docs/architecture/README.md)
+- [Independent review records](docs/reviews/README.md)
 - [ROADMAP](ROADMAP.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [SECURITY](SECURITY.md)
