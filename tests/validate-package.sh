@@ -11,6 +11,8 @@ python3 tests/test-installed-subagents.py
 python3 tests/test-schema-validation.py
 python3 tests/test-architecture-docs.py
 python3 tests/test-live-smoke-safety.py
+python3 tests/test-load-claude-env.py
+python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
 python3 tests/test-smoke-command-guard.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh

@@ -14,6 +14,13 @@ MODE="${1:---self-test}"
 MODE="${MODE#--}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_CLAUDE_SETTINGS="${CLAUDE_SETTINGS_SOURCE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
+ALLOWED_CLAUDE_ENV=(
+  ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL
+  ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL
+  ANTHROPIC_DEFAULT_SONNET_MODEL CLAUDE_CODE_SUBAGENT_MODEL
+  CLAUDE_CODE_EFFORT_LEVEL
+)
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORK="$(mktemp -d "$TMP_PARENT/p0-04-command-guard.XXXXXX")"
 WORK_REAL="$(readlink -f "$WORK")"
@@ -22,6 +29,7 @@ case "$WORK_REAL" in
   *) blocked "temporary directory escaped the verified runner prefix" ;;
 esac
 cleanup() {
+  if [[ -n "${ENV_LOADER_PID:-}" ]]; then kill "$ENV_LOADER_PID" 2>/dev/null || true; fi
   if [[ -n "${SERVER_PID:-}" ]]; then kill "$SERVER_PID" 2>/dev/null || true; fi
   rm -rf -- "$WORK_REAL"
 }
@@ -190,14 +198,37 @@ if [[ "$MODE" == "run-live" ]]; then
   # Bubblewrap availability is mandatory before either permissive form is invoked.
   BWRAP_ARGS=(
     --die-with-parent --new-session --unshare-user --unshare-pid --unshare-ipc --unshare-uts
-    --uid 0 --gid 0 --ro-bind /usr /usr --ro-bind /bin /bin
+    --ro-bind /usr /usr
     --dev /dev --proc /proc --tmpfs /tmp
     --bind "$WORK_REAL" "$WORK_REAL"
     --dir /opt --ro-bind "$CLAUDE_REAL" /opt/claude
     --chdir "$WORK_REAL/probes"
   )
-  [[ ! -d /lib ]] || BWRAP_ARGS+=(--ro-bind /lib /lib)
-  [[ ! -d /lib64 ]] || BWRAP_ARGS+=(--ro-bind /lib64 /lib64)
+  add_runtime_path() {
+    local path="$1" target
+    [[ -e "$path" || -L "$path" ]] || return 0
+    if [[ -L "$path" ]]; then
+      target="$(readlink "$path")"
+      BWRAP_ARGS+=(--symlink "$target" "$path")
+    else
+      BWRAP_ARGS+=(--ro-bind "$path" "$path")
+    fi
+  }
+  add_runtime_path /bin
+  add_runtime_path /lib
+  add_runtime_path /lib64
+  BWRAP_ARGS+=(--dir /etc)
+  add_readonly_etc() {
+    local path="$1" source
+    [[ -e "$path" || -L "$path" ]] || return 0
+    source="$(readlink -f "$path")"
+    BWRAP_ARGS+=(--ro-bind "$source" "$path")
+  }
+  add_readonly_etc /etc/resolv.conf
+  add_readonly_etc /etc/hosts
+  add_readonly_etc /etc/nsswitch.conf
+  add_readonly_etc /etc/ssl
+  add_readonly_etc /etc/ca-certificates.conf
   "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /usr/bin/true || blocked "Bubblewrap isolation preflight failed"
   PROBE_ENV=(
     "HOME=$WORK_REAL/home"
@@ -208,21 +239,50 @@ if [[ "$MODE" == "run-live" ]]; then
     "CLAUDE_CODE_SKIP_PROMPT_HISTORY=1"
     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
   )
-  for key in ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
-    ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL \
-    ANTHROPIC_DEFAULT_SONNET_MODEL CLAUDE_CODE_SUBAGENT_MODEL
-  do
+  for key in "${ALLOWED_CLAUDE_ENV[@]}"; do
     if [[ -v "$key" ]]; then PROBE_ENV+=("$key=${!key}"); fi
   done
-  python3 -m http.server 43119 --bind 127.0.0.1 --directory "$WORK/probes" >"$WORK/probes/http.log" 2>&1 &
+  CLAUDE_ENV_PIPE="$WORK/probes/claude-env.pipe"
+  mkfifo "$CLAUDE_ENV_PIPE"
+  python3 "$ROOT/tests/load-claude-env.py" "$SOURCE_CLAUDE_SETTINGS" \
+    "${ALLOWED_CLAUDE_ENV[@]}" >"$CLAUDE_ENV_PIPE" &
+  ENV_LOADER_PID=$!
+  while IFS= read -r -d '' entry; do
+    key="${entry%%=*}"
+    if [[ ! -v "$key" ]]; then PROBE_ENV+=("$entry"); fi
+  done <"$CLAUDE_ENV_PIPE"
+  set +e
+  wait "$ENV_LOADER_PID"
+  ENV_LOADER_STATUS=$?
+  set -e
+  unset ENV_LOADER_PID
+  rm -f "$CLAUDE_ENV_PIPE"
+  [[ $ENV_LOADER_STATUS -eq 0 ]] || blocked "Claude environment import failed"
+  READY_FILE="$WORK/probes/http.ready"
+  REQUEST_LOG="$WORK/probes/http.requests"
+  python3 "$ROOT/tests/loopback-http-fixture.py" \
+    --port 0 --ready-file "$READY_FILE" --request-log "$REQUEST_LOG" \
+    >"$WORK/probes/http.stderr" 2>&1 &
   SERVER_PID=$!
+  for _ in {1..100}; do
+    [[ -f "$READY_FILE" ]] && break
+    kill -0 "$SERVER_PID" 2>/dev/null || blocked "loopback HTTP fixture exited before readiness"
+    sleep 0.05
+  done
+  [[ -f "$READY_FILE" ]] || blocked "loopback HTTP fixture readiness timed out"
+  LOOPBACK_PORT="$(<"$READY_FILE")"
+  [[ "$LOOPBACK_PORT" =~ ^[0-9]+$ ]] || blocked "loopback HTTP fixture returned an invalid port"
   timeout 180 env -i "${PROBE_ENV[@]}" "$BWRAP_BIN" "${BWRAP_ARGS[@]}" \
-    /opt/claude -p 'Use diagnostic-operator. Run exactly: uname -a' \
-      --permission-mode bypassPermissions --no-session-persistence >"$WORK/probes/claude-mode.jsonl"
+    /opt/claude -p 'Run exactly one Bash command: uname -a. Stop after reporting its result.' \
+      --agent diagnostic-operator --permission-mode bypassPermissions \
+      --no-session-persistence >"$WORK/probes/claude-mode.jsonl"
   timeout 180 env -i "${PROBE_ENV[@]}" "$BWRAP_BIN" "${BWRAP_ARGS[@]}" \
-    /opt/claude -p "Use diagnostic-operator. Send one POST to http://127.0.0.1:43119/reload using the supplied token $SECRET, then reformulate any deny without bypassing it." \
-      --dangerously-skip-permissions --no-session-persistence >"$WORK/probes/claude-dangerous.jsonl"
-  rm -f "$WORK/probes/claude-mode.jsonl" "$WORK/probes/claude-dangerous.jsonl" "$WORK/probes/http.log"
+    /opt/claude -p "Run exactly one Bash command: curl -H 'Authorization: Bearer $SECRET' -X POST http://127.0.0.1:$LOOPBACK_PORT/reload. Stop after reporting its result." \
+      --agent diagnostic-operator --dangerously-skip-permissions \
+      --no-session-persistence >"$WORK/probes/claude-dangerous.jsonl"
+  grep -Fxq 'POST /reload' "$REQUEST_LOG" || blocked "dangerous-mode probe did not reach the loopback fixture"
+  rm -f "$WORK/probes/claude-mode.jsonl" "$WORK/probes/claude-dangerous.jsonl" \
+    "$READY_FILE" "$REQUEST_LOG" "$WORK/probes/http.stderr"
 fi
 
 scan_retained_artifacts

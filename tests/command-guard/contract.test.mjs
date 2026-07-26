@@ -29,7 +29,9 @@ test('current native PreToolUse Bash payload accepts documented common fields', 
     session_id: 'session-native',
     transcript_path: '/tmp/transcript.jsonl',
     cwd: '/srv/project',
+    prompt_id: 'prompt-42',
     permission_mode: 'bypassPermissions',
+    effort: { level: 'high' },
     agent_id: 'agent-17',
     agent_type: 'diagnostic-operator',
     hook_event_name: 'PreToolUse',
@@ -44,6 +46,28 @@ test('current native PreToolUse Bash payload accepts documented common fields', 
   }));
   assert.equal(event.command, 'uname -a');
   assert.equal(event.agentType, 'diagnostic-operator');
+});
+
+test('current common prompt and effort metadata is validated narrowly', () => {
+  for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+    assert.doesNotThrow(() => parseHookEvent(JSON.stringify(validEvent({
+      prompt_id: 'prompt-bounded',
+      effort: { level },
+    }))));
+  }
+  const invalid = [
+    { prompt_id: '' },
+    { prompt_id: 42 },
+    { prompt_id: 'x'.repeat(LIMITS.auditFieldChars + 1) },
+    { effort: null },
+    { effort: [] },
+    { effort: {} },
+    { effort: { level: 'auto' } },
+    { effort: { level: 'high', extra: true } },
+  ];
+  for (const extra of invalid) {
+    assert.throws(() => parseHookEvent(JSON.stringify(validEvent(extra))), /prompt_id|effort/);
+  }
 });
 
 test('duplicate security key is rejected before JSON semantics can overwrite it', () => {

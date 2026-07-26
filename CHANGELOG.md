@@ -8,8 +8,9 @@
 - Added stateless model-visible credential handling, provider/helper/reference support, direct decryptor-to-consumer flows, redaction before normalization/fingerprinting, and minimal append-only audit metadata.
 - Added fail-closed process behavior for malformed input, encoding, policy, serialization, and audit failures.
 - Hardened the catalogue against verb smuggling, unbounded logs/scans/queries, unsafe filter file operands, arbitrary PowerShell `Get-*`, authenticated HTTP redirect/persistence, SSH proxy-command injection, and unlisted Git/GitHub operations.
-- Added native documented `PreToolUse` common-field compatibility plus quoted, escaped, Unicode, empty, and repeated literal-credential handling and direct `gpg`/`age` to `sudo -S` or `sshpass -d 0` flows.
+- Added native `PreToolUse` common-field compatibility, including bounded `prompt_id` and documented `effort.level`, plus quoted, escaped, Unicode, empty, and repeated literal-credential handling and direct `gpg`/`age` to `sudo -S` or `sshpass -d 0` flows.
 - Added finite inventory/orphan gates, four deterministic property seeds, 100% critical line/function/branch coverage, eleven killed security mutations, installed-form behavior probes, and an opt-in Bubblewrap-isolated Claude Code/Nori harness.
+- Hardened the live harness for native executor selection, non-root Debian/WSL usrmerge, minimal read-only DNS/TLS mounts, allowlisted non-persistent operator transport settings, dynamic loopback ports, and a header/body-free POST fixture; an authorized run passed both permissive forms.
 - Added ADR-004 and aligned all model-facing command and credential instructions while keeping Claude Code, Nori, Node.js, and model versions unpinned.
 
 ## 0.10.0 - 2026-07-24

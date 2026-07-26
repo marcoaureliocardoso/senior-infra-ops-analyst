@@ -33,9 +33,10 @@ uses conservative normal-mode semantics rather than a version allowlist.
 ## Implemented architecture
 
 1. A strict stdin contract accepts one bounded `PreToolUse`/`Bash` event for a
-   registered executor, including the documented common hook fields and Bash
-   description, while rejecting duplicate security keys, unexpected fields,
-   excessive nesting, background requests, and invalid timeouts.
+   registered executor, including bounded `prompt_id` and the documented
+   `effort.level` envelope, while rejecting duplicate security keys,
+   unexpected fields, excessive nesting, background requests, and invalid
+   timeouts.
 2. Separate bounded Bash and PowerShell lexers preserve quoting and escapes,
    recognize literal operators and redirects, and reject substitution,
    dynamic interpreters, unmatched syntax, and control characters.
@@ -54,6 +55,13 @@ uses conservative normal-mode semantics rather than a version allowlist.
 7. The process writes exactly one native JSON response after successful audit.
    Parsing, policy, serialization, encoding, or audit failure emits no allow
    decision and exits `2`.
+8. The opt-in live harness installs the worktree through Nori into a generated
+   home, imports only allowlisted Claude transport settings through a
+   non-persistent FIFO, and runs non-root model processes inside Bubblewrap.
+   It preserves usrmerge links, mounts only minimal read-only resolver and CA
+   paths, selects `diagnostic-operator` through Claude Code's native `--agent`
+   option, and targets a disposable loopback fixture that never records
+   headers or bodies.
 
 ## Enforcement points
 
@@ -115,7 +123,7 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The deterministic gate runs 61 active Node tests plus one intentionally
+- The deterministic gate runs 62 active Node tests plus one intentionally
   skipped mutation-only fixture, four recorded property seeds, a finite
   inventory orphan check, and exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, policy, redaction,
@@ -132,9 +140,18 @@ ambiguous destinations deny.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
   synthetic credentials, and redacted retained evidence.
-- A real live P0-04 model probe was not produced on the implementation host
-  because WSL has no installed Linux distribution with Bubblewrap. The live
-  harness remains opt-in and reports this as unavailable, never as passed.
+- An authorized live run passed on Debian WSL2 with observed Bubblewrap
+  `0.11.0`, Node.js `v20.19.2`, Nori `0.27.0`, and Claude Code `2.1.218`; its
+  model route was inherited from operator settings. Nori registered all 12
+  subagents, 24 skills, 20 slash commands, and the hooks. Both
+  `--permission-mode bypassPermissions` and
+  `--dangerously-skip-permissions` completed, and the latter reached the
+  synthetic `POST /reload` fixture without retaining the token. These are
+  observed identifiers, not requirements.
+- That live run exposed additive `prompt_id` and `effort` common fields in the
+  actual `PreToolUse` envelope. A regression fixture now accepts a bounded
+  `prompt_id` and only the documented `effort.level` values while keeping all
+  other top-level and Bash-input fields fail-closed.
 
 ## Consequences and limitations
 

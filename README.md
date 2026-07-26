@@ -79,6 +79,11 @@ Linux/WSL environment with Bubblewrap and operator credentials:
 bash tests/live-command-guard-smoke.sh --run-live
 ```
 
+The live harness uses a generated Claude home, non-root Bubblewrap isolation,
+minimal read-only DNS/TLS mounts, an explicit Claude/Anthropic environment
+allowlist loaded without copying operator settings, and a disposable
+loopback-only service that records no headers or bodies.
+
 Observed runtime/model versions are recorded as evidence and are not package
 requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 

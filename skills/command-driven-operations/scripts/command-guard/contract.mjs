@@ -3,8 +3,10 @@ import { EXECUTOR_AGENTS, LIMITS } from './limits.mjs';
 const TOP_KEYS = new Set([
   'session_id', 'hook_event_name', 'agent_type', 'permission_mode',
   'tool_name', 'tool_input', 'transcript_path', 'cwd', 'agent_id', 'tool_use_id',
+  'prompt_id', 'effort',
 ]);
 const TOOL_KEYS = new Set(['command', 'description', 'timeout', 'run_in_background']);
+const EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const SECURITY_KEYS = new Set([...TOP_KEYS, ...TOOL_KEYS, '__proto__', 'prototype', 'constructor']);
 
 function assertObject(value, label) {
@@ -63,6 +65,15 @@ export function parseHookEvent(raw) {
   const permissionMode = requiredString(value.permission_mode, 'permission_mode');
   for (const key of ['transcript_path', 'cwd', 'agent_id', 'tool_use_id']) {
     if (value[key] !== undefined) requiredString(value[key], key, LIMITS.commandChars);
+  }
+  if (value.prompt_id !== undefined) requiredString(value.prompt_id, 'prompt_id');
+  if (value.effort !== undefined) {
+    assertObject(value.effort, 'effort');
+    for (const key of Object.keys(value.effort)) {
+      if (key !== 'level') throw new Error(`unexpected effort field: ${key}`);
+    }
+    const level = requiredString(value.effort.level, 'effort level');
+    if (!EFFORT_LEVELS.has(level)) throw new Error('effort level is unsupported');
   }
   assertObject(value.tool_input, 'tool_input');
   for (const key of Object.keys(value.tool_input)) {
