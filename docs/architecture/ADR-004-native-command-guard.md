@@ -149,7 +149,7 @@ ambiguous destinations deny.
   precedence, risk aggregation, unsafe credential sink, authorization
   redaction, forbidden audit fields, and fail-closed exit.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 26-case stable-ID adversarial
+  modules with source, then executes the same 27-case stable-ID adversarial
   corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an

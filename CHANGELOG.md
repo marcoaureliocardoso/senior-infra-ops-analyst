@@ -12,7 +12,7 @@
 - Added native `PreToolUse` common-field compatibility, including bounded `prompt_id` and documented `effort.level`, plus quoted, escaped, Unicode, empty, and repeated literal-credential handling and direct `gpg`/`age` to `sudo -S` or `sshpass -d 0` flows.
 - Added executable fixture-ledger/orphan gates, bounded per-stage findings, four deterministic property seeds, 100% critical line/function/branch coverage, eleven killed security mutations, byte-equivalent installed artifacts, and installed-corpus behavior probes.
 - Replaced generated coverage labels with executable semantic fixtures for every finite grammar, operator, command-family, reason-code, limit, credential-transport, edge-case, and independent-review inventory item.
-- Made ordinary successful `PostToolUse` events silent no-ops when no credential binding is pending, and forced process-argument plus credential-shaped AWS reads through native `ask`.
+- Made ordinary successful `PostToolUse` events silent no-ops when no credential binding is pending, and forced process-argument plus all AWS `get-*` reads through native `ask`.
 - Hardened the live harness for native executor selection, non-root Debian/WSL usrmerge, minimal read-only DNS/TLS mounts, dynamic loopback ports, and a header/body-free POST fixture. Normal provider credentials remain an explicitly acknowledged temporary exception with provider egress open; isolation and scans reduce but do not eliminate exfiltration risk.
 - Added ADR-004 and aligned all model-facing command and credential instructions while keeping Claude Code, Nori, Node.js, and model versions unpinned.
 

@@ -91,6 +91,7 @@ test('sensitive platform reads always ask and active probes remain bounded', () 
     'aws --profile ops --region us-east-1 lightsail get-relational-database-master-user-password',
     'aws --profile ops --region us-east-1 sso get-role-credentials',
     'aws --profile ops --region us-east-1 cognito-identity get-credentials-for-identity',
+    'aws --profile ops --region us-east-1 lightsail get-instance-access-details --instance-name demo',
     'az keyvault secret show --subscription lab --vault-name vault --name app',
     'ps aux',
     'ps -f',
