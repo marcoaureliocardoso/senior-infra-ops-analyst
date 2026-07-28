@@ -63,6 +63,8 @@
     "mutatingwebhookconfiguration",
     "tolerations",
     "coredns",
+    "CLOUDSDK",
+    "configmap",
     "nslookup",
     "DNSSEC",
     "glab",
