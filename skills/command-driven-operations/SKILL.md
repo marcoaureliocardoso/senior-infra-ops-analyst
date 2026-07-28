@@ -35,7 +35,10 @@ target, environment, scope, pipeline, redirect, credential transport, timeout,
 or background flag requires a fresh evaluation.
 
 Prefer profiles, agents, keychains, cached sessions, credential helpers,
-runtime variables, and protected-file direct flows. A literal supplied through
+runtime variables, and protected-file direct flows established outside the
+generated command. Do not add in-command configuration, helper, agent, loader,
+plugin, or executable-resolution overrides; the guard denies behavior it
+cannot inspect statically. A literal supplied through
 the conversation is already visible to the model/provider/transcript. In
 `bypassPermissions`, reuse it only in the same session, credential domain,
 identity, and transport; different explicit catalogued targets in that domain

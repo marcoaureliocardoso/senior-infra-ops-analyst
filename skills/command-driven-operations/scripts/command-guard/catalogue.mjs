@@ -24,8 +24,7 @@ export const FILTER_FAMILIES = Object.freeze(['FILTER']);
 
 function executableIndex(argv) {
   const allowedAssignments = new Set([
-    'AWS_PROFILE', 'AZURE_CONFIG_DIR', 'CLOUDSDK_CONFIG', 'KUBECONFIG',
-    'SSH_AUTH_SOCK', 'GIT_ASKPASS', 'PGPASSWORD', 'MYSQL_PWD', 'SSHPASS',
+    'AWS_PROFILE', 'PGPASSWORD', 'MYSQL_PWD', 'SSHPASS',
     'GH_TOKEN', 'GITHUB_TOKEN', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
     'AWS_SESSION_TOKEN', 'OPS_CREDENTIAL_IDENTITY',
   ]);
@@ -58,6 +57,65 @@ function optionCaseInsensitive(argv, ...names) {
     if (inline >= 0) return word.slice(names[inline].length + 1) || null;
   }
   return null;
+}
+
+function enabledBooleanOption(argv, ...names) {
+  for (const name of names) {
+    const index = argv.indexOf(name);
+    if (index >= 0) {
+      const following = argv[index + 1]?.toLowerCase();
+      return following !== 'false';
+    }
+    const inline = argv.find((word) => word.startsWith(`${name}=`));
+    if (inline) return inline.slice(name.length + 1).toLowerCase() !== 'false';
+  }
+  return false;
+}
+
+function parseCurlOptions(argv, valueOptions, flagOptions) {
+  const entries = [];
+  const flags = new Set();
+  for (let index = 1; index < argv.length; index += 1) {
+    const word = argv[index];
+    if (!word.startsWith('-')) continue;
+    if (flagOptions.includes(word)) { flags.add(word); continue; }
+    let matched = false;
+    for (const name of valueOptions) {
+      if (word === name) {
+        if (argv[index + 1] === undefined) return null;
+        entries.push({ name, value: argv[index + 1] });
+        index += 1;
+        matched = true;
+        break;
+      }
+      if (word.startsWith(`${name}=`)) {
+        entries.push({ name, value: word.slice(name.length + 1) });
+        matched = true;
+        break;
+      }
+      if (/^-[A-Za-z]$/u.test(name) && word.startsWith(name) && word.length > name.length) {
+        entries.push({ name, value: word.slice(name.length) });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return null;
+  }
+  return { entries, flags };
+}
+
+function curlReadsLocalRequestFile(entries) {
+  const uploads = new Set(['-T', '--upload-file']);
+  const directAt = new Set(['-d', '--data', '--data-ascii', '--data-binary', '--json']);
+  for (const { name, value } of entries) {
+    if (uploads.has(name)) return true;
+    if (directAt.has(name) && value.startsWith('@')) return true;
+    if (name === '--data-urlencode' && (/^@/u.test(value) || /^[^=]+@/u.test(value))) return true;
+    if (['-F', '--form'].includes(name) && /(?:^|=)[@<]/u.test(value)) return true;
+    if (['-H', '--header'].includes(name) && value.startsWith('@')) return true;
+    if (['-b', '--cookie'].includes(name) && !value.includes('=')) return true;
+  }
+  return false;
 }
 
 function result(policyId, risk, target, environment = null, modifiers = [], extra = {}) {
@@ -186,13 +244,66 @@ function gitCiFamily(words, lower) {
   return null;
 }
 
+function validSshOption(value) {
+  const separator = value.indexOf('=');
+  if (separator <= 0) return false;
+  const name = value.slice(0, separator).toLowerCase();
+  const optionValue = value.slice(separator + 1);
+  if (!optionValue || /[$*?{}]/u.test(optionValue)) return false;
+  if (name === 'batchmode' || name === 'identitiesonly') return optionValue.toLowerCase() === 'yes';
+  if (name === 'stricthostkeychecking') return /^(?:yes|accept-new)$/iu.test(optionValue);
+  if (name === 'connecttimeout' || name === 'serveraliveinterval') return boundedInteger(optionValue, 300, 0);
+  if (name === 'connectionattempts' || name === 'serveralivecountmax') return boundedInteger(optionValue, 10);
+  if (name === 'port') return boundedInteger(optionValue, 65535);
+  if (name === 'addressfamily') return /^(?:any|inet|inet6)$/iu.test(optionValue);
+  if (name === 'loglevel') return /^(?:quiet|fatal|error|info|verbose|debug[123]?)$/iu.test(optionValue);
+  if (name === 'user') return /^[A-Za-z0-9._-]+$/u.test(optionValue);
+  if (name === 'proxyjump') return /^[A-Za-z0-9._@,:\[\]-]+$/u.test(optionValue);
+  return false;
+}
+
+function parseSshInvocation(argv) {
+  const flags = new Set(['-4', '-6', '-q', '-v', '-vv', '-vvv', '-T']);
+  const values = new Set(['-p', '-l', '-i', '-J']);
+  let index = 1;
+  while (index < argv.length && argv[index].startsWith('-')) {
+    const word = argv[index];
+    if (flags.has(word)) { index += 1; continue; }
+    if (word === '-o') {
+      if (!validSshOption(argv[index + 1] ?? '')) return null;
+      index += 2;
+      continue;
+    }
+    if (word.startsWith('-o')) {
+      const value = word.slice(2).replace(/^=/u, '');
+      if (!validSshOption(value)) return null;
+      index += 1;
+      continue;
+    }
+    if (values.has(word)) {
+      const value = argv[index + 1];
+      if (!value || /[$*?{}]/u.test(value)) return null;
+      if (word === '-p' && !boundedInteger(value, 65535)) return null;
+      index += 2;
+      continue;
+    }
+    const compact = [...values].find((name) => word.startsWith(name) && word.length > name.length);
+    if (!compact) return null;
+    const value = word.slice(compact.length);
+    if (/[$*?{}]/u.test(value) || (compact === '-p' && !boundedInteger(value, 65535))) return null;
+    index += 1;
+  }
+  if (index + 2 !== argv.length) return null;
+  const host = argv[index];
+  const payload = argv[index + 1];
+  if (!host || !payload || /[$*?{}]/u.test(host)) return null;
+  return { host, payload };
+}
+
 function remoteFamily(argv) {
-  if (argv.some((word, index) => word === '-F' || word.startsWith('-F=') ||
-    (word === '-o' && /^(?:ProxyCommand|LocalCommand|PermitLocalCommand|Match)=?/iu.test(argv[index + 1] ?? '')) ||
-    /^-o(?:ProxyCommand|LocalCommand|PermitLocalCommand|Match)=?/iu.test(word))) return null;
-  const host = argv.slice(1).find((word) => !word.startsWith('-') && !argv[argv.indexOf(word) - 1]?.startsWith('-'));
-  const payload = argv.at(-1);
-  if (!host || host === payload || /[$*?{}]/u.test(host) || !payload) return null;
+  const invocation = parseSshInvocation(argv);
+  if (!invocation) return null;
+  const { host, payload } = invocation;
   let composition;
   try { composition = buildComposition(lexBash(payload)); } catch { return null; }
   if (composition.stages.length !== 1 || composition.operators.length !== 0 || composition.redirects.length !== 0) return null;
@@ -281,11 +392,17 @@ export function lookupFamily(stage) {
   }
 
   if (lower === 'kubectl' || (lower === 'k3s' && words[1] === 'kubectl')) {
+    if (words.some((word) => word === '--kubeconfig' || word.startsWith('--kubeconfig='))) return null;
     const verbs = ['get', 'describe', 'logs', 'events', 'version', 'cluster-info', 'label', 'annotate', 'apply', 'patch', 'scale', 'cordon', 'uncordon', 'delete', 'drain', 'replace'];
     const command = commandWord(words, lower === 'k3s' ? 2 : 1, ['--context', '--namespace', '-n', '--kubeconfig', '--cluster', '--user', '--request-timeout']);
     const verb = command?.word;
     if (!verb) return null;
     if (!verbs.includes(verb)) return null;
+    if (words.some((word) => word === '--raw' || word.startsWith('--raw='))) return null;
+    if (['get', 'describe', 'logs', 'events'].includes(verb) && enabledBooleanOption(words, '--watch', '--watch-only', '-w')) return null;
+    if (verb === 'logs' && enabledBooleanOption(words, '--follow', '-f')) return null;
+    const chunkSize = option(words, '--chunk-size');
+    if (chunkSize !== null && !boundedInteger(chunkSize, LIMITS.outputRows)) return null;
     if (verb === 'logs' && !boundedInteger(option(words, '--tail'), LIMITS.outputRows)) return null;
     const forceReplace = verb === 'replace' && words.includes('--force');
     const risk = ['get', 'describe', 'logs', 'events', 'version', 'cluster-info'].includes(verb) ? 'SAFE_READ_ONLY' : ['label', 'annotate'].includes(verb) ? 'LOW_RISK_CHANGE' : ['delete', 'drain'].includes(verb) || forceReplace ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
@@ -421,19 +538,23 @@ export function lookupFamily(stage) {
     const flagOptions = isCurl
       ? ['-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2', '-k', '--insecure']
       : ['-SkipCertificateCheck', '-UseBasicParsing'];
-    const knownOptions = [...valueOptions, ...flagOptions].map((name) => name.toLowerCase());
-    for (const word of words.slice(1)) {
-      if (!word.startsWith('-')) continue;
-      const name = word.split('=', 1)[0].toLowerCase();
-      if (!knownOptions.includes(name)) return null;
+    const curlOptions = isCurl ? parseCurlOptions(words, valueOptions, flagOptions) : null;
+    if (isCurl && (!curlOptions || curlReadsLocalRequestFile(curlOptions.entries))) return null;
+    if (!isCurl) {
+      const knownOptions = [...valueOptions, ...flagOptions].map((name) => name.toLowerCase());
+      for (const word of words.slice(1)) {
+        if (!word.startsWith('-')) continue;
+        const name = word.split('=', 1)[0].toLowerCase();
+        if (!knownOptions.includes(name)) return null;
+      }
     }
     const lowerWords = words.map((word) => word.toLowerCase());
-    const hasNamedOption = (names) => names.some((name) => {
+    const hasNamedOption = (names) => isCurl
+      ? curlOptions.entries.some(({ name }) => names.includes(name)) || [...curlOptions.flags].some((name) => names.includes(name))
+      : names.some((name) => {
       const candidate = name.toLowerCase();
       return lowerWords.some((word) => word === candidate || word.startsWith(`${candidate}=`));
     });
-    const uploadIndex = lowerWords.findIndex((word) => [...bodyOptions, ...uploadOptions].some((name) => word === name.toLowerCase()));
-    if (uploadIndex >= 0 && words[uploadIndex + 1]?.startsWith('@')) return null;
     const urls = words.filter((word) => /^https?:\/\//iu.test(word));
     if (urls.length !== 1 || words.includes('--next')) return null;
     const [url] = urls;

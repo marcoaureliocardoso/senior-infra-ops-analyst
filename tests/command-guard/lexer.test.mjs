@@ -37,6 +37,18 @@ test('powershell lexer recognizes literal pipelines and rejects dynamic executio
   }
 });
 
+test('powershell lexer rejects executable expressions but preserves quoted delimiters', () => {
+  for (const command of [
+    'Get-Service (Remove-Item C:\\temp\\victim.txt)',
+    'Get-Service @(Remove-Item C:\\temp\\victim.txt)',
+    "Get-Service ([System.IO.File]::Delete('C:\\temp\\victim.txt'))",
+    "Get-Service &Remove-Item C:\\temp\\victim.txt",
+  ]) assert.throws(() => lexPowerShell(command), /unsupported/, command);
+
+  assert.doesNotThrow(() => lexPowerShell("Get-Service -Name 'Print (Spooler)'"));
+  assert.doesNotThrow(() => lexPowerShell('Get-Service -Name "Array [literal]"'));
+});
+
 test('lexing is deterministic and never expands variables or globs', () => {
   const command = 'printf "$PATH" *.log';
   assert.deepEqual(lexBash(command), lexBash(command));

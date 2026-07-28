@@ -60,7 +60,10 @@ file inputs, and log, scan, query, packet, and cloud-list bounds are checked
 before authorization.
 
 Profiles, agents, keychains, cached sessions, credential helpers, runtime
-variables, and protected-file direct flows are preferred. A literal supplied
+variables, and protected-file direct flows configured outside the generated
+command are preferred. In-command overrides that select configuration files,
+helpers, agents, loaders, plugins, or executable resolution deny because their
+effective behavior cannot be proven statically. A literal supplied
 in conversation is already model/provider/transcript-visible. The guard
 prevents additional disclosure. First literal use always asks. Only a matching,
 successful `PostToolUse` event activates bounded, non-secret state for

@@ -100,7 +100,9 @@ retain their own explicit approval requirements.
 
 Prefer provider-managed authentication, profiles, SSO/cached sessions,
 agents, askpass, keychains, credential helpers, runtime variables, and
-protected credential files. A credential supplied in the conversation is
+protected credential files established outside the generated command. Inline
+configuration, helper, agent, loader, plugin, and executable-resolution
+overrides deny because their effective behavior is not statically proven. A credential supplied in the conversation is
 already model/provider/transcript-visible; the guard reduces further
 disclosure but cannot make that input secret from the model.
 

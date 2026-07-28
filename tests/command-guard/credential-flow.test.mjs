@@ -72,12 +72,10 @@ test('supported literal transports ask on first use in every mode', () => {
   }
 });
 
-test('provider caches and protected credential references do not become model-visible literals', () => {
+test('catalogued provider references and protected files do not become model-visible literals', () => {
   for (const command of [
     'AWS_PROFILE=ops aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20',
-    'KUBECONFIG=/secure/kubeconfig kubectl --context lab --namespace demo get pods',
     'curl --cert /secure/client.pem https://api.example.invalid/health',
-    'SSH_AUTH_SOCK=/run/user/1000/agent ssh ops@example.invalid "uname -a"',
   ]) {
     const result = analyze(command);
     assert.equal(result.decision, 'allow', command);

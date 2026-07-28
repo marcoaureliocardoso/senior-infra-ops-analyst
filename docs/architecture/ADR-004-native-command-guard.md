@@ -42,14 +42,17 @@ uses conservative normal-mode semantics rather than a version allowlist.
    excessive input, background requests, and invalid timeouts fail closed.
 2. Separate bounded Bash and PowerShell lexers preserve quoting and escapes,
    recognize literal operators and redirects, and reject substitution,
-   dynamic interpreters, unmatched syntax, and control characters.
+   dynamic interpreters, unquoted expression/call delimiters, unmatched syntax,
+   and control characters. Quoted delimiters remain literal data.
 3. A composition graph binds ordered stages, operators, redirects, and
    source-to-sink edges instead of blanket-blocking pipes.
 4. A finite executable-specific catalogue classifies host/log reads, services,
    containers, AWS/Azure/GCP, PostgreSQL/MySQL/MongoDB/Redis, network probes,
    packet capture, HTTP, SSH/file transfer, sudo, Git/CI, PowerShell reads, and
    Windows service control. Mutations require explicit target/environment
-   bindings.
+   bindings. In-command environment prefixes accept credential transports and
+   the named AWS profile reference, but reject configuration, helper, agent,
+   loader, plugin, and executable-resolution overrides.
 5. The policy retains bounded per-stage findings, aggregates the highest risk
    and approval modifiers, then applies the permission-mode matrix. Every
    changed call is evaluated independently.
@@ -74,6 +77,11 @@ uses conservative normal-mode semantics rather than a version allowlist.
    paths, selects `diagnostic-operator` through Claude Code's native `--agent`
    option, and targets a disposable loopback fixture that never records
    headers or bodies.
+10. Client-specific closed schemas reject curl local-file request sources in
+    separated, equals-attached, and compact forms; SSH configuration and local
+    execution hooks; Kubernetes raw endpoints; and enabled follow/watch or
+    pagination-disabling options. Literal HTTP bodies, finite Kubernetes reads,
+    and allowlisted literal SSH transport options remain catalogued.
 
 ## Enforcement points
 

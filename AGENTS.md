@@ -56,7 +56,10 @@ credential reuse never carry over to a changed command.
 An operator-supplied literal credential is already visible to the model,
 provider, and Claude Code transcript. Prefer provider profiles, agents,
 keychains, credential helpers, cached sessions, runtime variables, or a direct
-protected-file-to-catalogued-consumer flow. In `bypassPermissions`, a literal
+protected-file-to-catalogued-consumer flow established outside the generated
+command. Do not inject configuration, helper, agent, loader, plugin, or
+executable-resolution overrides into a command; the guard denies behavior it
+cannot inspect statically. In `bypassPermissions`, a literal
 may be reused only while session, mode, credential domain, identity, and
 transport remain the same; different explicit catalogued targets in that
 domain are allowed, but every command is independently re-evaluated and a

@@ -1,6 +1,7 @@
 import { LIMITS } from './limits.mjs';
 
-const UNSUPPORTED = [/\$\(/u, /\bInvoke-Expression\b/iu, /\s-[Ee]ncodedCommand\b/u, /--%/u, /[{}]/u, /(^|\s)&\s/u];
+const UNSUPPORTED = [/\$\(/u, /\bInvoke-Expression\b/iu, /\s-[Ee]ncodedCommand\b/u, /--%/u, /[{}]/u];
+const UNQUOTED_DYNAMIC = new Set(['(', ')', '[', ']', '&']);
 export const POWERSHELL_OPERATORS = Object.freeze(['&&', '||', '>>', '*>', '2>', '|', ';', '\n', '>']);
 
 export function lexPowerShell(command, limits = LIMITS) {
@@ -36,6 +37,7 @@ export function lexPowerShell(command, limits = LIMITS) {
       tokens.push({ kind: operator.includes('>') ? 'redirect' : 'operator', raw: operator, cooked: operator, quote: null, start: index, end: index + operator.length });
       index += operator.length; continue;
     }
+    if (UNQUOTED_DYNAMIC.has(character)) throw new Error('unsupported PowerShell construct');
     if (!raw) start = index;
     raw += character; cooked += character; index += 1;
   }

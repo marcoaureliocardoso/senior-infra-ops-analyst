@@ -35,8 +35,10 @@ same-identity, same-transport reuse in `bypassPermissions` across explicit
 catalogued targets, but every command is re-evaluated and the guard retains no
 value, hash, raw command, or secret-derived identifier. Prefer provider caches,
 profiles, agents, helpers, keychains, runtime variables, and direct
-protected-file consumers. A successful Bash call without pending binding state
-leaves `PostToolUse` as a silent no-op.
+protected-file consumers configured outside the generated command. Overrides
+that select configuration, helpers, agents, loaders, plugins, or executable
+resolution inside the proposed command deny. A successful Bash call without
+pending binding state leaves `PostToolUse` as a silent no-op.
 
 Run `node tests/run-command-guard-tests.mjs` for the deterministic gate,
 `bash tests/live-command-guard-smoke.sh --self-test` for installed-form probes,

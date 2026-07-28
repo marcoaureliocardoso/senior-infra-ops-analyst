@@ -8,7 +8,14 @@
 
 **Final reviewed commit:** `7c2e32751001adfbf8bdc1036465d7ec2bdbfa1a`
 
-**Final verdict:** Ready to merge with RV-11 accepted as a temporary exception
+**Previous verdict:** Ready to merge with RV-11 accepted as a temporary
+exception; superseded by the 2026-07-28 re-review below
+
+**Re-review base commit:** `99800545ba998931a022855a962f0357a86a0d0e`
+
+**Current verdict:** Changes required. Remediation is implemented in the PR
+worktree, but merge authorization requires a fresh independent review of the
+new head. RV-11 remains an accepted temporary exception.
 
 **Remediation design:**
 [P0-04 review remediation](../superpowers/specs/2026-07-26-p0-04-review-remediation-design.md)
@@ -111,9 +118,9 @@ final head, subject to the accepted RV-11 exception:
 7. A new independent reviewer inspects the patch and records the final
    disposition of every finding.
 
-This record authorizes merge from the independent-review perspective. The
-remediation task does not perform the merge; repository integration remains a
-separate operator action.
+This authorization was valid for the reviewed commit at the time. It is
+superseded by the 2026-07-28 re-review below; repository integration now
+requires another independent disposition.
 
 ## Verified remediation evidence
 
@@ -136,3 +143,30 @@ the following evidence:
   normal provider credentials entered the Claude process while provider egress
   remained open. This is evidence for the compensating controls, not closure
   of RV-11.
+
+## 2026-07-28 re-review disposition
+
+A later review of PR head `9980054` reproduced six semantic gaps that were not
+represented by the green suite. PowerShell expression evaluation also escaped
+the guard in normal mode, so line and branch coverage did not establish the
+claimed authorization boundary. The previous merge authorization is therefore
+withdrawn.
+
+The remediation adds executable regressions and tightens the finite grammar.
+The statuses below mean the local implementation satisfies the reproduced
+case; they do not replace independent verification of the resulting head.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-03 | Execution-control assignments remained allowlisted | `GIT_ASKPASS` and an arbitrary `KUBECONFIG` could introduce external helpers | Restrict in-command assignments to credential transports and the named AWS profile reference | Remediated; independent verification pending |
+| RV-04 | Curl inline file sources escaped detection | `--data=@file` and related attached forms were autonomous in bypass mode | Parse separated, equals-attached, and compact curl values and deny every local request-file source | Remediated; independent verification pending |
+| RV-08 | Raw Kubernetes API bypassed sensitive-resource detection | `kubectl get --raw=.../secrets/...` was a narrow read | Deny raw API endpoints before resource classification | Remediated; independent verification pending |
+| RV-18 | PowerShell arguments evaluated nested commands | A read cmdlet containing `(Remove-Item ...)` was allowed in every mode | Reject unquoted expression, type, and call delimiters before token classification | Remediated; independent verification pending |
+| RV-19 | SSH option denylist omitted executable hooks | `KnownHostsCommand` executed a local helper while the remote read was allowed | Replace the denylist with a closed literal transport-option schema | Remediated; independent verification pending |
+| RV-20 | Kubernetes streams were not finite | `logs --follow`, `get --watch`, and disabled pagination were allowed | Deny enabled follow/watch/raw streams and invalid or zero chunk sizes | Remediated; independent verification pending |
+
+The executable fixture ledger now includes the new stable IDs, and the direct
+security suite covers spelling and boundary variants. A new independent
+reviewer must inspect the patch, reproduce the cases against source and
+installed form, run the complete gates, and record the resulting commit and
+verdict before merge.

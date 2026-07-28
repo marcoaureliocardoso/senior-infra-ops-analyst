@@ -4,7 +4,7 @@ const UNSAFE = new Set(['echo', 'printf', 'printenv', 'tee', 'out-file', 'write-
 export const CREDENTIAL_TRANSPORTS = Object.freeze(['AUTHORIZATION', 'COOKIE', 'VARIABLE', 'FLAG', 'BASIC_AUTH', 'POWERSHELL_PLAINTEXT', 'URI_USERINFO', 'STDIN_DIRECT', 'PROVIDER_CACHE', 'PROTECTED_FILE']);
 
 function referenceMetadata(command) {
-  if (/\b(?:AWS_PROFILE|AZURE_CONFIG_DIR|CLOUDSDK_CONFIG|KUBECONFIG|SSH_AUTH_SOCK|GIT_ASKPASS)=/u.test(command) || /\s--profile(?:=|\s)/u.test(command)) {
+  if (/\bAWS_PROFILE=/u.test(command) || /\s--profile(?:=|\s)/u.test(command)) {
     return { source: 'PROVIDER_CACHE', type: 'REFERENCE', transport: 'PROVIDER_CACHE', literal: false };
   }
   if (/\s(?:--cert|--key|--cacert|--password-file|--identity-file)(?:=|\s)/u.test(command)) {
