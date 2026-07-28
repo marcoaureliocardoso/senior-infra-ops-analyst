@@ -7,7 +7,7 @@ function referenceMetadata(command) {
   if (/\bAWS_PROFILE=/u.test(command) || /\s--profile(?:=|\s)/u.test(command)) {
     return { source: 'PROVIDER_CACHE', type: 'REFERENCE', transport: 'PROVIDER_CACHE', literal: false };
   }
-  if (/\s(?:--cert|--key|--cacert|--password-file|--identity-file)(?:=|\s)/u.test(command)) {
+  if (/\s(?:--cert|--key|--password-file|--identity-file)(?:=|\s)/u.test(command)) {
     return { source: 'PROTECTED_FILE', type: 'REFERENCE', transport: 'PROTECTED_FILE', literal: false };
   }
   if (/\$(?:[A-Za-z0-9_]*(?:PASSWORD|PASS|TOKEN|SECRET|API_KEY|ACCESS_KEY|CREDENTIAL|PRIVATE_KEY)[A-Za-z0-9_]*)\b/u.test(command)) {

@@ -13,9 +13,10 @@ exception; superseded by the 2026-07-28 re-review below
 
 **Re-review base commit:** `99800545ba998931a022855a962f0357a86a0d0e`
 
-**Current verdict:** Changes required. Remediation is implemented in the PR
-worktree, but merge authorization requires a fresh independent review of the
-new head. RV-11 remains an accepted temporary exception.
+**Current verdict:** Changes required. The latest self-review remediation is
+implemented in the PR worktree, but merge authorization requires a fresh
+independent review of the new head. RV-11 remains an accepted temporary
+exception.
 
 **Remediation design:**
 [P0-04 review remediation](../superpowers/specs/2026-07-26-p0-04-review-remediation-design.md)
@@ -170,3 +171,27 @@ security suite covers spelling and boundary variants. A new independent
 reviewer must inspect the patch, reproduce the cases against source and
 installed form, run the complete gates, and record the resulting commit and
 verdict before merge.
+
+## 2026-07-28 third review disposition
+
+A subsequent self-review of published head `e0aa2c3` found four additional
+credential-boundary gaps despite green structural coverage and mutation gates.
+The same agent that implemented the preceding changes performed this review,
+so it is explicitly not an independent disposition and cannot authorize merge.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-21 | Catalogued literal spellings escaped credential detection | Curl OAuth bearer, compact/equal Basic Auth, generic Authorization schemes, and Redis `--pass` returned autonomous `allow` | Recognize every accepted separated, equals-attached, and compact literal form and retain exact transport metadata | Remediated; independent verification pending |
+| RV-22 | Identity metadata replaced the actual transport | `OPS_CREDENTIAL_IDENTITY` became a `VARIABLE` span, allowing an approved Authorization binding to authorize Cookie or Basic Auth | Exclude the non-secret identity marker and bind the first actual client credential transport | Remediated; independent verification pending |
+| RV-23 | Curl route and TLS overrides did not change the bound domain | An approved origin could be rerouted with `--resolve` and `-k`, then reuse the active binding | Deny proxy, name-resolution, and insecure-peer overrides that the domain record cannot represent | Remediated; independent verification pending |
+| RV-24 | Kubernetes context hid an overridden server | `--server` plus insecure TLS was treated as a safe read in the named context | Consume a closed option schema and reject endpoint, credential, trust, impersonation, plugin, and unknown options | Remediated; independent verification pending |
+
+The TDD red phase reproduced autonomous literals, cross-transport reuse, curl
+rerouting, and Kubernetes server replacement. The corrected critical gate now
+runs 98 active tests plus one intentional mutation-only skip, retains 100
+percent line/function/branch coverage, kills all 11 registered mutations, and
+executes 37 stable review fixtures. The complete package, installed-artifact,
+schema, workflow, static smoke, content, and Python gates passed in Debian WSL2
+with the SHA-256-verified official user-local Node.js `v24.17.0`; the Debian
+system Node remains unchanged. Independent review of the final published tree
+is still required.

@@ -72,6 +72,35 @@ test('supported literal transports ask on first use in every mode', () => {
   }
 });
 
+test('catalogued client credential spellings always ask and preserve transport', () => {
+  const cases = [
+    [`curl --oauth2-bearer ${SECRET} https://api.example.invalid/health`, 'FLAG'],
+    [`curl -uuser:${SECRET} https://api.example.invalid/health`, 'BASIC_AUTH'],
+    [`curl --user=user:${SECRET} https://api.example.invalid/health`, 'BASIC_AUTH'],
+    [`curl -H "Authorization: Token ${SECRET}" https://api.example.invalid/health`, 'AUTHORIZATION'],
+    [`redis-cli -h cache.example.invalid --pass ${SECRET} GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid --pass=${SECRET} GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid -a${SECRET} GET key`, 'FLAG'],
+  ];
+  for (const [command, transport] of cases) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'ask', `${mode}: ${command}`);
+      assert.equal(result.credential?.transport, transport, command);
+      assert.doesNotMatch(JSON.stringify(result), new RegExp(SECRET), command);
+    }
+  }
+});
+
+test('credential identity metadata is not itself a credential transport', () => {
+  const identityOnly = analyze('OPS_CREDENTIAL_IDENTITY=operator curl https://api.example.invalid/health');
+  assert.equal(identityOnly.decision, 'allow');
+  assert.equal(identityOnly.credential, null);
+
+  const authorization = analyze(`OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer ${SECRET}" https://api.example.invalid/health`);
+  assert.equal(authorization.credential?.transport, 'AUTHORIZATION');
+});
+
 test('catalogued provider references and protected files do not become model-visible literals', () => {
   for (const command of [
     'AWS_PROFILE=ops aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20',

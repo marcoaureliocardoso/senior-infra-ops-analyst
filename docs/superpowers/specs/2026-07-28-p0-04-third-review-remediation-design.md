@@ -34,13 +34,13 @@ and impersonation details in binding state. This preserves more client
 flexibility but expands sensitive state and makes destination equivalence hard
 to prove statically. Deferred until a concrete operational need justifies it.
 
-### Parser-derived credentials with fail-closed routes
+### Client-aligned credentials with fail-closed routes
 
-Use client-specific parsed arguments as the authoritative credential metadata,
-exclude the non-secret identity marker, and reject route or trust overrides that
-cannot be represented by the current binding. Apply a closed kubectl global
-option schema. Selected because it matches the finite-catalogue architecture
-and keeps the approval record small and auditable.
+Derive exact lexical patterns from each client's accepted option schema, exclude
+the non-secret identity marker, and reject route or trust overrides that cannot
+be represented by the current binding. Apply a closed kubectl global option
+schema. Selected because it matches the finite-catalogue architecture, retains
+raw-span redaction before output, and keeps the approval record auditable.
 
 ## Design
 
@@ -69,9 +69,9 @@ catalogued:
 - `--proxy` and `-x`;
 - `--insecure` and `-k`.
 
-Client certificate and CA file references remain supported only with the
-literal URL route and normal TLS verification. Authenticated redirects remain
-denied.
+Client certificate and key references remain supported only with the literal
+URL route and normal server verification. Alternative CA files, authenticated
+redirects, and peer-verification bypasses remain denied.
 
 ### Kubernetes routing
 

@@ -1,30 +1,39 @@
 import { createHash } from 'node:crypto';
 
+function isSensitiveVariable(name) {
+  if (name.toUpperCase() === 'OPS_CREDENTIAL_IDENTITY') return false;
+  return /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(name) ||
+    /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(name);
+}
+
 const PATTERNS = [
-  { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:Bearer|Basic)\s+([^\s"']+)/giu },
+  { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:[A-Za-z][A-Za-z0-9._~-]*\s+)?([^\s"']+)/giu },
   { kind: 'AUTHORIZATION', regex: /(?:X-API-Key|PRIVATE-TOKEN):\s*([^\s"']+)/giu },
   { kind: 'COOKIE', regex: /(?:Cookie|Set-Cookie):\s*([^\r\n"']+)/giu },
   {
     kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"/gu, valueGroup: 2,
-    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+    accept: (match) => isSensitiveVariable(match[1]),
   },
   {
     kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)='([^']*)'/gu, valueGroup: 2,
-    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+    accept: (match) => isSensitiveVariable(match[1]),
   },
   {
     kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=((?:\\.|[^\s"'\\])+)/gu, valueGroup: 2,
-    accept: (match) => /^(?:PGPASSWORD|MYSQL_PWD|SSHPASS)$/iu.test(match[1]) || /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(match[1]),
+    accept: (match) => isSensitiveVariable(match[1]),
   },
-  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)"([^"]*)"/giu },
-  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)'([^']*)'/giu },
-  { kind: 'FLAG', regex: /(?:--password|--passphrase|--token|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'FLAG', regex: /(?:--password|--pass|--passphrase|--token|--oauth2-bearer|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)"([^"]*)"/giu },
+  { kind: 'FLAG', regex: /(?:--password|--pass|--passphrase|--token|--oauth2-bearer|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)'([^']*)'/giu },
+  { kind: 'FLAG', regex: /(?:--password|--pass|--passphrase|--token|--oauth2-bearer|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)((?:\\.|[^\s"'\\])+)/giu },
   { kind: 'FLAG', regex: /\bredis-cli\b[^\r\n;&|]*\s-a(?:\s+)?((?:\\.|[^\s"'\\])+)/giu },
   { kind: 'FLAG', regex: /\bmysql(?:admin)?\b[^\r\n;&|]*\s-p((?:\\.|[^\s"'\\])+)/giu },
   { kind: 'QUERY', regex: /[?&](?:access_token|api_key|apikey|password|token|secret)=([^&#\s"']+)/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+"[^\s:"']+:([^"]*)"/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+'[^\s:"']+:([^']*)'/giu },
   { kind: 'BASIC_AUTH', regex: /(?:-u|--user)\s+[^\s:"']+:((?:\\.|[^\s"'\\])+)/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:^|\s)(?:-u|--user=)"[^\s:"']+:([^"]*)"/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:^|\s)(?:-u|--user=)'[^\s:"']+:([^']*)'/giu },
+  { kind: 'BASIC_AUTH', regex: /(?:^|\s)(?:-u|--user=)[^\s:"']+:((?:\\.|[^\s"'\\])+)/giu },
   { kind: 'POWERSHELL_PLAINTEXT', regex: /ConvertTo-SecureString\s+["']([^"']+)["']\s+-AsPlainText/giu },
   { kind: 'URI_USERINFO', regex: /:\/\/[^\s:@/]+:([^\s@/]+)@/giu },
 ];

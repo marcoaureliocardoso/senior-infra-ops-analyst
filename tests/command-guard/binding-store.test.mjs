@@ -139,6 +139,35 @@ test('PreToolUse asks first then reuses only the approved non-secret binding', a
   });
 });
 
+test('approved Authorization binding cannot be reused as another credential transport', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const first = validEvent({
+      tool_use_id: 'tool-authorization', permission_mode: 'bypassPermissions',
+      tool_input: {
+        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer SYNTH_SECRET_auth" https://api.example.invalid/health',
+      },
+    });
+    const firstResponse = evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(firstResponse.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: first.session_id, tool_use_id: first.tool_use_id,
+      hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    }), env), true);
+
+    for (const [toolUseId, command] of [
+      ['tool-cookie', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Cookie: session=SYNTH_SECRET_cookie" https://api.example.invalid/health'],
+      ['tool-basic', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -u user:SYNTH_SECRET_basic https://api.example.invalid/health'],
+    ]) {
+      const changed = validEvent({
+        tool_use_id: toolUseId, permission_mode: 'bypassPermissions', tool_input: { command },
+      });
+      const response = evaluateHook(JSON.stringify(changed), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+      assert.equal(response.hookSpecificOutput.permissionDecision, 'ask', command);
+    }
+  });
+});
+
 test('binding input state and storage bounds fail closed', async () => {
   assert.match(resolveBindingStateDirectory({}), /command-guard-state/u);
   for (const value of [undefined, '', 'x'.repeat(513)]) {

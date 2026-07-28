@@ -41,8 +41,8 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'REDACTION_AUTHORIZATION', file: 'command-guard/redaction.mjs',
-    search: '/Authorization:\\s*(?:Bearer|Basic)\\s+([^\\s"\']+)/giu',
-    replacement: '/X-Authorization:\\s*(?:Bearer|Basic)\\s+([^\\s"\']+)/giu',
+    search: '/Authorization:\\s*(?:[A-Za-z][A-Za-z0-9._~-]*\\s+)?([^\\s"\']+)/giu',
+    replacement: '/X-Authorization:\\s*(?:[A-Za-z][A-Za-z0-9._~-]*\\s+)?([^\\s"\']+)/giu',
   },
   {
     id: 'AUDIT_FORBIDDEN_FIELD_REJECT', file: 'command-guard/audit.mjs',

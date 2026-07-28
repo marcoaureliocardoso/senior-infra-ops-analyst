@@ -62,8 +62,10 @@ before authorization.
 Profiles, agents, keychains, cached sessions, credential helpers, runtime
 variables, and protected-file direct flows configured outside the generated
 command are preferred. In-command overrides that select configuration files,
-helpers, agents, loaders, plugins, or executable resolution deny because their
-effective behavior cannot be proven statically. A literal supplied
+helpers, agents, loaders, plugins, executable resolution, network route, or TLS
+trust deny when their effective destination cannot be proven statically.
+Kubernetes accepts only a closed set of context-preserving options, and curl
+cannot override proxy, name resolution, or peer verification. A literal supplied
 in conversation is already model/provider/transcript-visible. The guard
 prevents additional disclosure. First literal use always asks. Only a matching,
 successful `PostToolUse` event activates bounded, non-secret state for
@@ -107,6 +109,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added a fail-closed launcher, matching `PostToolUse` approval recording, and bounded non-secret credential-binding state.
 - Added strict event validation, separate Bash/PowerShell lexers, composition analysis, a finite infrastructure command catalogue, target binding, and mode-aware `allow`/`ask`/`deny` policy.
 - Added parser-aware redaction, structural non-secret action identities, direct protected-file flows, bounded per-stage findings, minimal append-only audit metadata, and fail-closed process behavior.
+- Added client-aligned credential transports plus closed HTTP route/TLS and Kubernetes endpoint/credential option schemas.
 - Added 100% critical line/function/branch coverage, executable semantic fixtures for every finite inventory item, four property seeds, eleven killed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 

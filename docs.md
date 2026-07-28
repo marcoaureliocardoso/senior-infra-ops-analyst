@@ -35,7 +35,10 @@ same-identity, same-transport reuse in `bypassPermissions` across explicit
 catalogued targets, but every command is re-evaluated and the guard retains no
 value, hash, raw command, or secret-derived identifier. Prefer provider caches,
 profiles, agents, helpers, keychains, runtime variables, and direct
-protected-file consumers configured outside the generated command. Overrides
+protected-file consumers configured outside the generated command. Credential
+transport is derived from the accepted client syntax; the non-secret identity
+marker is never a credential. Unbound HTTP route/TLS and Kubernetes endpoint,
+credential, trust, impersonation, or plugin overrides deny. Overrides
 that select configuration, helpers, agents, loaders, plugins, or executable
 resolution inside the proposed command deny. A successful Bash call without
 pending binding state leaves `PostToolUse` as a silent no-op.

@@ -173,6 +173,90 @@ function commandWord(words, start, valueOptions = []) {
   return null;
 }
 
+function hasClosedOptions(words, start, valueOptions = [], flagOptions = [], booleanOptions = []) {
+  const values = new Set(valueOptions);
+  const flags = new Set(flagOptions);
+  const booleans = new Set(booleanOptions);
+  for (let index = start; index < words.length; index += 1) {
+    const word = words[index];
+    if (!word.startsWith('-')) continue;
+    if (values.has(word)) {
+      if (words[index + 1] === undefined) return false;
+      index += 1;
+      continue;
+    }
+    const inlineValue = [...values].find((name) => word.startsWith(`${name}=`));
+    if (inlineValue) {
+      if (word.length === inlineValue.length + 1) return false;
+      continue;
+    }
+    if (flags.has(word)) continue;
+    if (booleans.has(word)) {
+      if (/^(?:true|false)$/iu.test(words[index + 1] ?? '')) index += 1;
+      continue;
+    }
+    const inlineBoolean = [...booleans].find((name) => word.startsWith(`${name}=`));
+    if (inlineBoolean && /^(?:true|false)$/iu.test(word.slice(inlineBoolean.length + 1))) continue;
+    return false;
+  }
+  return true;
+}
+
+function hasClosedKubectlOptions(words, start, verb) {
+  const commonValues = [
+    '--context', '--namespace', '-n', '--request-timeout', '-o', '--output',
+  ];
+  const commonFlags = ['--all', '--all-namespaces', '-A', '--show-labels', '--ignore-not-found'];
+  const schemas = {
+    get: {
+      values: ['-l', '--selector', '--field-selector', '--chunk-size', '--sort-by'],
+      booleans: ['--watch', '--watch-only', '-w'],
+    },
+    describe: { values: ['-l', '--selector'], flags: ['--show-events'], booleans: ['--watch', '--watch-only', '-w'] },
+    logs: {
+      values: ['--tail', '--since', '--since-time', '--limit-bytes', '--container', '-c', '--max-log-requests'],
+      flags: ['--timestamps', '--prefix', '--previous', '-p', '--all-containers', '--ignore-errors'],
+      booleans: ['--follow', '-f', '--watch', '--watch-only', '-w'],
+    },
+    events: { values: ['--for', '--types', '--chunk-size'], booleans: ['--watch', '--watch-only', '-w'] },
+    version: { flags: ['--client', '--short'] },
+    'cluster-info': { flags: ['--dump'] },
+    label: { values: ['-f', '--filename', '--resource-version', '--dry-run'], flags: ['--overwrite', '--list', '--local'] },
+    annotate: { values: ['-f', '--filename', '--resource-version', '--dry-run'], flags: ['--overwrite', '--list', '--local'] },
+    apply: {
+      values: ['-f', '--filename', '--dry-run', '--field-manager', '--validate', '--selector', '-l'],
+      flags: ['--server-side', '--force-conflicts', '--prune', '--wait'],
+    },
+    patch: {
+      values: ['-p', '--patch', '--patch-file', '--type', '--subresource', '--dry-run', '--field-manager'],
+      flags: ['--local'],
+    },
+    scale: { values: ['--replicas', '--current-replicas', '--resource-version', '--timeout'], flags: ['--all'] },
+    cordon: { values: ['--selector'], flags: ['--dry-run'] },
+    uncordon: { values: ['--selector'], flags: ['--dry-run'] },
+    delete: {
+      values: ['-f', '--filename', '--grace-period', '--timeout', '--cascade', '--propagation-policy', '--dry-run'],
+      flags: ['--force', '--now'], booleans: ['--wait'],
+    },
+    drain: {
+      values: ['--grace-period', '--pod-selector', '--selector', '--timeout', '--skip-wait-for-delete-timeout'],
+      flags: ['--ignore-daemonsets', '--delete-emptydir-data', '--disable-eviction', '--force', '--dry-run'],
+    },
+    replace: {
+      values: ['-f', '--filename', '--dry-run', '--field-manager', '--validate'],
+      flags: ['--force'],
+    },
+  };
+  const schema = schemas[verb];
+  if (!schema) return false;
+  return hasClosedOptions(
+    words, start,
+    [...commonValues, ...(schema.values ?? [])],
+    [...commonFlags, ...(schema.flags ?? [])],
+    schema.booleans ?? [],
+  );
+}
+
 function positionalOperands(words, valueOptions = []) {
   const values = new Set(valueOptions);
   const operands = [];
@@ -398,6 +482,7 @@ export function lookupFamily(stage) {
     const verb = command?.word;
     if (!verb) return null;
     if (!verbs.includes(verb)) return null;
+    if (!hasClosedKubectlOptions(words, lower === 'k3s' ? 2 : 1, verb)) return null;
     if (words.some((word) => word === '--raw' || word.startsWith('--raw='))) return null;
     if (['get', 'describe', 'logs', 'events'].includes(verb) && enabledBooleanOption(words, '--watch', '--watch-only', '-w')) return null;
     if (verb === 'logs' && enabledBooleanOption(words, '--follow', '-f')) return null;
@@ -533,11 +618,11 @@ export function lookupFamily(stage) {
       ? ['-o', '--output', '-O', '--remote-name', '-D', '--dump-header', '-c', '--cookie-jar', '--etag-save', '--trace']
       : ['-OutFile'];
     const valueOptions = isCurl
-      ? [...bodyOptions, ...uploadOptions, ...sinkOptions, '-X', '--request', '-H', '--header', '-u', '--user', '--token', '--oauth2-bearer', '--url', '--connect-timeout', '--max-time', '--retry', '--cert', '--key', '--cacert', '--resolve', '--proxy', '-x', '-b', '--cookie']
+      ? [...bodyOptions, ...uploadOptions, ...sinkOptions, '-X', '--request', '-H', '--header', '-u', '--user', '--token', '--oauth2-bearer', '--url', '--connect-timeout', '--max-time', '--retry', '--cert', '--key', '-b', '--cookie']
       : [...bodyOptions, ...uploadOptions, ...sinkOptions, '-Uri', '-Method', '-Headers', '-ContentType', '-Credential', '-Authentication', '-TimeoutSec', '-MaximumRedirection'];
     const flagOptions = isCurl
-      ? ['-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2', '-k', '--insecure']
-      : ['-SkipCertificateCheck', '-UseBasicParsing'];
+      ? ['-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2']
+      : ['-UseBasicParsing'];
     const curlOptions = isCurl ? parseCurlOptions(words, valueOptions, flagOptions) : null;
     if (isCurl && (!curlOptions || curlReadsLocalRequestFile(curlOptions.entries))) return null;
     if (!isCurl) {

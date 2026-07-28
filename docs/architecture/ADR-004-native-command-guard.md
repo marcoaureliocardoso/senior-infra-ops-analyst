@@ -56,7 +56,10 @@ uses conservative normal-mode semantics rather than a version allowlist.
 5. The policy retains bounded per-stage findings, aggregates the highest risk
    and approval modifiers, then applies the permission-mode matrix. Every
    changed call is evaluated independently.
-6. Parser-aware redaction precedes model-visible output. Audit uses a SHA-256
+6. Client-aligned credential parsing excludes the non-secret identity marker,
+   recognizes separated, equals-attached, and compact accepted transports, and
+   determines the exact credential transport before model-visible output.
+   Audit uses a SHA-256
    identity derived only from the canonical non-secret action structure, never
    from raw command or credential material. Append-only records fail closed
    when they cannot be written.
@@ -80,8 +83,12 @@ uses conservative normal-mode semantics rather than a version allowlist.
 10. Client-specific closed schemas reject curl local-file request sources in
     separated, equals-attached, and compact forms; SSH configuration and local
     execution hooks; Kubernetes raw endpoints; and enabled follow/watch or
-    pagination-disabling options. Literal HTTP bodies, finite Kubernetes reads,
-    and allowlisted literal SSH transport options remain catalogued.
+    pagination-disabling options. Curl proxy, name-resolution, and insecure TLS
+    overrides deny because the current domain binding cannot represent the
+    changed route or trust. Kubernetes consumes a closed context-preserving
+    option schema and rejects endpoint, credential, trust, impersonation, and
+    plugin overrides. Literal HTTP bodies, finite Kubernetes reads, and
+    allowlisted literal SSH transport options remain catalogued.
 
 ## Enforcement points
 
@@ -108,6 +115,12 @@ credential supplied in conversation is classified as
 `MODEL_VISIBLE_LITERAL`: it is already visible to the model, provider, and
 Claude Code transcript, so the guard promises only to prevent additional
 output, audit, persistence, or unsafe-flow disclosure.
+
+The parser derives transport from the accepted client spelling rather than a
+generic consumer label. `OPS_CREDENTIAL_IDENTITY` supplies only a bounded
+non-secret principal and is excluded from credential spans, so Authorization,
+Cookie, Basic Auth, flag, variable, and URI transports cannot share approval
+state accidentally.
 
 In every mode, first literal use raises the current call to `ask`. Only a
 matching successful `PostToolUse` event can activate reuse. In
@@ -146,7 +159,7 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 87 active Node tests plus one intentionally
+- The remediated deterministic gate runs 98 active Node tests plus one intentionally
   skipped mutation-only fixture, four recorded property seeds, a finite
   inventory orphan check, and exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
@@ -157,7 +170,7 @@ ambiguous destinations deny.
   precedence, risk aggregation, unsafe credential sink, authorization
   redaction, forbidden audit fields, and fail-closed exit.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 27-case stable-ID adversarial
+  modules with source, then executes the same 37-case stable-ID adversarial
   corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
@@ -172,11 +185,12 @@ ambiguous destinations deny.
   phases, then passed the installed corpus and `default` plus
   `bypassPermissions` probes. The harness emitted the mandatory open-egress
   warning. These observed identifiers are evidence, not requirements.
-- The complete package gate passed on host Node.js `v24.17.0`, whose native
-  test runner exposes the required line, function, and branch threshold flags.
-  The WSL runtime was sufficient for guard execution and live evidence but did
-  not expose those coverage-gate capabilities; capability probing, rather than
-  a version allowlist, determined which runtime executed that development gate.
+- The complete package gate passed on host and Debian WSL2 Node.js `v24.17.0`,
+  whose native test runner exposes the required line, function, and branch
+  threshold flags. WSL uses a SHA-256-verified official user-local binary; its
+  Debian system Node `v20.19.2` remains unchanged. Capability probing, rather
+  than a project version allowlist, determines which runtime executes the
+  development gate.
 
 ## Accepted live-smoke exception
 
