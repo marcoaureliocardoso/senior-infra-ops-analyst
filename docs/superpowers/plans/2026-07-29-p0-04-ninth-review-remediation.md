@@ -31,11 +31,11 @@
 - `analyzeCommand()` produces `credentialBinding: { domain, family, targetClass } | null`.
 - `bindingFromResult()` consumes only `result.credentialBinding` for scope.
 
-- [ ] Add a lifecycle test that approves `kubectl change ; authenticated curl api-a` and asserts `kubectl change ; authenticated curl api-b` still asks.
-- [ ] Run the focused binding tests and observe the second call incorrectly return `allow`.
-- [ ] Track the exact credential consumer during stage analysis and derive the non-secret binding projection from it.
-- [ ] Reject literal credential compositions without exactly one supported consumer.
-- [ ] Run binding and credential-flow tests until green.
+- [x] Add a lifecycle test that approves `kubectl change ; authenticated curl api-a` and asserts `kubectl change ; authenticated curl api-b` still asks.
+- [x] Run the focused binding tests and observe the second call incorrectly return `allow`.
+- [x] Track the exact credential-bearing stage during analysis and derive the non-secret binding projection from it.
+- [x] Require that the credential-bearing stage map to a catalogued family with an explicit environment.
+- [x] Run binding and credential-flow tests until green.
 
 ### Task 2: Close opaque and multi-source command parsers
 
@@ -46,13 +46,13 @@
 **Interfaces:**
 - Private parsers return a fully consumed invocation object or `null`.
 
-- [ ] Add failing tests for repeated/extra `mongosh --eval`, `--file`, and positional scripts.
-- [ ] Add failing tests for `ip -batch` and `ip -b` command files.
-- [ ] Add failing tests for `scp` execution/config overrides and `sftp` batch files.
-- [ ] Add failing tests for `tcpdump -w`, `-z`, and unsupported opaque inputs.
-- [ ] Run only the new regression names and observe each unsafe form receive `allow` or an insufficient `ask`.
-- [ ] Implement separate closed parsers for MongoDB, ip, scp, sftp, tcpdump, and tshark.
-- [ ] Run the focused security and branch suites until green.
+- [x] Add failing tests for repeated/extra `mongosh --eval`, `--file`, and positional scripts.
+- [x] Add failing tests for `ip -batch` and `ip -b` command files.
+- [x] Add failing tests for `scp` execution/config overrides and `sftp` batch files.
+- [x] Add failing tests for `tcpdump -w`, `-z`, and unsupported opaque inputs.
+- [x] Run only the new regression names and observe each unsafe form receive `allow` or an insufficient `ask`.
+- [x] Implement closed client parsers and explicit batch-alias rejection for MongoDB, ip, scp, sftp, tcpdump, and tshark.
+- [x] Run the focused security and branch suites until green.
 
 ### Task 3: Correct nested container, Git sink, and dmesg effects
 
@@ -65,14 +65,14 @@
 - `parseCtrInvocation(words)` derives the nested image verb and complete operands.
 - Git read parsers return canonical file effects through the existing output-path resolver.
 
-- [ ] Add failing tests for `ctr images pull`, import, and removal risk.
-- [ ] Add failing tests for `git diff --output` plus dynamic and external-diff forms.
-- [ ] Add failing tests for dmesg clear/read-clear and console-control actions in both permission modes.
-- [ ] Run the focused tests and record the current SAFE_READ_ONLY outcomes.
-- [ ] Split `ctr` from Docker-compatible parsing and classify its exact nested verbs.
-- [ ] Close Git read options; model supported output sinks and deny execution hooks.
-- [ ] Parse dmesg actions before read selectors and apply destructive/disruptive risks.
-- [ ] Run catalogue, policy, output-path, and security suites until green.
+- [x] Add failing tests for `ctr images pull`, import, and removal risk.
+- [x] Add failing tests for `git diff --output` plus dynamic and external-diff forms.
+- [x] Add failing tests for dmesg clear/read-clear and console-control actions in both permission modes.
+- [x] Run the focused tests and record the current SAFE_READ_ONLY outcomes.
+- [x] Split `ctr` from Docker-compatible parsing and classify its exact nested verbs.
+- [x] Close Git read options; model supported output sinks and deny execution hooks.
+- [x] Parse dmesg actions before read selectors and apply destructive/disruptive risks.
+- [x] Run catalogue, policy, output-path, and security suites until green.
 
 ### Task 4: Register stable fixtures and mutation witnesses
 
@@ -87,12 +87,12 @@
 - Every new security predicate has one exact source mutation and one matching witness.
 - Review fixtures execute against source and installed scripts.
 
-- [ ] Add one stable fixture per reproduced defect with literal expected decision, risk, target, and modifiers.
-- [ ] Run fixture-ledger tests and observe missing execution/inventory failures where applicable.
-- [ ] Register security predicate IDs for consumer binding and each parser/effect closure.
-- [ ] Add one-site mutations, then run registry tests and observe missing witness failures.
-- [ ] Add semantic witnesses and verify pristine success plus mutant-specific assertion failure.
-- [ ] Run installed-corpus and mutation suites until green.
+- [x] Add one stable fixture per reproduced defect with literal expected decision, risk, target, and modifiers.
+- [x] Run fixture-ledger tests and observe missing execution/inventory failures where applicable.
+- [x] Register security predicate IDs for consumer binding and each parser/effect closure.
+- [x] Add one-site mutations, then run registry tests and observe missing witness failures.
+- [x] Add semantic witnesses and verify pristine success plus mutant-specific assertion failure.
+- [x] Run installed-corpus and mutation suites until green.
 
 ### Task 5: Update architecture and execute final verification
 
@@ -106,10 +106,12 @@
 **Interfaces:**
 - Documentation records observed evidence as observations, never requirements.
 
-- [ ] Record the ninth review findings and dispositions in the review log.
-- [ ] Amend ADR-004 with consumer-stage binding and the closed client grammars.
-- [ ] Update README and the existing `0.11.0` changelog entry without changing version.
-- [ ] Run `node tests/run-command-guard-tests.mjs` and record exact totals.
-- [ ] Run all Python, PowerShell, WSL, package, and installed-artifact gates used by PR #25.
-- [ ] Run `git diff --check`, inspect every changed file, and verify no artifacts or unchecked plan boxes remain.
-- [ ] Request a fresh independent read-only review before merge.
+- [x] Record the twelfth review findings and dispositions in the review log.
+- [x] Amend ADR-004 with credential-stage binding and the closed client grammars.
+- [x] Update README and the existing `0.11.0` changelog entry without changing version.
+- [x] Run `node tests/run-command-guard-tests.mjs` and record exact totals.
+- [x] Run all Python, PowerShell, WSL, package, and installed-artifact gates used by PR #25.
+- [x] Run `git diff --check`, inspect every changed file, and verify no artifacts or unchecked plan boxes remain.
+
+Merge gate: request one fresh independent read-only review after these changes
+are published to PR #25.

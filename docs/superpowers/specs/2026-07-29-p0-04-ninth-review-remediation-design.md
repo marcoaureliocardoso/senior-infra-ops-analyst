@@ -23,11 +23,10 @@ Options that execute another program, load an opaque command file, write a
 local sink, select an unanalysed script, or hide a nested verb deny unless the
 catalogue explicitly models their effect.
 
-Credential reuse is derived from the exact stage that consumes the literal
-credential. The aggregate highest-risk stage remains responsible for the
-overall decision, but it cannot supply the credential domain, family, or target
-class. A literal-credential composition with zero or multiple credential
-consumers denies.
+Credential reuse is derived from the exact stage that contains and consumes
+the literal credential. The aggregate highest-risk stage remains responsible
+for the overall decision, but it cannot supply the credential domain, family,
+or target class.
 
 ## Client-specific closures
 
@@ -39,9 +38,10 @@ consumers denies.
 - `scp` and `sftp` use separate closed option schemas. Local execution/config
   overrides and SFTP batch files deny. Transfer direction and remote endpoint
   are derived from fully consumed operands.
-- `tcpdump` and `tshark` use separate closed schemas. Local capture sinks,
-  post-rotate commands, opaque input files, and unsupported options deny in
-  this remediation.
+- `tcpdump` and `tshark` use client-specific closed schemas. A resolved local
+  capture sink is a `LOW_RISK_CHANGE` with `FILE_WRITE + ALWAYS_ASK`;
+  post-rotate commands, opaque input files, dynamic sinks, and unsupported
+  options deny.
 - Docker-compatible clients retain their current one-level grammar. `ctr` gets
   a dedicated hierarchical parser for explicitly supported image operations;
   pulls/imports are changes and removals are destructive.

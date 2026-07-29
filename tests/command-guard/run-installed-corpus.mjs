@@ -25,6 +25,7 @@ for (const fixture of REVIEW_REGRESSION_FIXTURES) {
   if (fixture.expectedRisk) assert.equal(result.risk, fixture.expectedRisk, fixture.id);
   if (fixture.expectedEnvironment) assert.equal(result.environment, fixture.expectedEnvironment, fixture.id);
   if (fixture.expectedTarget) assert.equal(result.target, fixture.expectedTarget, fixture.id);
+  if (fixture.expectedCredentialBinding) assert.deepEqual(result.credentialBinding, fixture.expectedCredentialBinding, fixture.id);
   if (fixture.expectedModifiers) assert.deepEqual(result.modifiers.toSorted(), fixture.expectedModifiers.toSorted(), fixture.id);
   if (fixture.forbiddenText) assert.doesNotMatch(JSON.stringify(result), new RegExp(fixture.forbiddenText, 'u'));
   if (fixture.redactionForbiddenText) assert.doesNotMatch(redactText(fixture.command), new RegExp(fixture.redactionForbiddenText, 'u'));

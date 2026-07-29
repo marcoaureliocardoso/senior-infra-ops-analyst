@@ -236,6 +236,7 @@ function runReview(item) {
   if (fixture.expectedRisk) assert.equal(result.risk, fixture.expectedRisk);
   if (fixture.expectedEnvironment) assert.equal(result.environment, fixture.expectedEnvironment);
   if (fixture.expectedTarget) assert.equal(result.target, fixture.expectedTarget);
+  if (fixture.expectedCredentialBinding) assert.deepEqual(result.credentialBinding, fixture.expectedCredentialBinding);
   if (fixture.expectedModifiers) assert.deepEqual(result.modifiers.toSorted(), fixture.expectedModifiers.toSorted());
 }
 

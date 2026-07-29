@@ -118,7 +118,8 @@ export function hasActiveBinding(binding, env = process.env, now = Date.now()) {
 }
 
 export function bindingFromResult(result, event) {
-  if (!result.credential?.literal || !event.toolUseId || !result.environment || !result.policyId) return null;
+  const scope = result.credentialBinding;
+  if (!result.credential?.literal || !event.toolUseId || !scope?.domain || !scope.family || !scope.targetClass) return null;
   const assignment = event.command.match(/(?:^|\s)OPS_CREDENTIAL_IDENTITY=([A-Za-z0-9._@-]{1,128})(?:\s|$)/u)?.[1];
   const uriIdentity = event.command.match(/:\/\/([^\s:@/]+)(?::[^\s@/]*)?@/u)?.[1];
   const identity = assignment ?? uriIdentity;
@@ -126,10 +127,10 @@ export function bindingFromResult(result, event) {
   return Object.freeze({
     sessionId: event.sessionId,
     toolUseId: event.toolUseId,
-    domain: result.environment,
+    domain: scope.domain,
     identity,
     transport: result.credential.transport,
-    family: result.policyId,
-    targetClass: result.policyId,
+    family: scope.family,
+    targetClass: scope.targetClass,
   });
 }

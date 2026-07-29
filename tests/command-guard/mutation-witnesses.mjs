@@ -216,6 +216,42 @@ const witnesses = {
   async CATALOGUE_POSTGRES_MAX_PROTOCOL_ENV(context) {
     await postgresEnvironmentFixture(context, 'PGMAXPROTOCOLVERSION', '3.0');
   },
+  async POLICY_CREDENTIAL_CONSUMER_BINDING(context) {
+    const result = await policyFixture(
+      context,
+      'kubectl --context prod label pod/foo x=y ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_binding_mutation" https://api.example.invalid/health',
+    );
+    assert.equal(result.credentialBinding.domain, 'https://api.example.invalid');
+    assert.equal(result.credentialBinding.family, 'HTTP');
+  },
+  async CATALOGUE_MONGOSH_SINGLE_EVAL(context) {
+    assert.equal((await policyFixture(context, 'mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()" --eval "db.users.drop()"')).decision, 'deny');
+  },
+  async CATALOGUE_IP_BATCH_REJECT(context) {
+    assert.equal((await policyFixture(context, 'ip -batch route')).decision, 'deny');
+  },
+  async CATALOGUE_REMOTE_EXECUTOR_REJECT(context) {
+    assert.equal((await policyFixture(context, 'scp -S /tmp/payload local.txt ops@example.invalid:/tmp/remote.txt')).decision, 'deny');
+  },
+  async CATALOGUE_PACKET_SINK_EFFECT(context) {
+    const result = await policyFixture(context, 'tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap host 192.0.2.1');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'LOW_RISK_CHANGE');
+    assert.ok(result.modifiers.includes('FILE_WRITE'));
+  },
+  async CATALOGUE_CTR_NESTED_RISK(context) {
+    assert.equal((await policyFixture(context, 'ctr images pull docker.io/library/nginx:latest')).risk, 'LOW_RISK_CHANGE');
+  },
+  async CATALOGUE_GIT_OUTPUT_EFFECT(context) {
+    const result = await policyFixture(context, 'git diff --output=/var/tmp/review.patch');
+    assert.equal(result.decision, 'ask');
+    assert.ok(result.modifiers.includes('FILE_WRITE'));
+  },
+  async CATALOGUE_DMESG_CONTROL_RISK(context) {
+    const result = await policyFixture(context, 'dmesg --read-clear --level err');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'DESTRUCTIVE');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

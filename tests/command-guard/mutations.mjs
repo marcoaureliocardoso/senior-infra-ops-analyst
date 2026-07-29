@@ -189,4 +189,44 @@ export const MUTATIONS = Object.freeze([
     search: "'PGMAXPROTOCOLVERSION',",
     replacement: "'PGMAXPROTOCOLVERSION_MUTATED',",
   },
+  {
+    id: 'POLICY_CREDENTIAL_CONSUMER_BINDING', file: 'command-guard/policy.mjs',
+    search: "const credentialBinding = credentialStage?.environment && credentialStage.policyId\n    ? {\n      domain: credentialStage.environment,\n      family: credentialStage.policyId,\n      targetClass: credentialStage.policyId,\n    }\n    : null;",
+    replacement: "const credentialBinding = aggregate.environment && aggregate.policyId\n    ? { domain: aggregate.environment, family: aggregate.policyId, targetClass: aggregate.policyId }\n    : null;",
+  },
+  {
+    id: 'CATALOGUE_MONGOSH_SINGLE_EVAL', file: 'command-guard/catalogue.mjs',
+    search: '      if (script !== null) return null;',
+    replacement: '      if (false) return null;',
+  },
+  {
+    id: 'CATALOGUE_IP_BATCH_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "    if (words.slice(1).some((word) =>\n      ['-b', '-batch', '--batch'].includes(word) || /^--?batch=/u.test(word) || /^-b(?!r(?:ief)?$).+/u.test(word))) return null;",
+    replacement: '    if (false) return null;',
+  },
+  {
+    id: 'CATALOGUE_REMOTE_EXECUTOR_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "? new Set(['-P', '-i', '-J', '-l'])",
+    replacement: "? new Set(['-P', '-i', '-J', '-l', '-S'])",
+  },
+  {
+    id: 'CATALOGUE_PACKET_SINK_EFFECT', file: 'command-guard/catalogue.mjs',
+    search: "  const sink = values.get('-w');",
+    replacement: '  const sink = undefined;',
+  },
+  {
+    id: 'CATALOGUE_CTR_NESTED_RISK', file: 'command-guard/catalogue.mjs',
+    search: "if (['pull', 'import'].includes(verb) && operands.length === 1) return { risk: 'LOW_RISK_CHANGE', target: operands[0] };",
+    replacement: "if (['pull', 'import'].includes(verb) && operands.length === 1) return { risk: 'SAFE_READ_ONLY', target: operands[0] };",
+  },
+  {
+    id: 'CATALOGUE_GIT_OUTPUT_EFFECT', file: 'command-guard/catalogue.mjs',
+    search: "    if (verb === 'diff' && (word === '--output' || word.startsWith('--output='))) {",
+    replacement: "    if (false && (word === '--output' || word.startsWith('--output='))) {",
+  },
+  {
+    id: 'CATALOGUE_DMESG_CONTROL_RISK', file: 'command-guard/catalogue.mjs',
+    search: "      risk = 'DESTRUCTIVE';",
+    replacement: "      risk = 'SAFE_READ_ONLY';",
+  },
 ]);

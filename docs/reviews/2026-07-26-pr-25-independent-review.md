@@ -486,3 +486,36 @@ to source. `git diff --check origin/main` passed. No Claude process, real
 credential, or runtime/model pin was introduced or used. `PGSYSCONFDIR` cannot
 alter the accepted domain because service selectors and connection strings in
 the database selector remain outside the closed grammar.
+
+## 2026-07-29 twelfth independent review disposition
+
+A subsequent independent review reproduced eight adjacent authorization gaps
+despite the prior green gate. Credential reuse followed the composition's
+highest-risk stage instead of the literal credential consumer; seven command
+families also left options, nested verbs, sinks, or control effects outside
+their effective analysis.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-61 | Credential binding followed aggregate risk | A higher-risk Kubernetes stage supplied the binding for a later authenticated HTTP stage, permitting reuse against a changed HTTP origin | Project domain, family, and target class from the exact credential-bearing stage | Remediated; independent verification pending |
+| RV-62 | MongoDB accepted multiple execution sources | Repeated `--eval`, file, positional script, and shell forms escaped the first-script analysis | Consume exactly one URI and one inline `--eval`; deny every extra source or option | Remediated; independent verification pending |
+| RV-63 | IP batch files inherited read authorization | Separated, equals-attached, and compact batch aliases could load opaque commands while a read object remained visible | Reject every batch alias while preserving literal brief reads | Remediated; independent verification pending |
+| RV-64 | Remote transfers accepted local executors and opaque configuration | `scp`/`sftp` execution, configuration, proxy, server, and batch controls were ignored | Consume closed client-specific transport options and exact transfer operands | Remediated; independent verification pending |
+| RV-65 | Packet-capture sinks and executors were unmodelled | `-w` remained read-only and post-rotate/input-file controls were accepted | Model resolved capture files as mandatory-confirmation writes and deny executors, opaque inputs, dynamic sinks, and unknown options | Remediated; independent verification pending |
+| RV-66 | `ctr` nested image effects were flattened | Pull, import, and remove were classified from the parent `images` noun | Parse exact nested verbs and classify reads, changes, and destructive removals separately | Remediated; independent verification pending |
+| RV-67 | Git read verbs accepted output and external execution controls | `git diff --output` wrote autonomously while external-diff controls remained eligible as reads | Close read options, bind resolved output effects, and deny external diff/textconv execution | Remediated; independent verification pending |
+| RV-68 | `dmesg` control actions inherited display risk | Clear/read-clear and console controls combined with a level selector remained safe reads | Consume all display/control options and classify clear as destructive and console controls as disruptive | Remediated; independent verification pending |
+
+The eight regressions were observed RED through real policy or binding lifecycle
+entrypoints before remediation. RV-61 through RV-68 are executable corpus
+fixtures, with the RV-61 lifecycle additionally proving that an approved HTTP
+origin cannot be reused for another origin behind a higher-risk preceding
+stage. Each protection has one exact one-site mutation and typed witness. The
+final source and Debian/WSL package gates pass 204 tests with zero skips, 100
+percent critical line/function/branch coverage, four fixed property seeds, and
+46 of 46 baseline-proven typed mutations. A temporary isolated Nori `0.31.0`
+install registered 12 subagents, 24 skills, and 20 slash commands; installed
+semantic validation and all 84 fixtures passed. Host PowerShell syntax
+validation also passed. Observed versions are evidence only and remain
+unpinned. One fresh independent read-only verification remains pending before
+merge.

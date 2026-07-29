@@ -36,6 +36,10 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_POSTGRES_SSL_CERT_MODE_ENV', 'CATALOGUE_POSTGRES_SSL_MIN_PROTOCOL_ENV',
   'CATALOGUE_POSTGRES_SSL_MAX_PROTOCOL_ENV', 'CATALOGUE_POSTGRES_GSS_DELEGATION_ENV',
   'CATALOGUE_POSTGRES_MIN_PROTOCOL_ENV', 'CATALOGUE_POSTGRES_MAX_PROTOCOL_ENV',
+  'POLICY_CREDENTIAL_CONSUMER_BINDING', 'CATALOGUE_MONGOSH_SINGLE_EVAL',
+  'CATALOGUE_IP_BATCH_REJECT', 'CATALOGUE_REMOTE_EXECUTOR_REJECT',
+  'CATALOGUE_PACKET_SINK_EFFECT', 'CATALOGUE_CTR_NESTED_RISK',
+  'CATALOGUE_GIT_OUTPUT_EFFECT', 'CATALOGUE_DMESG_CONTROL_RISK',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -107,6 +111,16 @@ export function analyzeCommand(event, env = {}) {
     analyses.push({ ...match, stage: stage.index });
   }
   const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
+  const credentialStage = credentialAnalysis.metadata?.literal
+    ? analyses.find(({ stage }) => stage === credentialAnalysis.metadata.stage)
+    : null;
+  const credentialBinding = credentialStage?.environment && credentialStage.policyId
+    ? {
+      domain: credentialStage.environment,
+      family: credentialStage.policyId,
+      targetClass: credentialStage.policyId,
+    }
+    : null;
   const modifiers = [...new Set(analyses.flatMap(({ modifiers: values }) => values))];
   const findings = analyses.map(({ stage, policyId, risk, modifiers: stageModifiers }) => ({
     stage, ruleId: policyId, risk, modifiers: stageModifiers,
@@ -132,6 +146,6 @@ export function analyzeCommand(event, env = {}) {
     decision, reasonCode, message: `${reasonCode}: ${stageSummary}. ${action} Sensitive values are redacted.`,
     risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
-    credential: credentialAnalysis.metadata, findings, stage: aggregate.stage,
+    credential: credentialAnalysis.metadata, credentialBinding, findings, stage: aggregate.stage,
   };
 }

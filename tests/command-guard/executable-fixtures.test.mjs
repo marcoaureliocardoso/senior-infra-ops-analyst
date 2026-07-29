@@ -24,6 +24,7 @@ test('every independent-review regression fixture executes its assertions', () =
     if (fixture.expectedRisk) assert.equal(result.risk, fixture.expectedRisk, fixture.id);
     if (fixture.expectedEnvironment) assert.equal(result.environment, fixture.expectedEnvironment, fixture.id);
     if (fixture.expectedTarget) assert.equal(result.target, fixture.expectedTarget, fixture.id);
+    if (fixture.expectedCredentialBinding) assert.deepEqual(result.credentialBinding, fixture.expectedCredentialBinding, fixture.id);
     if (fixture.expectedModifiers) assert.deepEqual(result.modifiers.toSorted(), fixture.expectedModifiers.toSorted(), fixture.id);
     if (fixture.forbiddenText) {
       assert.doesNotMatch(JSON.stringify(result), new RegExp(fixture.forbiddenText, 'u'), fixture.id);

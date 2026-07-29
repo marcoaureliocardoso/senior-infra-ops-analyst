@@ -940,3 +940,175 @@ test('mutations require a literal resource target, not only a context', () => {
   ];
   for (const command of allowed) assert.equal(analyze(command).decision, 'allow', command);
 });
+
+test('mongosh consumes exactly one inline execution source', () => {
+  for (const command of [
+    'mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()" --eval "db.users.drop()"',
+    'mongosh mongodb://db.example.invalid/app --file payload.js --eval "db.serverStatus()"',
+    'mongosh mongodb://db.example.invalid/app payload.js --eval "db.serverStatus()"',
+    'mongosh mongodb://db.example.invalid/app --shell --eval "db.serverStatus()"',
+  ]) assert.equal(analyze(command, 'default').decision, 'deny', command);
+  assert.equal(analyze('mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()"', 'default').decision, 'allow');
+});
+
+test('ip batch command files never inherit read-only authorization', () => {
+  for (const command of ['ip -batch route', 'ip -b route', 'ip -broute route', 'ip -batch=route route', 'ip -force -batch route']) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      assert.equal(analyze(command, mode).decision, 'deny', `${mode}: ${command}`);
+    }
+  }
+});
+
+test('remote transfer clients reject local executors configs and opaque batches', () => {
+  for (const command of [
+    'scp -S /tmp/payload local.txt ops@example.invalid:/tmp/remote.txt',
+    'scp -o "ProxyCommand=sh payload.sh" local.txt ops@example.invalid:/tmp/remote.txt',
+    'scp -F ssh-config local.txt ops@example.invalid:/tmp/remote.txt',
+    'sftp -b batch.txt sftp://ops@example.invalid/tmp',
+    'sftp -D "/tmp/server --unsafe" ops@example.invalid:/tmp',
+    'sftp -S /tmp/payload ops@example.invalid:/tmp',
+  ]) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      assert.equal(analyze(command, mode).decision, 'deny', `${mode}: ${command}`);
+    }
+  }
+});
+
+test('packet capture parses local sinks and rejects post-process execution', () => {
+  const sink = analyze('tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap host 192.0.2.1');
+  assert.equal(sink.decision, 'ask');
+  assert.equal(sink.risk, 'LOW_RISK_CHANGE');
+  assert.ok(sink.modifiers.includes('FILE_WRITE'));
+  assert.ok(sink.modifiers.includes('ALWAYS_ASK'));
+  assert.match(sink.target, /file:\/var\/tmp\/capture\.pcap/u);
+  for (const command of [
+    'tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap -C 1 -z payload',
+    'tcpdump -i eth0 -c 10 -V capture-list.txt',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
+test('ctr nested image verbs carry their actual effect risk', () => {
+  for (const command of [
+    'ctr images pull docker.io/library/nginx:latest',
+    'ctr images import rootfs.tar',
+  ]) {
+    assert.equal(analyze(command, 'default').decision, 'ask', command);
+    assert.equal(analyze(command).risk, 'LOW_RISK_CHANGE', command);
+  }
+  for (const command of [
+    'ctr images rm docker.io/library/nginx:latest',
+    'ctr images remove docker.io/library/nginx:latest',
+  ]) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'ask', `${mode}: ${command}`);
+      assert.equal(result.risk, 'DESTRUCTIVE', command);
+    }
+  }
+  assert.equal(analyze('ctr images list', 'default').decision, 'allow');
+});
+
+test('Git read verbs cannot hide file sinks or external executors', () => {
+  for (const mode of ['default', 'bypassPermissions']) {
+    const sink = analyze('git diff --output=/var/tmp/review.patch', mode);
+    assert.equal(sink.decision, 'ask', mode);
+    assert.equal(sink.risk, 'LOW_RISK_CHANGE', mode);
+    assert.ok(sink.modifiers.includes('FILE_WRITE'));
+    assert.ok(sink.modifiers.includes('ALWAYS_ASK'));
+  }
+  for (const command of [
+    'git diff --output=$HOME/review.patch',
+    'git diff --ext-diff',
+    'git log --ext-diff -p -n 1',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
+test('dmesg control actions never inherit safe-read authorization', () => {
+  for (const command of [
+    'dmesg --clear --level err',
+    'dmesg --read-clear --level err',
+  ]) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'ask', `${mode}: ${command}`);
+      assert.equal(result.risk, 'DESTRUCTIVE', command);
+    }
+  }
+  assert.equal(analyze('dmesg --console-off', 'default').risk, 'DISRUPTIVE_CHANGE');
+  assert.equal(analyze('dmesg --console-off').decision, 'allow');
+});
+
+test('closed review parsers consume every option and malformed edge', () => {
+  for (const command of [
+    'git status --short --branch',
+    'git log',
+    'git show --stat --oneline HEAD',
+    'git log -n 1 --pretty=oneline HEAD',
+    'git diff --cached --name-status HEAD',
+    'ip -brief route',
+    'scp -4 -o BatchMode=yes -P 22 artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -oBatchMode=yes -P22 artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'sftp -q -o BatchMode=yes -P 22 sftp://ops@example.invalid/tmp',
+    'sftp sftp://ops@example.invalid:22/tmp',
+    'sftp sftp://example.invalid/tmp',
+    'mongosh mongodb://db.example.invalid/app --eval=db.serverStatus()',
+    'tshark -n --interface=eth0 --count=10 host 192.0.2.1',
+    'tcpdump -nn -i eth0 -c 10 -s 128 host 192.0.2.1',
+    'ctr images ls',
+    'dmesg --level=err --human --decode',
+  ]) assert.notEqual(analyze(command).decision, 'deny', command);
+
+  const tooManyGitOperands = Array.from({ length: 21 }, (_, index) => `r${index}`).join(' ');
+  const tooManyCtrOperands = Array.from({ length: 21 }, (_, index) => `image${index}`).join(' ');
+  for (const command of [
+    'git status --unknown',
+    'git log -n',
+    'git log --pretty=',
+    'git log --unknown',
+    'git show $REVISION',
+    `git show ${tooManyGitOperands}`,
+    'git diff --output /var/tmp/a.patch --output=/var/tmp/b.patch',
+    'git diff --output=',
+    'scp -o artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -o',
+    'scp -oProxyCommand=payload artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -P artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -P 70000 artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -P70000 artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp -Z artifact.txt ops@example.invalid:/tmp/artifact.txt',
+    'scp ops@example.invalid:/tmp/source artifact.txt',
+    'sftp sftp://%/tmp',
+    'sftp sftp://example.invalid:99999/tmp',
+    'sftp :/tmp',
+    'mongosh mongodb://db.example.invalid/app mongodb://other.example.invalid/app --eval "db.serverStatus()"',
+    'mongosh mongodb://db.example.invalid/app --eval=',
+    'mongosh mongodb://%/app --eval "db.serverStatus()"',
+    'tshark -v -i eth0 -c 10 host 192.0.2.1',
+    'tcpdump -i eth0 --interface eth1 -c 10 host 192.0.2.1',
+    'tcpdump -i eth0 -c 10 --count=9 host 192.0.2.1',
+    'tcpdump -i eth0 -c host 192.0.2.1',
+    'tcpdump -i $INTERFACE -c 10 host 192.0.2.1',
+    'tcpdump -i eth0 -c 10 $FILTER',
+    'tcpdump -i eth0 -c 10 -s 999999 host 192.0.2.1',
+    'tcpdump -i eth0 -c 10 -w $HOME/capture.pcap host 192.0.2.1',
+    'tcpdump -i eth0 -c 10 -w ~/capture.pcap host 192.0.2.1',
+    'ctr containers list',
+    'ctr images',
+    'ctr images inspect image',
+    'ctr images pull',
+    'ctr images rm',
+    'ctr images pull $IMAGE',
+    `ctr images rm ${tooManyCtrOperands}`,
+    'dmesg --level',
+    'dmesg --level=',
+    'dmesg --level err --unknown',
+    'dmesg --clear --unknown',
+    'dmesg --console-level',
+    'dmesg --console-level=',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+
+  assert.equal(analyze('git diff --output /var/tmp/review.patch').risk, 'LOW_RISK_CHANGE');
+  assert.equal(analyze('dmesg --console-level 4').risk, 'DISRUPTIVE_CHANGE');
+  assert.equal(analyze('dmesg --console-level=4').risk, 'DISRUPTIVE_CHANGE');
+  assert.equal(analyze('dmesg --clear --console-off').risk, 'DESTRUCTIVE');
+});

@@ -188,6 +188,25 @@ uses conservative normal-mode semantics rather than a version allowlist.
     parser. With a literal credential, trace to `-` or `%` denies as secret
     output and trace to a resolved file denies as secret persistence; neither
     can be downgraded to native confirmation by `bypassPermissions`.
+31. Credential approval scope is projected from the exact stage carrying the
+    literal credential, not from the composition's highest-risk stage. Risk
+    aggregation therefore cannot substitute another command family's domain.
+32. `mongosh` accepts exactly one inline `--eval`; `ip` rejects every separated,
+    equals-attached, or compact batch-file form. Extra scripts, shell mode, and
+    opaque command files deny.
+33. `scp` and `sftp` consume closed transport schemas and complete operand
+    shapes. Local executors, arbitrary configuration, proxy commands, server
+    programs, and SFTP batch files deny.
+34. Packet-capture schemas consume every supported option. A resolved `-w`
+    sink is `LOW_RISK_CHANGE + FILE_WRITE + ALWAYS_ASK`; post-process executors,
+    input file lists, dynamic sinks, and unknown options deny.
+35. `ctr` has a hierarchical image grammar: list is read-only, pull/import are
+    changes, and remove aliases are destructive. Git read verbs have closed
+    options; resolved diff output is a mandatory-confirmation file effect, and
+    external diff/textconv execution denies.
+36. `dmesg` consumes display and control options separately. Clear/read-clear
+    are destructive and console controls are disruptive, including when a
+    display-level selector is also present.
 
 ## Enforcement points
 
@@ -259,13 +278,13 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 187 active Node tests with zero
+- The remediated deterministic gate runs 204 active Node tests with zero
   skips, four recorded property seeds, a finite inventory orphan check, and
   exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
   policy, catalogue, redaction, response, audit, and both entrypoint modules achieve 100%
   line, function, and branch coverage with native Node test coverage.
-- Thirty-eight registered security mutations are baseline-proven and killed by
+- Forty-six registered security mutations are baseline-proven and killed by
   their exact typed witnesses, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
@@ -276,14 +295,20 @@ ambiguous destinations deny.
   canonical domains, Git long-delete parity, the output-root allowlist, HTTP
   routing-header rejection, explicit database domains, sensitive stdout,
   tilde-output rejection, PostgreSQL environment rejection, MySQL socket-host
-  rejection, and credential-bearing trace disclosure.
+  rejection, credential-bearing trace disclosure, credential-consumer stage
+  binding, and the MongoDB, IP batch, remote-transfer, packet-capture, nested
+  `ctr`, Git output, and `dmesg` control closures.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 76-case stable-ID adversarial
+  modules with source, then executes the same 84-case stable-ID adversarial
   corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
   executable semantic fixture. One ledger proves every declared fixture ran
   exactly once and fails on stale, missing, duplicate, or unexecuted evidence.
+- A fresh Debian/WSL package gate passed with an observed capability-compatible
+  Node.js `v24.17.0`. A temporary isolated Nori `0.31.0` install registered 12
+  subagents, 24 skills, and 20 slash commands; installed semantic validation
+  and all 84 installed fixtures passed. These observations are not requirements.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
   retained-output scans, and redacted evidence.

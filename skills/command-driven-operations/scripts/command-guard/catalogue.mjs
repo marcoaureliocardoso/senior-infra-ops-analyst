@@ -6,7 +6,7 @@ import { resolveOutputPath } from './output-path.mjs';
 const POSIX_READ = new Set(['uname', 'uptime', 'free', 'df', 'lsblk', 'findmnt']);
 const FILTER = new Set(['grep', 'rg', 'head', 'tail', 'cut', 'sort', 'uniq', 'wc']);
 const PS_FILTER = new Set(['where-object', 'select-object', 'sort-object', 'group-object', 'measure-object', 'format-table']);
-const CONTAINERS = new Set(['docker', 'podman', 'nerdctl', 'ctr', 'crictl']);
+const CONTAINERS = new Set(['docker', 'podman', 'nerdctl', 'crictl']);
 const PS_READ = new Set([
   'get-service', 'get-process', 'get-ciminstance', 'get-computerinfo',
   'get-hotfix', 'get-netadapter', 'get-netipconfiguration', 'get-netroute',
@@ -721,7 +721,59 @@ function parseGitBranch(words) {
   return null;
 }
 
-function gitCiFamily(words, lower) {
+function literalOperand(value) {
+  return typeof value === 'string' && value.length > 0 && !/[$*?{}\[\]]/u.test(value);
+}
+
+function parseGitRead(words, context) {
+  const verb = words[1];
+  const args = words.slice(2);
+  if (verb === 'status') {
+    const flags = new Set(['--short', '-s', '--branch', '-b', '--porcelain', '--untracked-files=no']);
+    return args.every((word) => flags.has(word))
+      ? { risk: 'SAFE_READ_ONLY', target: 'local', modifiers: [] }
+      : null;
+  }
+
+  const booleanOptions = new Set([
+    '--stat', '--oneline', '--patch', '-p', '--name-only', '--name-status',
+    '--summary', '--no-renames', '--color=never', '--no-color', '--cached', '--staged',
+  ]);
+  const valueOptions = new Set(['-n', '--max-count', '--since', '--until', '--format', '--pretty']);
+  const operands = [];
+  let sink = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index];
+    if (word === '--ext-diff' || word === '--textconv') return null;
+    if (verb === 'diff' && (word === '--output' || word.startsWith('--output='))) {
+      if (sink !== null) return null;
+      sink = word === '--output' ? args[++index] : word.slice('--output='.length);
+      if (!sink) return null;
+      continue;
+    }
+    if (booleanOptions.has(word)) continue;
+    if (valueOptions.has(word)) {
+      const value = args[++index];
+      if (!literalOperand(value)) return null;
+      continue;
+    }
+    if ([...valueOptions].some((name) => word.startsWith(`${name}=`))) {
+      if (!literalOperand(word.slice(word.indexOf('=') + 1))) return null;
+      continue;
+    }
+    if (word.startsWith('-')) return null;
+    if (!literalOperand(word) || operands.length >= LIMITS.fanOut) return null;
+    operands.push(word);
+  }
+  if (sink !== null) {
+    const resolved = resolveOutputPath(sink, context);
+    if (resolved === null) return null;
+    return { risk: 'LOW_RISK_CHANGE', target: `${verb} -> file:${resolved}`, modifiers: ['FILE_WRITE', 'ALWAYS_ASK'] };
+  }
+  return { risk: 'SAFE_READ_ONLY', target: operands[0] ?? 'local', modifiers: [] };
+}
+
+function gitCiFamily(words, lower, context = {}) {
   const joined = words.slice(1).join(' ').toLowerCase();
   const remote = option(words, '--repo') ?? (lower === 'gh' ? words.find((word) => word.includes('/')) : 'local');
   if (lower === 'git') {
@@ -729,8 +781,9 @@ function gitCiFamily(words, lower) {
       const branch = parseGitBranch(words);
       return branch ? result('GIT_CI', branch.risk, branch.target, 'local') : null;
     }
-    if (/^(?:status|log|diff|show)(?:\s|$)/u.test(joined)) {
-      return result('GIT_CI', 'SAFE_READ_ONLY', 'local', 'local');
+    if (['status', 'log', 'diff', 'show'].includes(words[1])) {
+      const read = parseGitRead(words, context);
+      return read ? result('GIT_CI', read.risk, read.target, 'local', read.modifiers) : null;
     }
     if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|push\s+.*(?:--force(?:-with-lease)?|-f\b|--delete|--mirror|--prune|(?:^|\s):[^\s]+|(?:^|\s)\+[^\s]+)|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
       return result('GIT_CI', 'DESTRUCTIVE', words.at(-1), 'local');
@@ -823,6 +876,177 @@ function remoteFamily(argv) {
   return result('REMOTE', nested.risk, host, host, [...nested.modifiers, 'REMOTE_EXECUTION'], { credentialConsumer: true });
 }
 
+function parseRemoteTransfer(words, client) {
+  const flags = client === 'scp'
+    ? new Set(['-4', '-6', '-B', '-C', '-p', '-q', '-r', '-v'])
+    : new Set(['-4', '-6', '-C', '-q', '-v']);
+  const values = client === 'scp'
+    ? new Set(['-P', '-i', '-J', '-l'])
+    : new Set(['-P', '-i', '-J', '-l']);
+  const operands = [];
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (flags.has(word)) continue;
+    if (word === '-o') {
+      if (!validSshOption(words[++index] ?? '')) return null;
+      continue;
+    }
+    if (word.startsWith('-o')) {
+      if (!validSshOption(word.slice(2).replace(/^=/u, ''))) return null;
+      continue;
+    }
+    if (values.has(word)) {
+      const value = words[++index];
+      if (!literalOperand(value) || (word === '-P' && !boundedInteger(value, 65_535))) return null;
+      continue;
+    }
+    const compact = [...values].find((name) => word.startsWith(name) && word.length > name.length);
+    if (compact) {
+      const value = word.slice(compact.length);
+      if (!literalOperand(value) || (compact === '-P' && !boundedInteger(value, 65_535))) return null;
+      continue;
+    }
+    if (word.startsWith('-') || !literalOperand(word)) return null;
+    operands.push(word);
+  }
+  if (client === 'scp') {
+    if (operands.length !== 2 || operands[0].includes(':') || !operands[1].includes(':')) return null;
+  } else if (operands.length !== 1 || !(operands[0].includes(':') || /^sftp:\/\//iu.test(operands[0]))) return null;
+  const target = operands.at(-1);
+  let environment;
+  if (/^sftp:\/\//iu.test(target)) {
+    try {
+      const parsed = new URL(target);
+      if (!/^[A-Za-z0-9.-]+$/u.test(parsed.hostname) || (parsed.port && !boundedInteger(parsed.port, 65_535))) return null;
+      environment = `${parsed.username ? `${parsed.username}@` : ''}${parsed.host}`;
+    } catch { return null; }
+  } else {
+    environment = target.slice(0, target.indexOf(':'));
+  }
+  if (!environment || !/^[A-Za-z0-9._-]+(?:@[A-Za-z0-9.-]+(?::\d{1,5})?)?$/u.test(environment)) return null;
+  return { target, environment };
+}
+
+function parseMongoInvocation(words) {
+  let uri = null;
+  let script = null;
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (/^mongodb(?:\+srv)?:\/\//iu.test(word)) {
+      if (uri !== null) return null;
+      uri = word;
+      continue;
+    }
+    if (word === '--eval' || word.startsWith('--eval=')) {
+      if (script !== null) return null;
+      script = word === '--eval' ? words[++index] : word.slice('--eval='.length);
+      if (!script) return null;
+      continue;
+    }
+    return null;
+  }
+  return uri && script ? { uri, script } : null;
+}
+
+function parsePacketCapture(words, context) {
+  const client = words[0].toLowerCase();
+  const valueOptions = client === 'tcpdump'
+    ? new Set(['-i', '--interface', '-c', '--count', '-s', '--snapshot-length', '-w'])
+    : new Set(['-i', '--interface', '-c', '--count', '-s', '--snapshot-length', '-w']);
+  const flags = client === 'tcpdump'
+    ? new Set(['-n', '-nn', '-q', '-v', '-vv', '-vvv'])
+    : new Set(['-n', '-q']);
+  const values = new Map();
+  const filter = [];
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (flags.has(word)) continue;
+    let name = word;
+    let value = null;
+    const separator = word.indexOf('=');
+    if (separator > 0) {
+      name = word.slice(0, separator);
+      value = word.slice(separator + 1);
+    }
+    if (valueOptions.has(name)) {
+      if (values.has(name) || [...values.keys()].some((seen) =>
+        (seen === '-i' || seen === '--interface') && (name === '-i' || name === '--interface') ||
+        (seen === '-c' || seen === '--count') && (name === '-c' || name === '--count'))) return null;
+      if (value === null) value = words[++index];
+      if (!literalOperand(value)) return null;
+      values.set(name, value);
+      continue;
+    }
+    if (word.startsWith('-') || !literalOperand(word)) return null;
+    filter.push(word);
+  }
+  const interfaceName = values.get('-i') ?? values.get('--interface');
+  const count = values.get('-c') ?? values.get('--count');
+  const snapLength = values.get('-s') ?? values.get('--snapshot-length');
+  if (!interfaceName || !boundedInteger(count, LIMITS.outputRows)) return null;
+  if (snapLength !== undefined && !boundedInteger(snapLength, 262_144)) return null;
+  const sink = values.get('-w');
+  if (sink !== undefined) {
+    const resolved = resolveOutputPath(sink, context);
+    if (resolved === null) return null;
+    return { risk: 'LOW_RISK_CHANGE', target: `${interfaceName} -> file:${resolved}`, modifiers: ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'FILE_WRITE', 'ALWAYS_ASK'] };
+  }
+  return { risk: 'SAFE_READ_ONLY', target: interfaceName, modifiers: ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'APPROVAL_REQUIRED'] };
+}
+
+function parseCtr(words) {
+  if (words.length < 3 || words[1] !== 'images') return null;
+  const verb = words[2].toLowerCase();
+  const operands = words.slice(3);
+  if (operands.some((word) => !literalOperand(word)) || operands.length > LIMITS.fanOut) return null;
+  if (['list', 'ls'].includes(verb) && operands.length === 0) return { risk: 'SAFE_READ_ONLY', target: 'local' };
+  if (['pull', 'import'].includes(verb) && operands.length === 1) return { risk: 'LOW_RISK_CHANGE', target: operands[0] };
+  if (['rm', 'remove'].includes(verb) && operands.length >= 1) return { risk: 'DESTRUCTIVE', target: operands.join(',') };
+  return null;
+}
+
+function parseDmesg(words) {
+  const args = words.slice(1);
+  const destructive = new Set(['-C', '--clear', '-c', '--read-clear']);
+  const disruptiveFlags = new Set(['-D', '--console-off', '-E', '--console-on']);
+  const displayFlags = new Set(['-H', '--human', '-T', '--ctime', '-x', '--decode', '--color=never']);
+  let risk = 'SAFE_READ_ONLY';
+  let hasLevel = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index];
+    if (destructive.has(word)) {
+      risk = 'DESTRUCTIVE';
+      continue;
+    }
+    if (disruptiveFlags.has(word)) {
+      if (risk !== 'DESTRUCTIVE') risk = 'DISRUPTIVE_CHANGE';
+      continue;
+    }
+    if (word === '-n' || word === '--console-level') {
+      if (!literalOperand(args[++index])) return null;
+      if (risk !== 'DESTRUCTIVE') risk = 'DISRUPTIVE_CHANGE';
+      continue;
+    }
+    if (word.startsWith('--console-level=')) {
+      if (!literalOperand(word.slice('--console-level='.length))) return null;
+      if (risk !== 'DESTRUCTIVE') risk = 'DISRUPTIVE_CHANGE';
+      continue;
+    }
+    if (word === '-l' || word === '--level') {
+      if (!literalOperand(args[++index])) return null;
+      hasLevel = true;
+      continue;
+    }
+    if (word.startsWith('--level=') && literalOperand(word.slice('--level='.length))) {
+      hasLevel = true;
+      continue;
+    }
+    if (!displayFlags.has(word)) return null;
+  }
+  if (risk !== 'SAFE_READ_ONLY') return { risk, modifiers: [] };
+  return hasLevel ? { risk, modifiers: ['SENSITIVE_OUTPUT', 'APPROVAL_REQUIRED'] } : null;
+}
+
 export function lookupFamily(stage, context = {}) {
   const argv = [...stage.argv];
   const exeIndex = executableIndex(argv);
@@ -845,6 +1069,8 @@ export function lookupFamily(stage, context = {}) {
     return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
   }
   if (lower === 'ip') {
+    if (words.slice(1).some((word) =>
+      ['-b', '-batch', '--batch'].includes(word) || /^--?batch=/u.test(word) || /^-b(?!r(?:ief)?$).+/u.test(word))) return null;
     const mutating = new Set(['add', 'append', 'change', 'delete', 'del', 'flush', 'replace', 'set', 'exec']);
     if (words.slice(1).some((word) => mutating.has(word.toLowerCase()))) return null;
     if (!words.slice(1).some((word) => /^(?:addr(?:ess)?|link|route|rule|neigh(?:bor)?)$/iu.test(word))) return null;
@@ -859,8 +1085,8 @@ export function lookupFamily(stage, context = {}) {
     return result('LOG_READ', 'SAFE_READ_ONLY', option(words, '-u', '--unit') ?? 'local-log');
   }
   if (lower === 'dmesg') {
-    if (!words.some((word) => /^(?:-l|--level)(?:=|$)/u.test(word))) return null;
-    return result('LOG_READ', 'SAFE_READ_ONLY', 'kernel-log', 'local', ['SENSITIVE_OUTPUT', 'APPROVAL_REQUIRED']);
+    const invocation = parseDmesg(words);
+    return invocation ? result('LOG_READ', invocation.risk, 'kernel-log', 'local', invocation.modifiers, { requiresExplicitBinding: invocation.risk !== 'SAFE_READ_ONLY' }) : null;
   }
   if ((FILTER.has(lower) || PS_FILTER.has(lower) || ['sed', 'awk', 'jq'].includes(lower)) && isBoundedFilter(words, lower)) {
     return result('FILTER', 'SAFE_READ_ONLY', null);
@@ -926,6 +1152,11 @@ export function lookupFamily(stage, context = {}) {
     const singleton = ['cordon', 'uncordon', 'drain'].includes(verb);
     const target = words.includes('--all') ? null : fileTarget ?? (singleton ? operands[0] : operands.length >= 2 ? `${operands[0]}/${operands[1]}` : null);
     return result('KUBERNETES', risk, risk === 'SAFE_READ_ONLY' ? context : target, [context, namespace].filter(Boolean).join('@') || null, secretRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+  }
+
+  if (lower === 'ctr') {
+    const invocation = parseCtr(words);
+    return invocation ? result('CONTAINER', invocation.risk, invocation.target, 'local', [], { requiresExplicitBinding: invocation.risk !== 'SAFE_READ_ONLY' }) : null;
   }
 
   if (CONTAINERS.has(lower)) {
@@ -1000,12 +1231,14 @@ export function lookupFamily(stage, context = {}) {
     return risk ? result('MYSQL', risk, invocation.database ?? 'default-db', canonicalDatabaseEnvironment('MYSQL', invocation), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
   }
   if (lower === 'mongosh') {
-    const script = option(words, '--eval') ?? '';
+    const invocation = parseMongoInvocation(words);
+    if (!invocation) return null;
+    const { script, uri } = invocation;
     if (/;|\b(?:runProgram|load|require|process|child_process)\b/iu.test(script)) return null;
     const risk = queryRisk(script, [/\b(find|findOne|explain|serverStatus|replSetGetStatus)\b/iu], [], [/\b(reconfig|compact|repairDatabase)\b/iu], [/\b(insert|update|delete|drop|shutdown)\b/iu]);
-    const uri = words.find((word) => /^mongodb(?:\+srv)?:\/\//iu.test(word));
-    if (!risk || !uri) return null;
-    const parsed = new URL(uri.replace(/^mongodb(?:\+srv)?:/iu, 'http:'));
+    if (!risk) return null;
+    let parsed;
+    try { parsed = new URL(uri.replace(/^mongodb(?:\+srv)?:/iu, 'http:')); } catch { return null; }
     return result('MONGODB', risk, parsed.pathname.slice(1) || 'server', parsed.host, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true });
   }
   if (lower === 'redis-cli') {
@@ -1032,21 +1265,18 @@ export function lookupFamily(stage, context = {}) {
     return result('NETWORK_READ', 'SAFE_READ_ONLY', words.at(-1), 'network', ['ACTIVE_PROBE', 'APPROVAL_REQUIRED']);
   }
   if (lower === 'tcpdump' || lower === 'tshark') {
-    const interfaceName = option(words, '-i', '--interface');
-    const count = option(words, '-c', '--count');
-    if (!interfaceName || !boundedInteger(count, LIMITS.outputRows)) return null;
-    return result('PACKET_CAPTURE', 'SAFE_READ_ONLY', interfaceName, 'local', ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'APPROVAL_REQUIRED']);
+    const invocation = parsePacketCapture(words, context);
+    return invocation ? result('PACKET_CAPTURE', invocation.risk, invocation.target, 'local', invocation.modifiers) : null;
   }
   if (lower === 'curl' || lower === 'invoke-restmethod' || lower === 'invoke-webrequest') {
     return classifyHttp(words, context);
   }
   if (lower === 'ssh') return remoteFamily(words);
   if (lower === 'scp' || lower === 'sftp') {
-    const target = words.at(-1);
-    if (!target?.includes(':') || /[$*?{}]/u.test(target)) return null;
-    return result('REMOTE', 'LOW_RISK_CHANGE', target, target.split(':')[0], ['REMOTE_TRANSFER'], { requiresExplicitBinding: true, credentialConsumer: true });
+    const invocation = parseRemoteTransfer(words, lower);
+    return invocation ? result('REMOTE', 'LOW_RISK_CHANGE', invocation.target, invocation.environment, ['REMOTE_TRANSFER'], { requiresExplicitBinding: true, credentialConsumer: true }) : null;
   }
-  if (lower === 'git' || lower === 'gh') return gitCiFamily(words, lower);
+  if (lower === 'git' || lower === 'gh') return gitCiFamily(words, lower, context);
   if (['restart-service', 'start-service', 'stop-service', 'set-service'].includes(lower)) {
     const risk = lower === 'set-service' ? 'LOW_RISK_CHANGE' : 'DISRUPTIVE_CHANGE';
     return result('WINDOWS_CONTROL', risk, option(words, '-Name') ?? words.at(-1), 'local', [], { requiresExplicitBinding: true });

@@ -423,4 +423,56 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     policyEnv: { PGMAXPROTOCOLVERSION: '3.0' },
     expectedDecision: 'deny',
   },
+  {
+    id: 'RV61-CREDENTIAL-CONSUMER-BINDING',
+    command: 'kubectl --context prod label pod/foo x=y ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_rv61" https://api.example.invalid/health',
+    expectedDecision: 'ask',
+    expectedCredentialBinding: {
+      domain: 'https://api.example.invalid', family: 'HTTP', targetClass: 'HTTP',
+    },
+    forbiddenText: 'SYNTH_SECRET_rv61',
+  },
+  {
+    id: 'RV62-MONGOSH-REPEATED-EVAL',
+    command: 'mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()" --eval "db.users.drop()"',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV63-IP-BATCH-FILE',
+    command: 'ip -batch route',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV64-SCP-LOCAL-EXECUTOR',
+    command: 'scp -S /tmp/payload local.txt ops@example.invalid:/tmp/remote.txt',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV65-TCPDUMP-OUTPUT-SINK',
+    command: 'tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap host 192.0.2.1',
+    expectedDecision: 'ask',
+    expectedRisk: 'LOW_RISK_CHANGE',
+    expectedTarget: 'eth0 -> file:/var/tmp/capture.pcap',
+    expectedModifiers: ['ALWAYS_ASK', 'FILE_WRITE', 'RESOURCE_INTENSIVE', 'SENSITIVE_OUTPUT'],
+  },
+  {
+    id: 'RV66-CTR-NESTED-PULL',
+    command: 'ctr images pull docker.io/library/nginx:latest',
+    expectedDecision: 'allow',
+    expectedRisk: 'LOW_RISK_CHANGE',
+  },
+  {
+    id: 'RV67-GIT-DIFF-OUTPUT-SINK',
+    command: 'git diff --output=/var/tmp/review.patch',
+    expectedDecision: 'ask',
+    expectedRisk: 'LOW_RISK_CHANGE',
+    expectedTarget: 'diff -> file:/var/tmp/review.patch',
+    expectedModifiers: ['ALWAYS_ASK', 'FILE_WRITE'],
+  },
+  {
+    id: 'RV68-DMESG-READ-CLEAR',
+    command: 'dmesg --read-clear --level err',
+    expectedDecision: 'ask',
+    expectedRisk: 'DESTRUCTIVE',
+  },
 ]);

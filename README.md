@@ -129,6 +129,14 @@ the client can reinterpret them as local socket transport. Git branch
 creation, listing, rename, and deletion use one closed subgrammar; short and
 long deletion aliases are uniformly destructive.
 
+Credential reuse is scoped from the exact credential-bearing stage rather
+than the composition's highest-risk stage. Closed grammars also cover a single
+`mongosh --eval`, all `ip` batch aliases, `scp`/`sftp` transport overrides,
+packet-capture sinks and post-processors, hierarchical `ctr images` effects,
+Git read sinks/external executors, and `dmesg` control actions. Resolved capture
+and Git output files always ask; opaque loaders, local executors, dynamic
+sinks, and unconsumed options deny.
+
 Mandatory static and installed-form validation:
 
 ```bash
@@ -166,7 +174,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added client-aligned credential transports plus closed HTTP, Kubernetes, AWS, and Docker route/trust/configuration boundaries with fail-closed singleton precedence.
 - Rejected mixed literal credential transports and repeated effective-value selectors, and made redaction cover full mixed-quote credential tokens.
 - Added a closed Redis CLI schema and canonical non-secret binding across transport, host, port, database, and ACL user.
-- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, thirty-eight baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, forty-six baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Closed HTTP option arity and output-effect binding, database selector/domain precedence, and Git branch deletion alias parity; local file effects always require native confirmation.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 
