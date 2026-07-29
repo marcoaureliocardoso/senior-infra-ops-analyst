@@ -223,9 +223,12 @@ confirmation, or local-file-effect confirmation.
 
 ## Test Strategy
 
-Each production change follows a witnessed RED/GREEN cycle through the real
-policy entrypoint. Stable review fixtures RV-41 onward execute against both
-source and Nori-installed artifacts.
+Each production behavior change follows a witnessed RED/GREEN cycle through
+the real policy entrypoint. Stable operational review fixtures RV-41 through
+RV-44 execute against both source and Nori-installed artifacts. RV-45 covers
+the repository-only mutation protocol through its native runner and cannot be
+an installed command fixture because Nori installs the guard, not its
+development mutation harness.
 
 Required coverage includes:
 
@@ -271,7 +274,8 @@ behavior changes. No new version is introduced solely for review remediation.
 ## Acceptance Criteria
 
 The remediation is complete only when all five independent findings have
-stable source and installed-form regressions, the pristine-baseline mutation
+stable executable regressions appropriate to their boundary, all four runtime
+behavior findings also pass in installed form, the pristine-baseline mutation
 protocol is enforced, every full validation gate passes, documentation records
 fresh observed evidence, no runtime artifacts or secrets remain, and a new
 independent read-only review finds no Critical or Important issue in the
