@@ -4,7 +4,12 @@
 
 **Goal:** Eliminate every independently reproduced authorization bypass in PR #25 while preserving bounded operational execution.
 
-**Architecture:** Keep the native fail-closed guard and strengthen the parsing boundary rather than special-casing policy outcomes. Sensitive singleton options reject duplicate aliases, unmodelled route/trust/configuration controls deny before classification, remote HTTP origins must be literal, and raw lexical credential spellings are redacted before authorization. Source and Nori-installed artifacts execute the same regression corpus.
+**Architecture:** Keep the native fail-closed guard and strengthen the parsing
+boundary rather than special-casing policy outcomes. Sensitive singleton
+options reject duplicate aliases, unmodelled route/trust/configuration controls
+deny before classification, remote HTTP origins must be literal, and raw
+lexical credential spellings are redacted before authorization. Source and
+Nori-installed artifacts execute the same regression corpus.
 
 **Tech Stack:** JavaScript ESM on Node.js 24, native `node:test`, Python package/install validators, Bash/WSL validation.
 

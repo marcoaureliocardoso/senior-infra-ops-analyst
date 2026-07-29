@@ -244,6 +244,8 @@ authorization-boundary gaps. The reviewer exercised the real policy entrypoint
 and approval lifecycle rather than inferring behavior from structural coverage.
 The reviewed worktree was not ready to merge.
 
+<!-- markdownlint-disable MD013 -->
+
 The remediation below was implemented through executable RED/GREEN cases. Its
 status records local closure only; a new independent reviewer must verify the
 resulting commit before merge.
@@ -287,6 +289,8 @@ The reviewed worktree was not ready to merge.
 | RV-35 | Redis trust could be weakened after approval | A credential approved with `--tls` was reused with `--tls --insecure` and returned `ALLOW_APPROVED_CREDENTIAL_BINDING` | Consume a closed Redis option schema and deny insecure verification, alternate trust/client inputs, SNI, URI/socket routing, cluster redirects, stdin sources, special modes, and unknown options | Remediated; independent verification pending |
 | RV-36 | Redis approval omitted effective port, database, and user | A binding approved for port 6379, database 0, and user `app` was reused for port 6380, database 1, and user `admin` | Build one canonical non-secret environment from transport, host, port, database, and user with explicit defaults, and reuse the existing action identity, audit, and binding comparison | Remediated; independent verification pending |
 
+<!-- markdownlint-enable MD013 -->
+
 The TDD RED run reproduced `allow` for the TLS-to-insecure lifecycle, incorrect
 reuse across Redis scope changes, and failing source-to-installed review
 fixtures. The corrected targeted suite passed all 44 cases. Fresh local full
@@ -312,12 +316,16 @@ The remediation below used executable RED/GREEN tests. Its status records
 local closure only and does not replace independent verification of the
 resulting tree.
 
+<!-- markdownlint-disable MD013 -->
+
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
 | RV-37 | Redis TTL semantics and trailing operands were incomplete | Non-positive `EXPIRE` was classified as a low-risk change and malformed or dynamic forms could reach the catalogue | Parse the complete literal `EXPIRE` and `PERSIST` grammars, classify zero or negative TTL as destructive, and reject invalid, dynamic, incomplete, or trailing operands | Remediated; independent verification pending |
 | RV-38 | Redis client termination was parsed as a standalone verb | Valid `CLIENT KILL` forms denied while composite and unconsumed forms were not represented exactly | Accept only `CLIENT KILL <host:port>` or `CLIENT KILL ID <positive-int64>` and reject standalone `KILL`, unsupported filters, invalid bounds, and extra operands | Remediated; independent verification pending |
 | RV-39 | Generic mutable HTTP calls remained autonomous in permissive mode | Uncatalogued `POST`, `PUT`, and `PATCH` could return `allow` in `bypassPermissions` | Classify mutable HTTP calls as disruptive external effects so native confirmation is mandatory in every permission mode | Remediated; independent verification pending |
 | RV-40 | The catalogue was outside critical structural and mutation evidence | A green gate could omit catalogue branches and could accept a registered mutation without a dedicated semantic witness | Include `catalogue.mjs` in 100 percent line/function/branch thresholds, require registry equality for predicates, mutations, and witnesses, and add six exact catalogue mutations | Remediated; independent verification pending |
+
+<!-- markdownlint-enable MD013 -->
 
 The catalogue-inclusive gate initially failed at 96.39 percent lines, 91.77
 percent branches, and 94.32 percent functions, proving the former evidence

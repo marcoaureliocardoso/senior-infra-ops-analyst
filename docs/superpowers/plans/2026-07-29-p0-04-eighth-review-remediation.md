@@ -4,7 +4,12 @@
 
 **Goal:** Close the five remaining PR #25 review findings with complete client grammars, canonical local-file effects, bounded database credential domains, destructive Git alias parity, and a mutation protocol that proves each witness against pristine and mutated source.
 
-**Architecture:** Preserve the catalogue's public `lookupFamily()` result contract while adding one focused output-path resolver and closed client-specific parsers. Pass only validated hook `cwd` and an explicitly queried environment into policy analysis. Replace mutation witness labels and the switch with an executable map plus a child-process protocol that distinguishes semantic assertion failures from infrastructure failures.
+**Architecture:** Preserve the catalogue's public `lookupFamily()` result
+contract while adding one focused output-path resolver and closed
+client-specific parsers. Pass only validated hook `cwd` and an explicitly
+queried environment into policy analysis. Replace mutation witness labels and
+the switch with an executable map plus a child-process protocol that
+distinguishes semantic assertion failures from infrastructure failures.
 
 **Tech Stack:** ECMAScript modules, Node.js native test runner and coverage, deterministic source-rewrite mutation testing, Python repository validators, Bash/PowerShell syntax validation, Debian/WSL, and isolated Nori installed-artifact validation.
 
@@ -164,12 +169,16 @@ Expected: all selected tests pass and existing non-sink policy decisions are unc
 
 - [x] **Step 6: Evaluate the context/resolver commit checkpoint**
 
+<!-- markdownlint-disable MD013 -->
+
 ```powershell
 git diff --check
 git status --short
 git add -- skills/command-driven-operations/scripts/command-guard/output-path.mjs skills/command-driven-operations/scripts/command-guard/contract.mjs skills/command-driven-operations/scripts/command-guard/policy.mjs skills/command-driven-operations/scripts/command-guard/catalogue.mjs skills/command-driven-operations/scripts/validate-ops-command.mjs tests/command-guard/output-path.test.mjs tests/command-guard/contract.test.mjs tests/command-guard/helpers.mjs tests/run-command-guard-tests.mjs tests/command_guard_install_policy.py
 git diff --cached --name-only
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 Commit only if every staged hunk belongs solely to this task:
 

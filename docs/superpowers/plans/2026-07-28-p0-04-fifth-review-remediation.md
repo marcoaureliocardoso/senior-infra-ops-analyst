@@ -4,7 +4,12 @@
 
 **Goal:** Close the remaining credential-binding, singleton-precedence, Docker transport, and raw/cooked redaction gaps found by the fifth independent review.
 
-**Architecture:** Reject ambiguous command structure before authorization. Distinct literal credential transports in one command deny, repeated allowed environment assignments and Redis singleton selectors deny, Docker remote selectors deny in every spelling, and token-aware raw spans cover the complete shell token that forms a credential argument. The same stable fixtures run against source and installed artifacts.
+**Architecture:** Reject ambiguous command structure before authorization.
+Distinct literal credential transports in one command deny, repeated allowed
+environment assignments and Redis singleton selectors deny, Docker remote
+selectors deny in every spelling, and token-aware raw spans cover the complete
+shell token that forms a credential argument. The same stable fixtures run
+against source and installed artifacts.
 
 **Tech Stack:** JavaScript ESM, Node.js native test runner and coverage, Python validators, Bash/WSL package validation.
 
