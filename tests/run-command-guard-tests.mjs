@@ -31,7 +31,7 @@ run(['--test', '--test-concurrency=1', ...tests], 'command guard unit/property/f
 const critical = [
   'contract.mjs', 'redaction.mjs', 'response.mjs', 'bash-lexer.mjs',
   'powershell-lexer.mjs', 'composition.mjs', 'credential-flow.mjs', 'binding-store.mjs',
-  'policy.mjs', 'audit.mjs',
+  'policy.mjs', 'audit.mjs', 'catalogue.mjs', 'output-path.mjs',
 ].map((name) => `--test-coverage-include=skills/command-driven-operations/scripts/command-guard/${name}`);
 critical.push('--test-coverage-include=skills/command-driven-operations/scripts/validate-ops-command.mjs');
 critical.push('--test-coverage-include=skills/command-driven-operations/scripts/record-command-approval.mjs');

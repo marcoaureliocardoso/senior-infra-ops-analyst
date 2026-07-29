@@ -89,6 +89,105 @@ uses conservative normal-mode semantics rather than a version allowlist.
     option schema and rejects endpoint, credential, trust, impersonation, and
     plugin overrides. Literal HTTP bodies, finite Kubernetes reads, and
     allowlisted literal SSH transport options remain catalogued.
+11. Options whose client semantics are singleton or last-wins cannot silently
+    diverge from the audited value. Curl method selectors and Kubernetes
+    context/namespace aliases reject duplicates; AWS endpoint, trust, unsigned,
+    diagnostic, and external-input overrides deny; Docker host, connection, and
+    external-config overrides deny. Named AWS profile assignments participate
+    in the environment binding, literal Docker contexts remain usable, and
+    remote HTTP origins containing variables or globs deny before URL parsing.
+    Curl cookie options and Redis compact quoted passwords are recognized as
+    literal credential transports before authorization.
+12. Commands with more than one distinct literal credential transport deny
+    before approval lookup, so an Authorization approval cannot authorize an
+    additional Cookie, Basic Auth, flag, or variable transport. Repeated
+    allowlisted environment assignments and Redis host, port, database,
+    password, or user selectors also deny before the effective value is
+    derived. Docker's separated `-H` spelling is treated as the same prohibited
+    remote-host selector as its compact and equals forms.
+13. Redaction supplements semantic patterns with Bash lexer token boundaries.
+    For accepted curl and Redis credential options, the entire raw value token
+    is removed even when the shell builds one cooked value by concatenating
+    quoted and unquoted fragments. Overlapping inner matches cannot leave a
+    suffix in responses, normalized data, audit, or installed-form evidence.
+14. Redis uses a closed option schema. Plain TCP and system-trust `--tls`
+    remain available, while insecure verification, alternate trust/client
+    files, SNI, URI/socket routing, cluster redirects, stdin argument sources,
+    special modes, and unknown options deny. Its canonical non-secret
+    environment binds transport, host, port, database, and ACL user with
+    explicit defaults, so changing any effective selector requires a new
+    approval without storing password material.
+15. Redis verbs are parsed as complete finite grammars after connection-option
+    consumption. `EXPIRE` accepts one literal key, a signed 64-bit TTL, and at
+    most one valid condition; zero and negative TTLs are destructive because
+    Redis deletes the key. `PERSIST` accepts exactly one literal key. `CLIENT
+    KILL` accepts only one literal `host:port` address or `ID` plus one positive
+    signed 64-bit identifier. Unknown subcommands, dynamic operands, invalid
+    bounds, and unconsumed trailing tokens deny.
+16. Generic HTTP `POST`, `PUT`, and `PATCH` are disruptive external effects.
+    They remain executable through native `ask` in every permission mode;
+    `bypassPermissions` does not convert an unmodelled external mutation into
+    autonomous execution. `GET` and `HEAD` retain read classification and
+    `DELETE` remains destructive.
+17. The critical native coverage boundary includes the command catalogue.
+    Each registered security predicate has both one exact one-site source
+    mutation and one declared executable witness. Registry equality prevents a
+    newly added predicate or mutation from passing through an unknown default
+    branch without a dedicated invariant.
+18. Curl and PowerShell HTTP clients use separate closed option grammars. Each
+    option is consumed with its real arity before method, body, upload, URL,
+    and sink semantics are derived. Zero-argument remote-name flags cannot
+    consume or hide a following body or upload option.
+19. Every accepted HTTP output sink is a local file effect and contributes
+    `FILE_WRITE` plus `ALWAYS_ASK` in every permission mode. The canonical
+    target is `METHOD /remote/path -> file:/normalized/local/path`. Literal
+    relative paths bind to the bounded hook `cwd`; absolute paths are
+    normalized with POSIX or Windows semantics.
+20. Dynamic output paths are accepted only through names listed in
+    `OPS_COMMAND_GUARD_OUTPUT_VARIABLES`. At most eight non-secret names may be
+    listed; each value must be an absolute root. The resolver reads only the
+    control variable and those named properties, denies credential-like names,
+    nesting, defaults, indirection, traversal, globbing, control characters,
+    and root escape, and never enumerates the environment. Local path context
+    is cleared before nested SSH analysis.
+21. PostgreSQL and MySQL consume closed singleton selector schemas. Their
+    canonical non-secret approval domains contain scheme, user, host, port,
+    and database with explicit defaults. Repeated aliases, dynamic values,
+    invalid ports, external configuration/service/login/socket/protocol/TLS
+    selectors, and unconsumed operands deny.
+22. Git branch operations use a complete finite subgrammar. Listing remains a
+    read, literal creation and rename remain changes, and `-d`, `-D`,
+    `--delete`, and supported `--force` combinations are all destructive.
+23. Mutation evidence first runs every witness against pristine source. A
+    mutant is killed only when its own witness exits `42` with the exact
+    `WITNESS_ASSERTION:<id>` marker from a Node `AssertionError`; survival,
+    timeout, crash, import/configuration failure, or a different marker fails
+    the gate.
+24. Curl headers are literal and structurally parsed. `Host`, `:authority`,
+    dynamic expressions, file-backed headers, and malformed header fields deny
+    before HTTP origin binding, so an approved credential cannot be rerouted
+    by changing only a header.
+25. Networked PostgreSQL/MySQL operations do not inherit an unaudited local or
+    process environment domain. `psql` and `mysql` require explicit host, port,
+    user, and database selectors; `mysqladmin` requires explicit host, port,
+    and user. Socket paths and implicit `PG*` routing therefore deny.
+26. Tilde-prefixed output operands deny because the native hook does not
+    provide a trustworthy home expansion. Curl's `-` pseudo-sink is modeled as
+    stdout rather than a file path.
+27. Response headers exposed through include/head flags, header dumps, cookie
+    jars, ETag saves, or traces to stdout contribute `SENSITIVE_OUTPUT` and
+    `ALWAYS_ASK` in every permission mode.
+28. Explicit PostgreSQL selectors do not override every libpq environment
+    input. Route, service, password-file, option, TLS, GSS, channel-binding,
+    and peer-trust variables deny before canonical domain construction so
+    process state cannot change the peer or trust boundary behind the audit.
+29. MySQL host values `localhost` and `.` deny. The client may select a Unix
+    socket for these values despite an explicit port, while the supported
+    grammar intentionally excludes an explicit TCP protocol selector.
+30. Curl trace is a credential-disclosure sink derived from the closed curl
+    parser. With a literal credential, trace to `-` or `%` denies as secret
+    output and trace to a resolved file denies as secret persistence; neither
+    can be downgraded to native confirmation by `bypassPermissions`.
 
 ## Enforcement points
 
@@ -120,7 +219,8 @@ The parser derives transport from the accepted client spelling rather than a
 generic consumer label. `OPS_CREDENTIAL_IDENTITY` supplies only a bounded
 non-secret principal and is excluded from credential spans, so Authorization,
 Cookie, Basic Auth, flag, variable, and URI transports cannot share approval
-state accidentally.
+state accidentally. A single command containing multiple distinct literal
+transports is rejected rather than selecting one transport for binding.
 
 In every mode, first literal use raises the current call to `ask`. Only a
 matching successful `PostToolUse` event can activate reuse. In
@@ -159,18 +259,26 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 98 active Node tests plus one intentionally
-  skipped mutation-only fixture, four recorded property seeds, a finite
-  inventory orphan check, and exact mutation-site validation.
+- The remediated deterministic gate runs 187 active Node tests with zero
+  skips, four recorded property seeds, a finite inventory orphan check, and
+  exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
-  policy, redaction, response, audit, and both entrypoint modules achieve 100%
+  policy, catalogue, redaction, response, audit, and both entrypoint modules achieve 100%
   line, function, and branch coverage with native Node test coverage.
-- Eleven registered security mutations are killed, including background and
+- Thirty-eight registered security mutations are baseline-proven and killed by
+  their exact typed witnesses, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
-  redaction, forbidden audit fields, and fail-closed exit.
+  redaction, forbidden audit fields, fail-closed exit, Redis destructive TTL,
+  literal operands, client termination, canonical environment, unknown
+  options, mutable HTTP external-effect classification, curl remote-name
+  arity, mandatory sink confirmation, database selector uniqueness and
+  canonical domains, Git long-delete parity, the output-root allowlist, HTTP
+  routing-header rejection, explicit database domains, sensitive stdout,
+  tilde-output rejection, PostgreSQL environment rejection, MySQL socket-host
+  rejection, and credential-bearing trace disclosure.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 37-case stable-ID adversarial
+  modules with source, then executes the same 76-case stable-ID adversarial
   corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
@@ -191,6 +299,11 @@ ambiguous destinations deny.
   Debian system Node `v20.19.2` remains unchanged. Capability probing, rather
   than a project version allowlist, determines which runtime executes the
   development gate.
+- A fresh isolated Nori installation, without starting Claude or loading
+  provider credentials, registered 12 subagents, 24 project skills, and 20
+  slash commands; all 65 installed fixtures passed and every source script
+  matched its installed counterpart byte for byte. Nori's generated helper
+  skill is outside the 24-skill project inventory.
 
 ## Accepted live-smoke exception
 

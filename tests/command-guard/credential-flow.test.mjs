@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { analyzeCommand } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
+import { redactText } from '../../skills/command-driven-operations/scripts/command-guard/redaction.mjs';
 import { validEvent } from './helpers.mjs';
 
 const SECRET = 'SYNTH_SECRET_c8a22e';
@@ -57,8 +58,8 @@ test('credential metadata and messages never contain the literal value', () => {
 
 test('supported literal transports ask on first use in every mode', () => {
   const commands = [
-    `PGPASSWORD=${SECRET} psql -h db.example.invalid -d app -c "SELECT 1"`,
-    `mysql -h db.example.invalid -D app --password=${SECRET} -e "SHOW STATUS"`,
+    `PGPASSWORD=${SECRET} psql -h db.example.invalid -p 5432 -U appuser -d app -c "SELECT 1"`,
+    `mysql -h db.example.invalid -P 3306 -u appuser -D app --password=${SECRET} -e "SHOW STATUS"`,
     `mongosh mongodb://user:${SECRET}@db.example.invalid/app --eval "db.serverStatus()"`,
     `curl -u user:${SECRET} https://api.example.invalid/health`,
     `curl -H "Cookie: session=${SECRET}" https://api.example.invalid/health`,
@@ -81,6 +82,15 @@ test('catalogued client credential spellings always ask and preserve transport',
     [`redis-cli -h cache.example.invalid --pass ${SECRET} GET key`, 'FLAG'],
     [`redis-cli -h cache.example.invalid --pass=${SECRET} GET key`, 'FLAG'],
     [`redis-cli -h cache.example.invalid -a${SECRET} GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid -a"${SECRET}" GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid -a'${SECRET}' GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid -a="${SECRET}" GET key`, 'FLAG'],
+    [`redis-cli -h cache.example.invalid -a='${SECRET}' GET key`, 'FLAG'],
+    [`curl -b session=${SECRET} https://api.example.invalid/health`, 'COOKIE'],
+    [`curl -b"session=${SECRET}" https://api.example.invalid/health`, 'COOKIE'],
+    [`curl --cookie session=${SECRET} https://api.example.invalid/health`, 'COOKIE'],
+    [`curl --cookie=session=${SECRET} https://api.example.invalid/health`, 'COOKIE'],
+    [`curl --cookie="session=${SECRET}" https://api.example.invalid/health`, 'COOKIE'],
   ];
   for (const [command, transport] of cases) {
     for (const mode of ['default', 'bypassPermissions']) {
@@ -88,6 +98,7 @@ test('catalogued client credential spellings always ask and preserve transport',
       assert.equal(result.decision, 'ask', `${mode}: ${command}`);
       assert.equal(result.credential?.transport, transport, command);
       assert.doesNotMatch(JSON.stringify(result), new RegExp(SECRET), command);
+      assert.doesNotMatch(redactText(command), new RegExp(SECRET), command);
     }
   }
 });
@@ -139,4 +150,30 @@ test('quoted, escaped, Unicode, repeated, and empty credential literals are hand
   for (const command of [...variants.slice(0, 3), ...variants.slice(5)]) {
     assert.equal(analyze(command).decision, 'deny', command);
   }
+});
+
+test('mixed-quote credential tokens are redacted through the complete raw token', () => {
+  const tail = '_SYNTH_TAIL_5f19';
+  for (const command of [
+    `redis-cli -h cache.example.invalid -a="${SECRET}"'${tail}' GET key`,
+    `curl -b "session=${SECRET}"'${tail}' https://api.example.invalid/health`,
+  ]) {
+    const redacted = redactText(command);
+    assert.doesNotMatch(redacted, new RegExp(SECRET), command);
+    assert.doesNotMatch(redacted, new RegExp(tail), command);
+  }
+});
+
+test('only distinct literal credential transports are rejected as mixed', () => {
+  const repeatedAuthorization = analyze(
+    `OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer ${SECRET}" -H "Authorization: Bearer ${SECRET}_replacement" https://api.example.invalid/health`,
+  );
+  assert.equal(repeatedAuthorization.decision, 'ask');
+  assert.equal(repeatedAuthorization.credential?.transport, 'AUTHORIZATION');
+
+  const mixed = analyze(
+    `OPS_CREDENTIAL_IDENTITY=operator curl -u user:${SECRET} --token ${SECRET}_token https://api.example.invalid/health`,
+  );
+  assert.equal(mixed.decision, 'deny');
+  assert.equal(mixed.reasonCode, 'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS');
 });

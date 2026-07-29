@@ -136,6 +136,13 @@ test('PreToolUse asks first then reuses only the approved non-secret binding', a
     });
     const changedResponse = evaluateHook(JSON.stringify(changed), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
     assert.equal(changedResponse.hookSpecificOutput.permissionDecision, 'ask');
+
+    const rerouted = validEvent({
+      tool_use_id: 'tool-host-header', permission_mode: 'bypassPermissions',
+      tool_input: { command: command.replace('curl ', 'curl -H "Host: other.example.invalid" ') },
+    });
+    const reroutedResponse = evaluateHook(JSON.stringify(rerouted), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(reroutedResponse.hookSpecificOutput.permissionDecision, 'deny');
   });
 });
 
@@ -164,6 +171,130 @@ test('approved Authorization binding cannot be reused as another credential tran
       });
       const response = evaluateHook(JSON.stringify(changed), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
       assert.equal(response.hookSpecificOutput.permissionDecision, 'ask', command);
+    }
+
+    const combined = validEvent({
+      tool_use_id: 'tool-authorization-plus-cookie', permission_mode: 'bypassPermissions',
+      tool_input: {
+        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer SYNTH_SECRET_auth_reuse" -b session=SYNTH_SECRET_cookie_new https://api.example.invalid/health',
+      },
+    });
+    const combinedResponse = evaluateHook(JSON.stringify(combined), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(combinedResponse.hookSpecificOutput.permissionDecision, 'deny');
+  });
+});
+
+test('Redis approval cannot cross TLS trust port database or user scope', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const approvedCommand = 'OPS_CREDENTIAL_IDENTITY=redis-operator redis-cli --tls -h cache.example.invalid -p 6379 -n 0 --user app -a"SYNTH_SECRET_redis_scope_a" GET key';
+    const first = validEvent({
+      tool_use_id: 'tool-redis-scope', permission_mode: 'bypassPermissions',
+      tool_input: { command: approvedCommand },
+    });
+    const firstResponse = evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(firstResponse.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: first.session_id, tool_use_id: first.tool_use_id,
+      hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    }), env), true);
+
+    const changedCommands = [
+      [approvedCommand.replace('--tls ', '--tls --insecure '), 'deny'],
+      [approvedCommand.replace('-p 6379', '-p 6380'), 'ask'],
+      [approvedCommand.replace('-n 0', '-n 1'), 'ask'],
+      [approvedCommand.replace('--user app', '--user admin'), 'ask'],
+    ];
+    for (const [command, expectedDecision] of changedCommands) {
+      const response = evaluateHook(JSON.stringify(validEvent({
+        tool_use_id: `tool-redis-${expectedDecision}-${command.length}`,
+        permission_mode: 'bypassPermissions', tool_input: { command },
+      })), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+      assert.equal(response.hookSpecificOutput.permissionDecision, expectedDecision, command);
+    }
+  });
+});
+
+test('database credential approval cannot cross host port user or database scope', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const approve = (command, toolUseId) => {
+      const event = validEvent({
+        tool_use_id: toolUseId, permission_mode: 'bypassPermissions', tool_input: { command },
+      });
+      const response = evaluateHook(JSON.stringify(event), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+      assert.equal(response.hookSpecificOutput.permissionDecision, 'ask');
+      assert.equal(evaluateApprovalHook(JSON.stringify({
+        session_id: event.session_id, tool_use_id: event.tool_use_id,
+        hook_event_name: 'PostToolUse', tool_name: 'Bash',
+      }), env), true);
+    };
+    const decision = (command, suffix) => evaluateHook(JSON.stringify(validEvent({
+      tool_use_id: `tool-db-${suffix}`, permission_mode: 'bypassPermissions', tool_input: { command },
+    })), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath }).hookSpecificOutput.permissionDecision;
+
+    const postgres = 'OPS_CREDENTIAL_IDENTITY=appuser PGPASSWORD=SYNTH_SECRET_pg_a psql -h db-a.invalid -p 5432 -U appuser -d app -c "SELECT 1"';
+    approve(postgres, 'tool-pg-approved');
+    assert.equal(decision(postgres.replace('pg_a', 'pg_b'), 'pg-reuse'), 'allow');
+    for (const [suffix, command] of [
+      ['pg-host', postgres.replace('db-a.invalid', 'db-b.invalid')],
+      ['pg-port', postgres.replace('-p 5432', '-p 5433')],
+      ['pg-user', postgres.replaceAll('appuser', 'otheruser')],
+      ['pg-db', postgres.replace('-d app', '-d otherdb')],
+    ]) assert.equal(decision(command, suffix), 'ask', suffix);
+
+    const mysql = 'OPS_CREDENTIAL_IDENTITY=appuser MYSQL_PWD=SYNTH_SECRET_mysql_a mysql -h db-a.invalid -P 3306 -u appuser -D app -e "SHOW STATUS"';
+    approve(mysql, 'tool-mysql-approved');
+    assert.equal(decision(mysql.replace('mysql_a', 'mysql_b'), 'mysql-reuse'), 'allow');
+    assert.equal(decision(mysql.replace('db-a.invalid', 'db-b.invalid'), 'mysql-host'), 'ask');
+  });
+});
+
+test('implicit PostgreSQL environment selectors cannot establish a credential binding', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const command = 'OPS_CREDENTIAL_IDENTITY=appuser PGPASSWORD=SYNTH_SECRET_pg_implicit psql -d app -c "SELECT 1"';
+    for (const [suffix, selectors] of [
+      ['approved', { PGHOST: 'approved.invalid', PGPORT: '5432', PGUSER: 'appuser' }],
+      ['changed', { PGHOST: 'attacker.invalid', PGPORT: '6543', PGUSER: 'other' }],
+    ]) {
+      const response = evaluateHook(JSON.stringify(validEvent({
+        tool_use_id: `tool-pg-implicit-${suffix}`, permission_mode: 'bypassPermissions',
+        tool_input: { command },
+      })), { ...env, ...selectors, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+      assert.equal(response.hookSpecificOutput.permissionDecision, 'deny', suffix);
+    }
+  });
+});
+
+test('PostgreSQL route and trust environment cannot alter an approved explicit domain', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const command = 'OPS_CREDENTIAL_IDENTITY=appuser PGPASSWORD=SYNTH_SECRET_pg_hostaddr psql -h db.invalid -p 5432 -U appuser -d app -c "SELECT 1"';
+    const first = validEvent({
+      tool_use_id: 'tool-pg-hostaddr-approved', permission_mode: 'bypassPermissions',
+      tool_input: { command },
+    });
+    const firstResponse = evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(firstResponse.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: first.session_id, tool_use_id: first.tool_use_id,
+      hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    }), env), true);
+
+    for (const [name, value] of [
+      ['PGHOSTADDR', '203.0.113.77'], ['PGSERVICE', 'alternate'],
+      ['PGSERVICEFILE', '/tmp/alternate.conf'], ['PGSSLMODE', 'disable'],
+      ['PGSSLNEGOTIATION', 'direct'], ['PGREQUIREAUTH', 'scram-sha-256'],
+      ['PGSSLCERTMODE', 'require'], ['PGSSLMINPROTOCOLVERSION', 'TLSv1.3'],
+      ['PGSSLMAXPROTOCOLVERSION', 'TLSv1.3'], ['PGGSSDELEGATION', '1'],
+      ['PGMINPROTOCOLVERSION', '3.0'], ['PGMAXPROTOCOLVERSION', '3.0'],
+    ]) {
+      const response = evaluateHook(JSON.stringify(validEvent({
+        tool_use_id: `tool-pg-env-${name.toLowerCase()}`, permission_mode: 'bypassPermissions',
+        tool_input: { command: command.replace('hostaddr', name.toLowerCase()) },
+      })), { ...env, [name]: value, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+      assert.equal(response.hookSpecificOutput.permissionDecision, 'deny', name);
     }
   });
 });

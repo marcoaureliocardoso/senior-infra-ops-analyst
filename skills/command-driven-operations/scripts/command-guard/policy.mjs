@@ -14,13 +14,28 @@ export const REASON_CODES = Object.freeze([
   'DENY_UNSUPPORTED_SYNTAX', 'DENY_SECRET_PERSISTENCE', 'DENY_SECRET_OUTPUT',
   'DENY_AUTHENTICATED_REDIRECT',
   'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
-  'DENY_UNKNOWN_CREDENTIAL_CONSUMER', 'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
+  'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', 'DENY_UNKNOWN_CREDENTIAL_CONSUMER',
+  'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
 ]);
 export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CONTRACT_BACKGROUND_REJECT', 'CONTRACT_COMMAND_BOUND', 'LEXER_DYNAMIC_REJECT',
   'POLICY_UNKNOWN_REJECT', 'POLICY_TARGET_REQUIRED', 'POLICY_DESTRUCTIVE_ALWAYS_ASK',
   'POLICY_RISK_ESCALATION', 'CREDENTIAL_UNSAFE_SINK_REJECT',
   'REDACTION_AUTHORIZATION', 'AUDIT_FORBIDDEN_FIELD_REJECT', 'ENTRYPOINT_CATCH_EXIT',
+  'CATALOGUE_REDIS_EXPIRE_DELETE', 'CATALOGUE_REDIS_LITERAL_OPERAND',
+  'CATALOGUE_REDIS_CLIENT_KILL', 'CATALOGUE_REDIS_CANONICAL_ENVIRONMENT',
+  'CATALOGUE_REDIS_UNKNOWN_OPTION', 'CATALOGUE_HTTP_EXTERNAL_EFFECT',
+  'CATALOGUE_CURL_REMOTE_NAME_ARITY', 'CATALOGUE_HTTP_SINK_ALWAYS_ASK',
+  'CATALOGUE_DATABASE_SELECTOR_UNIQUENESS', 'CATALOGUE_DATABASE_CANONICAL_ENVIRONMENT',
+  'CATALOGUE_GIT_LONG_DELETE', 'OUTPUT_PATH_ALLOWLIST',
+  'CATALOGUE_HTTP_ROUTING_HEADER_REJECT', 'CATALOGUE_DATABASE_EXPLICIT_DOMAIN',
+  'CATALOGUE_HTTP_STDOUT_SENSITIVE', 'OUTPUT_PATH_TILDE_REJECT',
+  'CATALOGUE_POSTGRES_ENVIRONMENT_REJECT', 'CATALOGUE_MYSQL_SOCKET_HOST_REJECT',
+  'CATALOGUE_CREDENTIAL_TRACE_DISCLOSURE',
+  'CATALOGUE_POSTGRES_SSL_NEGOTIATION_ENV', 'CATALOGUE_POSTGRES_REQUIRE_AUTH_ENV',
+  'CATALOGUE_POSTGRES_SSL_CERT_MODE_ENV', 'CATALOGUE_POSTGRES_SSL_MIN_PROTOCOL_ENV',
+  'CATALOGUE_POSTGRES_SSL_MAX_PROTOCOL_ENV', 'CATALOGUE_POSTGRES_GSS_DELEGATION_ENV',
+  'CATALOGUE_POSTGRES_MIN_PROTOCOL_ENV', 'CATALOGUE_POSTGRES_MAX_PROTOCOL_ENV',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -29,6 +44,7 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_SECRET_OUTPUT: 'Remove display, clipboard, or generic output sinks and pass the sensitive value only to a supported direct consumer.',
   DENY_AUTHENTICATED_REDIRECT: 'Use the final explicit origin directly; authenticated redirects are not followed.',
   DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS: 'Use an operational credential source; Claude provider control credentials are outside the command boundary.',
+  DENY_MULTIPLE_CREDENTIAL_TRANSPORTS: 'Use exactly one literal credential transport per command; split mixed Authorization, Cookie, flag, variable, or basic-auth transports into separately approved operations.',
   DENY_UNKNOWN_CREDENTIAL_CONSUMER: 'Use a catalogued credential consumer and an explicit supported transport without intermediate stages.',
   DENY_UNKNOWN_COMMAND: 'Reformulate with a catalogued executable, verb, literal operands, and finite options.',
   DENY_AMBIGUOUS_TARGET: 'Reformulate with explicit target and environment selectors; variables, globs, and implicit remote context are not sufficient.',
@@ -54,18 +70,23 @@ function lexCommand(command) {
       throw new Error('unsupported PowerShell wrapper option');
     }
     if (!words[commandIndex + 1] || commandIndex + 2 !== words.length) throw new Error('unconsumed PowerShell wrapper argument');
-    return lexPowerShell(words[commandIndex + 1].cooked);
+    return { lexed: lexPowerShell(words[commandIndex + 1].cooked), dialect: 'powershell' };
   }
-  return outer;
+  return { lexed: outer, dialect: 'bash' };
 }
 
 function explicitBinding(value) {
   return typeof value === 'string' && value.length > 0 && !/[$*?{}]/u.test(value);
 }
 
-export function analyzeCommand(event) {
+export function analyzeCommand(event, env = {}) {
   let composition;
-  try { composition = buildComposition(lexCommand(event.command)); } catch { return denied('DENY_UNSUPPORTED_SYNTAX'); }
+  let dialect;
+  try {
+    const lexed = lexCommand(event.command);
+    composition = buildComposition(lexed.lexed);
+    dialect = lexed.dialect;
+  } catch { return denied('DENY_UNSUPPORTED_SYNTAX'); }
   const spans = detectSensitiveSpans(event.command);
   const credentialAnalysis = classifyCredentials(composition, event.command, spans);
   const credentialErrors = credentialFlowErrors(composition, credentialAnalysis);
@@ -73,8 +94,14 @@ export function analyzeCommand(event) {
   const analyses = [];
   for (const stage of composition.stages) {
     if (stage.redirects.some(({ destination }) => !['/dev/null', 'NUL', '&1'].includes(destination))) return denied(credentialAnalysis.metadata ? 'DENY_SECRET_PERSISTENCE' : 'DENY_UNSUPPORTED_SYNTAX', stage.index);
-    const match = lookupFamily(stage);
+    const match = lookupFamily(stage, { cwd: event.cwd, env, dialect });
     if (!match) return denied('DENY_UNKNOWN_COMMAND', stage.index);
+    if (credentialAnalysis.metadata?.literal && match.modifiers.includes('CREDENTIAL_OUTPUT')) {
+      return { ...denied('DENY_SECRET_OUTPUT', stage.index), credential: credentialAnalysis.metadata };
+    }
+    if (credentialAnalysis.metadata?.literal && match.modifiers.includes('CREDENTIAL_PERSISTENCE')) {
+      return { ...denied('DENY_SECRET_PERSISTENCE', stage.index), credential: credentialAnalysis.metadata };
+    }
     if (match.policyId === 'FILTER' && stage.index === 1) return denied('DENY_UNKNOWN_COMMAND', stage.index);
     if (match.requiresExplicitBinding && (!explicitBinding(match.target) || !explicitBinding(match.environment))) return denied('DENY_AMBIGUOUS_TARGET', stage.index);
     analyses.push({ ...match, stage: stage.index });

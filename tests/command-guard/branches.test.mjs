@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { appendAudit, resolveAuditPath, sanitizeAuditValue, structuralActionIdentity } from '../../skills/command-driven-operations/scripts/command-guard/audit.mjs';
 import { BASH_OPERATORS, lexBash } from '../../skills/command-driven-operations/scripts/command-guard/bash-lexer.mjs';
+import { lookupFamily } from '../../skills/command-driven-operations/scripts/command-guard/catalogue.mjs';
 import { buildComposition } from '../../skills/command-driven-operations/scripts/command-guard/composition.mjs';
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
 import { LIMITS } from '../../skills/command-driven-operations/scripts/command-guard/limits.mjs';
@@ -21,6 +22,10 @@ function event(overrides = {}) {
 
 function policy(command, permissionMode = 'default') {
   return analyzeCommand(parseHookEvent(event({ permission_mode: permissionMode, tool_input: { command } })));
+}
+
+function family(command) {
+  return lookupFamily(buildComposition(lexBash(command)).stages[0]);
 }
 
 test('contract rejects every malformed field branch and accepts exact boundaries', () => {
@@ -137,6 +142,9 @@ test('redaction covers every literal transport, overlap filtering, empty input, 
   ];
   for (const fixture of fixtures) assert.doesNotMatch(redactText(fixture), new RegExp(secret), fixture);
   assert.deepEqual(detectSensitiveSpans('MONKEY=banana'), []);
+  assert.deepEqual(detectSensitiveSpans('unterminated "'), []);
+  assert.deepEqual(detectSensitiveSpans('curl -b'), []);
+  assert.deepEqual(detectSensitiveSpans(';'), []);
   assert.equal(detectSensitiveSpans(`Authorization: Bearer TOKEN=${secret}`).length, 1);
   assert.equal(redactText('plain', []), 'plain');
   const normalized = normalizeAndFingerprint('  uname   -a  ', []);
@@ -157,6 +165,174 @@ test('policy covers discard redirects, first-stage filters, wrapper failure, and
   assert.equal(runtimeReference.decision, 'allow');
   assert.equal(runtimeReference.credential.source, 'RUNTIME_VARIABLE');
   assert.equal(policy('uname | kubectl --context lab --namespace demo delete pod demo-0').decision, 'ask');
+});
+
+test('catalogue filter and Git schemas distinguish bounded operations from file or unknown inputs', () => {
+  assert.equal(family('ip addr show')?.policyId, 'POSIX_HOST_READ');
+  assert.equal(family('curl -s https://api.example.invalid/health')?.policyId, 'HTTP');
+  for (const command of [
+    'grep pattern', 'grep -e pattern', 'rg --regexp=pattern', 'head -n 1',
+    'tail --lines=1', 'cut -d : -f 1', 'sort', 'uniq', 'wc', 'sed -n 1p',
+    "awk '{print $1}'", "jq '.name'", 'Where-Object Status -eq Running',
+  ]) assert.equal(family(command)?.policyId, 'FILTER', command);
+
+  for (const command of [
+    'grep pattern /etc/passwd', 'grep -r pattern', 'rg --glob *.js pattern',
+    'head -n 1 file', 'tail file', 'cut -f 1 file', 'sort file', 'uniq file',
+    'wc file', 'sed 1p', "awk 'system(\"id\")'", 'jq --from-file filter.jq',
+  ]) assert.equal(family(command), null, command);
+
+  const gitCases = [
+    ['git status', 'SAFE_READ_ONLY'], ['git branch --list', 'SAFE_READ_ONLY'],
+    ['git reset --hard', 'DESTRUCTIVE'], ['git clean -fd', 'DESTRUCTIVE'],
+    ['git push origin main --force-with-lease', 'DESTRUCTIVE'], ['git branch -d old', 'DESTRUCTIVE'],
+    ['git tag -d old', 'DESTRUCTIVE'], ['git add file', 'LOW_RISK_CHANGE'],
+    ['git commit -m change', 'LOW_RISK_CHANGE'], ['git push origin main', 'LOW_RISK_CHANGE'],
+    ['gh repo view --repo owner/project', 'SAFE_READ_ONLY'], ['gh pr checks owner/project', 'SAFE_READ_ONLY'],
+    ['gh repo delete owner/project --repo owner/project', 'DESTRUCTIVE'],
+    ['gh release delete v1 --repo owner/project', 'DESTRUCTIVE'],
+    ['gh pr merge 1 --repo owner/project', 'DESTRUCTIVE'],
+    ['gh workflow run deploy.yml --repo owner/project', 'DISRUPTIVE_CHANGE'],
+    ['gh issue create --repo owner/project --title issue', 'LOW_RISK_CHANGE'],
+  ];
+  for (const [command, risk] of gitCases) assert.equal(family(command)?.risk, risk, command);
+  assert.equal(family('git frobnicate'), null);
+  assert.equal(family('gh api /repos/owner/project'), null);
+});
+
+test('catalogue SSH schema accepts only literal finite transport options and one nested operation', () => {
+  for (const command of [
+    'ssh -4 -q -v -T ops@example.invalid "uname -a"',
+    'ssh -o BatchMode=yes ops@example.invalid "uname -a"',
+    'ssh -oIdentitiesOnly=yes ops@example.invalid "uname -a"',
+    'ssh -o=StrictHostKeyChecking=accept-new ops@example.invalid "uname -a"',
+    'ssh -o ConnectTimeout=0 ops@example.invalid "uname -a"',
+    'ssh -o ServerAliveInterval=300 ops@example.invalid "uname -a"',
+    'ssh -o ConnectionAttempts=10 ops@example.invalid "uname -a"',
+    'ssh -o ServerAliveCountMax=10 ops@example.invalid "uname -a"',
+    'ssh -o Port=22 ops@example.invalid "uname -a"',
+    'ssh -o AddressFamily=inet6 ops@example.invalid "uname -a"',
+    'ssh -o LogLevel=debug3 ops@example.invalid "uname -a"',
+    'ssh -o User=operator ops@example.invalid "uname -a"',
+    'ssh -o ProxyJump=jump@example.invalid ops@example.invalid "uname -a"',
+    'ssh -p 22 -l ops -i key.pem -J jump.example.invalid ops@example.invalid "uname -a"',
+    'ssh -p22 -lops -ikey.pem -Jjump.example.invalid ops@example.invalid "uname -a"',
+  ]) assert.equal(family(command)?.policyId, 'REMOTE', command);
+
+  for (const command of [
+    'ssh -o BatchMode=no ops@example.invalid "uname -a"',
+    'ssh -o StrictHostKeyChecking=no ops@example.invalid "uname -a"',
+    'ssh -o ConnectTimeout=301 ops@example.invalid "uname -a"',
+    'ssh -o ConnectionAttempts=11 ops@example.invalid "uname -a"',
+    'ssh -o Port=0 ops@example.invalid "uname -a"',
+    'ssh -o AddressFamily=other ops@example.invalid "uname -a"',
+    'ssh -o LogLevel=trace ops@example.invalid "uname -a"',
+    'ssh -o User=$USER ops@example.invalid "uname -a"',
+    'ssh -o ProxyJump=$JUMP ops@example.invalid "uname -a"',
+    'ssh -o Unknown=value ops@example.invalid "uname -a"',
+    'ssh -o invalid ops@example.invalid "uname -a"',
+    'ssh -o',
+    'ssh -p ops@example.invalid "uname -a"',
+    'ssh -p 0 ops@example.invalid "uname -a"',
+    'ssh -Z value ops@example.invalid "uname -a"',
+    'ssh -p$PORT ops@example.invalid "uname -a"',
+    'ssh ops@example.invalid "uname -a" trailing',
+    'ssh $HOST "uname -a"',
+    'ssh ops@example.invalid "uname -a | head -n 1"',
+    'ssh ops@example.invalid "mysteryctl status"',
+    'ssh ops@example.invalid "ssh other.example.invalid uname"',
+  ]) assert.equal(family(command), null, command);
+});
+
+test('catalogue Kubernetes schemas consume every supported option form', () => {
+  const accepted = [
+    'kubectl --context=lab --namespace demo get pods -o yaml --selector app=api --watch false --chunk-size 20',
+    'kubectl --context lab describe pod api --show-events',
+    'kubectl --context lab logs pod/api --tail=20 --timestamps --follow=false',
+    'kubectl --context lab events --for pod/api --types Warning --watch-only false --chunk-size=20',
+    'kubectl --context lab version --client --short',
+    'kubectl --context lab cluster-info --dump',
+    'kubectl --context lab --namespace demo label pod api env=prod --overwrite',
+    'kubectl --context lab --namespace demo annotate pod api owner=ops --local',
+    'kubectl --context lab --namespace demo apply -f manifest.yaml --server-side',
+    'kubectl --context lab --namespace demo patch deployment api -p {} --type merge --local',
+    'kubectl --context lab --namespace demo scale deployment api --replicas=2',
+    'kubectl --context lab cordon node-a --dry-run',
+    'kubectl --context lab uncordon node-a --selector role=worker',
+    'kubectl --context lab --namespace demo delete pod api --wait false --force',
+    'kubectl --context lab drain node-a --ignore-daemonsets --grace-period 30',
+    'kubectl --context lab --namespace demo replace -f manifest.yaml --force',
+    'k3s kubectl --context lab get pods --chunk-size=20',
+  ];
+  for (const command of accepted) assert.equal(family(command)?.policyId, 'KUBERNETES', command);
+
+  for (const command of [
+    'kubectl --context get pods',
+    'kubectl --context= get pods',
+    'kubectl --context lab get pods --watch=maybe',
+    'kubectl --context lab get pods --unknown',
+    'kubectl --context lab logs pod/api --tail',
+    'kubectl --context lab',
+    'kubectl --context lab frobnicate pods',
+  ]) assert.equal(family(command), null, command);
+});
+
+test('catalogue families exercise finite risk and option boundaries', () => {
+  const risks = [
+    ['ps aux', 'SAFE_READ_ONLY'], ['ss -l', 'SAFE_READ_ONLY'], ['ss -K dst 192.0.2.1', 'DESTRUCTIVE'],
+    ['mount -l', 'SAFE_READ_ONLY'], ['journalctl -n 10', 'SAFE_READ_ONLY'],
+    ['journalctl -n 10 --rotate', 'DESTRUCTIVE'], ['Test-Connection example.invalid -Count=3', 'SAFE_READ_ONLY'],
+    ['gpg --decrypt credential.gpg', 'SAFE_READ_ONLY'], ['sudo systemctl status nginx', 'SAFE_READ_ONLY'],
+    ['service nginx restart', 'DISRUPTIVE_CHANGE'], ['systemctl enable nginx', 'LOW_RISK_CHANGE'],
+    ['systemctl restart nginx', 'DISRUPTIVE_CHANGE'],
+    ['docker ps', 'SAFE_READ_ONLY'], ['docker inspect web', 'SAFE_READ_ONLY'],
+    ['docker logs --tail 20 web', 'SAFE_READ_ONLY'], ['docker stats --no-stream web', 'SAFE_READ_ONLY'],
+    ['docker pull image:latest', 'LOW_RISK_CHANGE'], ['docker restart web', 'DISRUPTIVE_CHANGE'],
+    ['docker rm web', 'DESTRUCTIVE'], ['aws --profile ops --region us-east-1 ec2 get-console-output --instance-ids i-1', 'SAFE_READ_ONLY'],
+    ['aws --profile ops --region us-east-1 ec2 create-tags --resources i-1', 'LOW_RISK_CHANGE'],
+    ['aws --profile ops --region us-east-1 ec2 start-instances --instance-ids i-1', 'DISRUPTIVE_CHANGE'],
+    ['aws --profile ops --region us-east-1 ec2 terminate-instances --instance-ids i-1', 'DESTRUCTIVE'],
+    ['az vm show --subscription lab --name vm1', 'SAFE_READ_ONLY'],
+    ['az tag create --subscription lab --name tag1', 'LOW_RISK_CHANGE'],
+    ['az vm restart --subscription lab --name vm1', 'DISRUPTIVE_CHANGE'],
+    ['az vm purge --subscription lab --name vm1', 'DESTRUCTIVE'],
+    ['gcloud compute instances describe vm1 --project lab', 'SAFE_READ_ONLY'],
+    ['gcloud projects add-labels project1 --project lab', 'LOW_RISK_CHANGE'],
+    ['gcloud compute instances reset vm1 --project lab', 'DISRUPTIVE_CHANGE'],
+    ['gcloud compute instances delete vm1 --project lab', 'DESTRUCTIVE'],
+    ['pg_isready', 'SAFE_READ_ONLY'], ['psql -h db.invalid -p 5432 -U appuser -d app -c "SET application_name = ops"', 'LOW_RISK_CHANGE'],
+    ['psql -h db.invalid -p 5432 -U appuser -d app -c "VACUUM"', 'DISRUPTIVE_CHANGE'],
+    ['psql -h db.invalid -p 5432 -U appuser -d app -c "DROP TABLE demo"', 'DESTRUCTIVE'],
+    ['mysql -h db.invalid -P 3306 -u appuser -D app -e "SET sql_safe_updates = 1"', 'LOW_RISK_CHANGE'],
+    ['mysqladmin -h db.invalid -P 3306 -u appuser FLUSH', 'DISRUPTIVE_CHANGE'], ['mysqladmin -h db.invalid -P 3306 -u appuser SHUTDOWN', 'DESTRUCTIVE'],
+    ['mongosh mongodb://db.invalid/app --eval "db.serverStatus()"', 'SAFE_READ_ONLY'],
+    ['mongosh mongodb://db.invalid/app --eval "db.reconfig()"', 'DISRUPTIVE_CHANGE'],
+    ['mongosh mongodb://db.invalid/app --eval "db.demo.drop()"', 'DESTRUCTIVE'],
+    ['Restart-Service -Name spooler', 'DISRUPTIVE_CHANGE'], ['Set-Service -Name spooler', 'LOW_RISK_CHANGE'],
+  ];
+  for (const [command, risk] of risks) assert.equal(family(command)?.risk, risk, command);
+
+  for (const command of [
+    'ps e', 'mount /dev/sda1 /mnt', 'ip link delete dev eth0', 'ip nonsense',
+    'journalctl -n', 'journalctl --lines=', 'Test-Connection example.invalid -Count',
+    'Test-Connection example.invalid -Count=', 'gpg --encrypt plaintext', 'sshpass -d 1 ssh host uname',
+    'sudo', 'sshpass -d 0 mysteryctl status', 'sshpass -d 0 uname -a',
+    'systemctl --host remote status nginx', 'systemctl', 'systemctl frobnicate nginx',
+    'docker stats web', 'docker logs web', 'docker --context lab --context prod ps',
+    'docker --context=$CONTEXT ps', 'aws --profile ops --profile prod ec2 describe-instances --max-items 1',
+    'AWS_PROFILE=ops aws --profile prod --region us-east-1 ec2 describe-instances --max-items 1',
+    'aws --profile ops', 'aws --profile ops --region us-east-1 ec2 unknown-action', 'az rest --subscription lab',
+    'az nonsense --subscription lab', 'gcloud compute ssh vm1 --project lab',
+    'gcloud compute instances unknown vm1 --project lab', 'psql -h db.invalid -d app',
+    'mysql -h db.invalid -D app -e "SELECT * FROM events"', 'mysql -h db.invalid -D app -e "TABLE users"',
+    'mongosh mongodb://db.invalid/app', 'mongosh mongodb://db.invalid/app --eval "db.unknown()"',
+    'curl https://', 'curl -X', 'curl -X OPTIONS https://api.example.invalid/items',
+  ]) assert.equal(family(command), null, command);
+
+  assert.equal(family('mongosh mongodb://db.invalid --eval "db.serverStatus()"')?.target, 'server');
+  assert.equal(family('Restart-Service spooler')?.target, 'spooler');
+  assert.equal(lookupFamily({ argv: ['ssh', 'ops@example.invalid', 'echo $('] }), null);
+  assert.equal(lookupFamily({ argv: ['ssh', '-p'] }), null);
 });
 
 test('native response covers allow, ask, deny, and invalid decisions', () => {

@@ -19,10 +19,16 @@ test('valid hook event is normalized to the guard contract', () => {
     agentType: 'diagnostic-operator',
     permissionMode: 'default',
     command: 'uname -a',
+    cwd: null,
     toolUseId: null,
     timeoutMs: null,
     runInBackground: false,
   });
+});
+
+test('hook contract preserves bounded cwd for effect binding', () => {
+  assert.equal(parseHookEvent(JSON.stringify(validEvent({ cwd: '/srv/project' }))).cwd, '/srv/project');
+  assert.equal(parseHookEvent(JSON.stringify(validEvent())).cwd, null);
 });
 
 test('current native PreToolUse Bash payload accepts documented common fields', () => {

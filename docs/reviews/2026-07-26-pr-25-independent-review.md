@@ -195,3 +195,286 @@ schema, workflow, static smoke, content, and Python gates passed in Debian WSL2
 with the SHA-256-verified official user-local Node.js `v24.17.0`; the Debian
 system Node remains unchanged. Independent review of the final published tree
 is still required.
+
+## 2026-07-28 fourth independent review disposition
+
+An independent reviewer inspected PR head `f0d56f7` without prior task
+history, reviewed the full `18127ac..f0d56f7` range, ran adversarial cases
+against the real `analyzeCommand` entrypoint with Node.js `v24.17.0`, and used
+a loopback HTTP server to compare classified and executed methods. The review
+found that green structural coverage did not include client last-wins
+precedence, two accepted credential spellings, or unbound remote route/config
+controls. The PR was not ready to merge.
+
+The remediation below was implemented with a witnessed RED/GREEN cycle. Its
+status records local closure of each reproduced case and does not replace a
+new independent verification of the resulting head.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-25 | Repeated curl methods hid the effective destructive request | `curl -X GET -X DELETE ...` returned `allow/SAFE_READ_ONLY` while loopback observed `DELETE` | Reject multiple method selectors across short, long, equals, compact, and mixed aliases before risk derivation | Remediated; independent verification pending |
+| RV-26 | Accepted cookie and Redis spellings escaped literal detection | Curl `-b/--cookie` and Redis `-a"secret"` returned `allow` with no credential metadata | Detect separated, equals-attached, compact, and quoted cookie/password forms and preserve `COOKIE` or `FLAG` transport | Remediated; independent verification pending |
+| RV-27 | Repeated Kubernetes selectors broke audited context binding | Later `--context` or `--namespace/-n` values could replace the first audited value | Reject duplicate singleton context and namespace alias groups before closed-schema classification | Remediated; independent verification pending |
+| RV-28 | AWS route and trust controls were outside the binding | Endpoint, alternate CA, insecure TLS, unsigned, debug, and external-input controls remained autonomous | Deny unrepresented route/trust/auth/diagnostic/input overrides and bind a named `AWS_PROFILE` assignment | Remediated; independent verification pending |
+| RV-29 | Docker remote transport and external configuration looked local | `--host`, `-H`, `--connection`, and `--config` reads returned a local binding | Deny unmodelled remote/config selectors while retaining one literal `--context` | Remediated; independent verification pending |
+| RV-30 | Dynamic HTTP origins were authorized before expansion | `curl https://$OPS_TARGET/...` returned a narrow autonomous read | Require a literal origin and deny variables, globs, and brace syntax before URL parsing | Remediated; independent verification pending |
+
+Seven targeted assertions failed on the unsafe decisions before production
+changes. After the minimal parser and redaction changes, all 37 targeted tests
+passed. Stable fixture IDs RV-25 through RV-30 execute the same cases against
+source and installed form; final full-gate and installed-artifact evidence is
+recorded only after it is freshly observed.
+
+Fresh local remediation evidence on the resulting worktree records 103 active
+Node tests passing plus one intentional mutation-only skip, 100 percent
+line/function/branch coverage, four deterministic property seeds, and all 11
+registered security mutations killed. The complete package, content,
+architecture, schema, workflow, Python, Bash, and host PowerShell syntax gates
+passed. An isolated local Nori installation registered all 12 subagents and 24
+skills; source-to-installed semantic comparison passed and the installed guard
+executed all 44 stable review fixtures. No model was started and no Claude
+model-provider credential was loaded; the Nori CLI used its own existing
+authentication context for the local install. A new
+independent review of the resulting commit remains required before merge.
+
+## 2026-07-28 fifth independent review disposition
+
+A second independent re-review of the remediated worktree found four remaining
+authorization-boundary gaps. The reviewer exercised the real policy entrypoint
+and approval lifecycle rather than inferring behavior from structural coverage.
+The reviewed worktree was not ready to merge.
+
+The remediation below was implemented through executable RED/GREEN cases. Its
+status records local closure only; a new independent reviewer must verify the
+resulting commit before merge.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-31 | One approved transport authorized an additional literal transport | An active Authorization binding allowed the same curl call to add a new Cookie because only the first detected span selected the transport | Deny any command containing more than one distinct literal credential transport before binding lookup | Remediated; independent verification pending |
+| RV-32 | First parsed values diverged from shell/client last-wins behavior | Repeated `AWS_PROFILE`, `OPS_CREDENTIAL_IDENTITY`, and Redis host selectors audited the first value while execution used the last | Reject repeated allowlisted assignment names and every Redis host, port, database, password, or user singleton alias group before derivation | Remediated; independent verification pending |
+| RV-33 | Separated Docker short host option escaped the route boundary | `docker -H tcp://attacker.invalid:2375 ps` was classified as a local safe read | Treat exact separated `-H` as the same prohibited remote-host selector as compact and equals spellings | Remediated; independent verification pending |
+| RV-34 | Mixed quote concatenation left credential suffixes visible | Curl Cookie and Redis password tokens built from adjacent quoted fragments retained the later raw fragment after redaction | Supplement semantic detection with Bash lexer raw-token spans and prefer the complete outer value span over overlapping inner matches | Remediated; independent verification pending |
+
+The RED run failed in all five affected assertions: cross-transport approval
+reuse, complete mixed-quote redaction, installed review-fixture semantics,
+repeated effective-value selectors, and separated Docker `-H`. The corrected
+targeted suite passed all 66 cases. Stable fixture IDs RV-31 through RV-34
+cover six source-to-installed commands, including separate assignment and
+Redis precedence variants. Final full-gate and installed-artifact evidence is
+recorded only after fresh verification.
+
+Fresh local remediation evidence records 106 active Node tests passing plus
+one intentional mutation-only skip, 100 percent line/function/branch coverage,
+four deterministic property seeds, and all 11 registered security mutations
+killed. The complete package, content, architecture, schema, workflow, Python,
+Bash, and host PowerShell syntax gates passed. An isolated Nori installation
+registered all 12 subagents and 24 skills; security-critical artifacts matched
+source byte-for-byte and the installed guard passed all 50 review fixtures.
+No Claude process or model-provider credential was loaded. This evidence does
+not replace the required independent verification of the resulting commit.
+
+## 2026-07-28 sixth independent review disposition
+
+A fresh independent reviewer inspected the complete uncommitted delta from
+`origin/main`, read the command, binding, audit, and approval flow, and executed
+adversarial lifecycle cases through the real entrypoints. RV-31, RV-33, and
+RV-34 were verified closed. RV-32 was only partially closed because unique
+Redis selectors and trust state were still absent from the approval domain.
+The reviewed worktree was not ready to merge.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-35 | Redis trust could be weakened after approval | A credential approved with `--tls` was reused with `--tls --insecure` and returned `ALLOW_APPROVED_CREDENTIAL_BINDING` | Consume a closed Redis option schema and deny insecure verification, alternate trust/client inputs, SNI, URI/socket routing, cluster redirects, stdin sources, special modes, and unknown options | Remediated; independent verification pending |
+| RV-36 | Redis approval omitted effective port, database, and user | A binding approved for port 6379, database 0, and user `app` was reused for port 6380, database 1, and user `admin` | Build one canonical non-secret environment from transport, host, port, database, and user with explicit defaults, and reuse the existing action identity, audit, and binding comparison | Remediated; independent verification pending |
+
+The TDD RED run reproduced `allow` for the TLS-to-insecure lifecycle, incorrect
+reuse across Redis scope changes, and failing source-to-installed review
+fixtures. The corrected targeted suite passed all 44 cases. Fresh local full
+verification records 108 active Node tests passing plus one intentional
+mutation-only skip, 100 percent critical line/function/branch coverage, four
+deterministic property seeds, and all 11 registered security mutations killed.
+The complete package, content, architecture, schema, workflow, Python, Bash,
+and host PowerShell syntax gates passed. A temporary Nori installation
+registered all 12 subagents and 24 skills; security-critical files matched
+source byte-for-byte and all 52 installed review fixtures passed. No Claude
+process or model-provider credential was loaded. A new independent review of
+the resulting commit remains required before merge.
+
+## 2026-07-29 seventh independent review disposition
+
+A new independent review of the complete worktree found four remaining gaps in
+the command catalogue and in the evidence gate. The reviewer reproduced
+incomplete Redis command parsing, autonomous mutable HTTP effects, and the
+absence of catalogue coverage and mutation witnesses. The reviewed worktree
+was not ready to merge.
+
+The remediation below used executable RED/GREEN tests. Its status records
+local closure only and does not replace independent verification of the
+resulting tree.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-37 | Redis TTL semantics and trailing operands were incomplete | Non-positive `EXPIRE` was classified as a low-risk change and malformed or dynamic forms could reach the catalogue | Parse the complete literal `EXPIRE` and `PERSIST` grammars, classify zero or negative TTL as destructive, and reject invalid, dynamic, incomplete, or trailing operands | Remediated; independent verification pending |
+| RV-38 | Redis client termination was parsed as a standalone verb | Valid `CLIENT KILL` forms denied while composite and unconsumed forms were not represented exactly | Accept only `CLIENT KILL <host:port>` or `CLIENT KILL ID <positive-int64>` and reject standalone `KILL`, unsupported filters, invalid bounds, and extra operands | Remediated; independent verification pending |
+| RV-39 | Generic mutable HTTP calls remained autonomous in permissive mode | Uncatalogued `POST`, `PUT`, and `PATCH` could return `allow` in `bypassPermissions` | Classify mutable HTTP calls as disruptive external effects so native confirmation is mandatory in every permission mode | Remediated; independent verification pending |
+| RV-40 | The catalogue was outside critical structural and mutation evidence | A green gate could omit catalogue branches and could accept a registered mutation without a dedicated semantic witness | Include `catalogue.mjs` in 100 percent line/function/branch thresholds, require registry equality for predicates, mutations, and witnesses, and add six exact catalogue mutations | Remediated; independent verification pending |
+
+The catalogue-inclusive gate initially failed at 96.39 percent lines, 91.77
+percent branches, and 94.32 percent functions, proving the former evidence
+gap. Registering the six new mutations without witnesses also failed the
+registry test as intended. Behavior-bearing fixtures then closed every
+catalogue branch, and all 17 mutations were killed by dedicated invariants.
+
+Fresh local Node verification records 121 active tests passing plus one
+intentional mutation-only skip, 100 percent critical line/function/branch
+coverage including `catalogue.mjs`, four deterministic property seeds, and all
+17 registered mutations killed. Stable fixture IDs RV-37 through RV-40 extend
+the source-to-installed review corpus to 57 cases. The complete package,
+content, architecture, schema, workflow, Python, Bash, and host PowerShell
+syntax gates passed. A temporary Nori installation registered all 12 subagents,
+24 agent skills, and 20 slash commands; security-critical scripts matched
+source byte-for-byte and all 57 installed review fixtures passed. The temporary
+HOME was removed, no Claude process was started, and no model-provider
+credential was loaded. A subsequent independent read-only review is still
+required before merge.
+
+## 2026-07-29 eighth independent review disposition
+
+A fresh independent review reproduced five remaining semantic and evidence
+gaps. Curl remote-name flags could consume following body or upload options,
+database clients could execute against a later selector than the audited one,
+HTTP output files lacked a canonical local-effect binding, long Git branch
+deletion aliases escaped destructive classification, and the mutation runner
+counted any child failure as a killed mutant. The reviewed worktree was not
+ready to merge.
+
+The remediation below used witnessed RED/GREEN cycles. Its status records
+local closure only and does not replace independent verification of the
+resulting tree.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-41 | Curl remote-name arity hid body and upload semantics | `curl -O -d ...` returned `allow/LOW_RISK_CHANGE` while loopback observed `POST`; uploads could also be consumed | Parse curl with exact flag/value arity, derive effects only from consumed entries, and retain remote-name as a local sink | Remediated; independent verification pending |
+| RV-42 | Repeated database selectors broke credential-domain binding | PostgreSQL/MySQL bound the first host or port although the client used a later value | Reject duplicate alias groups through closed client grammars and bind scheme, user, host, port, and database | Remediated; independent verification pending |
+| RV-43 | HTTP sinks lacked canonical path binding and mandatory confirmation | Dynamic and arbitrary destinations could write files autonomously without an auditable local target | Normalize literal or allowlisted-root paths, record `METHOD path -> file:path`, and apply `FILE_WRITE + ALWAYS_ASK` in every mode | Remediated; independent verification pending |
+| RV-44 | Long Git branch deletion aliases escaped destructive classification | `git branch --delete [--force]` fell through to `LOW_RISK_CHANGE` | Route every accepted branch form through one complete subgrammar and classify all deletion aliases as destructive | Remediated; independent verification pending |
+| RV-45 | Mutation witnesses were not baseline-proven or failure-typed | Any nonzero child exit, including import errors and crashes, was counted as a killed mutant | Execute every witness against pristine source first and accept a kill only for exit `42` plus the exact matching assertion marker | Remediated; independent verification pending |
+
+The RED evidence reproduced autonomous remote-name POST classification,
+unbound and dynamic sinks, repeated database selector acceptance, low-risk long
+branch deletion, and a crashing mutation incorrectly counted as killed. Stable
+fixtures RV-41 through RV-44 execute source and installed operational behavior;
+RV-45 remains repository-only evidence because Nori does not install the
+development mutation harness. The fresh native and Debian package gates pass
+167 active tests with zero skips, 100 percent line/function/branch coverage
+for every critical module, four fixed property seeds, and 23 of 23
+baseline-proven typed mutations. A fresh isolated Nori install, without Claude
+or provider credentials, registered 12 subagents, 24 project skills, and 20
+slash commands; all 61 installed fixtures passed and every source script
+matched its installed counterpart byte for byte. Independent verification of
+the completed tree remains pending.
+
+## 2026-07-29 ninth independent review disposition
+
+The post-remediation read-only review confirmed RV-41 through RV-45, then
+reproduced four adjacent gaps. A curl `Host` header could reuse an approved
+credential against a changed authority, PostgreSQL could inherit unaudited
+`PGHOST`/`PGPORT`/`PGUSER` selectors, tilde expansion produced an incorrect
+local audit target, and curl header/cookie/trace output sent to `-` was recorded
+as a file or remained autonomous.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-46 | HTTP authority headers escaped origin binding | Changing only `Host` after approval reused the active credential binding | Parse literal headers and deny `Host`, `:authority`, dynamic, file-backed, or malformed fields | Remediated; independent verification pending |
+| RV-47 | PostgreSQL inherited an unaudited environment domain | `PGHOST`, `PGPORT`, and `PGUSER` changed while the action identity retained defaults | Require a complete explicit network domain and reject socket or implicit-selector operation | Remediated; independent verification pending |
+| RV-48 | Tilde output expansion produced a false local target | `~/report.json` was audited beneath the hook `cwd` although the shell expands home | Reject every tilde-prefixed output operand | Remediated; independent verification pending |
+| RV-49 | Header-bearing stdout was mistaken for a file or narrow output | Include/head and `-D -`, `-c -`, or trace output exposed headers while `-` became a fake file path | Model `-` as stdout and apply `SENSITIVE_OUTPUT + ALWAYS_ASK` to header-bearing output | Remediated; independent verification pending |
+
+The new RED cases failed through the real policy and binding entrypoints before
+implementation. The fresh local Node gate now passes 174 active tests with
+zero skips, 100 percent critical line/function/branch coverage, four fixed
+property seeds, and 27 of 27 baseline-proven typed mutations. Stable fixtures
+RV-46 through RV-49 extend the source and installed corpus to 65 cases. A fresh
+isolated Nori install registered 12 subagents, 24 project skills, and 20 slash
+commands; all 65 installed fixtures passed and every source script matched its
+installed counterpart. Another independent read-only review remains pending.
+
+## 2026-07-29 tenth independent review disposition
+
+The next independent read-only review confirmed RV-46 through RV-49, then
+reproduced three adjacent domain and credential-disclosure gaps. An explicit
+PostgreSQL command could still be rerouted or have its trust boundary changed
+through libpq environment inputs, MySQL special host aliases could select a
+local socket despite an audited port, and curl traces could expose a literal
+credential to stdout or a file.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-50 | PostgreSQL environment escaped the explicit domain | `PGHOSTADDR`, service, option, password-file, and trust variables could alter the effective route or trust behind explicit selectors | Reject the closed set of route, service, password-file, option, TLS, GSS, channel-binding, and peer-trust variables before domain construction | Remediated; final independent verification pending |
+| RV-51 | MySQL special hosts selected socket transport | `-h localhost` or `-h .` could ignore the audited network port and use a socket, including one selected by process environment | Reject both socket-selecting aliases while explicit TCP protocol selection remains outside the supported grammar | Remediated; final independent verification pending |
+| RV-52 | Curl trace disclosed literal credentials | `--trace -`, `--trace %`, and file traces could emit authorization material while remaining confirmable or autonomous | Derive credential output/persistence modifiers from the closed curl parser and deny literal credential traces with the specific redacted reason | Remediated; final independent verification pending |
+
+The new RED cases failed through the policy and credential-binding entrypoints
+before implementation. The completed deterministic gate passes 179 active
+tests with zero skips, 100 percent critical line/function/branch coverage,
+four fixed property seeds, and 30 of 30 baseline-proven typed mutations.
+Stable fixtures RV-50 through RV-52 extend the source and installed corpus to
+68 cases. Debian/WSL package validation and host PowerShell syntax validation
+pass. A fresh isolated installation with observed Nori `0.31.0` and Node.js
+`v24.18.0`, without Claude or provider credentials, registered 12 subagents,
+24 project skills, and 20 slash commands; all 68 installed fixtures passed and
+security-critical scripts matched source byte for byte. These versions are
+evidence only, not package requirements. A final independent read-only review
+of the completed tree remains pending.
+
+## 2026-07-29 eleventh independent review disposition
+
+The final-review attempt confirmed RV-50 through RV-52, then found that the
+libpq environment deny set still omitted six current authentication, TLS, and
+GSS variables. Two obsolete underscore spellings for TLS protocol versions
+did not match the real environment names, allowing an already approved
+PostgreSQL binding to execute under a changed trust or credential-delegation
+context.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-53 | Direct SSL negotiation was not bound | `PGSSLNEGOTIATION` preserved autonomous approved reuse | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+| RV-54 | Authentication requirement was not bound | `PGREQUIREAUTH` preserved autonomous approved reuse | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+| RV-55 | Client certificate mode was not bound | `PGSSLCERTMODE` preserved autonomous approved reuse | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+| RV-56 | Minimum TLS version used an invalid spelling | `PGSSLMINPROTOCOLVERSION` was absent while an underscore spelling was inert | Replace the inert name with the current exact variable and add lifecycle, installed, and mutation evidence | Remediated; final independent verification pending |
+| RV-57 | Maximum TLS version used an invalid spelling | `PGSSLMAXPROTOCOLVERSION` was absent while an underscore spelling was inert | Replace the inert name with the current exact variable and add lifecycle, installed, and mutation evidence | Remediated; final independent verification pending |
+| RV-58 | GSS credential delegation was not bound | `PGGSSDELEGATION` preserved autonomous approved reuse | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+| RV-59 | Minimum wire-protocol version was not bound | Current PostgreSQL documentation exposes `PGMINPROTOCOLVERSION` as a connection parameter default | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+| RV-60 | Maximum wire-protocol version was not bound | Current PostgreSQL documentation exposes `PGMAXPROTOCOLVERSION` as a connection parameter default | Reject the exact current variable and protect it with an installed fixture plus dedicated mutation witness | Remediated; final independent verification pending |
+
+The eight real-entrypoint lifecycle cases and source fixtures failed before the
+implementation correction and passed afterward. Each variable now has its own
+exact one-site mutation and typed witness, preventing a future typo or removal
+from being hidden behind the aggregate environment predicate. The completed
+native and Debian/WSL package gates pass 187 active tests with zero skips, 100
+percent critical line/function/branch coverage, four fixed property seeds, and
+38 of 38 baseline-proven typed mutations. RV-53 through RV-60 extend the
+source and installed corpus to 76 cases. A fresh isolated installation with
+observed Nori `0.31.0` and Node.js `v24.18.0`, without Claude or provider
+credentials, registered 12 subagents, 24 project skills, and 20 slash commands;
+all 76 installed fixtures passed and security-critical scripts matched source
+byte for byte. These versions remain evidence only, not requirements. One more
+independent read-only review of this completed tree remains pending.
+
+## 2026-07-29 final independent verification
+
+The final read-only review found no remaining Critical or Important issue and
+returned **Ready to merge: yes**. It independently exercised one approved
+PostgreSQL binding against all 29 current environment variables in the guarded
+route, service, authentication, TLS, GSS, channel-binding, peer, and protocol
+negotiation set; every altered context denied. Explicit command-line host,
+port, database, and user selectors retained precedence over their benign
+environment defaults. No synthetic secret appeared in audit output.
+
+The reviewer also confirmed individual RV-53 through RV-60 installed fixtures,
+mutations, and witnesses; 38 of 38 mutations were killed, all 76 installed
+fixtures passed, and 19 installed security-critical scripts were byte-equivalent
+to source. `git diff --check origin/main` passed. No Claude process, real
+credential, or runtime/model pin was introduced or used. `PGSYSCONFDIR` cannot
+alter the accepted domain because service selectors and connection strings in
+the database selector remain outside the closed grammar.

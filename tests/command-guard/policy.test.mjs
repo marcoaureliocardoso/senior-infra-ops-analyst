@@ -54,8 +54,8 @@ test('initial operational catalogue covers documented infrastructure families', 
     ['aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20', 'AWS'],
     ['az account show --subscription lab', 'AZURE'],
     ['gcloud compute instances list --project lab --limit 20', 'GCP'],
-    ['psql -h db.example.invalid -d app -c "SELECT 1"', 'POSTGRES'],
-    ['mysql -h db.example.invalid -D app -e "SHOW STATUS"', 'MYSQL'],
+    ['psql -h db.example.invalid -p 5432 -U appuser -d app -c "SELECT 1"', 'POSTGRES'],
+    ['mysql -h db.example.invalid -P 3306 -u appuser -D app -e "SHOW STATUS"', 'MYSQL'],
     ['mongosh mongodb://db.example.invalid/app --eval "db.serverStatus()"', 'MONGODB'],
     ['redis-cli -h cache.example.invalid INFO', 'REDIS'],
     ['git status', 'GIT_CI'],
@@ -84,7 +84,6 @@ test('catalogued remote and platform mutations require explicit binding', () => 
     'aws --profile ops --region us-east-1 ec2 stop-instances --instance-ids i-123',
     'az vm restart --subscription lab --resource-group rg --name vm1',
     'gcloud compute instances stop vm1 --project lab --zone us-central1-a',
-    'curl -X POST https://api.example.invalid/v1/reload',
     'Restart-Service -Name spooler',
   ];
   for (const command of mutations) {
@@ -95,11 +94,29 @@ test('catalogued remote and platform mutations require explicit binding', () => 
   assert.equal(analyze('aws ec2 stop-instances --instance-ids i-123').reasonCode, 'DENY_AMBIGUOUS_TARGET');
 });
 
+test('uncatalogued mutable HTTP operations always ask as external effects', () => {
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze('curl -X POST https://api.example.invalid/v1/reload', mode);
+    assert.equal(result.decision, 'ask', mode);
+    assert.equal(result.risk, 'DISRUPTIVE_CHANGE', mode);
+    assert.ok(result.modifiers.includes('EXTERNAL_SIDE_EFFECT'), mode);
+  }
+});
+
+test('Git workflow controls always ask as external effects', () => {
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze('gh workflow run deploy.yml --repo owner/project', mode);
+    assert.equal(result.decision, 'ask', mode);
+    assert.equal(result.risk, 'DISRUPTIVE_CHANGE', mode);
+    assert.ok(result.modifiers.includes('EXTERNAL_SIDE_EFFECT'), mode);
+  }
+});
+
 test('destructive database, container, cloud, HTTP, and Git operations always ask', () => {
   const destructive = [
     'docker --context lab rm web',
     'aws --profile ops --region us-east-1 ec2 terminate-instances --instance-ids i-123',
-    'psql -h db.example.invalid -d app -c "DROP TABLE demo"',
+    'psql -h db.example.invalid -p 5432 -U appuser -d app -c "DROP TABLE demo"',
     'redis-cli -h cache.example.invalid DEL key',
     'curl -X DELETE https://api.example.invalid/v1/resource/1',
     'gh repo delete owner/project --yes --repo owner/project',

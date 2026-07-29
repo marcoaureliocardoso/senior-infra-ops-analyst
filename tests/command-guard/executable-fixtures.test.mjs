@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
 import { analyzeCommand } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
+import { redactText } from '../../skills/command-driven-operations/scripts/command-guard/redaction.mjs';
 import { createFixtureLedger } from './fixture-ledger.mjs';
 import { validEvent } from './helpers.mjs';
 import { REVIEW_REGRESSION_FIXTURES } from './review-regression-fixtures.mjs';
@@ -10,8 +11,9 @@ import { REVIEW_REGRESSION_FIXTURES } from './review-regression-fixtures.mjs';
 function analyze(fixture) {
   return analyzeCommand(parseHookEvent(JSON.stringify(validEvent({
     permission_mode: fixture.permissionMode ?? 'bypassPermissions',
+    ...(fixture.cwd ? { cwd: fixture.cwd } : {}),
     tool_input: { command: fixture.command },
-  }))));
+  }))), fixture.policyEnv ?? {});
 }
 
 test('every independent-review regression fixture executes its assertions', () => {
@@ -20,8 +22,14 @@ test('every independent-review regression fixture executes its assertions', () =
     const result = analyze(fixture);
     assert.equal(result.decision, fixture.expectedDecision, fixture.id);
     if (fixture.expectedRisk) assert.equal(result.risk, fixture.expectedRisk, fixture.id);
+    if (fixture.expectedEnvironment) assert.equal(result.environment, fixture.expectedEnvironment, fixture.id);
+    if (fixture.expectedTarget) assert.equal(result.target, fixture.expectedTarget, fixture.id);
+    if (fixture.expectedModifiers) assert.deepEqual(result.modifiers.toSorted(), fixture.expectedModifiers.toSorted(), fixture.id);
     if (fixture.forbiddenText) {
       assert.doesNotMatch(JSON.stringify(result), new RegExp(fixture.forbiddenText, 'u'), fixture.id);
+    }
+    if (fixture.redactionForbiddenText) {
+      assert.doesNotMatch(redactText(fixture.command), new RegExp(fixture.redactionForbiddenText, 'u'), fixture.id);
     }
     ledger.record(fixture.id);
   }

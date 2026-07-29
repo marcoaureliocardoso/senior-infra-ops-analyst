@@ -32,6 +32,9 @@ export function credentialFlowErrors(composition, analysis) {
     return [{ reasonCode: 'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS', stage: 1 }];
   }
   if (!analysis.metadata) return [];
+  if (analysis.metadata.literal && new Set(analysis.spans.map(({ kind }) => kind)).size > 1) {
+    return [{ reasonCode: 'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', stage: analysis.metadata.stage }];
+  }
   for (const stage of composition.stages) {
     const executable = stage.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
     if (UNSAFE.has(executable)) return [{ reasonCode: executable === 'tee' ? 'DENY_SECRET_PERSISTENCE' : 'DENY_SECRET_OUTPUT', stage: stage.index }];

@@ -63,17 +63,71 @@ Profiles, agents, keychains, cached sessions, credential helpers, runtime
 variables, and protected-file direct flows configured outside the generated
 command are preferred. In-command overrides that select configuration files,
 helpers, agents, loaders, plugins, executable resolution, network route, or TLS
-trust deny when their effective destination cannot be proven statically.
-Kubernetes accepts only a closed set of context-preserving options, and curl
-cannot override proxy, name resolution, or peer verification. A literal supplied
+trust deny when their effective destination cannot be proven statically. AWS
+endpoint/trust controls and Docker host/external-config controls deny, while a
+named AWS profile and one literal Docker context remain bound and usable.
+Kubernetes accepts only a closed set of context-preserving options; duplicate
+singleton selectors deny. Repeated allowlisted assignments and Redis singleton
+selectors also deny, and every Docker `-H`/host spelling is treated as a remote
+route override. Curl cannot override proxy, name resolution, or peer
+verification, repeat method selectors, or use a dynamic origin. A literal supplied
 in conversation is already model/provider/transcript-visible. The guard
 prevents additional disclosure. First literal use always asks. Only a matching,
 successful `PostToolUse` event activates bounded, non-secret state for
 same-session, same-domain, same-identity, same-transport reuse in
-`bypassPermissions`, while every command is independently re-evaluated. The
+`bypassPermissions`, while every command is independently re-evaluated. A call
+that mixes distinct literal credential transports denies, and lexer-aligned
+redaction removes complete raw credential values even across concatenated quote
+segments. The
 state contains no value, hash, raw command, or secret-derived identifier.
 Successful Bash calls without a pending binding leave `PostToolUse` as a silent
 no-op.
+
+Redis accepts a closed operational schema for literal host, port, database,
+user, password, and system-trust `--tls`. Its approval domain includes
+transport, host, port, database, and user with explicit defaults. Insecure TLS,
+alternate trust/client files, SNI, URI/socket routing, cluster redirects,
+special modes, stdin argument sources, and unknown options deny.
+Redis verbs also use complete literal grammars: positive `EXPIRE` and exact
+`PERSIST` are catalogued changes, non-positive `EXPIRE` is destructive, and
+`CLIENT KILL` accepts only a bounded address or positive numeric client ID.
+Malformed, dynamic, incomplete, or trailing Redis operands deny.
+
+Generic HTTP `POST`, `PUT`, and `PATCH` remain available as disruptive external
+effects, but always require native operator confirmation even in
+`bypassPermissions`. `GET` and `HEAD` retain read semantics, while `DELETE`
+remains destructive.
+
+Curl and PowerShell HTTP clients use closed option grammars with complete
+arity consumption. Every accepted local output sink is normalized against the
+hook `cwd` or an explicitly configured non-secret root, contributes
+`FILE_WRITE + ALWAYS_ASK`, and is represented as
+`METHOD /remote/path -> file:/normalized/local/path`. Configure at most eight
+approved roots by listing their variable names in
+`OPS_COMMAND_GUARD_OUTPUT_VARIABLES` (for example,
+`OPS_OUTPUT_DIR,OPS_EXPORT_DIR`) and assigning each an absolute path. Dynamic,
+unlisted, credential-like, relative, nested, defaulted, or escaping roots deny;
+the guard reads only the listed names and never enumerates the environment.
+Tilde-prefixed destinations deny because their shell-resolved home cannot be
+derived from the hook contract. Curl routing headers (`Host` and
+`:authority`) and dynamic header expressions deny. Response headers sent to
+stdout, including `--include`, `--head`, header dumps, cookie jars, and traces,
+contribute `SENSITIVE_OUTPUT + ALWAYS_ASK`; the `-` pseudo-sink is never
+misreported as a local file. A curl trace produced while a literal credential
+is present denies outright: stdout traces use `DENY_SECRET_OUTPUT`, while file
+traces use `DENY_SECRET_PERSISTENCE`.
+
+PostgreSQL and MySQL consume closed singleton connection selectors and bind
+credential approval to scheme, user, host, port, and database. Networked
+`psql` and `mysql` calls require all four selectors explicitly; `mysqladmin`
+requires explicit host, port, and user. Repeated aliases, implicit environment
+selectors, config/service/login/socket/protocol/TLS overrides, dynamic
+selectors, invalid ports, and trailing operands deny. PostgreSQL routing,
+service, password-file, and trust environment variables deny even when the
+network selectors are explicit; MySQL `localhost` and `.` hosts deny because
+the client can reinterpret them as local socket transport. Git branch
+creation, listing, rename, and deletion use one closed subgrammar; short and
+long deletion aliases are uniformly destructive.
 
 Mandatory static and installed-form validation:
 
@@ -109,8 +163,11 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added a fail-closed launcher, matching `PostToolUse` approval recording, and bounded non-secret credential-binding state.
 - Added strict event validation, separate Bash/PowerShell lexers, composition analysis, a finite infrastructure command catalogue, target binding, and mode-aware `allow`/`ask`/`deny` policy.
 - Added parser-aware redaction, structural non-secret action identities, direct protected-file flows, bounded per-stage findings, minimal append-only audit metadata, and fail-closed process behavior.
-- Added client-aligned credential transports plus closed HTTP route/TLS and Kubernetes endpoint/credential option schemas.
-- Added 100% critical line/function/branch coverage, executable semantic fixtures for every finite inventory item, four property seeds, eleven killed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added client-aligned credential transports plus closed HTTP, Kubernetes, AWS, and Docker route/trust/configuration boundaries with fail-closed singleton precedence.
+- Rejected mixed literal credential transports and repeated effective-value selectors, and made redaction cover full mixed-quote credential tokens.
+- Added a closed Redis CLI schema and canonical non-secret binding across transport, host, port, database, and ACL user.
+- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, thirty-eight baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Closed HTTP option arity and output-effect binding, database selector/domain precedence, and Git branch deletion alias parity; local file effects always require native confirmation.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 
 ## What changed in v0.10.0

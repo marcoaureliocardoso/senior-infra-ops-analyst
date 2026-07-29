@@ -25,7 +25,7 @@ async function readBoundedInput(stream) {
 
 export function evaluateHook(raw, env = process.env) {
   const event = parseHookEvent(raw);
-  let result = analyzeCommand(event);
+  let result = analyzeCommand(event, env);
   const binding = bindingFromResult(result, event);
   if (binding && event.permissionMode === 'bypassPermissions' && hasActiveBinding(binding, env)) {
     const cannotReuse = result.risk === 'DESTRUCTIVE' ||

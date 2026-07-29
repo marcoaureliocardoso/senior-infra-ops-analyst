@@ -41,7 +41,7 @@
 - `lookupFamily(stage, context = {})` accepts a context without changing its returned policy-result shape.
 - `resolveOutputPath(operand, { cwd = null, env = {}, dialect = 'bash' } = {}) -> string | null` returns one canonical POSIX or Windows path or `null`.
 
-- [ ] **Step 1: Add failing contract and resolver tests**
+- [x] **Step 1: Add failing contract and resolver tests**
 
 Add to `contract.test.mjs`:
 
@@ -94,7 +94,7 @@ test('ambiguous unsafe or escaping output variables fail closed', () => {
 
 Cover zero/eight/nine configured names, malformed names, empty roots, Windows traversal, control characters, length bounds, exact-root destinations, and alternate slash forms in the same file.
 
-- [ ] **Step 2: Run the focused tests and witness RED**
+- [x] **Step 2: Run the focused tests and witness RED**
 
 ```powershell
 node --test tests/command-guard/contract.test.mjs tests/command-guard/output-path.test.mjs
@@ -102,7 +102,7 @@ node --test tests/command-guard/contract.test.mjs tests/command-guard/output-pat
 
 Expected: module-not-found for `output-path.mjs` and missing `cwd` in the normalized event. The failures must be attributable to absent behavior, not test syntax.
 
-- [ ] **Step 3: Implement the bounded resolver and context plumbing**
+- [x] **Step 3: Implement the bounded resolver and context plumbing**
 
 Implement `output-path.mjs` around these exact constants and interface:
 
@@ -145,7 +145,7 @@ must explicitly clear local path context:
 lookupFamily(composition.stages[0], { cwd: null, env: {}, dialect: 'bash', remote: true });
 ```
 
-- [ ] **Step 4: Add the resolver to critical and installed validation**
+- [x] **Step 4: Add the resolver to critical and installed validation**
 
 Add `output-path.mjs` to the critical include list in
 `tests/run-command-guard-tests.mjs`. Confirm the installed-artifact validator's
@@ -153,7 +153,7 @@ recursive script comparison observes the new file; add an explicit expected
 module assertion in `tests/command_guard_install_policy.py` if its inventory is
 finite.
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [x] **Step 5: Run focused tests and verify GREEN**
 
 ```powershell
 node --test tests/command-guard/contract.test.mjs tests/command-guard/output-path.test.mjs tests/command-guard/branches.test.mjs tests/command-guard/entrypoint.test.mjs
@@ -162,7 +162,7 @@ python tests/test-command-guard-install-policy.py
 
 Expected: all selected tests pass and existing non-sink policy decisions are unchanged.
 
-- [ ] **Step 6: Evaluate the context/resolver commit checkpoint**
+- [x] **Step 6: Evaluate the context/resolver commit checkpoint**
 
 ```powershell
 git diff --check
@@ -192,7 +192,7 @@ Otherwise unstage only these paths with `git restore --staged -- <paths>` and re
 - Private `parsePowerShellHttpInvocation(words) -> invocation | null` consumes case-insensitive PowerShell HTTP options.
 - Private `classifyHttp(words, context) -> policy result | null` calls `resolveOutputPath()` and returns canonical remote-plus-local targets.
 
-- [ ] **Step 1: Add failing curl arity and cross-product tests**
+- [x] **Step 1: Add failing curl arity and cross-product tests**
 
 Add a table-driven test to `security-regressions.test.mjs`:
 
@@ -220,7 +220,7 @@ test('curl remote-name flags cannot hide bodies or uploads', () => {
 Update the local `analyze()` test helper to accept `{ cwd, env }`, put `cwd`
 into `validEvent`, and pass `env` to `analyzeCommand`.
 
-- [ ] **Step 2: Add failing sink identity and confirmation tests**
+- [x] **Step 2: Add failing sink identity and confirmation tests**
 
 Add exact expectations:
 
@@ -247,7 +247,7 @@ remote-header-name, nested variables, and output-root override attempts.
 Update every pre-existing relative sink assertion to provide a literal `cwd`;
 do not weaken the new missing-`cwd` denial to preserve old test setup.
 
-- [ ] **Step 3: Run focused tests and witness RED**
+- [x] **Step 3: Run focused tests and witness RED**
 
 ```powershell
 node --test --test-name-pattern="remote-name|HTTP sinks" tests/command-guard/security-regressions.test.mjs
@@ -256,7 +256,7 @@ node --test --test-name-pattern="remote-name|HTTP sinks" tests/command-guard/sec
 Expected: the reproduced commands return `allow/LOW_RISK_CHANGE`, dynamic sinks
 remain accepted, and canonical targets are absent.
 
-- [ ] **Step 4: Implement the closed HTTP parsers**
+- [x] **Step 4: Implement the closed HTTP parsers**
 
 Separate exact curl option sets in `catalogue.mjs`:
 
@@ -294,7 +294,7 @@ const modifiers = [
 Keep local request-file uploads denied. Preserve authenticated redirect and
 credential-persistence denials.
 
-- [ ] **Step 5: Add a loopback semantic regression**
+- [x] **Step 5: Add a loopback semantic regression**
 
 Extend `tests/test-loopback-http-fixture.py` to start the existing disposable
 fixture, capability-probe `curl`/`curl.exe`, run:
@@ -308,7 +308,7 @@ working directory, synthetic body, loopback only, and remove the derived file.
 If curl is unavailable, report an explicit capability skip while retaining the
 mandatory parser matrix.
 
-- [ ] **Step 6: Run HTTP tests and verify GREEN**
+- [x] **Step 6: Run HTTP tests and verify GREEN**
 
 ```powershell
 node --test tests/command-guard/security-regressions.test.mjs tests/command-guard/policy.test.mjs tests/command-guard/branches.test.mjs
@@ -319,7 +319,7 @@ Expected: every body form is classified as mutable despite remote-name, every
 upload remains denied, all sinks ask in both mode families, and existing GET,
 HEAD, DELETE, credential, redirect, route, and trust controls pass.
 
-- [ ] **Step 7: Evaluate the HTTP commit checkpoint**
+- [x] **Step 7: Evaluate the HTTP commit checkpoint**
 
 Stage only the four listed implementation/test files, inspect staged names and
 hunks, and commit if ownership is isolated:
@@ -343,7 +343,7 @@ Otherwise defer the checkpoint without discarding any worktree content.
 - Private `parseMySqlInvocation(words, executable) -> { query, host, port, user, database } | null`.
 - Private `canonicalDatabaseEnvironment(family, invocation) -> string | null`.
 
-- [ ] **Step 1: Add failing repeated-selector and canonical-domain tests**
+- [x] **Step 1: Add failing repeated-selector and canonical-domain tests**
 
 Add to `security-regressions.test.mjs`:
 
@@ -367,7 +367,7 @@ Add cases for every same-alias and mixed-alias repetition, dynamic values,
 invalid/overflow ports, missing query values, extra operands, config files,
 service/login paths, sockets, protocols, and TLS/trust options.
 
-- [ ] **Step 2: Add a failing credential lifecycle test**
+- [x] **Step 2: Add a failing credential lifecycle test**
 
 In `binding-store.test.mjs`, use `evaluateHook()` plus the matching successful
 `evaluateApprovalHook()` event to approve a synthetic PostgreSQL credential for
@@ -376,7 +376,7 @@ user, and another database separately. Assert every changed domain asks rather
 than returning `ALLOW_APPROVED_CREDENTIAL_BINDING`. Repeat the host transition
 for MySQL.
 
-- [ ] **Step 3: Run database tests and witness RED**
+- [x] **Step 3: Run database tests and witness RED**
 
 ```powershell
 node --test --test-name-pattern="database singleton|database credential" tests/command-guard/security-regressions.test.mjs tests/command-guard/binding-store.test.mjs
@@ -385,7 +385,7 @@ node --test --test-name-pattern="database singleton|database credential" tests/c
 Expected: repeated-host cases are accepted or bind the first value, canonical
 domains omit selectors, and active bindings cross at least one changed scope.
 
-- [ ] **Step 4: Implement closed database parsers**
+- [x] **Step 4: Implement closed database parsers**
 
 Use exact singleton maps:
 
@@ -419,7 +419,7 @@ return `${defaults.scheme}://${encodeURIComponent(user ?? 'default')}@${encodeUR
 Classify the parsed query with the existing finite SQL risk rules. Do not admit
 service/config/socket/protocol/TLS options in this task.
 
-- [ ] **Step 5: Run database suites and verify GREEN**
+- [x] **Step 5: Run database suites and verify GREEN**
 
 ```powershell
 node --test tests/command-guard/security-regressions.test.mjs tests/command-guard/binding-store.test.mjs tests/command-guard/branches.test.mjs tests/command-guard/policy.test.mjs
@@ -428,7 +428,7 @@ node --test tests/command-guard/security-regressions.test.mjs tests/command-guar
 Expected: duplicate selectors deny, domains contain every selector, credential
 reuse cannot cross a domain, and existing bounded SQL risks remain unchanged.
 
-- [ ] **Step 6: Evaluate the database commit checkpoint**
+- [x] **Step 6: Evaluate the database commit checkpoint**
 
 Inspect exact staged hunks and commit only if isolated:
 
@@ -448,7 +448,7 @@ Otherwise defer without resetting any worktree file.
 **Interfaces:**
 - Private `parseGitBranch(words) -> { risk, target } | null` consumes the complete branch subgrammar.
 
-- [ ] **Step 1: Add failing alias-parity tests**
+- [x] **Step 1: Add failing alias-parity tests**
 
 ```js
 test('every Git branch deletion alias is destructive and complete', () => {
@@ -474,7 +474,7 @@ test('every Git branch deletion alias is destructive and complete', () => {
 Also assert `git branch`, `git branch --list`, literal branch creation, and
 supported rename forms retain their expected risks.
 
-- [ ] **Step 2: Run the focused test and witness RED**
+- [x] **Step 2: Run the focused test and witness RED**
 
 ```powershell
 node --test --test-name-pattern="Git branch deletion" tests/command-guard/security-regressions.test.mjs
@@ -482,7 +482,7 @@ node --test --test-name-pattern="Git branch deletion" tests/command-guard/securi
 
 Expected: both long deletion forms return `allow/LOW_RISK_CHANGE` in bypass.
 
-- [ ] **Step 3: Implement the closed branch subgrammar**
+- [x] **Step 3: Implement the closed branch subgrammar**
 
 Before generic Git classification, parse `words[1] === 'branch'`. Treat the
 mode flags as a finite mutually exclusive set. Allow deletion flags in either
@@ -497,13 +497,13 @@ literal create/rename forms.
 Remove branch deletion and generic branch fallback from the old regexes so one
 parser owns every accepted branch form.
 
-- [ ] **Step 4: Run Git and catalogue suites and verify GREEN**
+- [x] **Step 4: Run Git and catalogue suites and verify GREEN**
 
 ```powershell
 node --test tests/command-guard/security-regressions.test.mjs tests/command-guard/policy.test.mjs tests/command-guard/branches.test.mjs
 ```
 
-- [ ] **Step 5: Evaluate the Git checkpoint**
+- [x] **Step 5: Evaluate the Git checkpoint**
 
 Commit the isolated Git parser/test hunks as:
 
@@ -531,7 +531,7 @@ or record the checkpoint as deferred if overlapping dirty hunks prevent safe iso
 - `run-mutation-witness.mjs <id> <scripts-root>` exits `0` on invariant success, `42` plus `WITNESS_ASSERTION:<id>` only on Node assertion failure, and `2` on infrastructure/configuration failure.
 - `interpretWitnessResult(result, id, phase) -> 'passed' | 'killed'` rejects every other status/marker combination.
 
-- [ ] **Step 1: Add failing mutation-protocol tests**
+- [x] **Step 1: Add failing mutation-protocol tests**
 
 Create `mutation-protocol.test.mjs`:
 
@@ -561,7 +561,7 @@ test('only the matching semantic assertion kills a mutant', () => {
 Add registry assertions using `Object.keys(MUTATION_WITNESSES)` instead of a
 manually duplicated ID list.
 
-- [ ] **Step 2: Run protocol tests and witness RED**
+- [x] **Step 2: Run protocol tests and witness RED**
 
 ```powershell
 node --test tests/command-guard/mutation-protocol.test.mjs tests/command-guard/mutation-registry.test.mjs
@@ -569,7 +569,7 @@ node --test tests/command-guard/mutation-protocol.test.mjs tests/command-guard/m
 
 Expected: module-not-found and missing executable-map failures.
 
-- [ ] **Step 3: Implement the witness map and child protocol**
+- [x] **Step 3: Implement the witness map and child protocol**
 
 Move every existing switch case into a named async function in
 `MUTATION_WITNESSES`. Keep the dynamic module-root helpers in that module so
@@ -606,7 +606,7 @@ requires `interpretWitnessResult(..., 'baseline') === 'passed'`; it then creates
 each one-site mutant and requires the exact matching assertion marker with exit
 42. A surviving mutant, crash, import failure, timeout, or wrong marker fails.
 
-- [ ] **Step 4: Register new behavior mutations before their witnesses**
+- [x] **Step 4: Register new behavior mutations before their witnesses**
 
 Add exact one-site mutations and matching security predicate IDs for:
 
@@ -623,7 +623,7 @@ Run the registry/protocol test before adding their functions. Expected: exact
 key-equality failure names all missing witnesses. Then add one witness function
 per ID using the real policy or resolver and literal expected results.
 
-- [ ] **Step 5: Verify pristine baseline and every mutant**
+- [x] **Step 5: Verify pristine baseline and every mutant**
 
 ```powershell
 node --test tests/command-guard/mutation-protocol.test.mjs tests/command-guard/mutation-registry.test.mjs tests/command-guard/mutation-invariant.test.mjs
@@ -634,7 +634,7 @@ Expected: every pristine witness passes; every registered mutant exits through
 its own `WITNESS_ASSERTION:<id>`; the final killed count equals predicate,
 mutation, and witness-map cardinality.
 
-- [ ] **Step 6: Evaluate the mutation checkpoint**
+- [x] **Step 6: Evaluate the mutation checkpoint**
 
 Stage only mutation protocol, registry, witnesses, new behavior mutations, and
 their predicate IDs. Inspect every staged path and commit if separable:
@@ -663,7 +663,7 @@ Otherwise defer without modifying unrelated worktree state.
 - Command fixtures may add `cwd` and `policyEnv` fields; source and installed runners must pass both to `analyzeCommand(event, policyEnv ?? {})`.
 - RV-41 through RV-44 are source/installed operational fixtures; RV-45 is repository-only mutation protocol evidence.
 
-- [ ] **Step 1: Add stable operational fixtures**
+- [x] **Step 1: Add stable operational fixtures**
 
 Append at least these cases:
 
@@ -702,7 +702,7 @@ Append at least these cases:
 
 Extend both runners to assert target and sorted modifiers when declared.
 
-- [ ] **Step 2: Run source fixture tests and witness any runner gaps**
+- [x] **Step 2: Run source fixture tests and witness any runner gaps**
 
 ```powershell
 node --test tests/command-guard/executable-fixtures.test.mjs tests/command-guard/coverage.test.mjs
@@ -712,7 +712,7 @@ Expected before runner changes: fixture metadata is ignored or expected target
 assertions fail. After the minimal runner extension, every RV-01 through RV-44
 fixture must execute exactly once.
 
-- [ ] **Step 3: Record the eighth independent-review disposition**
+- [x] **Step 3: Record the eighth independent-review disposition**
 
 Add an eighth disposition with RV-41 through RV-45:
 
@@ -725,7 +725,7 @@ Add an eighth disposition with RV-41 through RV-45:
 Mark each locally remediated with independent verification pending. Record RED
 evidence and final counts only after Task 7 observes them.
 
-- [ ] **Step 4: Update ADR, README, changelog, specification, and plan**
+- [x] **Step 4: Update ADR, README, changelog, specification, and plan**
 
 Document:
 
@@ -740,7 +740,7 @@ Document:
 Keep the release at `0.11.0`. Treat observed versions as evidence, never pins.
 Mark every completed plan checkbox and explain any deferred commit checkpoint.
 
-- [ ] **Step 5: Validate documentation**
+- [x] **Step 5: Validate documentation**
 
 ```powershell
 python tests/validate-content.py
@@ -748,7 +748,7 @@ python tests/test-architecture-docs.py
 git diff --check
 ```
 
-- [ ] **Step 6: Evaluate the evidence/documentation checkpoint**
+- [x] **Step 6: Evaluate the evidence/documentation checkpoint**
 
 Inspect exact staged paths and commit if safe:
 
@@ -766,7 +766,7 @@ Otherwise defer the combined evidence update until PR integration.
 **Interfaces:**
 - Produces fresh evidence for the review record and the subsequent independent merge decision.
 
-- [ ] **Step 1: Run the complete native Node gate**
+- [x] **Step 1: Run the complete native Node gate**
 
 ```powershell
 node tests/run-command-guard-tests.mjs
@@ -777,7 +777,7 @@ every critical module including `catalogue.mjs` and `output-path.mjs` reaches
 100 percent line/function/branch coverage, all pristine witnesses pass, and all
 registered mutations are killed by their matching semantic assertion.
 
-- [ ] **Step 2: Run host syntax and Python gates**
+- [x] **Step 2: Run host syntax and Python gates**
 
 ```powershell
 pwsh -NoProfile -File tests/validate-powershell-syntax.ps1
@@ -797,7 +797,7 @@ python tests/test-smoke-command-guard.py
 
 Every command must exit zero. Do not start Claude or read provider credentials.
 
-- [ ] **Step 3: Run the Debian/WSL package gate with a capability-compatible Node**
+- [x] **Step 3: Run the Debian/WSL package gate with a capability-compatible Node**
 
 ```powershell
 wsl -d Debian -- bash -lc "cd /mnt/c/projects/senior-infra-ops-analyst/senior-infra-ops-analyst/.worktrees/p0-04-command-guard && env PATH=/home/marco/.local/opt/node-v24.17.0-linux-x64/bin:/usr/local/bin:/usr/bin:/bin bash tests/validate-package.sh"
@@ -806,7 +806,7 @@ wsl -d Debian -- bash -lc "cd /mnt/c/projects/senior-infra-ops-analyst/senior-in
 The path above is observed local evidence, not a project pin. If unavailable,
 locate another Node runtime by probing the required native coverage flags.
 
-- [ ] **Step 4: Validate an isolated Nori-installed artifact without Claude**
+- [x] **Step 4: Validate an isolated Nori-installed artifact without Claude**
 
 In Debian WSL, create `WORK="$(mktemp -d "${TMPDIR:-/tmp}/p0-04-nori-install.XXXXXX")"`, resolve it with `readlink -f`, and verify the result remains under the resolved temporary parent. Set:
 
@@ -830,7 +830,7 @@ Expected: 12 subagents, 24 agent skills, 20 slash commands, every RV-01 through
 RV-44 fixture passing, and byte-equivalent security-critical scripts. Remove
 only the exact verified temporary path through an EXIT trap.
 
-- [ ] **Step 5: Run final hygiene checks**
+- [x] **Step 5: Run final hygiene checks**
 
 ```powershell
 git diff --check origin/main
@@ -842,13 +842,26 @@ Verify there are no retained coverage directories, mutation copies, loopback
 outputs, audit/state artifacts, real credentials, unintended version pins, or
 unchecked current-plan boxes.
 
-- [ ] **Step 6: Record exact observed evidence**
+- [x] **Step 6: Record exact observed evidence**
 
 Replace provisional counts in the eighth review disposition and ADR with the
 fresh Node test total, skip count, mutation total, installed fixture total, and
 installed Nori inventory. Rerun documentation validators and `git diff --check`.
 
-- [ ] **Step 7: Request a new independent read-only review**
+- [x] **Step 7: Request a new independent read-only review**
+
+## Execution outcome
+
+All tasks were completed through the final independent verification. Per-task
+commit checkpoints were evaluated but intentionally deferred because this
+worktree already contained overlapping remediation hunks from the same PR; a
+single reviewed integration commit preserves the coherent final state. Final
+evidence: 187 active Node tests with zero skips, 100 percent critical
+line/function/branch coverage, 38 of 38 typed mutations, 76 source-to-installed
+fixtures, the complete Debian/WSL package gate, host PowerShell syntax, and an
+isolated Nori install with 12 subagents, 24 project skills, and 20 slash
+commands. The final independent read-only review reported no Critical or
+Important issue and returned Ready to merge.
 
 The reviewer must inspect the complete current worktree, reproduce RV-41
 through RV-45 through the real entrypoints, probe adjacent option compositions,

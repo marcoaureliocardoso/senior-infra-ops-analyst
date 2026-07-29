@@ -1,6 +1,6 @@
 # P0-04 Eighth Review Remediation Design
 
-**Status:** Approved design pending implementation plan
+**Status:** Implemented and independently verified
 
 **Date:** 2026-07-29
 
@@ -168,6 +168,21 @@ their complete effective semantics. Literal credential values remain excluded
 from target, environment, structural identity, binding state, responses, and
 audit.
 
+### Follow-up domain hardening
+
+Explicit selectors do not neutralize every client-side environment input.
+PostgreSQL therefore rejects libpq variables that can change address routing,
+service expansion, password-file selection, options, TLS/GSS behavior,
+channel binding, SNI, authentication requirements, certificate mode, TLS and
+wire-protocol versions, GSS delegation, or peer identity. MySQL rejects the special `localhost`
+and `.` host values because the client may reinterpret them as local socket
+transport while the supported grammar does not model `--protocol=TCP`.
+
+Curl trace is modeled as a credential disclosure effect by the closed parser.
+When a literal credential is present, trace to `-` or `%` denies as
+`DENY_SECRET_OUTPUT`; trace to a file denies as `DENY_SECRET_PERSISTENCE`.
+The decision remains a deny in every permission mode.
+
 ## Git Branch Grammar
 
 The `git branch` subcommand uses a closed grammar. Read-only list forms remain
@@ -225,7 +240,8 @@ confirmation, or local-file-effect confirmation.
 
 Each production behavior change follows a witnessed RED/GREEN cycle through
 the real policy entrypoint. Stable operational review fixtures RV-41 through
-RV-44 execute against both source and Nori-installed artifacts. RV-45 covers
+RV-44 and RV-46 through RV-52 execute against both source and Nori-installed
+artifacts. RV-45 covers
 the repository-only mutation protocol through its native runner and cannot be
 an installed command fixture because Nori installs the guard, not its
 development mutation harness.

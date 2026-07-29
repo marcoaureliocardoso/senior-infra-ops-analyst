@@ -106,6 +106,7 @@ export function parseHookEvent(raw) {
   }
   return Object.freeze({
     sessionId, agentType, permissionMode, command,
+    cwd: value.cwd ?? null,
     toolUseId: value.tool_use_id ?? null,
     timeoutMs, runInBackground: false,
   });

@@ -5,12 +5,29 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { SECURITY_PREDICATE_IDS } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
+import { interpretWitnessResult } from './mutation-protocol.mjs';
 import { MUTATIONS } from './mutations.mjs';
+import { MUTATION_WITNESSES } from './mutation-witnesses.mjs';
 
 assert.deepEqual(MUTATIONS.map(({ id }) => id).sort(), [...SECURITY_PREDICATE_IDS].sort());
-const sourceScripts = path.resolve('skills/command-driven-operations/scripts');
-const invariantTest = path.resolve('tests/command-guard/mutation-invariant.test.mjs');
+assert.deepEqual(Object.keys(MUTATION_WITNESSES).sort(), [...SECURITY_PREDICATE_IDS].sort());
 
+const sourceScripts = path.resolve('skills/command-driven-operations/scripts');
+const witnessRunner = path.resolve('tests/command-guard/run-mutation-witness.mjs');
+
+function runWitness(id, root) {
+  return spawnSync(process.execPath, [witnessRunner, id, root], {
+    cwd: process.cwd(), encoding: 'utf8', timeout: 30_000,
+  });
+}
+
+for (const id of Object.keys(MUTATION_WITNESSES)) {
+  const result = runWitness(id, sourceScripts);
+  interpretWitnessResult(result, id, 'baseline');
+}
+process.stdout.write(`baseline passed ${Object.keys(MUTATION_WITNESSES).length} witnesses\n`);
+
+let killed = 0;
 for (const mutation of MUTATIONS) {
   const temporary = await mkdtemp(path.join(os.tmpdir(), `ops-guard-mutant-${mutation.id.toLowerCase()}-`));
   try {
@@ -23,15 +40,16 @@ for (const mutation of MUTATIONS) {
     const count = source.split(mutation.search).length - 1;
     if (count !== 1) throw new Error(`${mutation.id}: expected one mutation site, observed ${count}`);
     await writeFile(target, source.replace(mutation.search, mutation.replacement), 'utf8');
-    const result = spawnSync(process.execPath, ['--test', invariantTest], {
-      cwd: process.cwd(), encoding: 'utf8',
-      env: { ...process.env, COMMAND_GUARD_MUTANT_ROOT: mutantRoot, COMMAND_GUARD_MUTATION_ID: mutation.id },
-    });
-    if (result.status === 0) throw new Error(`${mutation.id}: mutation survived\n${result.stdout}${result.stderr}`);
+    const result = runWitness(mutation.id, mutantRoot);
+    interpretWitnessResult(result, mutation.id, 'mutant');
+    killed += 1;
     process.stdout.write(`killed ${mutation.id}\n`);
   } finally {
-    const prefix = path.join(os.tmpdir(), 'ops-guard-mutant-');
-    if (!path.resolve(temporary).startsWith(path.resolve(prefix))) throw new Error('refusing to remove unverified mutation directory');
+    const prefix = path.resolve(os.tmpdir(), 'ops-guard-mutant-');
+    if (!path.resolve(temporary).startsWith(prefix)) throw new Error('refusing to remove unverified mutation directory');
     await rm(temporary, { recursive: true, force: true });
   }
 }
+
+assert.equal(killed, SECURITY_PREDICATE_IDS.length);
+process.stdout.write(`mutation gate passed ${killed}/${SECURITY_PREDICATE_IDS.length}\n`);
