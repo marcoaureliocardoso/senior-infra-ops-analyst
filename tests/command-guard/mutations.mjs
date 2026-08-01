@@ -249,4 +249,19 @@ export const MUTATIONS = Object.freeze([
     search: '      if (values.has(group)) return null;',
     replacement: '      if (false) return null;',
   },
+  {
+    id: 'POLICY_CREDENTIAL_EFFECTIVE_CONSUMER', file: 'command-guard/policy.mjs',
+    search: "    !credentialStage?.credentialConsumer ||\n    !credentialStage.credentialTransports?.includes(credentialAnalysis.metadata.transport) ||\n    credentialAnalysis.metadata.transport === 'VARIABLE' && (\n      credentialAnalysis.metadata.selectors.length === 0 ||\n      !credentialAnalysis.metadata.selectors.every((selector) => credentialStage.credentialSelectors?.includes(selector))\n    )",
+    replacement: '    false',
+  },
+  {
+    id: 'CATALOGUE_REMOTE_ADDRESS_FAMILY_IDENTITY', file: 'command-guard/catalogue.mjs',
+    search: "    if (word === '-4' || word === '-6') {\n      if (!setSelector('addressFamily', word === '-4' ? 'inet' : 'inet6')) return null;\n      continue;\n    }",
+    replacement: '    if (false) {\n      continue;\n    }',
+  },
+  {
+    id: 'CATALOGUE_REMOTE_ADDRESS_FAMILY_CANONICAL', file: 'command-guard/catalogue.mjs',
+    search: "    return setSelector(selectorName, name === 'addressfamily' ? value.toLowerCase() : value);",
+    replacement: '    return setSelector(selectorName, value);',
+  },
 ]);

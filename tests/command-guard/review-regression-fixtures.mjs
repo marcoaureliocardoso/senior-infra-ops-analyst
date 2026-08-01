@@ -503,4 +503,21 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     command: 'tshark -i eth0 -c 10 -s 64 --snapshot-length=128 host 192.0.2.1',
     expectedDecision: 'deny',
   },
+  {
+    id: 'RV73-EFFECTIVE-CREDENTIAL-CONSUMER',
+    command: 'OPS_CREDENTIAL_IDENTITY=operator SSHPASS=SYNTH_SECRET_rv73 sudo systemctl restart nginx',
+    expectedDecision: 'deny',
+    forbiddenText: 'SYNTH_SECRET_rv73',
+  },
+  {
+    id: 'RV74-REMOTE-ADDRESS-FAMILY-CONFLICT',
+    command: 'scp -4 -o AddressFamily=inet6 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV75-REMOTE-ADDRESS-FAMILY-CANONICAL',
+    command: 'scp -o AddressFamily=INET artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    expectedDecision: 'allow',
+    expectedEnvironment: 'ssh://ops@files.example.invalid:22;addressFamily=inet',
+  },
 ]);

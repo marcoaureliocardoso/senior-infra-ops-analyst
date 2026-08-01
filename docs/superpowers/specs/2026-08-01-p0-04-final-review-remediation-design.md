@@ -48,3 +48,24 @@ Each decision is protected at four levels:
 4. the complete command-guard gate, repository validators, WSL package validation, and spell check.
 
 The review ledger, ADR-004, README, CHANGELOG, and coverage inventory will describe the resulting behavior. Version `0.11.0` remains unchanged because this is remediation within the unreleased PR scope.
+
+## Independent-review addendum: effective consumers and address family
+
+The follow-up review showed that stage ownership alone was insufficient while
+`credential-flow.mjs` still trusted an executable-name allowlist. The policy
+now accepts a model-visible literal only when the catalogue result for the
+owning stage declares `credentialConsumer` and explicitly includes the detected
+transport. Variable transports additionally require every detected non-secret
+variable selector to belong to that client. This makes the parsed invocation,
+rather than the binary name or a generic transport label, the authorization
+boundary. For example, `sudo` without `-S`, a decryptor without an inline
+passphrase marker, a GitHub token assigned to AWS, or a database password
+assigned to another client cannot create reusable approval state.
+
+The same review found one omitted SSH selector group. `-4`, `-6`, and
+`-o AddressFamily=...` are now canonical aliases for one singleton
+`addressFamily` selector. Repetition and conflict deny, while an accepted value
+is case-normalized and included in the canonical non-secret environment used
+by policy and audit.
+Both invariants have lifecycle/parser regressions, stable RV fixtures, and
+dedicated one-site mutation witnesses.

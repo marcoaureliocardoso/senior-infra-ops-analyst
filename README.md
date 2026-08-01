@@ -131,11 +131,15 @@ long deletion aliases are uniformly destructive.
 
 Credential reuse is scoped from the exact credential-bearing stage rather
 than the composition's highest-risk or final stage: lexical source intervals
-must map every sensitive span to one consumer, and multi-stage literals deny.
+must map every sensitive span to one consumer, the catalogued invocation must
+explicitly consume that exact transport and variable selector, and multi-stage
+literals deny.
 Closed grammars also cover a single `mongosh --eval`, all `ip` batch aliases,
 and `scp`/`sftp` transport overrides. Remote-transfer identities contain the
-explicit user, host, port, jump route, bandwidth limit, and identity file;
-duplicate aliases or implicit users deny. Packet-capture `-w -` is always-ask
+explicit user, host, port, address family, jump route, bandwidth limit, and
+identity file; address-family values are case-normalized, while duplicate
+aliases, conflicting `-4`/`-6`/`AddressFamily`, or implicit users deny.
+Packet-capture `-w -` is always-ask
 sensitive stdout rather than a file effect, while resolved capture files always
 ask and duplicate selector aliases deny. Hierarchical `ctr images`, Git read
 sinks/external executors, and `dmesg` control actions remain fully classified;
@@ -178,7 +182,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added client-aligned credential transports plus closed HTTP, Kubernetes, AWS, and Docker route/trust/configuration boundaries with fail-closed singleton precedence.
 - Rejected mixed literal credential transports and repeated effective-value selectors, and made redaction cover full mixed-quote credential tokens.
 - Added a closed Redis CLI schema and canonical non-secret binding across transport, host, port, database, and ACL user.
-- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, forty-six baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, fifty-three baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Closed HTTP option arity and output-effect binding, database selector/domain precedence, and Git branch deletion alias parity; local file effects always require native confirmation.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.
 

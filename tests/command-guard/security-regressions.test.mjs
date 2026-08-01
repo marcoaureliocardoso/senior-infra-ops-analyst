@@ -991,10 +991,22 @@ test('remote transfer identity includes every accepted endpoint and transport se
     analyze('sftp sftp://ops@files.example.invalid/tmp').environment,
     'ssh://ops@files.example.invalid:22',
   );
+  assert.equal(
+    analyze('scp -4 artifact.txt ops@files.example.invalid:/tmp/artifact.txt').environment,
+    'ssh://ops@files.example.invalid:22;addressFamily=inet',
+  );
+  assert.equal(
+    analyze('scp -o AddressFamily=INET artifact.txt ops@files.example.invalid:/tmp/artifact.txt').environment,
+    'ssh://ops@files.example.invalid:22;addressFamily=inet',
+  );
 });
 
 test('remote transfer identity rejects ambiguous equivalent selectors', () => {
   for (const command of [
+    'scp -4 -6 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -4 -o AddressFamily=inet6 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'sftp -6 -o AddressFamily=inet ops@files.example.invalid:/tmp',
+    'scp -o AddressFamily=inet -o AddressFamily=inet artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
     'scp -P 22 -o Port=2222 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
     'scp -J jump.invalid -o ProxyJump=other.invalid artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
     'scp -l 128 -l256 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',

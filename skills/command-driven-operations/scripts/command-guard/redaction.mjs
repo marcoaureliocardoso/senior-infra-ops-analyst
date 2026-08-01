@@ -18,15 +18,15 @@ const PATTERNS = [
   { kind: 'COOKIE', regex: /(?:^|\s)-b'([^']*=[^']*)'/giu },
   { kind: 'COOKIE', regex: /(?:^|\s)-b((?:\\.|[^\s"'\\])+=(?:\\.|[^\s"'\\])+)/giu },
   {
-    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"/gu, valueGroup: 2,
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"/gu, valueGroup: 2, selectorGroup: 1,
     accept: (match) => isSensitiveVariable(match[1]),
   },
   {
-    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)='([^']*)'/gu, valueGroup: 2,
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)='([^']*)'/gu, valueGroup: 2, selectorGroup: 1,
     accept: (match) => isSensitiveVariable(match[1]),
   },
   {
-    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=((?:\\.|[^\s"'\\])+)/gu, valueGroup: 2,
+    kind: 'VARIABLE', regex: /(?:^|[\s;])([A-Za-z_][A-Za-z0-9_]*)=((?:\\.|[^\s"'\\])+)/gu, valueGroup: 2, selectorGroup: 1,
     accept: (match) => isSensitiveVariable(match[1]),
   },
   { kind: 'FLAG', regex: /(?:--password|--pass|--passphrase|--token|--oauth2-bearer|--secret|--api-key|--access-key|--client-secret)(?:=|\s+)"([^"]*)"/giu },
@@ -84,7 +84,7 @@ function tokenSensitiveSpans(text) {
       const separator = token.raw.indexOf('=');
       const name = token.cooked.slice(0, token.cooked.indexOf('='));
       if (separator >= 0 && isSensitiveVariable(name) && separator + 1 < token.raw.length) {
-        spans.push(rawValueSpan(token, separator + 1, 'VARIABLE'));
+        spans.push({ ...rawValueSpan(token, separator + 1, 'VARIABLE'), selector: name });
       }
     }
     if (executableIndex < 0) return;
@@ -128,13 +128,16 @@ function tokenSensitiveSpans(text) {
 
 export function detectSensitiveSpans(text) {
   const spans = tokenSensitiveSpans(text);
-  for (const { kind, regex, valueGroup = 1, accept = () => true } of PATTERNS) {
+  for (const { kind, regex, valueGroup = 1, selectorGroup = null, accept = () => true } of PATTERNS) {
     regex.lastIndex = 0;
     for (const match of text.matchAll(regex)) {
       if (!accept(match)) continue;
       const value = match[valueGroup];
       const offset = value.length ? match[0].lastIndexOf(value) : match[0].length - 1;
-      spans.push({ start: match.index + offset, end: match.index + offset + value.length, kind });
+      spans.push({
+        start: match.index + offset, end: match.index + offset + value.length, kind,
+        ...(selectorGroup === null ? {} : { selector: match[selectorGroup] }),
+      });
     }
   }
   spans.sort((a, b) => a.start - b.start || b.end - a.end);

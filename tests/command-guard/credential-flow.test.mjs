@@ -30,6 +30,25 @@ test('credential printing, persistence, background, and unknown consumer deny', 
   ]) assert.equal(analyze(command, 'bypassPermissions').decision, 'deny');
 });
 
+test('literal credential ownership requires the catalogued invocation to consume its transport', () => {
+  for (const command of [
+    `OPS_CREDENTIAL_IDENTITY=operator SSHPASS=${SECRET} sudo systemctl restart nginx`,
+    `OPS_CREDENTIAL_IDENTITY=operator SSHPASS=${SECRET} sudo -S systemctl restart nginx`,
+    `GH_TOKEN=${SECRET} gpg --decrypt credential.gpg`,
+    `GH_TOKEN=${SECRET} age --decrypt credential.age`,
+    `GH_TOKEN=${SECRET} curl https://api.example.invalid/health`,
+    `GH_TOKEN=${SECRET} aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20`,
+    `AWS_SECRET_ACCESS_KEY=${SECRET} gh repo view --repo owner/project`,
+    `PGPASSWORD=${SECRET} mysql -h db.example.invalid -P 3306 -u appuser -D app -e "SHOW STATUS"`,
+    `MYSQL_PWD=${SECRET} psql -h db.example.invalid -p 5432 -U appuser -d app -c "SELECT 1"`,
+  ]) {
+    const result = analyze(command, 'bypassPermissions');
+    assert.equal(result.decision, 'deny', command);
+    assert.equal(result.reasonCode, 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', command);
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(SECRET), command);
+  }
+});
+
 test('literal credentials distributed across composition stages deny', () => {
   const command =
     'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; ' +

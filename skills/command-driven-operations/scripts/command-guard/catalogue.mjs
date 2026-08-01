@@ -400,6 +400,7 @@ function classifyHttp(words, context) {
   ])];
   return result('HTTP', effectiveRisk, target, parsed.origin, modifiers, {
     requiresExplicitBinding: effectiveRisk !== 'SAFE_READ_ONLY', credentialConsumer: true,
+    credentialTransports: ['AUTHORIZATION', 'COOKIE', 'FLAG', 'BASIC_AUTH', 'URI_USERINFO'],
   });
 }
 
@@ -794,16 +795,16 @@ function gitCiFamily(words, lower, context = {}) {
     return null;
   }
   if (/^(?:repo view|pr (?:view|list|checks)|run (?:view|list)|workflow (?:view|list))(?:\s|$)/u.test(joined)) {
-    return result('GIT_CI', 'SAFE_READ_ONLY', remote, remote, [], { credentialConsumer: true });
+    return result('GIT_CI', 'SAFE_READ_ONLY', remote, remote, [], { credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
   }
   if (/^(?:repo delete|release delete|pr merge)(?:\s|$)/u.test(joined)) {
-    return result('GIT_CI', 'DESTRUCTIVE', remote, remote, [], { requiresExplicitBinding: true, credentialConsumer: true });
+    return result('GIT_CI', 'DESTRUCTIVE', remote, remote, [], { requiresExplicitBinding: true, credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
   }
   if (/^(?:workflow (?:run|rerun|cancel)|run (?:rerun|cancel)|deployment)(?:\s|$)/u.test(joined)) {
-    return result('GIT_CI', 'DISRUPTIVE_CHANGE', remote, remote, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true });
+    return result('GIT_CI', 'DISRUPTIVE_CHANGE', remote, remote, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
   }
   if (/^(?:pr (?:create|edit|comment|review|close|reopen)|issue (?:create|edit|comment|close|reopen)|release (?:create|edit|upload)|repo (?:clone|fork))\b/u.test(joined)) {
-    return result('GIT_CI', 'LOW_RISK_CHANGE', remote, remote, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true });
+    return result('GIT_CI', 'LOW_RISK_CHANGE', remote, remote, ['EXTERNAL_SIDE_EFFECT'], { requiresExplicitBinding: true, credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
   }
   return null;
 }
@@ -878,10 +879,10 @@ function remoteFamily(argv) {
 
 function parseRemoteTransfer(words, client) {
   const flags = client === 'scp'
-    ? new Set(['-4', '-6', '-B', '-C', '-p', '-q', '-r', '-v'])
-    : new Set(['-4', '-6', '-C', '-q', '-v']);
+    ? new Set(['-B', '-C', '-p', '-q', '-r', '-v'])
+    : new Set(['-C', '-q', '-v']);
   const values = new Set(['-P', '-i', '-J', '-l']);
-  const selectors = { user: null, port: null, proxyJump: null, limitKbps: null, identityFile: null };
+  const selectors = { user: null, port: null, proxyJump: null, limitKbps: null, identityFile: null, addressFamily: null };
   const seenSelectors = new Set();
   const setSelector = (name, value) => {
     if (seenSelectors.has(name)) return false;
@@ -894,8 +895,8 @@ function parseRemoteTransfer(words, client) {
     const separator = optionValue.indexOf('=');
     const name = optionValue.slice(0, separator).toLowerCase();
     const value = optionValue.slice(separator + 1);
-    const selectorName = { user: 'user', port: 'port', proxyjump: 'proxyJump' }[name] ?? `option:${name}`;
-    return setSelector(selectorName, value);
+    const selectorName = { user: 'user', port: 'port', proxyjump: 'proxyJump', addressfamily: 'addressFamily' }[name] ?? `option:${name}`;
+    return setSelector(selectorName, name === 'addressfamily' ? value.toLowerCase() : value);
   };
   const consumeValue = (name, value) => {
     if (!literalOperand(value)) return false;
@@ -908,6 +909,10 @@ function parseRemoteTransfer(words, client) {
   for (let index = 1; index < words.length; index += 1) {
     const word = words[index];
     if (flags.has(word)) continue;
+    if (word === '-4' || word === '-6') {
+      if (!setSelector('addressFamily', word === '-4' ? 'inet' : 'inet6')) return null;
+      continue;
+    }
     if (word === '-o') {
       if (!consumeSshOption(words[++index] ?? '')) return null;
       continue;
@@ -956,6 +961,7 @@ function parseRemoteTransfer(words, client) {
   const port = selectors.port ?? operandPort ?? '22';
   if (!user || !/^[A-Za-z0-9._-]+$/u.test(user) || !host || !boundedInteger(port, 65_535)) return null;
   const query = [];
+  if (selectors.addressFamily !== null) query.push(`addressFamily=${encodeURIComponent(selectors.addressFamily)}`);
   if (selectors.proxyJump !== null) query.push(`via=${encodeURIComponent(selectors.proxyJump)}`);
   if (selectors.limitKbps !== null) query.push(`limitKbps=${encodeURIComponent(selectors.limitKbps)}`);
   if (selectors.identityFile !== null) query.push(`identityFile=${encodeURIComponent(selectors.identityFile)}`);
@@ -1140,7 +1146,12 @@ export function lookupFamily(stage, context = {}) {
   if (PS_READ.has(lower)) return result('POWERSHELL_READ', 'SAFE_READ_ONLY', 'local');
   if (lower === 'gpg' || lower === 'age') {
     if (!words.some((word) => word === '-d' || word === '--decrypt')) return null;
-    return result('DECRYPTOR', 'SAFE_READ_ONLY', words.at(-1), null, ['SENSITIVE_OUTPUT'], { sensitiveSource: true });
+    const literalPassphrase = lower === 'gpg' && words.some((word) => word === '--passphrase' || word.startsWith('--passphrase='));
+    return result('DECRYPTOR', 'SAFE_READ_ONLY', words.at(-1), null, ['SENSITIVE_OUTPUT'], {
+      sensitiveSource: true,
+      credentialConsumer: literalPassphrase,
+      credentialTransports: literalPassphrase ? ['FLAG'] : [],
+    });
   }
 
   if (lower === 'sshpass') {
@@ -1149,13 +1160,13 @@ export function lookupFamily(stage, context = {}) {
     const nestedStart = descriptor + 2;
     const nested = lookupFamily({ ...stage, argv: words.slice(nestedStart) }, context);
     if (!nested || nested.policyId !== 'REMOTE') return null;
-    return result('REMOTE', nested.risk, nested.target, nested.environment, [...nested.modifiers, 'CREDENTIAL_STDIN'], { credentialConsumer: true });
+    return result('REMOTE', nested.risk, nested.target, nested.environment, [...nested.modifiers, 'CREDENTIAL_STDIN'], { credentialConsumer: true, credentialTransports: [] });
   }
 
   if (lower === 'sudo') {
     const nestedStart = words.findIndex((word, index) => index > 0 && !word.startsWith('-'));
     const nested = nestedStart > 0 ? lookupFamily({ ...stage, argv: words.slice(nestedStart) }, context) : null;
-    return nested ? result('PRIVILEGE', nested.risk, nested.target, nested.environment, [...nested.modifiers, 'PRIVILEGED'], { credentialConsumer: words.includes('-S') }) : null;
+    return nested ? result('PRIVILEGE', nested.risk, nested.target, nested.environment, [...nested.modifiers, 'PRIVILEGED'], { credentialConsumer: words.includes('-S'), credentialTransports: [] }) : null;
   }
 
   if (lower === 'systemctl' || lower === 'service') {
@@ -1231,7 +1242,7 @@ export function lookupFamily(stage, context = {}) {
     const environment = [selectedProfile ?? assignedProfile, option(words, '--region')].filter(Boolean).join('@') || null;
     const target = option(words, '--instance-ids', '--resource-arn', '--resources', '--resource-id', '--bucket');
     const sensitiveRead = risk === 'SAFE_READ_ONLY' && /^get-/u.test(action);
-    return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    return result('AWS', risk, risk === 'SAFE_READ_ONLY' ? target ?? action : target, environment, sensitiveRead ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN'] });
   }
 
   if (lower === 'az') {
@@ -1263,13 +1274,13 @@ export function lookupFamily(stage, context = {}) {
     const invocation = parsePostgresInvocation(words, context.env);
     if (!invocation || !boundedRelationalRead(invocation.query)) return null;
     const risk = queryRisk(invocation.query, [/^(SELECT|SHOW|EXPLAIN(?!\s+ANALYZE))/u], [/^SET\s+/u], [/^(VACUUM|ANALYZE|REINDEX)/u], [/^(DROP|TRUNCATE|DELETE|UPDATE|INSERT|ALTER|CREATE)/u]);
-    return risk ? result('POSTGRES', risk, invocation.database ?? 'default-db', canonicalDatabaseEnvironment('POSTGRES', invocation), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
+    return risk ? result('POSTGRES', risk, invocation.database ?? 'default-db', canonicalDatabaseEnvironment('POSTGRES', invocation), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['PGPASSWORD'] }) : null;
   }
   if (lower === 'mysql' || lower === 'mysqladmin') {
     const invocation = parseMySqlInvocation(words, lower);
     if (!invocation || !boundedRelationalRead(invocation.query)) return null;
     const risk = queryRisk(invocation.query, [/^(SELECT|SHOW|EXPLAIN|STATUS|PING)/u], [/^SET\s+/u], [/^(FLUSH|OPTIMIZE|ANALYZE|REPAIR)/u], [/^(DROP|TRUNCATE|DELETE|UPDATE|INSERT|ALTER|CREATE|SHUTDOWN)/u]);
-    return risk ? result('MYSQL', risk, invocation.database ?? 'default-db', canonicalDatabaseEnvironment('MYSQL', invocation), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
+    return risk ? result('MYSQL', risk, invocation.database ?? 'default-db', canonicalDatabaseEnvironment('MYSQL', invocation), [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true, credentialTransports: ['VARIABLE', 'FLAG'], credentialSelectors: ['MYSQL_PWD'] }) : null;
   }
   if (lower === 'mongosh') {
     const invocation = parseMongoInvocation(words);
@@ -1280,14 +1291,14 @@ export function lookupFamily(stage, context = {}) {
     if (!risk) return null;
     let parsed;
     try { parsed = new URL(uri.replace(/^mongodb(?:\+srv)?:/iu, 'http:')); } catch { return null; }
-    return result('MONGODB', risk, parsed.pathname.slice(1) || 'server', parsed.host, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true });
+    return result('MONGODB', risk, parsed.pathname.slice(1) || 'server', parsed.host, [], { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY', credentialConsumer: true, credentialTransports: ['URI_USERINFO'] });
   }
   if (lower === 'redis-cli') {
     const invocation = parseRedisInvocation(words);
     const environment = invocation ? canonicalRedisEnvironment(invocation) : null;
     if (!environment) return null;
     const command = parseRedisCommand(words, invocation.commandIndex);
-    return command ? result('REDIS', command.risk, command.target, environment, [], { requiresExplicitBinding: command.risk !== 'SAFE_READ_ONLY', credentialConsumer: true }) : null;
+    return command ? result('REDIS', command.risk, command.target, environment, [], { requiresExplicitBinding: command.risk !== 'SAFE_READ_ONLY', credentialConsumer: true, credentialTransports: ['FLAG'] }) : null;
   }
 
   if (lower === 'ping') {

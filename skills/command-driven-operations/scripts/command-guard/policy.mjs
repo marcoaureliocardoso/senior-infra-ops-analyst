@@ -42,6 +42,8 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_GIT_OUTPUT_EFFECT', 'CATALOGUE_DMESG_CONTROL_RISK',
   'POLICY_CREDENTIAL_STAGE_OWNERSHIP', 'CATALOGUE_REMOTE_ENDPOINT_IDENTITY',
   'CATALOGUE_PACKET_STDOUT_IDENTITY', 'CATALOGUE_PACKET_SELECTOR_UNIQUENESS',
+  'POLICY_CREDENTIAL_EFFECTIVE_CONSUMER', 'CATALOGUE_REMOTE_ADDRESS_FAMILY_IDENTITY',
+  'CATALOGUE_REMOTE_ADDRESS_FAMILY_CANONICAL',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -115,10 +117,20 @@ export function analyzeCommand(event, env = {}) {
     if (match.requiresExplicitBinding && (!explicitBinding(match.target) || !explicitBinding(match.environment))) return denied('DENY_AMBIGUOUS_TARGET', stage.index);
     analyses.push({ ...match, stage: stage.index });
   }
-  const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
   const credentialStage = credentialAnalysis.metadata?.literal
     ? analyses.find(({ stage }) => stage === credentialAnalysis.metadata.stage)
     : null;
+  if (credentialAnalysis.metadata?.literal && (
+    !credentialStage?.credentialConsumer ||
+    !credentialStage.credentialTransports?.includes(credentialAnalysis.metadata.transport) ||
+    credentialAnalysis.metadata.transport === 'VARIABLE' && (
+      credentialAnalysis.metadata.selectors.length === 0 ||
+      !credentialAnalysis.metadata.selectors.every((selector) => credentialStage.credentialSelectors?.includes(selector))
+    )
+  )) {
+    return { ...denied('DENY_UNKNOWN_CREDENTIAL_CONSUMER', credentialAnalysis.metadata.stage), credential: credentialAnalysis.metadata };
+  }
+  const aggregate = analyses.reduce((highest, current) => RANK[current.risk] > RANK[highest.risk] ? current : highest, analyses[0]);
   const credentialBinding = credentialStage?.environment && credentialStage.policyId
     ? {
       domain: credentialStage.environment,

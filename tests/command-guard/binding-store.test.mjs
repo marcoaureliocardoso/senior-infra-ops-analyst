@@ -146,6 +146,31 @@ test('PreToolUse asks first then reuses only the approved non-secret binding', a
   });
 });
 
+test('non-consuming literal stages cannot create or reuse a credential binding', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const command = (secret) =>
+      `OPS_CREDENTIAL_IDENTITY=operator SSHPASS=${secret} sudo systemctl restart nginx`;
+    const first = validEvent({
+      tool_use_id: 'tool-non-consumer-first', permission_mode: 'bypassPermissions',
+      tool_input: { command: command('SYNTH_SECRET_non_consumer_a') },
+    });
+    const firstResponse = evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(firstResponse.hookSpecificOutput.permissionDecision, 'deny');
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: first.session_id, tool_use_id: first.tool_use_id,
+      hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    }), env), false);
+
+    const second = validEvent({
+      tool_use_id: 'tool-non-consumer-second', permission_mode: 'bypassPermissions',
+      tool_input: { command: command('SYNTH_SECRET_non_consumer_b') },
+    });
+    const secondResponse = evaluateHook(JSON.stringify(second), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
+    assert.equal(secondResponse.hookSpecificOutput.permissionDecision, 'deny');
+  });
+});
+
 test('credential approval follows the consuming stage rather than aggregate risk', async () => {
   await withState(async (env) => {
     const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');

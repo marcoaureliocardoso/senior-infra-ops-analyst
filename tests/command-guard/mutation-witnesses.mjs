@@ -257,7 +257,8 @@ const witnesses = {
       context,
       'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_witness" https://api.example.invalid/health ; gh pr view 25 --repo example/project',
     );
-    assert.equal(firstStage.credentialBinding.domain, 'https://api.example.invalid');
+    assert.equal(firstStage.decision, 'ask');
+    assert.equal(firstStage.credentialBinding?.domain, 'https://api.example.invalid');
     const distributed = await policyFixture(
       context,
       'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_b" https://api.example.invalid/b',
@@ -281,6 +282,38 @@ const witnesses = {
   async CATALOGUE_PACKET_SELECTOR_UNIQUENESS(context) {
     const result = await policyFixture(context, 'tshark -i eth0 -c 10 -s 64 --snapshot-length=128 host 192.0.2.1');
     assert.equal(result.decision, 'deny');
+  },
+  async POLICY_CREDENTIAL_EFFECTIVE_CONSUMER(context) {
+    const result = await policyFixture(
+      context,
+      'OPS_CREDENTIAL_IDENTITY=operator SSHPASS=SYNTH_SECRET_consumer_witness sudo systemctl restart nginx',
+    );
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_UNKNOWN_CREDENTIAL_CONSUMER');
+    const wrongVariable = await policyFixture(
+      context,
+      'GH_TOKEN=SYNTH_SECRET_selector_witness aws --profile ops --region us-east-1 ec2 describe-instances --max-items 20',
+    );
+    assert.equal(wrongVariable.decision, 'deny');
+  },
+  async CATALOGUE_REMOTE_ADDRESS_FAMILY_IDENTITY(context) {
+    const accepted = await policyFixture(
+      context,
+      'scp -4 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    );
+    assert.equal(accepted.environment, 'ssh://ops@files.example.invalid:22;addressFamily=inet');
+    const conflict = await policyFixture(
+      context,
+      'scp -4 -o AddressFamily=inet6 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    );
+    assert.equal(conflict.decision, 'deny');
+  },
+  async CATALOGUE_REMOTE_ADDRESS_FAMILY_CANONICAL(context) {
+    const result = await policyFixture(
+      context,
+      'scp -o AddressFamily=INET artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    );
+    assert.equal(result.environment, 'ssh://ops@files.example.invalid:22;addressFamily=inet');
   },
 };
 

@@ -28,7 +28,11 @@ export function classifyCredentials(composition, command, spans = detectSensitiv
     ? owners[0]
     : null;
   const metadata = literal
-    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: literalStage, literal: true }
+    ? {
+      source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind,
+      selectors: [...new Set(spans.map(({ selector }) => selector).filter(Boolean))],
+      stage: literalStage, literal: true,
+    }
     : decryptor
       ? { source: 'PROTECTED_FILE', type: 'SECRET', transport: 'STDIN_DIRECT', stage: decryptor.index, literal: false }
       : referenceMetadata(command);
@@ -67,12 +71,6 @@ export function credentialFlowErrors(composition, analysis) {
     const descriptor = executable === 'sshpass' ? consumer.argv.indexOf('-d') : -1;
     const directSshpass = descriptor >= 0 && consumer.argv[descriptor + 1] === '0';
     if (composition.stages.length !== 2 || composition.edges.length !== 1 || edge?.operator !== '|' || edge.from !== analysis.decryptorStage || !consumer || consumer.redirects.length || (!directSudo && !directSshpass)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
-  }
-  if (analysis.metadata.literal) {
-    const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh', 'gpg', 'age']);
-    const credentialStage = composition.stages.find(({ index }) => index === analysis.metadata.stage);
-    const executable = credentialStage?.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
-    if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: credentialStage?.index ?? 1 }];
   }
   return [];
 }

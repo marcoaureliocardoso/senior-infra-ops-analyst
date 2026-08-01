@@ -530,10 +530,10 @@ duplicate aliases were not represented exactly.
 
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
-| RV-69 | Literal ownership still followed the last consumer | An approved first-stage HTTP literal followed by a stable `gh` stage reused against a changed HTTP origin | Preserve lexical stage intervals, map all sensitive spans to exactly one stage, and require that exact stage to be the catalogued consumer | Remediated; independent verification pending |
-| RV-70 | Remote-transfer identity omitted accepted selectors | Port, user, ProxyJump, bandwidth, and identity-file changes retained an incomplete host-only environment | Build one canonical identity from explicit user, host, port, jump route, Kbit/s limit, and identity file; reject duplicate aliases and implicit users | Remediated; independent verification pending |
-| RV-71 | Packet stdout was treated as a filesystem sink | `-w -` was denied or resolved as a local file rather than sensitive packet output | Classify it as `SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE + ALWAYS_ASK` with target `stdout:pcap` | Remediated; independent verification pending |
-| RV-72 | Capture alias uniqueness was incomplete | `-s` plus `--snapshot-length` overwrote the earlier value and retained read authorization | Group interface, count, snapshot-length, and sink aliases by semantic role and deny every repetition | Remediated; independent verification pending |
+| RV-69 | Literal ownership still followed the last consumer | An approved first-stage HTTP literal followed by a stable `gh` stage reused against a changed HTTP origin | Preserve lexical stage intervals, map all sensitive spans to exactly one stage, and require that exact stage to be the catalogued consumer | Remediated; independently verified |
+| RV-70 | Remote-transfer identity omitted accepted selectors | Port, user, ProxyJump, bandwidth, and identity-file changes retained an incomplete host-only environment | Build one canonical identity from explicit user, host, port, jump route, Kbit/s limit, and identity file; reject duplicate aliases and implicit users | Remediated; independently verified |
+| RV-71 | Packet stdout was treated as a filesystem sink | `-w -` was denied or resolved as a local file rather than sensitive packet output | Classify it as `SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE + ALWAYS_ASK` with target `stdout:pcap` | Remediated; independently verified |
+| RV-72 | Capture alias uniqueness was incomplete | `-s` plus `--snapshot-length` overwrote the earlier value and retained read authorization | Group interface, count, snapshot-length, and sink aliases by semantic role and deny every repetition | Remediated; independently verified |
 
 The new lifecycle and parser tests were observed RED before implementation.
 The completed deterministic gate passes 215 tests with zero skips, 100 percent
@@ -542,3 +542,37 @@ critical line/function/branch coverage, four fixed property seeds, and 50 of
 installed corpus to 88 cases. The package and installed-artifact gates and one
 fresh independent read-only review remain required before merge. Runtime and
 model versions remain unpinned.
+
+## 2026-08-01 fourteenth independent review disposition
+
+The independent review of the RV-69 through RV-72 remediation found no new
+Critical issue, but reproduced two Important gaps. Literal-stage validation
+still trusted an executable-name allowlist rather than the effective catalogue
+result, and the accepted SSH address-family aliases were neither a singleton
+group nor part of the remote-transfer identity.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-73 | Literal ownership did not prove effective consumption | `SSHPASS=<literal> sudo ...` without `-S` created and later reused a `PRIVILEGE/local` binding | Require the owning catalogue result to declare credential consumption and accept the detected transport plus client-specific variable selector; deny nominal or cross-client consumers | Remediated; independently verified |
+| RV-74 | Remote address-family aliases were unaudited | `-4 -6`, `-4 -o AddressFamily=inet6`, and repeated `AddressFamily` were accepted under the same host-only environment | Group `-4`, `-6`, and `AddressFamily` as one selector, deny repetition/conflict, and include the accepted family in the canonical environment | Remediated; independently verified |
+| RV-75 | Address-family identity retained input case | `AddressFamily=INET` and `AddressFamily=inet` were both accepted but produced distinct environments | Normalize the accepted value before identity construction and protect it with a stable fixture plus mutation witness | Remediated; independently verified |
+
+The cases were observed RED through the real policy or binding lifecycle
+before remediation. The deterministic source gate now passes 220 tests with
+zero skips, 100 percent critical line/function/branch coverage, four fixed
+property seeds, and 53 of 53 baseline-proven typed mutations. RV-73 through
+RV-75 extend the shared source/installed corpus to 91 cases. The fresh Debian/WSL
+package and installed-artifact validation passed with observed Node.js
+`v24.17.0`; a fresh independent read-only verification remains required before merge.
+Runtime and model versions remain unpinned.
+
+## 2026-08-01 final independent verification
+
+The second read-only review of the completed delta found no remaining Critical,
+Important, or Minor issue and returned **Ready to merge: yes**. It independently
+reproduced the credential lifecycle for nominal and cross-client consumers,
+the remote address-family conflict and case-normalization matrix, and the
+installed fixture corpus. The final Windows and Debian/WSL gates pass 220 tests
+with zero skips, 100 percent critical line/function/branch coverage, 53 of 53
+typed mutations, and all 91 installed fixtures. Diff and secret scans found no
+real credential or new Claude Code, Nori, Node.js, or model pin.
