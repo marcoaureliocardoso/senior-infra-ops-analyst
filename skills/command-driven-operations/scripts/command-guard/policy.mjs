@@ -40,6 +40,8 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_IP_BATCH_REJECT', 'CATALOGUE_REMOTE_EXECUTOR_REJECT',
   'CATALOGUE_PACKET_SINK_EFFECT', 'CATALOGUE_CTR_NESTED_RISK',
   'CATALOGUE_GIT_OUTPUT_EFFECT', 'CATALOGUE_DMESG_CONTROL_RISK',
+  'POLICY_CREDENTIAL_STAGE_OWNERSHIP', 'CATALOGUE_REMOTE_ENDPOINT_IDENTITY',
+  'CATALOGUE_PACKET_STDOUT_IDENTITY', 'CATALOGUE_PACKET_SELECTOR_UNIQUENESS',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -74,9 +76,10 @@ function lexCommand(command) {
       throw new Error('unsupported PowerShell wrapper option');
     }
     if (!words[commandIndex + 1] || commandIndex + 2 !== words.length) throw new Error('unconsumed PowerShell wrapper argument');
-    return { lexed: lexPowerShell(words[commandIndex + 1].cooked), dialect: 'powershell' };
+    const credentialCommand = words[commandIndex + 1].cooked;
+    return { lexed: lexPowerShell(credentialCommand), dialect: 'powershell', credentialCommand };
   }
-  return { lexed: outer, dialect: 'bash' };
+  return { lexed: outer, dialect: 'bash', credentialCommand: command };
 }
 
 function explicitBinding(value) {
@@ -86,13 +89,15 @@ function explicitBinding(value) {
 export function analyzeCommand(event, env = {}) {
   let composition;
   let dialect;
+  let credentialCommand;
   try {
     const lexed = lexCommand(event.command);
     composition = buildComposition(lexed.lexed);
     dialect = lexed.dialect;
+    credentialCommand = lexed.credentialCommand;
   } catch { return denied('DENY_UNSUPPORTED_SYNTAX'); }
-  const spans = detectSensitiveSpans(event.command);
-  const credentialAnalysis = classifyCredentials(composition, event.command, spans);
+  const spans = detectSensitiveSpans(credentialCommand);
+  const credentialAnalysis = classifyCredentials(composition, credentialCommand, spans);
   const credentialErrors = credentialFlowErrors(composition, credentialAnalysis);
   if (credentialErrors.length) return { ...denied(credentialErrors[0].reasonCode, credentialErrors[0].stage), credential: credentialAnalysis.metadata };
   const analyses = [];

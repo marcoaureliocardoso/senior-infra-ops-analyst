@@ -974,6 +974,41 @@ test('remote transfer clients reject local executors configs and opaque batches'
   }
 });
 
+test('remote transfer identity includes every accepted endpoint and transport selector', () => {
+  const scp = analyze(
+    'scp -P 2222 -J jump@bastion.invalid -l 512 -i keys/ops artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+  );
+  assert.equal(
+    scp.environment,
+    'ssh://ops@files.example.invalid:2222;via=jump%40bastion.invalid;limitKbps=512;identityFile=keys%2Fops',
+  );
+
+  const sftp = analyze(
+    'sftp -o User=ops -o Port=2022 -o ProxyJump=jump@bastion.invalid files.example.invalid:/tmp',
+  );
+  assert.equal(sftp.environment, 'ssh://ops@files.example.invalid:2022;via=jump%40bastion.invalid');
+  assert.equal(
+    analyze('sftp sftp://ops@files.example.invalid/tmp').environment,
+    'ssh://ops@files.example.invalid:22',
+  );
+});
+
+test('remote transfer identity rejects ambiguous equivalent selectors', () => {
+  for (const command of [
+    'scp -P 22 -o Port=2222 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -J jump.invalid -o ProxyJump=other.invalid artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -l 128 -l256 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -i key-a -ikey-b artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -o User=other artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'sftp -P 22 sftp://ops@files.example.invalid:2022/tmp',
+    'sftp files.example.invalid:/tmp',
+    'sftp sftp://ops:secret@files.example.invalid/tmp',
+    'sftp sftp://ops%2Fadmin@files.example.invalid/tmp',
+    'scp -l 0 artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    'scp -J $JUMP artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
 test('packet capture parses local sinks and rejects post-process execution', () => {
   const sink = analyze('tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap host 192.0.2.1');
   assert.equal(sink.decision, 'ask');
@@ -985,6 +1020,36 @@ test('packet capture parses local sinks and rejects post-process execution', () 
     'tcpdump -i eth0 -c 10 -w /var/tmp/capture.pcap -C 1 -z payload',
     'tcpdump -i eth0 -c 10 -V capture-list.txt',
   ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
+test('packet capture stdout is sensitive read output rather than a file sink', () => {
+  for (const client of ['tcpdump', 'tshark']) {
+    const command = `${client} -i eth0 -c 10 -w - host 192.0.2.1`;
+    for (const mode of ['default', 'bypassPermissions']) {
+      const capture = analyze(command, mode);
+      assert.equal(capture.decision, 'ask', `${mode}: ${command}`);
+      assert.equal(capture.risk, 'SAFE_READ_ONLY', command);
+      assert.equal(capture.target, 'eth0 -> stdout:pcap', command);
+      assert.ok(capture.modifiers.includes('SENSITIVE_OUTPUT'), command);
+      assert.ok(capture.modifiers.includes('RESOURCE_INTENSIVE'), command);
+      assert.ok(capture.modifiers.includes('ALWAYS_ASK'), command);
+      assert.ok(!capture.modifiers.includes('FILE_WRITE'), command);
+    }
+  }
+});
+
+test('packet capture rejects every duplicate semantic selector group', () => {
+  for (const client of ['tcpdump', 'tshark']) {
+    for (const args of [
+      '-i eth0 --interface=eth1 -c 10',
+      '-i eth0 -c 10 --count=9',
+      '-i eth0 -c 10 -s 64 --snapshot-length=128',
+      '-i eth0 -c 10 -w - -w=/var/tmp/capture.pcap',
+    ]) {
+      const command = `${client} ${args} host 192.0.2.1`;
+      assert.equal(analyze(command).decision, 'deny', command);
+    }
+  }
 });
 
 test('ctr nested image verbs carry their actual effect risk', () => {
@@ -1050,7 +1115,6 @@ test('closed review parsers consume every option and malformed edge', () => {
     'scp -oBatchMode=yes -P22 artifact.txt ops@example.invalid:/tmp/artifact.txt',
     'sftp -q -o BatchMode=yes -P 22 sftp://ops@example.invalid/tmp',
     'sftp sftp://ops@example.invalid:22/tmp',
-    'sftp sftp://example.invalid/tmp',
     'mongosh mongodb://db.example.invalid/app --eval=db.serverStatus()',
     'tshark -n --interface=eth0 --count=10 host 192.0.2.1',
     'tcpdump -nn -i eth0 -c 10 -s 128 host 192.0.2.1',
@@ -1079,6 +1143,7 @@ test('closed review parsers consume every option and malformed edge', () => {
     'scp ops@example.invalid:/tmp/source artifact.txt',
     'sftp sftp://%/tmp',
     'sftp sftp://example.invalid:99999/tmp',
+    'sftp sftp://example.invalid/tmp',
     'sftp :/tmp',
     'mongosh mongodb://db.example.invalid/app mongodb://other.example.invalid/app --eval "db.serverStatus()"',
     'mongosh mongodb://db.example.invalid/app --eval=',

@@ -880,30 +880,51 @@ function parseRemoteTransfer(words, client) {
   const flags = client === 'scp'
     ? new Set(['-4', '-6', '-B', '-C', '-p', '-q', '-r', '-v'])
     : new Set(['-4', '-6', '-C', '-q', '-v']);
-  const values = client === 'scp'
-    ? new Set(['-P', '-i', '-J', '-l'])
-    : new Set(['-P', '-i', '-J', '-l']);
+  const values = new Set(['-P', '-i', '-J', '-l']);
+  const selectors = { user: null, port: null, proxyJump: null, limitKbps: null, identityFile: null };
+  const seenSelectors = new Set();
+  const setSelector = (name, value) => {
+    if (seenSelectors.has(name)) return false;
+    seenSelectors.add(name);
+    selectors[name] = value;
+    return true;
+  };
+  const consumeSshOption = (optionValue) => {
+    if (!validSshOption(optionValue)) return false;
+    const separator = optionValue.indexOf('=');
+    const name = optionValue.slice(0, separator).toLowerCase();
+    const value = optionValue.slice(separator + 1);
+    const selectorName = { user: 'user', port: 'port', proxyjump: 'proxyJump' }[name] ?? `option:${name}`;
+    return setSelector(selectorName, value);
+  };
+  const consumeValue = (name, value) => {
+    if (!literalOperand(value)) return false;
+    if (name === '-P') return boundedInteger(value, 65_535) && setSelector('port', String(Number(value)));
+    if (name === '-J') return validSshOption(`ProxyJump=${value}`) && setSelector('proxyJump', value);
+    if (name === '-l') return boundedInteger(value, 1_000_000_000) && setSelector('limitKbps', String(Number(value)));
+    return setSelector('identityFile', value);
+  };
   const operands = [];
   for (let index = 1; index < words.length; index += 1) {
     const word = words[index];
     if (flags.has(word)) continue;
     if (word === '-o') {
-      if (!validSshOption(words[++index] ?? '')) return null;
+      if (!consumeSshOption(words[++index] ?? '')) return null;
       continue;
     }
     if (word.startsWith('-o')) {
-      if (!validSshOption(word.slice(2).replace(/^=/u, ''))) return null;
+      if (!consumeSshOption(word.slice(2).replace(/^=/u, ''))) return null;
       continue;
     }
     if (values.has(word)) {
       const value = words[++index];
-      if (!literalOperand(value) || (word === '-P' && !boundedInteger(value, 65_535))) return null;
+      if (!consumeValue(word, value)) return null;
       continue;
     }
     const compact = [...values].find((name) => word.startsWith(name) && word.length > name.length);
     if (compact) {
       const value = word.slice(compact.length);
-      if (!literalOperand(value) || (compact === '-P' && !boundedInteger(value, 65_535))) return null;
+      if (!consumeValue(compact, value)) return null;
       continue;
     }
     if (word.startsWith('-') || !literalOperand(word)) return null;
@@ -913,17 +934,32 @@ function parseRemoteTransfer(words, client) {
     if (operands.length !== 2 || operands[0].includes(':') || !operands[1].includes(':')) return null;
   } else if (operands.length !== 1 || !(operands[0].includes(':') || /^sftp:\/\//iu.test(operands[0]))) return null;
   const target = operands.at(-1);
-  let environment;
+  let operandUser = null;
+  let operandPort = null;
+  let host = null;
   if (/^sftp:\/\//iu.test(target)) {
     try {
       const parsed = new URL(target);
-      if (!/^[A-Za-z0-9.-]+$/u.test(parsed.hostname) || (parsed.port && !boundedInteger(parsed.port, 65_535))) return null;
-      environment = `${parsed.username ? `${parsed.username}@` : ''}${parsed.host}`;
+      if (parsed.protocol !== 'sftp:' || parsed.password || !/^[A-Za-z0-9.-]+$/u.test(parsed.hostname) || (parsed.port && !boundedInteger(parsed.port, 65_535))) return null;
+      operandUser = parsed.username ? decodeURIComponent(parsed.username) : null;
+      operandPort = parsed.port || null;
+      host = parsed.hostname;
     } catch { return null; }
   } else {
-    environment = target.slice(0, target.indexOf(':'));
+    const endpoint = target.slice(0, target.indexOf(':'));
+    const match = endpoint.match(/^(?:([A-Za-z0-9._-]+)@)?([A-Za-z0-9.-]+)$/u);
+    if (!match) return null;
+    [, operandUser = null, host] = match;
   }
-  if (!environment || !/^[A-Za-z0-9._-]+(?:@[A-Za-z0-9.-]+(?::\d{1,5})?)?$/u.test(environment)) return null;
+  if (operandUser && selectors.user !== null || operandPort && selectors.port !== null) return null;
+  const user = selectors.user ?? operandUser;
+  const port = selectors.port ?? operandPort ?? '22';
+  if (!user || !/^[A-Za-z0-9._-]+$/u.test(user) || !host || !boundedInteger(port, 65_535)) return null;
+  const query = [];
+  if (selectors.proxyJump !== null) query.push(`via=${encodeURIComponent(selectors.proxyJump)}`);
+  if (selectors.limitKbps !== null) query.push(`limitKbps=${encodeURIComponent(selectors.limitKbps)}`);
+  if (selectors.identityFile !== null) query.push(`identityFile=${encodeURIComponent(selectors.identityFile)}`);
+  const environment = `ssh://${encodeURIComponent(user)}@${host.toLowerCase()}:${Number(port)}${query.length ? `;${query.join(';')}` : ''}`;
   return { target, environment };
 }
 
@@ -950,9 +986,12 @@ function parseMongoInvocation(words) {
 
 function parsePacketCapture(words, context) {
   const client = words[0].toLowerCase();
-  const valueOptions = client === 'tcpdump'
-    ? new Set(['-i', '--interface', '-c', '--count', '-s', '--snapshot-length', '-w'])
-    : new Set(['-i', '--interface', '-c', '--count', '-s', '--snapshot-length', '-w']);
+  const valueOptions = new Map([
+    ['-i', 'interface'], ['--interface', 'interface'],
+    ['-c', 'count'], ['--count', 'count'],
+    ['-s', 'snapshotLength'], ['--snapshot-length', 'snapshotLength'],
+    ['-w', 'sink'],
+  ]);
   const flags = client === 'tcpdump'
     ? new Set(['-n', '-nn', '-q', '-v', '-vv', '-vvv'])
     : new Set(['-n', '-q']);
@@ -969,24 +1008,26 @@ function parsePacketCapture(words, context) {
       value = word.slice(separator + 1);
     }
     if (valueOptions.has(name)) {
-      if (values.has(name) || [...values.keys()].some((seen) =>
-        (seen === '-i' || seen === '--interface') && (name === '-i' || name === '--interface') ||
-        (seen === '-c' || seen === '--count') && (name === '-c' || name === '--count'))) return null;
+      const group = valueOptions.get(name);
+      if (values.has(group)) return null;
       if (value === null) value = words[++index];
       if (!literalOperand(value)) return null;
-      values.set(name, value);
+      values.set(group, value);
       continue;
     }
     if (word.startsWith('-') || !literalOperand(word)) return null;
     filter.push(word);
   }
-  const interfaceName = values.get('-i') ?? values.get('--interface');
-  const count = values.get('-c') ?? values.get('--count');
-  const snapLength = values.get('-s') ?? values.get('--snapshot-length');
+  const interfaceName = values.get('interface');
+  const count = values.get('count');
+  const snapLength = values.get('snapshotLength');
   if (!interfaceName || !boundedInteger(count, LIMITS.outputRows)) return null;
   if (snapLength !== undefined && !boundedInteger(snapLength, 262_144)) return null;
-  const sink = values.get('-w');
+  const sink = values.get('sink');
   if (sink !== undefined) {
+    if (sink === '-') {
+      return { risk: 'SAFE_READ_ONLY', target: `${interfaceName} -> stdout:pcap`, modifiers: ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'ALWAYS_ASK'] };
+    }
     const resolved = resolveOutputPath(sink, context);
     if (resolved === null) return null;
     return { risk: 'LOW_RISK_CHANGE', target: `${interfaceName} -> file:${resolved}`, modifiers: ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'FILE_WRITE', 'ALWAYS_ASK'] };

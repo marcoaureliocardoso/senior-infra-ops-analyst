@@ -7,15 +7,29 @@ export function buildComposition(lexed) {
   const operators = [];
   let words = [];
   let redirects = [];
+  let sourceStart = null;
+  let sourceEnd = null;
+  const includeToken = (token) => {
+    sourceStart = sourceStart === null ? token.start : Math.min(sourceStart, token.start);
+    sourceEnd = sourceEnd === null ? token.end : Math.max(sourceEnd, token.end);
+  };
   const flush = () => {
     if (!words.length) throw new Error('empty command stage');
-    stages.push(Object.freeze({ index: stages.length + 1, argv: Object.freeze(words), redirects: Object.freeze(redirects), profile: lexed.profile }));
-    words = []; redirects = [];
+    stages.push(Object.freeze({
+      index: stages.length + 1,
+      argv: Object.freeze(words),
+      redirects: Object.freeze(redirects),
+      profile: lexed.profile,
+      sourceStart,
+      sourceEnd,
+    }));
+    words = []; redirects = []; sourceStart = null; sourceEnd = null;
   };
   for (let index = 0; index < lexed.tokens.length; index += 1) {
     const token = lexed.tokens[index];
-    if (token.kind === 'word') { words.push(token.cooked); continue; }
+    if (token.kind === 'word') { includeToken(token); words.push(token.cooked); continue; }
     if (token.kind === 'redirect') {
+      includeToken(token);
       if (token.cooked === '2>&1') {
         redirects.push({ operator: token.cooked, destination: '&1' });
         if (redirects.length > LIMITS.redirects) throw new Error('redirect limit exceeded');
@@ -23,6 +37,7 @@ export function buildComposition(lexed) {
       }
       const destination = lexed.tokens[index + 1];
       if (!destination || destination.kind !== 'word') throw new Error('redirection destination is missing');
+      includeToken(destination);
       redirects.push({ operator: token.cooked, destination: destination.cooked });
       if (redirects.length > LIMITS.redirects) throw new Error('redirect limit exceeded');
       index += 1; continue;

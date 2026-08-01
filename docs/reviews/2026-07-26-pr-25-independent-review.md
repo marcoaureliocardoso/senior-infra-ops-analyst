@@ -519,3 +519,26 @@ semantic validation and all 84 fixtures passed. Host PowerShell syntax
 validation also passed. Observed versions are evidence only and remain
 unpinned. One fresh independent read-only verification remains pending before
 merge.
+
+## 2026-08-01 thirteenth independent review disposition
+
+A fresh review of the complete PR reproduced three residual gaps behind the
+RV-61, RV-64, and RV-65 fixes. A literal credential in an earlier stage still
+borrowed the last catalogued consumer's domain, accepted remote-transfer
+selectors did not participate in the audit identity, and packet stdout plus
+duplicate aliases were not represented exactly.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-69 | Literal ownership still followed the last consumer | An approved first-stage HTTP literal followed by a stable `gh` stage reused against a changed HTTP origin | Preserve lexical stage intervals, map all sensitive spans to exactly one stage, and require that exact stage to be the catalogued consumer | Remediated; independent verification pending |
+| RV-70 | Remote-transfer identity omitted accepted selectors | Port, user, ProxyJump, bandwidth, and identity-file changes retained an incomplete host-only environment | Build one canonical identity from explicit user, host, port, jump route, Kbit/s limit, and identity file; reject duplicate aliases and implicit users | Remediated; independent verification pending |
+| RV-71 | Packet stdout was treated as a filesystem sink | `-w -` was denied or resolved as a local file rather than sensitive packet output | Classify it as `SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE + ALWAYS_ASK` with target `stdout:pcap` | Remediated; independent verification pending |
+| RV-72 | Capture alias uniqueness was incomplete | `-s` plus `--snapshot-length` overwrote the earlier value and retained read authorization | Group interface, count, snapshot-length, and sink aliases by semantic role and deny every repetition | Remediated; independent verification pending |
+
+The new lifecycle and parser tests were observed RED before implementation.
+The completed deterministic gate passes 215 tests with zero skips, 100 percent
+critical line/function/branch coverage, four fixed property seeds, and 50 of
+50 baseline-proven typed mutations. RV-69 through RV-72 extend the source and
+installed corpus to 88 cases. The package and installed-artifact gates and one
+fresh independent read-only review remain required before merge. Runtime and
+model versions remain unpinned.

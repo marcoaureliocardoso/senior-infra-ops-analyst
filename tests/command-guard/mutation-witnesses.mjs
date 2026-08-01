@@ -252,6 +252,36 @@ const witnesses = {
     assert.equal(result.decision, 'ask');
     assert.equal(result.risk, 'DESTRUCTIVE');
   },
+  async POLICY_CREDENTIAL_STAGE_OWNERSHIP(context) {
+    const firstStage = await policyFixture(
+      context,
+      'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_witness" https://api.example.invalid/health ; gh pr view 25 --repo example/project',
+    );
+    assert.equal(firstStage.credentialBinding.domain, 'https://api.example.invalid');
+    const distributed = await policyFixture(
+      context,
+      'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_b" https://api.example.invalid/b',
+    );
+    assert.equal(distributed.decision, 'deny');
+  },
+  async CATALOGUE_REMOTE_ENDPOINT_IDENTITY(context) {
+    const result = await policyFixture(
+      context,
+      'scp -P 2222 -J jump@bastion.invalid -l 512 -i keys/ops artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    );
+    assert.equal(result.environment, 'ssh://ops@files.example.invalid:2222;via=jump%40bastion.invalid;limitKbps=512;identityFile=keys%2Fops');
+  },
+  async CATALOGUE_PACKET_STDOUT_IDENTITY(context) {
+    const result = await policyFixture(context, 'tcpdump -i eth0 -c 10 -w - host 192.0.2.1');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'SAFE_READ_ONLY');
+    assert.equal(result.target, 'eth0 -> stdout:pcap');
+    assert.ok(!result.modifiers.includes('FILE_WRITE'));
+  },
+  async CATALOGUE_PACKET_SELECTOR_UNIQUENESS(context) {
+    const result = await policyFixture(context, 'tshark -i eth0 -c 10 -s 64 --snapshot-length=128 host 192.0.2.1');
+    assert.equal(result.decision, 'deny');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

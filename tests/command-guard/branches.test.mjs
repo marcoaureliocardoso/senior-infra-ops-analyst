@@ -8,6 +8,7 @@ import { BASH_OPERATORS, lexBash } from '../../skills/command-driven-operations/
 import { lookupFamily } from '../../skills/command-driven-operations/scripts/command-guard/catalogue.mjs';
 import { buildComposition } from '../../skills/command-driven-operations/scripts/command-guard/composition.mjs';
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
+import { classifyCredentials, credentialFlowErrors } from '../../skills/command-driven-operations/scripts/command-guard/credential-flow.mjs';
 import { LIMITS } from '../../skills/command-driven-operations/scripts/command-guard/limits.mjs';
 import { analyzeCommand } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
 import { POWERSHELL_OPERATORS, lexPowerShell } from '../../skills/command-driven-operations/scripts/command-guard/powershell-lexer.mjs';
@@ -127,6 +128,17 @@ test('composition covers empty, missing redirect, words, redirects, and sequence
   assert.equal(graph.stages.length, 2);
   assert.equal(graph.redirects.length, 1);
   assert.deepEqual(graph.edges, [{ from: 1, to: 2, operator: ';' }]);
+});
+
+test('credential spans outside every lexical stage fail closed', () => {
+  const composition = buildComposition(lexBash('curl https://api.example.invalid'));
+  const analysis = classifyCredentials(composition, 'synthetic', [
+    { start: 100, end: 109, kind: 'FLAG' },
+  ]);
+  assert.equal(analysis.metadata.stage, null);
+  assert.deepEqual(credentialFlowErrors(composition, analysis), [
+    { reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: 1 },
+  ]);
 });
 
 test('redaction covers every literal transport, overlap filtering, empty input, and idempotence', () => {

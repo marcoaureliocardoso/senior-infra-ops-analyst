@@ -19,8 +19,16 @@ function referenceMetadata(command) {
 export function classifyCredentials(composition, command, spans = detectSensitiveSpans(command)) {
   const literal = spans.length > 0;
   const decryptor = composition.stages.find((stage) => ['gpg', 'age'].includes(stage.argv[0]?.toLowerCase()));
+  const owners = literal
+    ? spans.map((span) => composition.stages.find((stage) =>
+      span.start >= stage.sourceStart && span.end <= stage.sourceEnd)?.index ?? null)
+    : [];
+  const uniqueOwners = new Set(owners);
+  const literalStage = owners.length > 0 && !uniqueOwners.has(null) && uniqueOwners.size === 1
+    ? owners[0]
+    : null;
   const metadata = literal
-    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: composition.stages.at(-1).index, literal: true }
+    ? { source: 'MODEL_VISIBLE_LITERAL', type: 'SECRET', transport: spans[0].kind, stage: literalStage, literal: true }
     : decryptor
       ? { source: 'PROTECTED_FILE', type: 'SECRET', transport: 'STDIN_DIRECT', stage: decryptor.index, literal: false }
       : referenceMetadata(command);
@@ -32,6 +40,9 @@ export function credentialFlowErrors(composition, analysis) {
     return [{ reasonCode: 'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS', stage: 1 }];
   }
   if (!analysis.metadata) return [];
+  if (analysis.metadata.literal && analysis.metadata.stage === null) {
+    return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: 1 }];
+  }
   if (analysis.metadata.literal && new Set(analysis.spans.map(({ kind }) => kind)).size > 1) {
     return [{ reasonCode: 'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', stage: analysis.metadata.stage }];
   }
@@ -58,9 +69,10 @@ export function credentialFlowErrors(composition, analysis) {
     if (composition.stages.length !== 2 || composition.edges.length !== 1 || edge?.operator !== '|' || edge.from !== analysis.decryptorStage || !consumer || consumer.redirects.length || (!directSudo && !directSshpass)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: analysis.decryptorStage }];
   }
   if (analysis.metadata.literal) {
-    const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh']);
-    const executable = composition.stages.at(-1)?.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
-    if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: composition.stages.at(-1).index }];
+    const consumers = new Set(['curl', 'invoke-restmethod', 'invoke-webrequest', 'sudo', 'ssh', 'sshpass', 'psql', 'mysql', 'mongosh', 'redis-cli', 'aws', 'az', 'gcloud', 'gsutil', 'kubectl', 'gh', 'gpg', 'age']);
+    const credentialStage = composition.stages.find(({ index }) => index === analysis.metadata.stage);
+    const executable = credentialStage?.argv.find((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word))?.toLowerCase();
+    if (!consumers.has(executable)) return [{ reasonCode: 'DENY_UNKNOWN_CREDENTIAL_CONSUMER', stage: credentialStage?.index ?? 1 }];
   }
   return [];
 }

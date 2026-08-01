@@ -475,4 +475,32 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedDecision: 'ask',
     expectedRisk: 'DESTRUCTIVE',
   },
+  {
+    id: 'RV69-CREDENTIAL-FIRST-STAGE-OWNERSHIP',
+    command: 'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_rv69" https://api.example.invalid/health ; gh pr view 25 --repo example/project',
+    expectedDecision: 'ask',
+    expectedCredentialBinding: {
+      domain: 'https://api.example.invalid', family: 'HTTP', targetClass: 'HTTP',
+    },
+    forbiddenText: 'SYNTH_SECRET_rv69',
+  },
+  {
+    id: 'RV70-REMOTE-ENDPOINT-IDENTITY',
+    command: 'scp -P 2222 -J jump@bastion.invalid -l 512 -i keys/ops artifact.txt ops@files.example.invalid:/tmp/artifact.txt',
+    expectedDecision: 'allow',
+    expectedEnvironment: 'ssh://ops@files.example.invalid:2222;via=jump%40bastion.invalid;limitKbps=512;identityFile=keys%2Fops',
+  },
+  {
+    id: 'RV71-PACKET-STDOUT-IDENTITY',
+    command: 'tcpdump -i eth0 -c 10 -w - host 192.0.2.1',
+    expectedDecision: 'ask',
+    expectedRisk: 'SAFE_READ_ONLY',
+    expectedTarget: 'eth0 -> stdout:pcap',
+    expectedModifiers: ['ALWAYS_ASK', 'RESOURCE_INTENSIVE', 'SENSITIVE_OUTPUT'],
+  },
+  {
+    id: 'RV72-PACKET-SELECTOR-UNIQUENESS',
+    command: 'tshark -i eth0 -c 10 -s 64 --snapshot-length=128 host 192.0.2.1',
+    expectedDecision: 'deny',
+  },
 ]);

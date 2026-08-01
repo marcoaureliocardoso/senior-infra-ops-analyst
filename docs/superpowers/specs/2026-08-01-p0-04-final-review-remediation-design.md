@@ -12,19 +12,25 @@ The command guard remains fail-closed, dependency-free, compatible with the Java
 ## Decision 1: bind literal credentials to source spans
 `buildComposition` will retain an in-memory source interval for every stage. The interval covers every lexical token belonging to that stage, including redirection operands, and is never included in the response, binding store, or audit record.
 
-`classifyCredentials` will map every sensitive source span to exactly one stage interval. A literal is accepted for further analysis only when all detected spans resolve to the same stage. No match or spans distributed over multiple stages produce `DENY_UNKNOWN_CREDENTIAL_CONSUMER`. The selected stage must itself be a catalogued credential consumer; a later stage can no longer lend consumer status or domain identity to an earlier one.
+`classifyCredentials` will map every sensitive source span to exactly one stage interval. A literal is accepted for further analysis only when all detected spans resolve to the same stage. No match or spans distributed over multiple stages produce `DENY_UNKNOWN_CREDENTIAL_CONSUMER`.
+
+The selected stage must itself be a catalogued credential consumer; a later stage can no longer lend consumer status or domain identity to an earlier one.
 
 Credential binding continues to store only non-secret domain, family, target class, identity, transport, session, and expiry. The literal and raw command remain excluded.
 
 ## Decision 2: canonicalize the complete SSH endpoint
 The remote-transfer parser will normalize endpoint-affecting selectors into a single structure:
 
-- remote user from `user@host`, URI userinfo, `-l`, or `-o User`;
+- remote user from `user@host`, URI userinfo, or `-o User`;
 - port from URI, `-P`, or `-o Port`, defaulting to 22;
 - jump route from `-J` or `-o ProxyJump`;
+- bandwidth limit from `-l`;
+- identity-file selector from `-i`;
 - literal host from the remote operand.
 
-Equivalent aliases are one singleton option group. Repetition, conflict, an absent explicit user, dynamic values, or unsupported SSH options deny the command. The canonical environment is `ssh://user@host:port` with a percent-encoded `?via=` suffix when a jump route is present. This environment becomes both the credential-reuse domain and the non-secret audit identity.
+Equivalent aliases are one singleton option group. Repetition, conflict, an absent explicit user, dynamic values, or unsupported SSH options deny the command. The canonical environment is `ssh://user@host:port` with stable percent-encoded `;key=value` selector fields for jump route, bandwidth limit, and identity file when present.
+
+The delimiter avoids `?`, which the explicit-binding contract reserves as dynamic shell syntax. This environment becomes both the credential-reuse domain and the non-secret audit identity. OpenSSH defines `-l` as a Kbit/s bandwidth limit, so it is bounded and audited rather than treated as a user selector.
 
 Options that can select local executors, opaque configuration, routing commands, loaders, or plugins remain denied. Identity-file selection is accepted only as a literal protected-file reference and does not replace endpoint identity.
 

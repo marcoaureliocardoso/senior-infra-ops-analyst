@@ -130,12 +130,16 @@ creation, listing, rename, and deletion use one closed subgrammar; short and
 long deletion aliases are uniformly destructive.
 
 Credential reuse is scoped from the exact credential-bearing stage rather
-than the composition's highest-risk stage. Closed grammars also cover a single
-`mongosh --eval`, all `ip` batch aliases, `scp`/`sftp` transport overrides,
-packet-capture sinks and post-processors, hierarchical `ctr images` effects,
-Git read sinks/external executors, and `dmesg` control actions. Resolved capture
-and Git output files always ask; opaque loaders, local executors, dynamic
-sinks, and unconsumed options deny.
+than the composition's highest-risk or final stage: lexical source intervals
+must map every sensitive span to one consumer, and multi-stage literals deny.
+Closed grammars also cover a single `mongosh --eval`, all `ip` batch aliases,
+and `scp`/`sftp` transport overrides. Remote-transfer identities contain the
+explicit user, host, port, jump route, bandwidth limit, and identity file;
+duplicate aliases or implicit users deny. Packet-capture `-w -` is always-ask
+sensitive stdout rather than a file effect, while resolved capture files always
+ask and duplicate selector aliases deny. Hierarchical `ctr images`, Git read
+sinks/external executors, and `dmesg` control actions remain fully classified;
+opaque loaders, local executors, dynamic sinks, and unconsumed options deny.
 
 Mandatory static and installed-form validation:
 

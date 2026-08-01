@@ -30,9 +30,9 @@
 - Consumes: lexer tokens with `{ start, end }` offsets and `composition.stages`.
 - Produces: stages with `{ sourceStart, sourceEnd }`; credential metadata whose `stage` is the unique sensitive-span owner.
 
-- [ ] **Step 1: Add focused tests for an authenticated first stage followed by another catalogued consumer, multi-stage literals, and unmappable spans**
+- [ ] **Step 1: Add focused tests for an authenticated first stage followed by another catalogued consumer, multi-stage literals, and spans outside every stage**
 
-Assert that the first command binds to its own HTTP origin, changed origins cannot reuse that binding, credentials in multiple stages deny, and direct unit input with a span outside every stage denies.
+Assert that the first command binds to its own HTTP origin, changed origins cannot reuse that binding, credentials in multiple stages deny, and direct unit input with a span that cannot map to any stage denies.
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
@@ -60,7 +60,7 @@ Run the command from Step 2 and require zero failures.
 
 - [ ] **Step 1: Add focused endpoint identity and duplicate-alias tests**
 
-Use literal expectations for user, host, default/explicit port, and ProxyJump. Assert that `-l` versus operand user, `-P` versus `-o Port`, `-J` versus `-o ProxyJump`, repeated aliases, host-only operands, and dynamic values deny.
+Use literal expectations for user, host, default/explicit port, ProxyJump, Kbit/s limit, and identity file. Assert that operand user versus `-o User`, `-P` versus `-o Port`, `-J` versus `-o ProxyJump`, repeated `-l` or `-i`, host-only operands, and dynamic values deny.
 
 - [ ] **Step 2: Run only the remote-transfer test and verify RED**
 
@@ -70,7 +70,7 @@ Expected: current environments omit selectors and duplicate aliases are accepted
 
 - [ ] **Step 3: Parse selector groups and build canonical endpoint identity**
 
-Normalize supported `-o` names case-insensitively, reject non-whitelisted names, consume each singleton group once, combine it with the operand endpoint, require an explicit user, and emit the canonical environment. Preserve existing local-executor and opaque-config denials.
+Normalize supported `-o` names case-insensitively, reject non-whitelisted names, consume each singleton group once, combine it with the operand endpoint, require an explicit user, and emit the canonical environment. Treat `-l` as a bounded bandwidth limit and include it and `-i` in the audit identity. Preserve existing local-executor and opaque-config denials.
 
 - [ ] **Step 4: Run the focused test and verify GREEN**
 

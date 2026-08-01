@@ -30,6 +30,16 @@ test('credential printing, persistence, background, and unknown consumer deny', 
   ]) assert.equal(analyze(command, 'bypassPermissions').decision, 'deny');
 });
 
+test('literal credentials distributed across composition stages deny', () => {
+  const command =
+    'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; ' +
+    'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_b" https://api.example.invalid/b';
+  const result = analyze(command, 'bypassPermissions');
+  assert.equal(result.decision, 'deny');
+  assert.equal(result.reasonCode, 'DENY_UNKNOWN_CREDENTIAL_CONSUMER');
+  assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_/u);
+});
+
 test('encrypted credential may flow only directly to a catalogued consumer', () => {
   const direct = 'gpg --decrypt sudo-password.gpg | sudo -S systemctl restart nginx';
   assert.equal(analyze(direct, 'bypassPermissions').decision, 'allow');

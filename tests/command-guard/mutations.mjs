@@ -206,12 +206,12 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_REMOTE_EXECUTOR_REJECT', file: 'command-guard/catalogue.mjs',
-    search: "? new Set(['-P', '-i', '-J', '-l'])",
-    replacement: "? new Set(['-P', '-i', '-J', '-l', '-S'])",
+    search: "const values = new Set(['-P', '-i', '-J', '-l']);",
+    replacement: "const values = new Set(['-P', '-i', '-J', '-l', '-S']);",
   },
   {
     id: 'CATALOGUE_PACKET_SINK_EFFECT', file: 'command-guard/catalogue.mjs',
-    search: "  const sink = values.get('-w');",
+    search: "  const sink = values.get('sink');",
     replacement: '  const sink = undefined;',
   },
   {
@@ -228,5 +228,25 @@ export const MUTATIONS = Object.freeze([
     id: 'CATALOGUE_DMESG_CONTROL_RISK', file: 'command-guard/catalogue.mjs',
     search: "      risk = 'DESTRUCTIVE';",
     replacement: "      risk = 'SAFE_READ_ONLY';",
+  },
+  {
+    id: 'POLICY_CREDENTIAL_STAGE_OWNERSHIP', file: 'command-guard/credential-flow.mjs',
+    search: 'stage: literalStage, literal: true',
+    replacement: 'stage: composition.stages.at(-1).index, literal: true',
+  },
+  {
+    id: 'CATALOGUE_REMOTE_ENDPOINT_IDENTITY', file: 'command-guard/catalogue.mjs',
+    search: 'const environment = `ssh://${encodeURIComponent(user)}@${host.toLowerCase()}:${Number(port)}${query.length ? `;${query.join(\';\')}` : \'\'}`;',
+    replacement: 'const environment = `ssh://${encodeURIComponent(user)}@${host.toLowerCase()}:22`;',
+  },
+  {
+    id: 'CATALOGUE_PACKET_STDOUT_IDENTITY', file: 'command-guard/catalogue.mjs',
+    search: "    if (sink === '-') {",
+    replacement: '    if (false) {',
+  },
+  {
+    id: 'CATALOGUE_PACKET_SELECTOR_UNIQUENESS', file: 'command-guard/catalogue.mjs',
+    search: '      if (values.has(group)) return null;',
+    replacement: '      if (false) return null;',
   },
 ]);

@@ -189,17 +189,26 @@ uses conservative normal-mode semantics rather than a version allowlist.
     output and trace to a resolved file denies as secret persistence; neither
     can be downgraded to native confirmation by `bypassPermissions`.
 31. Credential approval scope is projected from the exact stage carrying the
-    literal credential, not from the composition's highest-risk stage. Risk
-    aggregation therefore cannot substitute another command family's domain.
+    literal credential, not from the composition's highest-risk or final
+    stage. Composition preserves in-memory lexical source intervals and every
+    sensitive span must resolve to one stage; unmapped or multi-stage literals
+    deny. Risk aggregation and a later catalogued consumer therefore cannot
+    substitute another command family's domain.
 32. `mongosh` accepts exactly one inline `--eval`; `ip` rejects every separated,
     equals-attached, or compact batch-file form. Extra scripts, shell mode, and
     opaque command files deny.
 33. `scp` and `sftp` consume closed transport schemas and complete operand
-    shapes. Local executors, arbitrary configuration, proxy commands, server
-    programs, and SFTP batch files deny.
+    shapes. The canonical non-secret identity includes explicit user, host,
+    default or selected port, ProxyJump route, Kbit/s limit, and identity file.
+    Equivalent or repeated selectors and destinations without an explicit user
+    deny. Local executors, arbitrary configuration, proxy commands, server
+    programs, and SFTP batch files also deny.
 34. Packet-capture schemas consume every supported option. A resolved `-w`
     sink is `LOW_RISK_CHANGE + FILE_WRITE + ALWAYS_ASK`; post-process executors,
-    input file lists, dynamic sinks, and unknown options deny.
+    input file lists, dynamic sinks, and unknown options deny. `-w -` is
+    `SAFE_READ_ONLY + SENSITIVE_OUTPUT + RESOURCE_INTENSIVE + ALWAYS_ASK` with
+    target `stdout:pcap`, never a file named `-`; repeated semantic selector
+    groups deny across short and long aliases.
 35. `ctr` has a hierarchical image grammar: list is read-only, pull/import are
     changes, and remove aliases are destructive. Git read verbs have closed
     options; resolved diff output is a mandatory-confirmation file effect, and
@@ -278,13 +287,13 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 204 active Node tests with zero
+- The remediated deterministic gate runs 215 active Node tests with zero
   skips, four recorded property seeds, a finite inventory orphan check, and
   exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
   policy, catalogue, redaction, response, audit, and both entrypoint modules achieve 100%
   line, function, and branch coverage with native Node test coverage.
-- Forty-six registered security mutations are baseline-proven and killed by
+- Fifty registered security mutations are baseline-proven and killed by
   their exact typed witnesses, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
@@ -296,10 +305,12 @@ ambiguous destinations deny.
   routing-header rejection, explicit database domains, sensitive stdout,
   tilde-output rejection, PostgreSQL environment rejection, MySQL socket-host
   rejection, credential-bearing trace disclosure, credential-consumer stage
-  binding, and the MongoDB, IP batch, remote-transfer, packet-capture, nested
-  `ctr`, Git output, and `dmesg` control closures.
+  binding, credential source-stage ownership, complete remote endpoint
+  identity, packet stdout identity and selector uniqueness, and the MongoDB,
+  IP batch, remote-transfer, packet-capture, nested `ctr`, Git output, and
+  `dmesg` control closures.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 84-case stable-ID adversarial
+  modules with source, then executes the same 88-case stable-ID adversarial
   corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
@@ -308,7 +319,7 @@ ambiguous destinations deny.
 - A fresh Debian/WSL package gate passed with an observed capability-compatible
   Node.js `v24.17.0`. A temporary isolated Nori `0.31.0` install registered 12
   subagents, 24 skills, and 20 slash commands; installed semantic validation
-  and all 84 installed fixtures passed. These observations are not requirements.
+  and all 88 installed fixtures passed. These observations are not requirements.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
   retained-output scans, and redacted evidence.
