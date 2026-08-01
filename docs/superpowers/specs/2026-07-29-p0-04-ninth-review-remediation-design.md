@@ -20,7 +20,7 @@ Nori, Node.js, DeepSeek, or other model/runtime version.
 
 Every accepted client grammar must consume the complete effective invocation.
 Options that execute another program, load an opaque command file, write a
-local sink, select an unanalysed script, or hide a nested verb deny unless the
+local sink, select an opaque script, or hide a nested verb deny unless the
 catalogue explicitly models their effect.
 
 Credential reuse is derived from the exact stage that contains and consumes
