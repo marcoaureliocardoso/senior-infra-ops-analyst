@@ -493,7 +493,7 @@ git commit -m "fix: require profile-free PowerShell wrappers"
 - Produces: executable assertion that the CodeQL matrix contains exactly the
   required Python and JavaScript/TypeScript languages.
 
-- [ ] **Step 1: Write a failing workflow mutation test**
+- [x] **Step 1: Write a failing workflow mutation test**
 
 Create a unittest that copies `.github/workflows/security.yml` and
 `tests/validate-ci-workflows.sh` into a temporary repository and executes the
@@ -502,7 +502,7 @@ validator. In separate subtests, rewrite
 `language: [python]` and `language: [javascript-typescript]`; assert a nonzero
 exit containing `security.yml CodeQL languages`. The pristine copy must pass.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 python tests/test-ci-workflows.py
@@ -510,7 +510,7 @@ python tests/test-ci-workflows.py
 
 Expected: the pristine workflow fails because JavaScript/TypeScript is absent.
 
-- [ ] **Step 3: Extend the validator and workflow**
+- [x] **Step 3: Extend the validator and workflow**
 
 Add a security-workflow-specific check in `validate-ci-workflows.sh` that
 requires the exact two-member language set, rejecting either omission and
@@ -523,7 +523,7 @@ matrix:
 
 Add `python3 tests/test-ci-workflows.py` to `validate-package.sh`.
 
-- [ ] **Step 4: Run GREEN and workflow validation**
+- [x] **Step 4: Run GREEN and workflow validation**
 
 ```bash
 python tests/test-ci-workflows.py
@@ -532,7 +532,7 @@ bash tests/validate-ci-workflows.sh
 
 Expected: pristine validation passes and removal of either language fails.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/security.yml tests/test-ci-workflows.py tests/validate-ci-workflows.sh tests/validate-package.sh

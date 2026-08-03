@@ -40,6 +40,19 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
     echo "FAIL: $name pins checkout by tag only, not commit hash"
     errors=$((errors + 1))
   fi
+
+  if [ "$name" = "security.yml" ]; then
+    language_lines=$(grep -Ec '^[[:space:]]+language:[[:space:]]*\[[^]]+\][[:space:]]*$' "$workflow" || true)
+    codeql_languages=$(sed -nE 's/^[[:space:]]+language:[[:space:]]*\[([^]]+)\][[:space:]]*$/\1/p' "$workflow" \
+      | tr ',' '\n' \
+      | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' \
+      | sort \
+      | paste -sd, -)
+    if [ "$language_lines" -ne 1 ] || [ "$codeql_languages" != "javascript-typescript,python" ]; then
+      echo "FAIL: security.yml CodeQL languages must be exactly python and javascript-typescript"
+      errors=$((errors + 1))
+    fi
+  fi
 done
 
 if [ "$errors" -gt 0 ]; then

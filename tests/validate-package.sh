@@ -15,6 +15,7 @@ python3 tests/test-load-claude-env.py
 python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
 python3 tests/test-smoke-command-guard.py
+python3 tests/test-ci-workflows.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
 bash -n tests/live-subagent-runtime-smoke.sh
