@@ -59,7 +59,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
     fi
     codeql_init_steps=$(grep -Ec 'github/codeql-action/init@' "$workflow" || true)
     matrix_wiring=$(grep -Fc 'languages: ${{ matrix.language }}' "$workflow" || true)
-    init_matrix_wiring=$(awk '
+    init_wiring_stats=$(awk '
       function indentation(line, stripped) {
         stripped = line
         sub(/^[[:space:]]*/, "", stripped)
@@ -75,20 +75,24 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         in_init = 0
         in_with = 0
       }
-      in_init && /^[[:space:]]+with:[[:space:]]*$/ {
+      in_init && indentation($0) == init_indent + 2 && /^[[:space:]]+with:[[:space:]]*$/ {
         in_with = 1
         with_indent = indentation($0)
+        with_count += 1
         next
       }
       in_with && /^[[:space:]]*[^[:space:]]/ && indentation($0) <= with_indent {
         in_with = 0
       }
-      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
-        count += 1
+      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*/ {
+        language_count += 1
       }
-      END { print count + 0 }
+      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
+        matrix_count += 1
+      }
+      END { print (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0) }
     ' "$workflow")
-    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_matrix_wiring" -ne 1 ]; then
+    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1" ]; then
       echo 'FAIL: security.yml CodeQL init wiring must use languages: ${{ matrix.language }} exactly once'
       errors=$((errors + 1))
     fi

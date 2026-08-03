@@ -24,6 +24,8 @@ class CiWorkflowValidationTests(unittest.TestCase):
         misplace_init_wiring: bool = False,
         put_matrix_language_in_init_env: bool = False,
         nest_matrix_language_in_with_scalar: bool = False,
+        duplicate_init_with: bool = False,
+        duplicate_init_languages: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -79,6 +81,24 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 mutated = source.replace(canonical_block, mutated_block)
                 self.assertNotEqual(mutated, source, "CodeQL nested scalar mutation failed")
                 source = mutated
+            if duplicate_init_with:
+                canonical_block = (
+                    "        with:\n"
+                    "          languages: ${{ matrix.language }}"
+                )
+                mutated_block = (
+                    f"{canonical_block}\n"
+                    "        with:\n"
+                    "          languages: python"
+                )
+                mutated = source.replace(canonical_block, mutated_block)
+                self.assertNotEqual(mutated, source, "CodeQL duplicate with mutation failed")
+                source = mutated
+            if duplicate_init_languages:
+                canonical = "          languages: ${{ matrix.language }}"
+                mutated = source.replace(canonical, f"{canonical}\n          languages: python")
+                self.assertNotEqual(mutated, source, "CodeQL duplicate languages mutation failed")
+                source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
             shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
@@ -132,6 +152,16 @@ class CiWorkflowValidationTests(unittest.TestCase):
         result = self.run_validator(nest_matrix_language_in_with_scalar=True)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
+
+    def test_duplicate_init_mapping_keys_are_rejected(self) -> None:
+        for mutation in (
+            {"duplicate_init_with": True},
+            {"duplicate_init_languages": True},
+        ):
+            with self.subTest(mutation=mutation):
+                result = self.run_validator(**mutation)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
