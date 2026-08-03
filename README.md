@@ -53,7 +53,8 @@ operator, redirect, and data-flow graph, and validates every stage against a
 finite operational catalogue. Pipes are therefore analyzed rather than
 blanket-blocked. Normal modes allow narrow reads and ask for bounded sensitive
 reads and catalogued changes. `bypassPermissions` allows catalogued
-non-destructive work; destructive work still asks. Unknown, ambiguous,
+non-destructive work unless the catalogue adds `ALWAYS_ASK`; destructive work
+still asks. Unknown, ambiguous,
 dynamic, unbounded, or exfiltrating calls deny with a redacted explanation.
 Verbs must occupy their family-defined position, filters cannot add independent
 file inputs, and log, scan, query, packet, and cloud-list bounds are checked
@@ -61,13 +62,17 @@ before authorization.
 
 Git push, GitHub CLI reads, journal reads, and container logs use closed
 verb-specific grammars: every accepted option and operand is consumed, the
-explicit effective repository is bound to the audit environment, external Git
+explicit requested Git repository address is bound to the audit environment, external Git
 remote-helper transports containing `::` deny, and URL schemes are limited to Git's native
 exact-lowercase `file`, `git`, `ssh`, `http`, and `https` transports because
 Git preserves scheme case when selecting remote helpers. Named Git remotes
 such as `origin` also deny because repository configuration can rewrite them
 to an unaudited URL or helper; use an explicit native URL, SCP-like address, or
-local path. Implicit GitHub repository selection denies.
+local path. Git can also rewrite explicit addresses through persistent
+`url.*.pushInsteadOf` or `url.*.insteadOf` configuration, so every parsed
+`git push` carries `ALWAYS_ASK`, including in `bypassPermissions`. The audit
+records the requested address and does not claim it is the effective
+destination or helper. Implicit GitHub repository selection denies.
 Streaming follow/watch forms and excessive output limits deny; broad GitHub
 Actions logs require native confirmation, and container log reads retain the
 container as audit target. Plain `kubectl cluster-info` remains a narrow read,
@@ -196,7 +201,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added client-aligned credential transports plus closed HTTP, Kubernetes, AWS, and Docker route/trust/configuration boundaries with fail-closed singleton precedence.
 - Rejected mixed literal credential transports and repeated effective-value selectors, and made redaction cover full mixed-quote credential tokens.
 - Added a closed Redis CLI schema and canonical non-secret binding across transport, host, port, database, and ACL user.
-- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, sixty-seven baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, sixty-eight baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Closed Git push destination/executor ambiguity, finite journal/container logs, bounded GitHub CLI reads, and Kubernetes cluster-dump collection through complete verb-specific parsers.
 - Closed HTTP option arity and output-effect binding, database selector/domain precedence, and Git branch deletion alias parity; local file effects always require native confirmation.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.

@@ -382,6 +382,13 @@ const witnesses = {
     assert.equal((await policyFixture(context, 'git push --repo=review HEAD:main')).decision, 'deny');
     assert.equal((await policyFixture(context, 'git push --repo review HEAD:main')).decision, 'deny');
   },
+  async CATALOGUE_GIT_PUSH_ALWAYS_ASK(context) {
+    const result = await policyFixture(context, 'git push https://git.example.invalid/ops/repo.git main');
+    assert.equal(result.decision, 'ask');
+    assert.ok(result.modifiers.includes('ALWAYS_ASK'));
+    assert.equal(result.target, 'main');
+    assert.equal(result.environment, 'https://git.example.invalid/ops/repo.git');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

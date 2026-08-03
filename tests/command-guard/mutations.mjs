@@ -334,4 +334,9 @@ export const MUTATIONS = Object.freeze([
     search: '    && literalAddress',
     replacement: '    && true',
   },
+  {
+    id: 'CATALOGUE_GIT_PUSH_ALWAYS_ASK', file: 'command-guard/catalogue.mjs',
+    search: "      return push ? result('GIT_CI', push.risk, push.target, push.environment, ['ALWAYS_ASK']) : null;",
+    replacement: "      return push ? result('GIT_CI', push.risk, push.target, push.environment) : null;",
+  },
 ]);

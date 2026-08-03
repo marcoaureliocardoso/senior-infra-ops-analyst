@@ -2,9 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close RV-76 through RV-79 by requiring complete parsing of Git push, operational log streams, GitHub CLI reads, and Kubernetes cluster dumps.
+**Goal:** Close RV-76 through RV-79 by requiring complete parsing of Git push, operational log streams, GitHub CLI reads, and Kubernetes cluster dumps, then close adjacent findings through RV-88 without weakening those grammars.
 
-**Architecture:** Replace prefix recognition with small closed parsers that consume every supported token and return canonical risk, target, environment, and modifiers. Preserve the existing policy matrix and package interfaces while extending executable fixtures and mutation evidence.
+**Architecture:** Replace prefix recognition with small closed parsers that
+consume every supported token and return canonical risk, target, environment,
+and modifiers. Preserve the existing policy matrix and package interfaces while
+extending executable fixtures and mutation evidence. Git push audit binds the
+requested address, while `ALWAYS_ASK` delegates its configuration-dependent
+effective destination to native operator confirmation.
 
 **Tech Stack:** ECMAScript modules, Node.js native test runner and coverage, first-party fixture and mutation gates, Python repository validators, Git Bash/WSL package validation.
 
@@ -162,6 +167,11 @@ Run the Step 2 command and require zero failures.
 Add real policy-entrypoint fixtures for the Git override, every follow client,
 GitHub watch/log/limit behavior, and Kubernetes dump. Use literal decisions and
 forbidden-text assertions rather than source-text checks.
+
+Follow-up RV-88 extends this evidence through all three Git repository operand
+forms. Every parsed push must carry `ALWAYS_ASK` and remain `ask` in
+`bypassPermissions`; its audit environment is the requested repository address,
+not a claim about the effective destination after Git configuration rewrites.
 
 - [ ] **Step 2: Add four one-site mutations and typed witnesses**
 

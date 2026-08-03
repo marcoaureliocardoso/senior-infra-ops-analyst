@@ -1033,7 +1033,7 @@ function gitCiFamily(words, lower, context = {}) {
     }
     if (words[1] === 'push') {
       const push = parseGitPush(words);
-      return push ? result('GIT_CI', push.risk, push.target, push.environment) : null;
+      return push ? result('GIT_CI', push.risk, push.target, push.environment, ['ALWAYS_ASK']) : null;
     }
     if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
       return result('GIT_CI', 'DESTRUCTIVE', words.at(-1), 'local');

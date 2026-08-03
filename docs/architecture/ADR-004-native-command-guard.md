@@ -229,12 +229,18 @@ uses conservative normal-mode semantics rather than a version allowlist.
     unconsumed forms deny. The literal
     `scheme://` grammar accepts only exact-lowercase native `file`, `git`,
     `ssh`, `http`, and `https` transports because any other or case-altered
-    scheme can invoke a distinct external `git-remote-<scheme>` helper. The effective repository is the audited
-    environment. Named remotes deny because `remote.*.pushurl`, `remote.*.url`,
-    and `url.*.pushInsteadOf` can replace the address with an unaudited helper;
-    callers must provide an explicit native URL, SCP-like address, or local
-    path. Bounded refspecs form the target, and force, delete, mirror,
-    prune, plus-prefixed, and deletion refspecs remain destructive.
+    scheme can invoke a distinct external `git-remote-<scheme>` helper. The
+    explicit requested repository address is the audited environment. Named
+    remotes deny because `remote.*.pushurl` and `remote.*.url` can replace an
+    alias with an unaudited helper; callers must provide an explicit native
+    URL, SCP-like address, or local path. Persistent `url.*.pushInsteadOf` and
+    `url.*.insteadOf` configuration can also rewrite those explicit addresses,
+    so every parsed push carries `ALWAYS_ASK`, including in
+    `bypassPermissions`. Operator confirmation accepts this unresolved Git
+    configuration boundary; audit does not claim the requested address is the
+    effective destination or helper. Bounded refspecs form the target, and
+    force, delete, mirror, prune, plus-prefixed, and deletion refspecs remain
+    destructive.
 38. Journal and container log reads consume closed finite schemas. Enabled
     follow aliases, duplicate semantic options, missing values, unknown
     controls, dynamic values, and absent container targets deny. Journal

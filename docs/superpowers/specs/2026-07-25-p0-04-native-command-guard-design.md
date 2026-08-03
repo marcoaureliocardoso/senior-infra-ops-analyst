@@ -177,6 +177,7 @@ settings, or an in-session mode change.
 | Bounded read with approval modifier | `ask` | `allow` |
 | Catalogued `LOW_RISK_CHANGE` | `ask` | `allow` |
 | Catalogued `DISRUPTIVE_CHANGE` | `ask` | `allow` |
+| Any catalogued operation with `ALWAYS_ASK` | `ask` | `ask` |
 | Catalogued `DESTRUCTIVE` | `ask` | `ask` |
 | Ambiguous, encoded, evasive, or unmodelled | `deny` | `deny` |
 | Suspected credential exfiltration | `deny` | `deny` |
@@ -205,8 +206,12 @@ non-destructive operations. It is not a new risk level and does not suppress
 deterministic validation. Every call is parsed again and receives its own
 redacted audit decision.
 
-`DESTRUCTIVE` retains an exact just-in-time human decision in every mode. This
-is the non-negotiable recovery boundary.
+`DESTRUCTIVE` and explicitly modelled `ALWAYS_ASK` operations retain an exact
+just-in-time human decision in every mode. These are non-negotiable recovery
+or unresolved-runtime boundaries. In particular, every parsed `git push` uses
+`ALWAYS_ASK`: command parsing can bind the requested repository address but
+cannot prove the effective destination or helper after persistent Git
+configuration rewrites.
 
 ## Deterministic command analysis
 

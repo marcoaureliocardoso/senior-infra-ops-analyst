@@ -34,7 +34,7 @@ test('git and gh deny unlisted operations and preserve destructive approval', ()
   assert.equal(analyze('git clean -fdx').decision, 'ask');
 });
 
-test('Git push closed grammar binds destination and rejects execution overrides', () => {
+test('Git push closed grammar binds the requested address and always requires native confirmation', () => {
   for (const command of [
     'git push https://git.example.invalid/ops/repo.git main',
     'git push --repo=https://git.example.invalid/ops/repo.git main',
@@ -46,7 +46,9 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     assert.equal(normal.risk, 'LOW_RISK_CHANGE', command);
     assert.equal(normal.target, 'main', command);
     assert.equal(normal.environment, 'https://git.example.invalid/ops/repo.git', command);
-    assert.equal(analyze(command).decision, 'allow', command);
+    const bypass = analyze(command);
+    assert.equal(bypass.decision, 'ask', command);
+    assert.ok(bypass.modifiers.includes('ALWAYS_ASK'), command);
   }
   const mapped = analyze('git push https://git.example.invalid/ops/repo.git main:other', 'default');
   assert.equal(mapped.decision, 'ask');
@@ -63,7 +65,12 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     './repo.git',
     '../repo.git',
     '/srv/git/repo.git',
-  ]) assert.notEqual(analyze(`git push ${repository} main`).decision, 'deny', repository);
+  ]) {
+    const result = analyze(`git push ${repository} main`);
+    assert.equal(result.decision, 'ask', repository);
+    assert.ok(result.modifiers.includes('ALWAYS_ASK'), repository);
+    assert.equal(result.environment, repository);
+  }
 
   for (const command of [
     'git push https://git.example.invalid/ops/repo.git main --force-with-lease',

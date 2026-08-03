@@ -693,7 +693,7 @@ rewritten by repository configuration before Git selects its transport.
 
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
-| RV-87 | Named remote hid its effective address and helper | `origin` or `review` was autonomous and audited as the alias while `pushurl`, `url`, or `pushInsteadOf` selected `git-remote-1helper` | Deny named remotes; require an explicit native URL, SCP-like address, or local path; protect all three repository forms with fixtures and a typed mutation | Remediated; final verification pending |
+| RV-87 | Named remote hid its effective address and helper | `origin` and `review` were autonomous while configuration selected `git-remote-1helper` | Deny aliases and require an explicit literal address | Remediated; binding conclusion superseded by RV-88 |
 
 The three policy-entrypoint aliases were observed RED before the literal-address
 boundary and GREEN afterward. Parser collection now distinguishes repository
@@ -701,5 +701,29 @@ address validation from refspec validation. The deterministic source and
 Debian/WSL package gates pass 238 tests with zero skips, 100 percent critical
 line/function/branch coverage, four fixed property seeds, 67 of 67
 pristine-baseline typed mutations, and all 114 installed fixtures. Markdown,
+spelling of changed documents, schema, and CI workflow validation also pass.
+One fresh independent read-only verification remains required before merge.
+
+## 2026-08-03 twenty-first independent review disposition
+
+The independent review of RV-87 confirmed named-remote denial and the complete
+repository/refspec grammar, but reproduced a broader Critical Git
+configuration boundary. Git applies `url.*.pushInsteadOf` and
+`url.*.insteadOf` to explicit URLs, SCP-like addresses, and local paths before
+transport selection. The real Git client selected `git-remote-1helper` while
+the command guard allowed the corresponding literal-address push and audited
+only that literal.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-88 | Explicit address did not prove Git's effective destination or helper | All three repository forms were autonomous while persistent rewrites could select another address or helper | Keep aliases denied; parse literal requests; apply `ALWAYS_ASK` to every push; audit only the requested address | Remediated; final independent verification pending |
+
+The bypass behavior was observed RED through the real policy entrypoint before
+adding `ALWAYS_ASK` and GREEN afterward. Three stable RV-88 fixtures cover all
+repository operand forms, and a one-site typed mutation removes the modifier
+to prove that the witness fails. The deterministic source and Debian/WSL
+package gates pass 239 tests with zero skips, 100 percent critical
+line/function/branch coverage, four fixed property seeds, 68 of 68
+pristine-baseline typed mutations, and all 117 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
 One fresh independent read-only verification remains required before merge.

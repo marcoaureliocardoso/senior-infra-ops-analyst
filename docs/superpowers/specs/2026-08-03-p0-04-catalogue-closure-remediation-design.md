@@ -39,11 +39,21 @@ alias is neither the effective destination nor a safe audit domain. Accepted
 destinations must instead be explicit native URLs, SCP-like addresses, or
 local paths whose syntax cannot be a configured remote name.
 
+Explicit syntax still does not prove the effective destination. Git applies
+`url.*.pushInsteadOf` and `url.*.insteadOf` to literal URLs, SCP-like
+addresses, and local paths before transport selection. The command-only guard
+does not inspect or neutralize every system, global, local, included, and
+conditional Git configuration source. Consequently, every successfully parsed
+push carries `ALWAYS_ASK`, including in `bypassPermissions`. Native operator
+confirmation is the boundary that authorizes execution despite that unresolved
+configuration state.
+
 The parser consumes a deliberately finite option set. Ordinary pushes are
 `LOW_RISK_CHANGE`; force, deletion, mirror, prune, or destructive refspec
-spellings are `DESTRUCTIVE`. Its result binds the canonical literal repository
-as environment and the normalized refspec list as target, so permission and
-audit describe the effective destination instead of the last token.
+spellings are `DESTRUCTIVE`. Its result binds the literal requested repository
+address as environment and the normalized refspec list as target. Permission
+and audit therefore describe the requested operation without claiming that
+the address is Git's effective destination or helper.
 
 ## Decision 2: make log reads finite by grammar
 Add separate closed parsers for `journalctl` and container `logs` invocations.
@@ -87,7 +97,7 @@ read.
 Every decision is protected by:
 
 1. focused policy tests observed RED before production changes and GREEN after;
-2. stable RV-76 through RV-87 source and installed-corpus fixtures;
+2. stable RV-76 through RV-88 source and installed-corpus fixtures;
 3. exact one-site security mutations with typed behavioral witnesses;
 4. finite-inventory/orphan checks, 100 percent critical coverage, package
    byte-equivalence, repository validators, and an independent read-only review.
