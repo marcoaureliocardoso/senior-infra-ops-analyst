@@ -11,7 +11,7 @@ Users receive intermittent 503 responses from `portal.example.local`. HAProxy is
 | Check frontend listener | `ss -tulpn` &#124; `grep ':443'` | `SAFE_READ_ONLY + PRIVILEGED` | HAProxy listening on TCP 443. |
 | Check HAProxy status | HAProxy stats page or socket `show stat` | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | `app02` and `app03` down; `app01` up but saturated. |
 | Check recent logs | `journalctl -u haproxy --since '30 min ago'` | `SAFE_READ_ONLY + SENSITIVE_OUTPUT` | Backend health checks failing with HTTP 500. |
-| Probe backends from LB | `curl -vI http://app02:8080/healthz` | `SAFE_READ_ONLY + ACTIVE_PROBE` | `app02` returns HTTP 500. |
+| Probe backends from LB | `curl -q -vI http://app02:8080/healthz` | `SAFE_READ_ONLY + ACTIVE_PROBE` | `app02` returns HTTP 500. |
 | Validate certificate path | `openssl s_client -connect portal.example.local:443 -servername portal.example.local` | `SAFE_READ_ONLY + ACTIVE_PROBE` | TLS chain valid; not a certificate issue. |
 
 ## Interpretation

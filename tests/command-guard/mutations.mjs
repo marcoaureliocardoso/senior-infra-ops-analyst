@@ -345,6 +345,11 @@ export const MUTATIONS = Object.freeze([
     replacement: "  if (false && curlRedirectRequested(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
   },
   {
+    id: 'CATALOGUE_CURL_DEFAULT_CONFIG_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "  if (isCurl && !curlDefaultConfigDisabled(words)) return rejected('DENY_CURL_DEFAULT_CONFIG');",
+    replacement: "  if (false && !curlDefaultConfigDisabled(words)) return rejected('DENY_CURL_DEFAULT_CONFIG');",
+  },
+  {
     id: 'CATALOGUE_POWERSHELL_REDIRECT_ZERO', file: 'command-guard/catalogue.mjs',
     search: "  if (!isCurl && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
     replacement: "  if (false && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
@@ -356,7 +361,12 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'REDACTION_SECRET_HEADER', file: 'command-guard/redaction.mjs',
-    search: "  return /(?:^|[-_])(?:authorization|auth|token|secret|credential|password|passphrase)(?:$|[-_])/u.test(normalized) ||\n    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized);",
+    search: "  return /(?:^|[-_])(?:authorization|auth|token|secret|credential|password|passphrase)(?:$|[-_])/u.test(normalized) ||\n    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized) ||\n    platformCredentialHeaderName(normalized);",
+    replacement: '  return false;',
+  },
+  {
+    id: 'REDACTION_PLATFORM_KEY_HEADER', file: 'command-guard/redaction.mjs',
+    search: "  return /(?:^|[-_])functions?[-_]key(?:$|[-_])/u.test(normalized) ||\n    /(?:^|[-_])subscription[-_]key(?:$|[-_])/u.test(normalized);",
     replacement: '  return false;',
   },
   {

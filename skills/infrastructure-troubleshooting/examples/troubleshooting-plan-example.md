@@ -18,7 +18,7 @@ Users receive intermittent HTTP 502 from `portal.example.edu` after a deployment
 
 | Risk | Command | Evidence summary |
 |---|---|---|
-| SAFE_READ_ONLY + ACTIVE_PROBE | `curl -I https://portal.example.edu/health` | Intermittent 502. |
+| SAFE_READ_ONLY + ACTIVE_PROBE | `curl -q -I https://portal.example.edu/health` | Intermittent 502. |
 | SAFE_READ_ONLY + SENSITIVE_OUTPUT | `nginx -T` scoped to vhost | Upstream points to `app01:8080`, `app02:8080`. |
 | SAFE_READ_ONLY | `systemctl status portal-app --no-pager` | `app02` service failed. |
 

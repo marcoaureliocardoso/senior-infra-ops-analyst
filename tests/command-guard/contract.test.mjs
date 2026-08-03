@@ -112,7 +112,7 @@ test('JSON depth, timeout, and redirect bounds fail closed at n plus one', () =>
 
 test('literal credential is redacted before normalization and fingerprinting', () => {
   const secret = 'SYNTH_SECRET_4f0a7c';
-  const command = `curl -H "Authorization: Bearer ${secret}" https://example.invalid`;
+  const command = `curl -q -H "Authorization: Bearer ${secret}" https://example.invalid`;
   const spans = detectSensitiveSpans(command);
   const redacted = redactText(command, spans);
   const normalized = normalizeAndFingerprint(command, spans);

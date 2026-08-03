@@ -59,7 +59,7 @@ total=0
 check_url() {
   local url="$1"
   local code
-  code=$(curl -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  code=$(curl -q -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
   case "$code" in
     2*|3*|401|403)
       ok_count=$((ok_count + 1))
@@ -67,7 +67,7 @@ check_url() {
       ;;
     429)
       sleep 3
-      code=$(curl -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+      code=$(curl -q -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
       case "$code" in
         2*|3*|401|403) ok_count=$((ok_count + 1)); return ;;
       esac
@@ -77,7 +77,7 @@ check_url() {
   # HEAD failed — some servers reject HEAD but serve GET.
   # Try GET with Range: bytes=0-0 to verify reachability without downloading content.
   local get_code
-  get_code=$(curl -L --range 0-0 --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  get_code=$(curl -q -L --range 0-0 --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
   case "$get_code" in
     2*|3*|401|403)
       ok_count=$((ok_count + 1))

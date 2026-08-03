@@ -112,7 +112,7 @@ test('PostToolUse is a silent no-op when a successful Bash call has no pending b
 test('PreToolUse asks first then reuses only the approved non-secret binding', async () => {
   await withState(async (env) => {
     const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
-    const command = 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer SYNTH_SECRET_binding_a" https://api.example.invalid/health';
+    const command = 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer SYNTH_SECRET_binding_a" https://api.example.invalid/health';
     const first = validEvent({
       tool_use_id: 'tool-first', permission_mode: 'bypassPermissions', tool_input: { command },
     });
@@ -139,7 +139,7 @@ test('PreToolUse asks first then reuses only the approved non-secret binding', a
 
     const rerouted = validEvent({
       tool_use_id: 'tool-host-header', permission_mode: 'bypassPermissions',
-      tool_input: { command: command.replace('curl ', 'curl -H "Host: other.example.invalid" ') },
+      tool_input: { command: command.replace('curl -q ', 'curl -q -H "Host: other.example.invalid" ') },
     });
     const reroutedResponse = evaluateHook(JSON.stringify(rerouted), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
     assert.equal(reroutedResponse.hookSpecificOutput.permissionDecision, 'deny');
@@ -176,7 +176,7 @@ test('credential approval follows the consuming stage rather than aggregate risk
     const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
     const command = (target, secret, pod) =>
       `kubectl --context prod label ${pod} reviewed=true ; ` +
-      `OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer ${secret}" ${target}`;
+      `OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer ${secret}" ${target}`;
     const first = validEvent({
       tool_use_id: 'tool-composed-first', permission_mode: 'bypassPermissions',
       agent_type: 'kubernetes-operator',
@@ -203,7 +203,7 @@ test('credential approval binds the stage containing the literal rather than the
   await withState(async (env) => {
     const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
     const command = (target, secret) =>
-      `OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer ${secret}" ${target} ; ` +
+      `OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer ${secret}" ${target} ; ` +
       'gh pr view 25 --repo example/project';
     const first = validEvent({
       tool_use_id: 'tool-first-stage-credential', permission_mode: 'bypassPermissions',
@@ -231,7 +231,7 @@ test('approved Authorization binding cannot be reused as another credential tran
     const first = validEvent({
       tool_use_id: 'tool-authorization', permission_mode: 'bypassPermissions',
       tool_input: {
-        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer SYNTH_SECRET_auth" https://api.example.invalid/health',
+        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer SYNTH_SECRET_auth" https://api.example.invalid/health',
       },
     });
     const firstResponse = evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
@@ -242,8 +242,8 @@ test('approved Authorization binding cannot be reused as another credential tran
     }), env), true);
 
     for (const [toolUseId, command] of [
-      ['tool-cookie', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Cookie: session=SYNTH_SECRET_cookie" https://api.example.invalid/health'],
-      ['tool-basic', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -u user:SYNTH_SECRET_basic https://api.example.invalid/health'],
+      ['tool-cookie', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Cookie: session=SYNTH_SECRET_cookie" https://api.example.invalid/health'],
+      ['tool-basic', 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -u user:SYNTH_SECRET_basic https://api.example.invalid/health'],
     ]) {
       const changed = validEvent({
         tool_use_id: toolUseId, permission_mode: 'bypassPermissions', tool_input: { command },
@@ -255,7 +255,7 @@ test('approved Authorization binding cannot be reused as another credential tran
     const combined = validEvent({
       tool_use_id: 'tool-authorization-plus-cookie', permission_mode: 'bypassPermissions',
       tool_input: {
-        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -H "Authorization: Bearer SYNTH_SECRET_auth_reuse" -b session=SYNTH_SECRET_cookie_new https://api.example.invalid/health',
+        command: 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer SYNTH_SECRET_auth_reuse" -b session=SYNTH_SECRET_cookie_new https://api.example.invalid/health',
       },
     });
     const combinedResponse = evaluateHook(JSON.stringify(combined), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath });
@@ -456,16 +456,16 @@ test('binding derivation requires literal tool identity domain family and explic
   };
   const event = {
     sessionId: 's', toolUseId: 't',
-    command: 'OPS_CREDENTIAL_IDENTITY=operator curl https://api.example.invalid',
+    command: 'OPS_CREDENTIAL_IDENTITY=operator curl -q https://api.example.invalid',
   };
   assert.equal(bindingFromResult({ ...result, credential: null }, event), null);
   assert.equal(bindingFromResult(result, { ...event, toolUseId: null }), null);
   assert.equal(bindingFromResult({ ...result, credentialBinding: { ...result.credentialBinding, domain: null } }, event), null);
   assert.equal(bindingFromResult({ ...result, credentialBinding: { ...result.credentialBinding, family: null } }, event), null);
   assert.equal(bindingFromResult({ ...result, credentialBinding: { ...result.credentialBinding, targetClass: null } }, event), null);
-  assert.equal(bindingFromResult(result, { ...event, command: 'curl https://api.example.invalid' }), null);
+  assert.equal(bindingFromResult(result, { ...event, command: 'curl -q https://api.example.invalid' }), null);
   assert.equal(bindingFromResult(result, event).identity, 'operator');
-  assert.equal(bindingFromResult(result, { ...event, command: 'curl https://user:synthetic@api.example.invalid' }).identity, 'user');
+  assert.equal(bindingFromResult(result, { ...event, command: 'curl -q https://user:synthetic@api.example.invalid' }).identity, 'user');
 });
 
 test('PostToolUse stream main handles chunking invalid input and size limits', async () => {

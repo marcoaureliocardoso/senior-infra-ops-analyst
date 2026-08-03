@@ -4,6 +4,11 @@ cd "$(dirname "$0")/.."
 
 errors=0
 
+if [ ! -f .github/workflows/security.yml ]; then
+  echo "FAIL: security.yml is required"
+  errors=$((errors + 1))
+fi
+
 for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
   [ -f "$workflow" ] || continue
   name=$(basename "$workflow")
@@ -50,6 +55,18 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
       | paste -sd, -)
     if [ "$language_lines" -ne 1 ] || [ "$codeql_languages" != "javascript-typescript,python" ]; then
       echo "FAIL: security.yml CodeQL languages must be exactly python and javascript-typescript"
+      errors=$((errors + 1))
+    fi
+    codeql_init_steps=$(grep -Ec 'github/codeql-action/init@' "$workflow" || true)
+    matrix_wiring=$(grep -Fc 'languages: ${{ matrix.language }}' "$workflow" || true)
+    init_matrix_wiring=$(awk '
+      /^[[:space:]]*- uses:[[:space:]]*github\/codeql-action\/init@/ { in_init = 1; next }
+      in_init && /^[[:space:]]*- / { in_init = 0 }
+      in_init && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ { count += 1 }
+      END { print count + 0 }
+    ' "$workflow")
+    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_matrix_wiring" -ne 1 ]; then
+      echo 'FAIL: security.yml CodeQL init wiring must use languages: ${{ matrix.language }} exactly once'
       errors=$((errors + 1))
     fi
   fi

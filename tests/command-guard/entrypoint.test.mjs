@@ -62,7 +62,7 @@ test('entrypoint never emits or audits a model-visible credential', async () => 
   try {
     const event = validEvent({
       permission_mode: 'bypassPermissions',
-      tool_input: { command: `curl -H "Authorization: Bearer ${secret}" https://api.example.invalid/health` },
+      tool_input: { command: `curl -q -H "Authorization: Bearer ${secret}" https://api.example.invalid/health` },
     });
     const result = await runGuard(JSON.stringify(event), temporary.auditPath);
     assert.equal(result.code, 0);

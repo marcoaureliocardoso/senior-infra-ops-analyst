@@ -18,6 +18,68 @@ FIXTURE = ROOT / "tests" / "loopback-http-fixture.py"
 
 
 class LoopbackHttpFixtureTests(unittest.TestCase):
+    @unittest.skipIf(sys.platform == "win32", "curl default-config location differs on Windows")
+    def test_curl_q_neutralizes_home_default_configuration(self) -> None:
+        curl = shutil.which("curl")
+        if curl is None:
+            self.skipTest("curl capability unavailable; parser matrix remains mandatory")
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            ready = work / "ready"
+            request_log = work / "requests.log"
+            (work / ".curlrc").write_text("data = hidden\n", encoding="utf-8")
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(FIXTURE),
+                    "--port",
+                    "0",
+                    "--ready-file",
+                    str(ready),
+                    "--request-log",
+                    str(request_log),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                for _ in range(100):
+                    if ready.is_file():
+                        break
+                    if process.poll() is not None:
+                        self.fail(process.stderr.read().decode())
+                    time.sleep(0.02)
+                else:
+                    self.fail("fixture did not publish its port")
+
+                port = int(ready.read_text(encoding="utf-8"))
+                environment = {"HOME": str(work), "PATH": str(Path(curl).parent)}
+                injected = subprocess.run(
+                    [curl, "-sS", f"http://127.0.0.1:{port}/reload"],
+                    env=environment,
+                    capture_output=True,
+                    check=False,
+                    timeout=10,
+                )
+                self.assertEqual(injected.returncode, 0, injected.stderr.decode(errors="replace"))
+                self.assertEqual(request_log.read_text(encoding="utf-8"), "POST /reload\n")
+
+                request_log.write_text("", encoding="utf-8")
+                neutralized = subprocess.run(
+                    [curl, "-q", "-sS", f"http://127.0.0.1:{port}/reload"],
+                    env=environment,
+                    capture_output=True,
+                    check=False,
+                    timeout=10,
+                )
+                self.assertEqual(neutralized.returncode, 0, neutralized.stderr.decode(errors="replace"))
+                self.assertEqual(request_log.read_text(encoding="utf-8"), "GET /reload\n")
+            finally:
+                process.terminate()
+                process.wait(timeout=5)
+                if process.stderr is not None:
+                    process.stderr.close()
+
     def test_curl_forwards_custom_secret_header_to_a_second_origin(self) -> None:
         curl = shutil.which("curl") or shutil.which("curl.exe")
         if curl is None:
@@ -61,6 +123,7 @@ class LoopbackHttpFixtureTests(unittest.TestCase):
                 completed = subprocess.run(
                     [
                         curl,
+                        "-q",
                         "-sS",
                         "-L",
                         "-H",
@@ -128,6 +191,7 @@ class LoopbackHttpFixtureTests(unittest.TestCase):
                 completed = subprocess.run(
                     [
                         curl,
+                        "-q",
                         "-sS",
                         "-O",
                         "-d",

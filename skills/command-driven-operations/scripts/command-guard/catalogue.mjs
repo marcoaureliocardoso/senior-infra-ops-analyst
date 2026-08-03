@@ -203,7 +203,7 @@ const CURL_BODY_OPTIONS = new Set(['-d', '--data', '--data-ascii', '--data-binar
 const CURL_UPLOAD_OPTIONS = new Set(['-T', '--upload-file']);
 const CURL_SINK_VALUE_OPTIONS = new Set(['-o', '--output', '-D', '--dump-header', '-c', '--cookie-jar', '--etag-save', '--trace']);
 const CURL_SINK_FLAGS = new Set(['-O', '--remote-name']);
-const CURL_FLAGS = new Set(['-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2', ...CURL_SINK_FLAGS]);
+const CURL_FLAGS = new Set(['-q', '--disable', '-s', '--silent', '-S', '--show-error', '-f', '--fail', '--fail-with-body', '-I', '--head', '-i', '--include', '-L', '--location', '--compressed', '--http1.1', '--http2', ...CURL_SINK_FLAGS]);
 const CURL_VALUE_GROUPS = new Map([
   ...[...CURL_BODY_OPTIONS].map((name) => [name, 'body']),
   ...[...CURL_UPLOAD_OPTIONS].map((name) => [name, 'upload']),
@@ -219,6 +219,11 @@ const CURL_SHORT_FLAGS = new Map([['s', '-s'], ['S', '-S'], ['f', '-f'], ['I', '
 function curlRedirectRequested(argv) {
   return argv.slice(1).some((word) =>
     ['-L', '--location', '--location-trusted'].includes(word) || /^-[sSfIiLO]*L[sSfIiLO]*$/u.test(word));
+}
+
+function curlDefaultConfigDisabled(argv) {
+  const controls = argv.slice(1).filter((word) => ['-q', '--disable', '--no-disable'].includes(word));
+  return controls.length === 1 && ['-q', '--disable'].includes(argv[1]);
 }
 
 function addCurlFlag(flag, flags, groups) {
@@ -370,6 +375,7 @@ function remoteNameOperand(parsedUrl) {
 
 function classifyHttp(words, context) {
   const isCurl = words[0].toLowerCase() === 'curl';
+  if (isCurl && !curlDefaultConfigDisabled(words)) return rejected('DENY_CURL_DEFAULT_CONFIG');
   if (isCurl && curlRedirectRequested(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');
   if (!isCurl && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');
   const invocation = isCurl ? parseCurlInvocation(words) : parsePowerShellHttpInvocation(words);

@@ -31,7 +31,7 @@ test('recorded seeds preserve deterministic fail-closed properties', () => {
       assert.equal(analyze(`${valid} | unknown_${suffix}`).decision, 'deny');
       assert.throws(() => lexBash(`echo $(unknown_${suffix})`), /unsupported/);
       const secret = `SYNTH_SECRET_${suffix}`;
-      const source = `TOKEN=${secret} curl --token ${secret} https://example.invalid`;
+      const source = `TOKEN=${secret} curl -q --token ${secret} https://example.invalid`;
       const redacted = redactText(source, detectSensitiveSpans(source));
       assert.equal(redactText(redacted), redacted);
       assert.doesNotMatch(JSON.stringify(analyze(source)), new RegExp(secret));

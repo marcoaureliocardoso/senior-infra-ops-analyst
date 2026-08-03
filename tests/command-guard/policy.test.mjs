@@ -126,7 +126,7 @@ test('catalogued remote and platform mutations require explicit binding', () => 
 
 test('uncatalogued mutable HTTP operations always ask as external effects', () => {
   for (const mode of ['default', 'bypassPermissions']) {
-    const result = analyze('curl -X POST https://api.example.invalid/v1/reload', mode);
+    const result = analyze('curl -q -X POST https://api.example.invalid/v1/reload', mode);
     assert.equal(result.decision, 'ask', mode);
     assert.equal(result.risk, 'DISRUPTIVE_CHANGE', mode);
     assert.ok(result.modifiers.includes('EXTERNAL_SIDE_EFFECT'), mode);
@@ -148,7 +148,7 @@ test('destructive database, container, cloud, HTTP, and Git operations always as
     'aws --profile ops --region us-east-1 ec2 terminate-instances --instance-ids i-123',
     'psql -h db.example.invalid -p 5432 -U appuser -d app -c "DROP TABLE demo"',
     'redis-cli -h cache.example.invalid DEL key',
-    'curl -X DELETE https://api.example.invalid/v1/resource/1',
+    'curl -q -X DELETE https://api.example.invalid/v1/resource/1',
     'gh repo delete owner/project --yes --repo owner/project',
   ];
   for (const command of destructive) {

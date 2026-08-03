@@ -153,9 +153,9 @@ run_direct_probes() {
   assert_decision default 'unknown-command synthetic' deny
   assert_decision default 'journalctl -u nginx -n 20 | grep error | head -n 5' allow
   assert_decision default "pwsh -NoProfile -Command \"Get-Service | Where-Object Status -eq 'Running'\"" allow
-  assert_decision bypassPermissions "curl -H \"Authorization: Bearer $SECRET\" http://127.0.0.1:43119/health" ask
+  assert_decision bypassPermissions "curl -q -H \"Authorization: Bearer $SECRET\" http://127.0.0.1:43119/health" ask
   # shellcheck disable=SC2016 # Literal provider variable must reach the guard unchanged.
-  assert_decision bypassPermissions 'curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" http://127.0.0.1:43119/health' deny
+  assert_decision bypassPermissions 'curl -q -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" http://127.0.0.1:43119/health' deny
   assert_decision bypassPermissions "TOKEN=$SECRET echo \$TOKEN" deny
   assert_failure '{' "$AUDIT_PATH"
   assert_failure "$(emit_event default 'uname -a')" "$WORK/probes"
@@ -290,7 +290,7 @@ if [[ "$MODE" == "run-live" ]]; then
       --agent diagnostic-operator --permission-mode bypassPermissions \
       --no-session-persistence >"$WORK/probes/claude-mode.jsonl"
   timeout 180 env -i "${PROBE_ENV[@]}" "$BWRAP_BIN" "${BWRAP_ARGS[@]}" \
-    /opt/claude -p "Run exactly one Bash command: curl -X POST http://127.0.0.1:$LOOPBACK_PORT/reload. Stop after reporting its result." \
+    /opt/claude -p "Run exactly one Bash command: curl -q -X POST http://127.0.0.1:$LOOPBACK_PORT/reload. Stop after reporting its result." \
       --agent diagnostic-operator --dangerously-skip-permissions \
       --no-session-persistence >"$WORK/probes/claude-dangerous.jsonl"
   grep -Fxq 'POST /reload' "$REQUEST_LOG" || blocked "dangerous-mode probe did not reach the loopback fixture"

@@ -87,8 +87,8 @@ test('audit fallbacks and default environment contain only the minimal schema', 
 });
 
 test('structural action identity excludes credential values and raw commands', () => {
-  const first = policy('curl -H "Authorization: Bearer SYNTH_SECRET_first" https://api.example.invalid/health');
-  const second = policy('curl -H "Authorization: Bearer SYNTH_SECRET_second" https://api.example.invalid/health');
+  const first = policy('curl -q -H "Authorization: Bearer SYNTH_SECRET_first" https://api.example.invalid/health');
+  const second = policy('curl -q -H "Authorization: Bearer SYNTH_SECRET_second" https://api.example.invalid/health');
   assert.equal(structuralActionIdentity(first), structuralActionIdentity(second));
   assert.doesNotMatch(structuralActionIdentity(first), /SYNTH_SECRET/u);
 });
@@ -131,7 +131,7 @@ test('composition covers empty, missing redirect, words, redirects, and sequence
 });
 
 test('credential spans outside every lexical stage fail closed', () => {
-  const composition = buildComposition(lexBash('curl https://api.example.invalid'));
+  const composition = buildComposition(lexBash('curl -q https://api.example.invalid'));
   const analysis = classifyCredentials(composition, 'synthetic', [
     { start: 100, end: 109, kind: 'FLAG' },
   ]);
@@ -155,7 +155,7 @@ test('redaction covers every literal transport, overlap filtering, empty input, 
   for (const fixture of fixtures) assert.doesNotMatch(redactText(fixture), new RegExp(secret), fixture);
   assert.deepEqual(detectSensitiveSpans('MONKEY=banana'), []);
   assert.deepEqual(detectSensitiveSpans('unterminated "'), []);
-  assert.deepEqual(detectSensitiveSpans('curl -b'), []);
+  assert.deepEqual(detectSensitiveSpans('curl -q -b'), []);
   assert.deepEqual(detectSensitiveSpans(';'), []);
   assert.equal(detectSensitiveSpans(`Authorization: Bearer TOKEN=${secret}`).length, 1);
   assert.equal(redactText('plain', []), 'plain');
@@ -171,7 +171,7 @@ test('policy covers discard redirects, first-stage filters, wrapper failure, and
   assert.equal(policy('   ').decision, 'deny');
   assert.equal(policy('pwsh -NoProfile').decision, 'deny');
   assert.equal(policy('pwsh -Command').decision, 'deny');
-  assert.equal(policy('TOKEN=synthetic curl https://example.invalid > output.log').reasonCode, 'DENY_SECRET_PERSISTENCE');
+  assert.equal(policy('TOKEN=synthetic curl -q https://example.invalid > output.log').reasonCode, 'DENY_SECRET_PERSISTENCE');
   for (const mode of ['default', 'plan', 'acceptEdits', 'auto', 'dontAsk']) assert.equal(policy('systemctl restart nginx', mode).decision, 'ask');
   const runtimeReference = policy('uname "$TOKEN"');
   assert.equal(runtimeReference.decision, 'allow');
@@ -181,7 +181,7 @@ test('policy covers discard redirects, first-stage filters, wrapper failure, and
 
 test('catalogue filter and Git schemas distinguish bounded operations from file or unknown inputs', () => {
   assert.equal(family('ip addr show')?.policyId, 'POSIX_HOST_READ');
-  assert.equal(family('curl -s https://api.example.invalid/health')?.policyId, 'HTTP');
+  assert.equal(family('curl -q -s https://api.example.invalid/health')?.policyId, 'HTTP');
   for (const command of [
     'grep pattern', 'grep -e pattern', 'rg --regexp=pattern', 'head -n 1',
     'tail --lines=1', 'cut -d : -f 1', 'sort', 'uniq', 'wc', 'sed -n 1p',
@@ -359,7 +359,7 @@ test('catalogue families exercise finite risk and option boundaries', () => {
     'gcloud compute instances unknown vm1 --project lab', 'psql -h db.invalid -d app',
     'mysql -h db.invalid -D app -e "SELECT * FROM events"', 'mysql -h db.invalid -D app -e "TABLE users"',
     'mongosh mongodb://db.invalid/app', 'mongosh mongodb://db.invalid/app --eval "db.unknown()"',
-    'curl https://', 'curl -X', 'curl -X OPTIONS https://api.example.invalid/items',
+    'curl -q https://', 'curl -q -X', 'curl -q -X OPTIONS https://api.example.invalid/items',
   ]) assert.equal(family(command), null, command);
 
   assert.equal(family('mongosh mongodb://db.invalid --eval "db.serverStatus()"')?.target, 'server');

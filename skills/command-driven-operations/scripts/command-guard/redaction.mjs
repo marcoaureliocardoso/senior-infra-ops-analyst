@@ -7,10 +7,16 @@ function isSensitiveVariable(name) {
     /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(name);
 }
 
+function platformCredentialHeaderName(normalized) {
+  return /(?:^|[-_])functions?[-_]key(?:$|[-_])/u.test(normalized) ||
+    /(?:^|[-_])subscription[-_]key(?:$|[-_])/u.test(normalized);
+}
+
 function credentialHeaderName(name) {
   const normalized = name.trim().toLowerCase();
   return /(?:^|[-_])(?:authorization|auth|token|secret|credential|password|passphrase)(?:$|[-_])/u.test(normalized) ||
-    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized);
+    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized) ||
+    platformCredentialHeaderName(normalized);
 }
 
 const PATTERNS = [

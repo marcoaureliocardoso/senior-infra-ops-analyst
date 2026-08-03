@@ -119,17 +119,17 @@ const witnesses = {
     assert.equal((await policyFixture(context, 'redis-cli --unknown-option GET key')).decision, 'deny');
   },
   async CATALOGUE_HTTP_EXTERNAL_EFFECT(context) {
-    const result = await policyFixture(context, 'curl -X POST https://api.example.invalid/restart');
+    const result = await policyFixture(context, 'curl -q -X POST https://api.example.invalid/restart');
     assert.equal(result.decision, 'ask');
     assert.ok(result.modifiers.includes('EXTERNAL_SIDE_EFFECT'));
   },
   async CATALOGUE_CURL_REMOTE_NAME_ARITY(context) {
-    const result = await policyFixture(context, 'curl -O -d action=restart https://api.example.invalid/reload', 'bypassPermissions', { cwd: '/srv/ops' });
+    const result = await policyFixture(context, 'curl -q -O -d action=restart https://api.example.invalid/reload', 'bypassPermissions', { cwd: '/srv/ops' });
     assert.equal(result.decision, 'ask');
     assert.equal(result.target, 'POST /reload -> file:/srv/ops/reload');
   },
   async CATALOGUE_HTTP_SINK_ALWAYS_ASK(context) {
-    const result = await policyFixture(context, 'curl -o report.json https://api.example.invalid/report', 'bypassPermissions', { cwd: '/srv/ops' });
+    const result = await policyFixture(context, 'curl -q -o report.json https://api.example.invalid/report', 'bypassPermissions', { cwd: '/srv/ops' });
     assert.equal(result.decision, 'ask');
     assert.ok(result.modifiers.includes('ALWAYS_ASK'));
   },
@@ -156,7 +156,7 @@ const witnesses = {
     }), null);
   },
   async CATALOGUE_HTTP_ROUTING_HEADER_REJECT(context) {
-    const result = await policyFixture(context, 'curl -H "Host: alternate.invalid" https://api.example.invalid/health');
+    const result = await policyFixture(context, 'curl -q -H "Host: alternate.invalid" https://api.example.invalid/health');
     assert.equal(result.decision, 'deny');
   },
   async CATALOGUE_DATABASE_EXPLICIT_DOMAIN(context) {
@@ -164,7 +164,7 @@ const witnesses = {
     assert.equal(result.decision, 'deny');
   },
   async CATALOGUE_HTTP_STDOUT_SENSITIVE(context) {
-    const result = await policyFixture(context, 'curl -i https://api.example.invalid/health', 'bypassPermissions');
+    const result = await policyFixture(context, 'curl -q -i https://api.example.invalid/health', 'bypassPermissions');
     assert.equal(result.decision, 'ask');
     assert.ok(result.modifiers.includes('SENSITIVE_OUTPUT'));
   },
@@ -187,8 +187,8 @@ const witnesses = {
   },
   async CATALOGUE_CREDENTIAL_TRACE_DISCLOSURE(context) {
     const secret = 'SYNTH_SECRET_trace_mutation';
-    const stdout = await policyFixture(context, `curl -H "Authorization: Bearer ${secret}" --trace - https://api.example.invalid/health`);
-    const file = await policyFixture(context, `curl -H "Authorization: Bearer ${secret}" --trace trace.log https://api.example.invalid/health`, 'bypassPermissions', { cwd: '/srv/ops' });
+    const stdout = await policyFixture(context, `curl -q -H "Authorization: Bearer ${secret}" --trace - https://api.example.invalid/health`);
+    const file = await policyFixture(context, `curl -q -H "Authorization: Bearer ${secret}" --trace trace.log https://api.example.invalid/health`, 'bypassPermissions', { cwd: '/srv/ops' });
     assert.equal(stdout.reasonCode, 'DENY_SECRET_OUTPUT');
     assert.equal(file.reasonCode, 'DENY_SECRET_PERSISTENCE');
   },
@@ -219,7 +219,7 @@ const witnesses = {
   async POLICY_CREDENTIAL_CONSUMER_BINDING(context) {
     const result = await policyFixture(
       context,
-      'kubectl --context prod label pod/foo x=y ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_binding_mutation" https://api.example.invalid/health',
+      'kubectl --context prod label pod/foo x=y ; OPS_CREDENTIAL_IDENTITY=operator curl -q -H "Authorization: Bearer SYNTH_SECRET_binding_mutation" https://api.example.invalid/health',
     );
     assert.equal(result.credentialBinding.domain, 'https://api.example.invalid');
     assert.equal(result.credentialBinding.family, 'HTTP');
@@ -255,13 +255,13 @@ const witnesses = {
   async POLICY_CREDENTIAL_STAGE_OWNERSHIP(context) {
     const firstStage = await policyFixture(
       context,
-      'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_witness" https://api.example.invalid/health ; gh pr view 25 --repo example/project',
+      'OPS_CREDENTIAL_IDENTITY=operator curl -q -H "Authorization: Bearer SYNTH_SECRET_stage_witness" https://api.example.invalid/health ; gh pr view 25 --repo example/project',
     );
     assert.equal(firstStage.decision, 'ask');
     assert.equal(firstStage.credentialBinding?.domain, 'https://api.example.invalid');
     const distributed = await policyFixture(
       context,
-      'OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; OPS_CREDENTIAL_IDENTITY=operator curl -H "Authorization: Bearer SYNTH_SECRET_stage_b" https://api.example.invalid/b',
+      'OPS_CREDENTIAL_IDENTITY=operator curl -q -H "Authorization: Bearer SYNTH_SECRET_stage_a" https://api.example.invalid/a ; OPS_CREDENTIAL_IDENTITY=operator curl -q -H "Authorization: Bearer SYNTH_SECRET_stage_b" https://api.example.invalid/b',
     );
     assert.equal(distributed.decision, 'deny');
   },
@@ -390,9 +390,14 @@ const witnesses = {
     assert.equal(result.environment, 'https://git.example.invalid/ops/repo.git');
   },
   async CATALOGUE_HTTP_REDIRECT_REJECT(context) {
-    const result = await policyFixture(context, 'curl -LsS https://origin.example.invalid/start');
+    const result = await policyFixture(context, 'curl -q -LsS https://origin.example.invalid/start');
     assert.equal(result.decision, 'deny');
     assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
+  },
+  async CATALOGUE_CURL_DEFAULT_CONFIG_REJECT(context) {
+    const result = await policyFixture(context, 'curl https://api.example.invalid/health');
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_CURL_DEFAULT_CONFIG');
   },
   async CATALOGUE_POWERSHELL_REDIRECT_ZERO(context) {
     const deniedResult = await policyFixture(context, 'Invoke-WebRequest -Uri https://origin.example.invalid/start');
@@ -413,8 +418,15 @@ const witnesses = {
     const input = `X-Vault-Token: ${secret}`;
     assert.doesNotMatch(redactText(input, detectSensitiveSpans(input)), new RegExp(secret));
   },
+  async REDACTION_PLATFORM_KEY_HEADER(context) {
+    const { detectSensitiveSpans, redactText } = await import(moduleUrl(context.root, context.mutationId, 'redaction.mjs'));
+    for (const name of ['X-Functions-Key', 'Ocp-Apim-Subscription-Key']) {
+      const secret = `SYNTH_SECRET_${name.replaceAll('-', '_')}`;
+      assert.doesNotMatch(redactText(`${name}: ${secret}`, detectSensitiveSpans(`${name}: ${secret}`)), new RegExp(secret));
+    }
+  },
   async POLICY_CATALOGUE_REJECTION(context) {
-    const result = await policyFixture(context, 'curl -L https://origin.example.invalid/start');
+    const result = await policyFixture(context, 'curl -q -L https://origin.example.invalid/start');
     assert.equal(result.decision, 'deny');
     assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
   },
