@@ -662,3 +662,23 @@ line/function/branch coverage, four fixed property seeds, 66 of 66
 pristine-baseline typed mutations, and all 108 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
 One fresh independent read-only verification remains required before merge.
+
+## 2026-08-03 nineteenth independent review disposition
+
+The independent review of RV-85 confirmed case-sensitive native URL schemes,
+all three repository spellings, lowercase transports, SCP-like repositories,
+bindings, fixtures, mutations, and installed behavior. Its adjacent search then
+reproduced one Critical explicit-helper gap: Git accepts a helper name beginning
+with a digit before the `::` delimiter.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-86 | Digit-prefixed `::` invoked an external helper | Positional, `--repo=`, and `--repo VALUE` forms of `1helper::opaque-address` were autonomous while Git selected `git-remote-1helper` | Reject every repository containing `::`, independent of helper grammar; protect all three forms with source/installed fixtures and the transport mutation | Remediated; final verification pending |
+
+The three real policy-entrypoint cases were observed RED before replacing the
+partial scheme regex and GREEN afterward. The deterministic source and
+Debian/WSL package gates pass 237 tests with zero skips, 100 percent critical
+line/function/branch coverage, four fixed property seeds, 66 of 66
+pristine-baseline typed mutations, and all 111 installed fixtures. Markdown,
+spelling of changed documents, schema, and CI workflow validation also pass.
+One fresh independent read-only verification remains required before merge.

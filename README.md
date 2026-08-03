@@ -62,7 +62,7 @@ before authorization.
 Git push, GitHub CLI reads, journal reads, and container logs use closed
 verb-specific grammars: every accepted option and operand is consumed, the
 explicit effective repository is bound to the audit environment, external Git
-remote-helper transports deny, and URL schemes are limited to Git's native
+remote-helper transports containing `::` deny, and URL schemes are limited to Git's native
 exact-lowercase `file`, `git`, `ssh`, `http`, and `https` transports because
 Git preserves scheme case when selecting remote helpers. Implicit GitHub repository
 selection denies.

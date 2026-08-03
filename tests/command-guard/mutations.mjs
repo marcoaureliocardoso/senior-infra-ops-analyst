@@ -306,7 +306,7 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_GIT_PUSH_REPOSITORY_TRANSPORT', file: 'command-guard/catalogue.mjs',
-    search: "    && !/^[A-Za-z][A-Za-z0-9+.-]*::/u.test(value)",
+    search: "    && !value.includes('::')",
     replacement: '    && true',
   },
   {

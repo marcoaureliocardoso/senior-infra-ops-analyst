@@ -616,4 +616,19 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     command: 'git push --repo HtTpS://git.example.invalid/ops/repo.git main',
     expectedDecision: 'deny',
   },
+  {
+    id: 'RV86-GIT-PUSH-DIGIT-HELPER',
+    command: 'git push 1helper::opaque-address main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV86-GIT-PUSH-DIGIT-HELPER-REPO',
+    command: 'git push --repo=1helper::opaque-address main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV86-GIT-PUSH-DIGIT-HELPER-REPO-SEPARATE',
+    command: 'git push --repo 1helper::opaque-address main',
+    expectedDecision: 'deny',
+  },
 ]);

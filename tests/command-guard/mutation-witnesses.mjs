@@ -349,6 +349,9 @@ const witnesses = {
   async CATALOGUE_GIT_PUSH_REPOSITORY_TRANSPORT(context) {
     assert.equal((await policyFixture(context, "git push 'ext::/tmp/review-helper %S repo' main")).decision, 'deny');
     assert.equal((await policyFixture(context, "git push --repo='ext::/tmp/review-helper %S repo' main")).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push 1helper::opaque-address main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo=1helper::opaque-address main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo 1helper::opaque-address main')).decision, 'deny');
   },
   async CATALOGUE_GH_REPOSITORY_BINDING(context) {
     const result = await policyFixture(

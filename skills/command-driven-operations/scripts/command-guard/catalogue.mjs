@@ -694,7 +694,7 @@ function literalGitRepository(value) {
   const urlScheme = /^([A-Za-z][A-Za-z0-9+.-]*):\/\//u.exec(value ?? '')?.[1];
   return typeof value === 'string' && value.length <= LIMITS.tokenChars
     && value.length > 0 && !value.startsWith('-')
-    && !/^[A-Za-z][A-Za-z0-9+.-]*::/u.test(value)
+    && !value.includes('::')
     && (urlScheme === undefined || GIT_NATIVE_TRANSPORTS.has(urlScheme))
     && !/[$*?{}\[\]]/u.test(value);
 }

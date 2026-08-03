@@ -25,8 +25,9 @@ requires one literal repository, selected either positionally or by one
 `--repo` spelling, and one to `LIMITS.fanOut` literal refspecs. It rejects
 missing or conflicting repositories, unknown options, `--exec`,
 `--receive-pack`, server push-options, local-hook bypass, dynamic operands, and
-ambiguous option repetition. Literal remote-helper transports such as
-`ext::<command>` also deny because they execute an unmodelled local helper.
+ambiguous option repetition. Every repository containing the `::` delimiter,
+including transports such as `ext::<command>` or `1helper::address`, denies
+because Git can execute the prefix as an unmodelled local helper.
 For `scheme://` URLs, only Git's reviewed exact-lowercase native `file`, `git`,
 `ssh`, `http`, and `https` transports are accepted. Git preserves the scheme's
 case when selecting its helper, so unknown or case-altered schemes would invoke
@@ -80,7 +81,7 @@ read.
 Every decision is protected by:
 
 1. focused policy tests observed RED before production changes and GREEN after;
-2. stable RV-76 through RV-85 source and installed-corpus fixtures;
+2. stable RV-76 through RV-86 source and installed-corpus fixtures;
 3. exact one-site security mutations with typed behavioral witnesses;
 4. finite-inventory/orphan checks, 100 percent critical coverage, package
    byte-equivalence, repository validators, and an independent read-only review.

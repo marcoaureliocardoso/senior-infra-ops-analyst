@@ -225,7 +225,8 @@ uses conservative normal-mode semantics rather than a version allowlist.
     display-level selector is also present.
 37. Git push uses a complete grammar rather than prefix recognition. Remote
     program, push-option, hook-bypass, unknown, repeated, conflicting, dynamic,
-    external `*::` remote-helper, and unconsumed forms deny. The literal
+    every repository containing the external-helper delimiter `::`, and
+    unconsumed forms deny. The literal
     `scheme://` grammar accepts only exact-lowercase native `file`, `git`,
     `ssh`, `http`, and `https` transports because any other or case-altered
     scheme can invoke a distinct external `git-remote-<scheme>` helper. The effective repository is the audited
