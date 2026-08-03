@@ -83,7 +83,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
       in_with && /^[[:space:]]*[^[:space:]]/ && indentation($0) <= with_indent {
         in_with = 0
       }
-      in_with && indentation($0) > with_indent && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
+      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
         count += 1
       }
       END { print count + 0 }

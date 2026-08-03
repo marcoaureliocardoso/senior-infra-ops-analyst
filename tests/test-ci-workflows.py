@@ -23,6 +23,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         include_security_workflow: bool = True,
         misplace_init_wiring: bool = False,
         put_matrix_language_in_init_env: bool = False,
+        nest_matrix_language_in_with_scalar: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -63,6 +64,20 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 )
                 mutated = source.replace(canonical_block, mutated_block)
                 self.assertNotEqual(mutated, source, "CodeQL init env mutation failed")
+                source = mutated
+            if nest_matrix_language_in_with_scalar:
+                canonical_block = (
+                    "        with:\n"
+                    "          languages: ${{ matrix.language }}"
+                )
+                mutated_block = (
+                    "        with:\n"
+                    "          config: |\n"
+                    "            languages: ${{ matrix.language }}\n"
+                    "          languages: python"
+                )
+                mutated = source.replace(canonical_block, mutated_block)
+                self.assertNotEqual(mutated, source, "CodeQL nested scalar mutation failed")
                 source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
@@ -110,6 +125,11 @@ class CiWorkflowValidationTests(unittest.TestCase):
 
     def test_matrix_language_must_be_the_init_with_parameter(self) -> None:
         result = self.run_validator(put_matrix_language_in_init_env=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
+
+    def test_nested_scalar_cannot_impersonate_the_init_with_parameter(self) -> None:
+        result = self.run_validator(nest_matrix_language_in_with_scalar=True)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
 
