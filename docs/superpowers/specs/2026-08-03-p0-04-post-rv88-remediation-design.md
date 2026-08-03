@@ -179,8 +179,9 @@ The CodeQL job matrix contains both `python` and `javascript-typescript`.
 Existing action references, permissions, timeouts, and ShellCheck remain
 unchanged. Repository validation requires `security.yml`, exactly one CodeQL
 initialization step, the exact two-language matrix, and exactly one
-`languages: ${{ matrix.language }}` binding so later edits cannot silently
-remove JavaScript coverage or hard-code the initialized language.
+`with.languages: ${{ matrix.language }}` binding on that step so later edits
+cannot silently remove JavaScript coverage, hard-code the initialized
+language, or place the matrix expression in unrelated step metadata.
 
 ## Decision 6: neutralize implicit curl configuration
 

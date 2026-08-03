@@ -60,9 +60,32 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
     codeql_init_steps=$(grep -Ec 'github/codeql-action/init@' "$workflow" || true)
     matrix_wiring=$(grep -Fc 'languages: ${{ matrix.language }}' "$workflow" || true)
     init_matrix_wiring=$(awk '
-      /^[[:space:]]*- uses:[[:space:]]*github\/codeql-action\/init@/ { in_init = 1; next }
-      in_init && /^[[:space:]]*- / { in_init = 0 }
-      in_init && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ { count += 1 }
+      function indentation(line, stripped) {
+        stripped = line
+        sub(/^[[:space:]]*/, "", stripped)
+        return length(line) - length(stripped)
+      }
+      /^[[:space:]]*- uses:[[:space:]]*github\/codeql-action\/init@/ {
+        in_init = 1
+        in_with = 0
+        init_indent = indentation($0)
+        next
+      }
+      in_init && /^[[:space:]]*- / && indentation($0) <= init_indent {
+        in_init = 0
+        in_with = 0
+      }
+      in_init && /^[[:space:]]+with:[[:space:]]*$/ {
+        in_with = 1
+        with_indent = indentation($0)
+        next
+      }
+      in_with && /^[[:space:]]*[^[:space:]]/ && indentation($0) <= with_indent {
+        in_with = 0
+      }
+      in_with && indentation($0) > with_indent && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
+        count += 1
+      }
       END { print count + 0 }
     ' "$workflow")
     if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_matrix_wiring" -ne 1 ]; then

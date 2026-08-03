@@ -22,6 +22,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         init_languages: str | None = None,
         include_security_workflow: bool = True,
         misplace_init_wiring: bool = False,
+        put_matrix_language_in_init_env: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -48,6 +49,20 @@ class CiWorkflowValidationTests(unittest.TestCase):
                     f"- name: Unrelated metadata\n        {canonical}\n      {analyze_step}",
                 )
                 self.assertNotEqual(mutated, source, "CodeQL wiring displacement failed")
+                source = mutated
+            if put_matrix_language_in_init_env:
+                canonical_block = (
+                    "        with:\n"
+                    "          languages: ${{ matrix.language }}"
+                )
+                mutated_block = (
+                    "        env:\n"
+                    "          languages: ${{ matrix.language }}\n"
+                    "        with:\n"
+                    "          languages: python"
+                )
+                mutated = source.replace(canonical_block, mutated_block)
+                self.assertNotEqual(mutated, source, "CodeQL init env mutation failed")
                 source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
@@ -90,6 +105,11 @@ class CiWorkflowValidationTests(unittest.TestCase):
 
     def test_matrix_language_must_belong_to_the_init_step(self) -> None:
         result = self.run_validator(misplace_init_wiring=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
+
+    def test_matrix_language_must_be_the_init_with_parameter(self) -> None:
+        result = self.run_validator(put_matrix_language_in_init_env=True)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
 

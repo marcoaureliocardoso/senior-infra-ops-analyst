@@ -284,8 +284,8 @@ uses conservative normal-mode semantics rather than a version allowlist.
     Functions and API Management key headers without classifying nearby
     ordinary names as secrets.
 48. Workflow validation requires `security.yml`, exactly one CodeQL init step,
-    and exactly one matrix-language binding in addition to the exact language
-    set.
+    and exactly one `with.languages` matrix binding on that step in addition
+    to the exact language set.
 
 ## Enforcement points
 
