@@ -26,6 +26,8 @@ class CiWorkflowValidationTests(unittest.TestCase):
         nest_matrix_language_in_with_scalar: bool = False,
         duplicate_init_with: bool = False,
         duplicate_init_languages: bool = False,
+        move_language_matrix_to_decoy_job: bool = False,
+        add_codeql_matrix_expansion: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -99,6 +101,33 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 mutated = source.replace(canonical, f"{canonical}\n          languages: python")
                 self.assertNotEqual(mutated, source, "CodeQL duplicate languages mutation failed")
                 source = mutated
+            if move_language_matrix_to_decoy_job:
+                mutated = source.replace(
+                    "        language: [python, javascript-typescript]",
+                    "        runtime: [python, javascript-typescript]",
+                ).replace(
+                    "\n  shellcheck:\n",
+                    "\n  matrix-decoy:\n"
+                    "    runs-on: ubuntu-24.04\n"
+                    "    timeout-minutes: 1\n"
+                    "    strategy:\n"
+                    "      matrix:\n"
+                    "        language: [python, javascript-typescript]\n"
+                    "    steps:\n"
+                    "      - run: echo decoy\n"
+                    "\n  shellcheck:\n",
+                )
+                self.assertNotEqual(mutated, source, "CodeQL decoy job mutation failed")
+                source = mutated
+            if add_codeql_matrix_expansion is not None:
+                canonical = "        language: [python, javascript-typescript]"
+                mutated = source.replace(
+                    canonical,
+                    f"{canonical}\n        {add_codeql_matrix_expansion}:\n"
+                    "          - language: javascript-typescript",
+                )
+                self.assertNotEqual(mutated, source, "CodeQL matrix expansion mutation failed")
+                source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
             shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
@@ -162,6 +191,18 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 result = self.run_validator(**mutation)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
+
+    def test_language_matrix_must_belong_to_the_codeql_job(self) -> None:
+        result = self.run_validator(move_language_matrix_to_decoy_job=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("security.yml CodeQL languages", result.stdout + result.stderr)
+
+    def test_codeql_matrix_rejects_include_and_exclude_expansion(self) -> None:
+        for key in ("include", "exclude"):
+            with self.subTest(key=key):
+                result = self.run_validator(add_codeql_matrix_expansion=key)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("security.yml CodeQL languages", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

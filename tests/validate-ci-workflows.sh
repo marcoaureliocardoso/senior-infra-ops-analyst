@@ -47,13 +47,55 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
   fi
 
   if [ "$name" = "security.yml" ]; then
-    language_lines=$(grep -Ec '^[[:space:]]+language:[[:space:]]*\[[^]]+\][[:space:]]*$' "$workflow" || true)
-    codeql_languages=$(sed -nE 's/^[[:space:]]+language:[[:space:]]*\[([^]]+)\][[:space:]]*$/\1/p' "$workflow" \
-      | tr ',' '\n' \
-      | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' \
-      | sort \
-      | paste -sd, -)
-    if [ "$language_lines" -ne 1 ] || [ "$codeql_languages" != "javascript-typescript,python" ]; then
+    codeql_matrix_stats=$(awk '
+      function indentation(line, stripped) {
+        stripped = line
+        sub(/^[[:space:]]*/, "", stripped)
+        return length(line) - length(stripped)
+      }
+      function content(line) {
+        sub(/^[[:space:]]*/, "", line)
+        return line
+      }
+      {
+        level = indentation($0)
+        text = content($0)
+        if (text == "" || text ~ /^#/) next
+        if (level == 0) {
+          in_jobs = (text == "jobs:")
+          in_codeql = in_strategy = in_matrix = 0
+          next
+        }
+        if (!in_jobs) next
+        if (level == 2 && text ~ /^[A-Za-z0-9_-]+:[[:space:]]*$/) {
+          in_codeql = (text == "codeql:")
+          if (in_codeql) codeql_jobs += 1
+          in_strategy = in_matrix = 0
+          next
+        }
+        if (!in_codeql) next
+        if (level == 4 && text ~ /^[A-Za-z0-9_-]+:/) {
+          in_strategy = (text == "strategy:")
+          if (in_strategy) strategy_blocks += 1
+          in_matrix = 0
+          next
+        }
+        if (!in_strategy) next
+        if (level == 6 && text ~ /^[A-Za-z0-9_-]+:/) {
+          in_matrix = (text == "matrix:")
+          if (in_matrix) matrix_blocks += 1
+          next
+        }
+        if (in_matrix && level == 8 && text ~ /^[A-Za-z0-9_-]+:/) {
+          matrix_keys += 1
+          if (text == "language: [python, javascript-typescript]") canonical_languages += 1
+        }
+      }
+      END {
+        print (codeql_jobs + 0) ":" (strategy_blocks + 0) ":" (matrix_blocks + 0) ":" (matrix_keys + 0) ":" (canonical_languages + 0)
+      }
+    ' "$workflow")
+    if [ "$codeql_matrix_stats" != "1:1:1:1:1" ]; then
       echo "FAIL: security.yml CodeQL languages must be exactly python and javascript-typescript"
       errors=$((errors + 1))
     fi
@@ -65,34 +107,44 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         sub(/^[[:space:]]*/, "", stripped)
         return length(line) - length(stripped)
       }
-      /^[[:space:]]*- uses:[[:space:]]*github\/codeql-action\/init@/ {
-        in_init = 1
-        in_with = 0
-        init_indent = indentation($0)
-        next
+      function content(line) {
+        sub(/^[[:space:]]*/, "", line)
+        return line
       }
-      in_init && /^[[:space:]]*- / && indentation($0) <= init_indent {
-        in_init = 0
-        in_with = 0
+      {
+        level = indentation($0)
+        text = content($0)
+        if (text == "" || text ~ /^#/) next
+        if (level == 2 && text ~ /^[A-Za-z0-9_-]+:[[:space:]]*$/) {
+          in_codeql = (text == "codeql:")
+          in_init = in_with = 0
+          next
+        }
+        if (!in_codeql) next
+        if (text ~ /^- uses:[[:space:]]*github\/codeql-action\/init@/) {
+          in_init = 1
+          in_with = 0
+          init_indent = level
+          init_count += 1
+          next
+        }
+        if (in_init && text ~ /^- / && level <= init_indent) {
+          in_init = 0
+          in_with = 0
+        }
+        if (in_init && level == init_indent + 2 && text == "with:") {
+          in_with = 1
+          with_indent = level
+          with_count += 1
+          next
+        }
+        if (in_with && level <= with_indent) in_with = 0
+        if (in_with && level == with_indent + 2 && text ~ /^languages:/) language_count += 1
+        if (in_with && level == with_indent + 2 && text == "languages: ${{ matrix.language }}") matrix_count += 1
       }
-      in_init && indentation($0) == init_indent + 2 && /^[[:space:]]+with:[[:space:]]*$/ {
-        in_with = 1
-        with_indent = indentation($0)
-        with_count += 1
-        next
-      }
-      in_with && /^[[:space:]]*[^[:space:]]/ && indentation($0) <= with_indent {
-        in_with = 0
-      }
-      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*/ {
-        language_count += 1
-      }
-      in_with && indentation($0) == with_indent + 2 && /^[[:space:]]+languages:[[:space:]]*\$\{\{[[:space:]]*matrix\.language[[:space:]]*\}\}[[:space:]]*$/ {
-        matrix_count += 1
-      }
-      END { print (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0) }
+      END { print (init_count + 0) ":" (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0) }
     ' "$workflow")
-    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1" ]; then
+    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1" ]; then
       echo 'FAIL: security.yml CodeQL init wiring must use languages: ${{ matrix.language }} exactly once'
       errors=$((errors + 1))
     fi
