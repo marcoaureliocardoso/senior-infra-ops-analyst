@@ -171,12 +171,12 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
   },
   {
     id: 'RV10-GIT-MIRROR',
-    command: 'git push --mirror origin',
+    command: 'git push --mirror https://git.example.invalid/ops/repo.git',
     expectedDecision: 'ask',
   },
   {
     id: 'RV10-GIT-DELETE-REFSPEC',
-    command: 'git push origin :main',
+    command: 'git push https://git.example.invalid/ops/repo.git :main',
     expectedDecision: 'ask',
   },
   {
@@ -629,6 +629,21 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
   {
     id: 'RV86-GIT-PUSH-DIGIT-HELPER-REPO-SEPARATE',
     command: 'git push --repo 1helper::opaque-address main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV87-GIT-PUSH-NAMED-REMOTE-PUSHURL',
+    command: 'git push review HEAD:main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV87-GIT-PUSH-NAMED-REMOTE-URL',
+    command: 'git push --repo=review HEAD:main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV87-GIT-PUSH-NAMED-REMOTE-PUSHINSTEADOF',
+    command: 'git push --repo review HEAD:main',
     expectedDecision: 'deny',
   },
 ]);

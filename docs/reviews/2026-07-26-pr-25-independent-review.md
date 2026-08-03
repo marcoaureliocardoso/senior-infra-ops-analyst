@@ -682,3 +682,24 @@ line/function/branch coverage, four fixed property seeds, 66 of 66
 pristine-baseline typed mutations, and all 111 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
 One fresh independent read-only verification remains required before merge.
+
+## 2026-08-03 twentieth independent review disposition
+
+The independent review of RV-86 confirmed all `::` forms, case-sensitive URL
+schemes, lowercase native transports, SCP-like and local addresses, bindings,
+fixtures, mutations, and installed behavior. Its adjacent search then
+reproduced one Critical destination-resolution gap: a named Git remote can be
+rewritten by repository configuration before Git selects its transport.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-87 | Named remote hid its effective address and helper | `origin` or `review` was autonomous and audited as the alias while `pushurl`, `url`, or `pushInsteadOf` selected `git-remote-1helper` | Deny named remotes; require an explicit native URL, SCP-like address, or local path; protect all three repository forms with fixtures and a typed mutation | Remediated; final verification pending |
+
+The three policy-entrypoint aliases were observed RED before the literal-address
+boundary and GREEN afterward. Parser collection now distinguishes repository
+address validation from refspec validation. The deterministic source and
+Debian/WSL package gates pass 238 tests with zero skips, 100 percent critical
+line/function/branch coverage, four fixed property seeds, 67 of 67
+pristine-baseline typed mutations, and all 114 installed fixtures. Markdown,
+spelling of changed documents, schema, and CI workflow validation also pass.
+One fresh independent read-only verification remains required before merge.

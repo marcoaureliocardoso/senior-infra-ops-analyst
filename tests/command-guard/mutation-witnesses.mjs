@@ -316,7 +316,7 @@ const witnesses = {
     assert.equal(result.environment, 'ssh://ops@files.example.invalid:22;addressFamily=inet');
   },
   async CATALOGUE_GIT_PUSH_EXEC_REJECT(context) {
-    assert.equal((await policyFixture(context, 'git push --exec=/tmp/payload origin main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --exec=/tmp/payload https://git.example.invalid/ops/repo.git main')).decision, 'deny');
   },
   async CATALOGUE_GIT_PUSH_DESTINATION_BINDING(context) {
     const result = await policyFixture(context, 'git push https://github.com/example/project.git main');
@@ -376,6 +376,11 @@ const witnesses = {
     assert.equal((await policyFixture(context, 'git push HTTPS://git.example.invalid/ops/repo.git main')).decision, 'deny');
     assert.equal((await policyFixture(context, 'git push --repo=HtTpS://git.example.invalid/ops/repo.git main')).decision, 'deny');
     assert.equal((await policyFixture(context, 'git push --repo HtTpS://git.example.invalid/ops/repo.git main')).decision, 'deny');
+  },
+  async CATALOGUE_GIT_PUSH_LITERAL_ADDRESS(context) {
+    assert.equal((await policyFixture(context, 'git push origin main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo=review HEAD:main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo review HEAD:main')).decision, 'deny');
   },
 };
 

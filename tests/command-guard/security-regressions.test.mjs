@@ -36,22 +36,22 @@ test('git and gh deny unlisted operations and preserve destructive approval', ()
 
 test('Git push closed grammar binds destination and rejects execution overrides', () => {
   for (const command of [
-    'git push origin main',
-    'git push --repo=origin main',
-    'git push --repo origin main',
-    'git push --dry-run --porcelain --no-thin --set-upstream --follow-tags --atomic --verify --progress -4 origin main',
+    'git push https://git.example.invalid/ops/repo.git main',
+    'git push --repo=https://git.example.invalid/ops/repo.git main',
+    'git push --repo https://git.example.invalid/ops/repo.git main',
+    'git push --dry-run --porcelain --no-thin --set-upstream --follow-tags --atomic --verify --progress -4 https://git.example.invalid/ops/repo.git main',
   ]) {
     const normal = analyze(command, 'default');
     assert.equal(normal.decision, 'ask', command);
     assert.equal(normal.risk, 'LOW_RISK_CHANGE', command);
     assert.equal(normal.target, 'main', command);
-    assert.equal(normal.environment, 'origin', command);
+    assert.equal(normal.environment, 'https://git.example.invalid/ops/repo.git', command);
     assert.equal(analyze(command).decision, 'allow', command);
   }
-  const mapped = analyze('git push origin main:other', 'default');
+  const mapped = analyze('git push https://git.example.invalid/ops/repo.git main:other', 'default');
   assert.equal(mapped.decision, 'ask');
   assert.equal(mapped.target, 'main:other');
-  assert.equal(mapped.environment, 'origin');
+  assert.equal(mapped.environment, 'https://git.example.invalid/ops/repo.git');
 
   for (const repository of [
     'https://git.example.invalid/ops/repo.git',
@@ -59,16 +59,20 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     'ssh://ops@git.example.invalid/ops/repo.git',
     'git://git.example.invalid/ops/repo.git',
     'file:///srv/git/repo.git',
+    'ops@git.example.invalid:infra/repo.git',
+    './repo.git',
+    '../repo.git',
+    '/srv/git/repo.git',
   ]) assert.notEqual(analyze(`git push ${repository} main`).decision, 'deny', repository);
 
   for (const command of [
-    'git push origin main --force-with-lease',
-    'git push origin main --force-with-lease=main:expected',
-    'git push --repo=origin --delete main',
-    'git push --mirror origin',
-    'git push origin main --prune',
-    'git push origin +main',
-    'git push origin :main',
+    'git push https://git.example.invalid/ops/repo.git main --force-with-lease',
+    'git push https://git.example.invalid/ops/repo.git main --force-with-lease=main:expected',
+    'git push --repo=https://git.example.invalid/ops/repo.git --delete main',
+    'git push --mirror https://git.example.invalid/ops/repo.git',
+    'git push https://git.example.invalid/ops/repo.git main --prune',
+    'git push https://git.example.invalid/ops/repo.git +main',
+    'git push https://git.example.invalid/ops/repo.git :main',
   ]) {
     for (const mode of ['default', 'bypassPermissions']) {
       const result = analyze(command, mode);
@@ -90,30 +94,33 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     'git push HTTPS://git.example.invalid/ops/repo.git main',
     'git push --repo=HtTpS://git.example.invalid/ops/repo.git main',
     'git push --repo HtTpS://git.example.invalid/ops/repo.git main',
-    'git push --repo origin --receive-pack helper main',
-    'git push --receive-pack=helper origin main',
-    'git push --push-option=payload origin main',
-    'git push --no-verify origin main',
-    'git push --repo=origin --repo=other main',
-    'git push --force --force-with-lease=main:expected origin main',
-    'git push --force-with-lease= origin main',
-    'git push --force --force origin main',
-    'git push --dry-run -n origin main',
-    'git push -4 --ipv6 origin main',
+    'git push origin main',
+    'git push --repo=review HEAD:main',
+    'git push --repo review HEAD:main',
+    'git push --repo https://git.example.invalid/ops/repo.git --receive-pack helper main',
+    'git push --receive-pack=helper https://git.example.invalid/ops/repo.git main',
+    'git push --push-option=payload https://git.example.invalid/ops/repo.git main',
+    'git push --no-verify https://git.example.invalid/ops/repo.git main',
+    'git push --repo=https://git.example.invalid/ops/repo.git --repo=ssh://git.example.invalid/ops/repo.git main',
+    'git push --force --force-with-lease=main:expected https://git.example.invalid/ops/repo.git main',
+    'git push --force-with-lease= https://git.example.invalid/ops/repo.git main',
+    'git push --force --force https://git.example.invalid/ops/repo.git main',
+    'git push --dry-run -n https://git.example.invalid/ops/repo.git main',
+    'git push -4 --ipv6 https://git.example.invalid/ops/repo.git main',
     'git push --repo= main',
     'git push --repo --force main',
     'git push',
-    'git push origin',
-    'git push origin +',
-    'git push origin main:',
-    'git push origin main:bad..destination',
-    'git push origin main:other:third',
-    'git push origin bad..source:main',
+    'git push https://git.example.invalid/ops/repo.git',
+    'git push https://git.example.invalid/ops/repo.git +',
+    'git push https://git.example.invalid/ops/repo.git main:',
+    'git push https://git.example.invalid/ops/repo.git main:bad..destination',
+    'git push https://git.example.invalid/ops/repo.git main:other:third',
+    'git push https://git.example.invalid/ops/repo.git bad..source:main',
     'git push main --unknown',
     'git push $REMOTE main',
-    'git push origin bad..ref',
+    'git push https://git.example.invalid/ops/repo.git bad..ref',
     `git push ${'r'.repeat(8193)} main`,
-    `git push origin ${Array.from({ length: 21 }, (_, index) => `ref${index}`).join(' ')}`,
+    `git push https://git.example.invalid/ops/repo.git ${Array.from({ length: 21 }, (_, index) => `ref${index}`).join(' ')}`,
   ]) assert.equal(analyze(command).decision, 'deny', command);
 });
 

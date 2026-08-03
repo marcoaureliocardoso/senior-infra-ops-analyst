@@ -33,6 +33,12 @@ For `scheme://` URLs, only Git's reviewed exact-lowercase native `file`, `git`,
 case when selecting its helper, so unknown or case-altered schemes would invoke
 a distinct external `git-remote-<scheme>` helper and therefore deny.
 
+Named remotes such as `origin` also deny. Git can resolve them through
+`remote.*.pushurl`, `remote.*.url`, or `url.*.pushInsteadOf`, so the literal
+alias is neither the effective destination nor a safe audit domain. Accepted
+destinations must instead be explicit native URLs, SCP-like addresses, or
+local paths whose syntax cannot be a configured remote name.
+
 The parser consumes a deliberately finite option set. Ordinary pushes are
 `LOW_RISK_CHANGE`; force, deletion, mirror, prune, or destructive refspec
 spellings are `DESTRUCTIVE`. Its result binds the canonical literal repository
@@ -81,7 +87,7 @@ read.
 Every decision is protected by:
 
 1. focused policy tests observed RED before production changes and GREEN after;
-2. stable RV-76 through RV-86 source and installed-corpus fixtures;
+2. stable RV-76 through RV-87 source and installed-corpus fixtures;
 3. exact one-site security mutations with typed behavioral witnesses;
 4. finite-inventory/orphan checks, 100 percent critical coverage, package
    byte-equivalence, repository validators, and an independent read-only review.

@@ -692,10 +692,15 @@ const GIT_NATIVE_TRANSPORTS = new Set(['file', 'git', 'ssh', 'http', 'https']);
 
 function literalGitRepository(value) {
   const urlScheme = /^([A-Za-z][A-Za-z0-9+.-]*):\/\//u.exec(value ?? '')?.[1];
+  const explicitLocalPath = /^(?:\.{1,2}[\\/]|[\\/]|[A-Za-z]:[\\/])/u.test(value ?? '');
+  const scpLikeAddress = /^(?:[A-Za-z0-9._-]+@)?[A-Za-z0-9.-]+:.+/u.test(value ?? '');
+  const literalAddress = urlScheme === undefined
+    ? explicitLocalPath || scpLikeAddress
+    : GIT_NATIVE_TRANSPORTS.has(urlScheme);
   return typeof value === 'string' && value.length <= LIMITS.tokenChars
     && value.length > 0 && !value.startsWith('-')
     && !value.includes('::')
-    && (urlScheme === undefined || GIT_NATIVE_TRANSPORTS.has(urlScheme))
+    && literalAddress
     && !/[$*?{}\[\]]/u.test(value);
 }
 
@@ -757,7 +762,7 @@ function parseGitPush(words) {
       continue;
     }
     if (word.startsWith('-')) return null;
-    if (operands.length > LIMITS.fanOut || !literalGitRepository(word)) return null;
+    if (operands.length > LIMITS.fanOut || !literalOperand(word)) return null;
     operands.push(word);
   }
 

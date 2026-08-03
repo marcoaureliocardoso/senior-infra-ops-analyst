@@ -169,7 +169,8 @@
     "remediations",
     "FLUSHALL",
     "FLUSHDB",
-    "wslpath"
+    "wslpath",
+    "pushurl"
   ],
   "ignorePaths": [
     ".git/**",

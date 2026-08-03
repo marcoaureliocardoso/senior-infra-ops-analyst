@@ -197,9 +197,9 @@ test('catalogue filter and Git schemas distinguish bounded operations from file 
   const gitCases = [
     ['git status', 'SAFE_READ_ONLY'], ['git branch --list', 'SAFE_READ_ONLY'],
     ['git reset --hard', 'DESTRUCTIVE'], ['git clean -fd', 'DESTRUCTIVE'],
-    ['git push origin main --force-with-lease', 'DESTRUCTIVE'], ['git branch -d old', 'DESTRUCTIVE'],
+    ['git push https://git.example.invalid/ops/repo.git main --force-with-lease', 'DESTRUCTIVE'], ['git branch -d old', 'DESTRUCTIVE'],
     ['git tag -d old', 'DESTRUCTIVE'], ['git add file', 'LOW_RISK_CHANGE'],
-    ['git commit -m change', 'LOW_RISK_CHANGE'], ['git push origin main', 'LOW_RISK_CHANGE'],
+    ['git commit -m change', 'LOW_RISK_CHANGE'], ['git push https://git.example.invalid/ops/repo.git main', 'LOW_RISK_CHANGE'],
     ['gh repo view --repo owner/project', 'SAFE_READ_ONLY'], ['gh pr checks 25 --repo owner/project', 'SAFE_READ_ONLY'],
     ['gh repo delete owner/project --repo owner/project', 'DESTRUCTIVE'],
     ['gh release delete v1 --repo owner/project', 'DESTRUCTIVE'],

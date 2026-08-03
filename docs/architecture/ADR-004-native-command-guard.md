@@ -230,7 +230,10 @@ uses conservative normal-mode semantics rather than a version allowlist.
     `scheme://` grammar accepts only exact-lowercase native `file`, `git`,
     `ssh`, `http`, and `https` transports because any other or case-altered
     scheme can invoke a distinct external `git-remote-<scheme>` helper. The effective repository is the audited
-    environment, bounded refspecs form the target, and force, delete, mirror,
+    environment. Named remotes deny because `remote.*.pushurl`, `remote.*.url`,
+    and `url.*.pushInsteadOf` can replace the address with an unaudited helper;
+    callers must provide an explicit native URL, SCP-like address, or local
+    path. Bounded refspecs form the target, and force, delete, mirror,
     prune, plus-prefixed, and deletion refspecs remain destructive.
 38. Journal and container log reads consume closed finite schemas. Enabled
     follow aliases, duplicate semantic options, missing values, unknown

@@ -321,12 +321,17 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_GIT_PUSH_URL_TRANSPORT', file: 'command-guard/catalogue.mjs',
-    search: '    && (urlScheme === undefined || GIT_NATIVE_TRANSPORTS.has(urlScheme))',
-    replacement: '    && true',
+    search: '    : GIT_NATIVE_TRANSPORTS.has(urlScheme);',
+    replacement: '    : true;',
   },
   {
     id: 'CATALOGUE_GIT_PUSH_URL_SCHEME_CASE', file: 'command-guard/catalogue.mjs',
     search: "  const urlScheme = /^([A-Za-z][A-Za-z0-9+.-]*):\\/\\//u.exec(value ?? '')?.[1];",
     replacement: "  const urlScheme = /^([A-Za-z][A-Za-z0-9+.-]*):\\/\\//u.exec(value ?? '')?.[1]?.toLowerCase();",
+  },
+  {
+    id: 'CATALOGUE_GIT_PUSH_LITERAL_ADDRESS', file: 'command-guard/catalogue.mjs',
+    search: '    && literalAddress',
+    replacement: '    && true',
   },
 ]);
