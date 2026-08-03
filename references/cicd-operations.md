@@ -30,7 +30,7 @@ Interpretation:
 ```bash
 gitlab-runner --version
 gitlab-runner list
-curl --header "PRIVATE-TOKEN: <redacted>" "https://gitlab.example/api/v4/projects/<id>/pipelines"
+curl -q --header "PRIVATE-TOKEN: <redacted>" "https://gitlab.example/api/v4/projects/<id>/pipelines"
 ```
 
 ### Jenkins

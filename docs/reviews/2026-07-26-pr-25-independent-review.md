@@ -770,7 +770,7 @@ a repository copy while preserving its declared matrix.
 |---|---|---|---|---|
 | RV-94 | Curl default configuration escaped the visible grammar | An implicit `.curlrc` could add redirects, bodies, methods, credentials, or sinks while the guard authorized only visible arguments | Require exactly one literal `-q` or `--disable` as the first curl argument and reject missing, late, repeated, negated, or compact controls | Remediated; final independent verification pending |
 | RV-95 | Platform key headers escaped credential handling | `X-Functions-Key` and `Ocp-Apim-Subscription-Key` were treated as ordinary headers | Add bounded platform-key concepts to secret-header recognition with redaction, approval, negative controls, typed mutation, and source/installed fixtures | Remediated; final independent verification pending |
-| RV-96 | CodeQL language declaration did not prove init wiring | Hard-coding `with.languages: python` passed while the matrix expression remained declared or could be moved to unrelated step metadata | Require `security.yml`, one CodeQL init step, and exactly one `with.languages: ${{ matrix.language }}` binding on that step | Remediated; final independent verification pending |
+| RV-96 | CodeQL declaration did not prove effective job wiring | Decoy jobs, exclusions, duplicate keys, scalars, or conditions preserved expected text without JavaScript analysis | Require the exact matrix, direct unconditional fail-closed `init`/`analyze`, and one direct `with.languages` binding in `jobs.codeql` | Remediated; final independent verification pending |
 | RV-97 | Test counts were documented as platform-neutral | The ledger and ADR reported 254 universally although Debian/WSL executed 258 at that head | Qualify evidence by platform and record current counts only after execution | Remediated; final independent verification pending |
 
 The Windows source gate now passes 262 tests with zero skips, 100 percent
@@ -780,3 +780,9 @@ review fixtures. The workflow mutation suite passes through local Git Bash,
 and the loopback suite passes on Windows with its POSIX-only `.curlrc` location
 case explicitly skipped. A fresh Debian package run, final independent review,
 and GitHub checks remain required before merge.
+
+The adjacent RV-94 documentation review also updated every active executor
+reference to place `-q` first and removed unsupported curl verbose flags from
+examples intended to be catalogued reads. Historical plans and explicit
+negative fixtures retain their original spellings where the omission itself
+is the tested or recorded behavior.

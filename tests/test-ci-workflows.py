@@ -29,6 +29,10 @@ class CiWorkflowValidationTests(unittest.TestCase):
         move_language_matrix_to_decoy_job: bool = False,
         add_codeql_matrix_expansion: str | None = None,
         replace_init_with_shaped_scalar: bool = False,
+        remove_analyze_step: bool = False,
+        conditional_codeql_step: str | None = None,
+        continue_on_error_step: str | None = None,
+        codeql_job_control: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -147,6 +151,32 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 mutated = source.replace(canonical_block, mutated_block)
                 self.assertNotEqual(mutated, source, "CodeQL init scalar mutation failed")
                 source = mutated
+            if remove_analyze_step:
+                canonical = "      - uses: github/codeql-action/analyze@v3"
+                mutated = source.replace(canonical, "      - run: echo analysis-disabled")
+                self.assertNotEqual(mutated, source, "CodeQL analyze removal failed")
+                source = mutated
+            if conditional_codeql_step is not None:
+                canonical = f"      - uses: github/codeql-action/{conditional_codeql_step}@v3"
+                mutated = source.replace(
+                    canonical,
+                    f"{canonical}\n        if: matrix.language == 'python'",
+                )
+                self.assertNotEqual(mutated, source, "CodeQL conditional step mutation failed")
+                source = mutated
+            if continue_on_error_step is not None:
+                canonical = f"      - uses: github/codeql-action/{continue_on_error_step}@v3"
+                mutated = source.replace(
+                    canonical,
+                    f"{canonical}\n        continue-on-error: true",
+                )
+                self.assertNotEqual(mutated, source, "CodeQL continue-on-error mutation failed")
+                source = mutated
+            if codeql_job_control is not None:
+                canonical = "  codeql:"
+                mutated = source.replace(canonical, f"{canonical}\n    {codeql_job_control}")
+                self.assertNotEqual(mutated, source, "CodeQL job control mutation failed")
+                source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
             shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
@@ -227,6 +257,26 @@ class CiWorkflowValidationTests(unittest.TestCase):
         result = self.run_validator(replace_init_with_shaped_scalar=True)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
+
+    def test_codeql_analyze_is_a_mandatory_direct_step(self) -> None:
+        result = self.run_validator(remove_analyze_step=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
+
+    def test_codeql_security_steps_are_unconditional_and_fail_closed(self) -> None:
+        for parameter in ("conditional_codeql_step", "continue_on_error_step"):
+            for step in ("init", "analyze"):
+                with self.subTest(parameter=parameter, step=step):
+                    result = self.run_validator(**{parameter: step})
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
+
+    def test_codeql_job_is_unconditional_and_fail_closed(self) -> None:
+        for control in ("if: false", "continue-on-error: true"):
+            with self.subTest(control=control):
+                result = self.run_validator(codeql_job_control=control)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

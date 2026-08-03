@@ -17,7 +17,7 @@ Use this for certificate expiry, trust chains, SAN mismatch, TLS handshake error
 ```bash
 openssl s_client -connect <host>:443 -servername <host> -showcerts </dev/null
 openssl s_client -connect <host>:443 -servername <host> -verify_return_error </dev/null
-curl -vI https://<host>/
+curl -q -I https://<host>/
 ```
 
 Interpretation:

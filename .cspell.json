@@ -173,7 +173,22 @@
     "pushurl",
     "Apim",
     "curlrc",
-    "tuln"
+    "tuln",
+    "netrc",
+    "socat",
+    "apachectl",
+    "elbv",
+    "promtool",
+    "XGET",
+    "showcerts",
+    "noout",
+    "pkey",
+    "privkey",
+    "pubout",
+    "outform",
+    "certbot",
+    "keytool",
+    "certutil"
   ],
   "ignorePaths": [
     ".git/**",

@@ -678,8 +678,9 @@ the ledger resolved while any Critical or Important finding remains.
 
 The review of `02e480b` produced RV-94 through RV-97. Their implementation
 requires the first-argument curl default-configuration disable boundary,
-platform key-header credential recognition, exact CodeQL `with.languages`
-init wiring validation, platform-qualified test evidence, 155 source/installed fixtures,
+platform key-header credential recognition, exact fail-closed CodeQL job,
+matrix, `init`, `analyze`, and `with.languages` wiring validation,
+platform-qualified test evidence, 155 source/installed fixtures,
 and 82 typed mutation witnesses. Focused Windows gates are green; Debian/WSL,
 the complete repository gate, and the next independent verdict remain pending.
 

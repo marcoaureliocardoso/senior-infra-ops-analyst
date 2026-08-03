@@ -177,11 +177,14 @@ automatic module loading or every behavior internal to an accepted cmdlet.
 
 The CodeQL job matrix contains both `python` and `javascript-typescript`.
 Existing action references, permissions, timeouts, and ShellCheck remain
-unchanged. Repository validation requires `security.yml`, exactly one CodeQL
-initialization step, the exact two-language matrix, and exactly one
-`with.languages: ${{ matrix.language }}` binding on that step so later edits
+unchanged. Repository validation requires `security.yml`, the exact
+two-language-only matrix under `jobs.codeql.strategy`, and exactly one direct
+and unconditional CodeQL `init` plus `analyze` step in that same job. The init
+step has exactly one direct `with.languages: ${{ matrix.language }}` binding.
+Matrix `include`/`exclude`, duplicate keys, decoy jobs, scalar lookalikes,
+step/job `if`, and step/job `continue-on-error` are rejected so later edits
 cannot silently remove JavaScript coverage, hard-code the initialized
-language, or place the matrix expression in unrelated step metadata.
+language, skip a security step, or make its failure non-blocking.
 
 ## Decision 6: neutralize implicit curl configuration
 

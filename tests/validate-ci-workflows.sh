@@ -100,6 +100,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
       errors=$((errors + 1))
     fi
     codeql_init_steps=$(grep -Ec 'github/codeql-action/init@' "$workflow" || true)
+    codeql_analyze_steps=$(grep -Ec 'github/codeql-action/analyze@' "$workflow" || true)
     matrix_wiring=$(grep -Fc 'languages: ${{ matrix.language }}' "$workflow" || true)
     init_wiring_stats=$(awk '
       function indentation(line, stripped) {
@@ -122,6 +123,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         }
         if (!in_codeql) next
         if (level == 4 && text ~ /^[A-Za-z0-9_-]+:/) {
+          if (text ~ /^(if|continue-on-error):/) forbidden_controls += 1
           in_steps = (text == "steps:")
           if (in_steps) {
             steps_indent = level
@@ -134,12 +136,20 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         if (level == steps_indent + 2 && text ~ /^- /) {
           in_init = 0
           in_with = 0
+          security_step = ""
           if (text ~ /^- uses:[[:space:]]*github\/codeql-action\/init@/) {
             in_init = 1
             init_indent = level
             init_count += 1
+            security_step = "init"
+          } else if (text ~ /^- uses:[[:space:]]*github\/codeql-action\/analyze@/) {
+            analyze_count += 1
+            security_step = "analyze"
           }
           next
+        }
+        if (security_step != "" && level == steps_indent + 4 && text ~ /^(if|continue-on-error):/) {
+          forbidden_controls += 1
         }
         if (in_init && level == init_indent + 2 && text == "with:") {
           in_with = 1
@@ -152,11 +162,12 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         if (in_with && level == with_indent + 2 && text == "languages: ${{ matrix.language }}") matrix_count += 1
       }
       END {
-        print (steps_count + 0) ":" (init_count + 0) ":" (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0)
+        print (steps_count + 0) ":" (init_count + 0) ":" (analyze_count + 0) ":" (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0) ":" (forbidden_controls + 0)
       }
     ' "$workflow")
-    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1:1" ]; then
-      echo 'FAIL: security.yml CodeQL init wiring must use languages: ${{ matrix.language }} exactly once'
+    if [ "$codeql_init_steps" -ne 1 ] || [ "$codeql_analyze_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1:1:1:0" ]; then
+      echo 'FAIL: security.yml CodeQL init wiring must use direct with.languages: ${{ matrix.language }} exactly once'
+      echo 'FAIL: security.yml CodeQL steps must contain direct unconditional init and analyze actions with fail-closed matrix wiring'
       errors=$((errors + 1))
     fi
   fi

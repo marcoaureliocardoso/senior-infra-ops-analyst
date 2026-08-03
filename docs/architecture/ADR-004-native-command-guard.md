@@ -283,9 +283,12 @@ uses conservative normal-mode semantics rather than a version allowlist.
     headers use the Authorization credential path. This includes Azure
     Functions and API Management key headers without classifying nearby
     ordinary names as secrets.
-48. Workflow validation requires `security.yml`, exactly one CodeQL init step,
-    and exactly one `with.languages` matrix binding on that step in addition
-    to the exact language set.
+48. Workflow validation requires `security.yml`, an exact two-language-only
+    matrix under `jobs.codeql.strategy`, and one direct unconditional `init`
+    plus `analyze` step in that job. The init step has one direct
+    `with.languages` matrix binding. Matrix expansion, duplicate keys, decoy
+    jobs, scalar lookalikes, conditional execution, and non-blocking failures
+    are rejected.
 
 ## Enforcement points
 

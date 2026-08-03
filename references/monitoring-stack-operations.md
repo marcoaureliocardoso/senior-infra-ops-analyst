@@ -14,10 +14,10 @@ Use this for Prometheus, Alertmanager, Grafana, Zabbix, ELK/Elastic, and OpenSea
 ### Prometheus / Alertmanager
 
 ```bash
-curl -s http://<prometheus>:9090/-/ready
-curl -s http://<prometheus>:9090/api/v1/status/config
-curl -s 'http://<prometheus>:9090/api/v1/query?query=up'
-curl -s http://<alertmanager>:9093/api/v2/status
+curl -q -s http://<prometheus>:9090/-/ready
+curl -q -s http://<prometheus>:9090/api/v1/status/config
+curl -q -s 'http://<prometheus>:9090/api/v1/query?query=up'
+curl -q -s http://<alertmanager>:9093/api/v2/status
 ```
 
 Interpretation:
@@ -28,8 +28,8 @@ Interpretation:
 ### Grafana
 
 ```bash
-curl -s http://<grafana>:3000/api/health
-curl -s -H "Authorization: Bearer <redacted>" http://<grafana>:3000/api/datasources
+curl -q -s http://<grafana>:3000/api/health
+curl -q -s -H "Authorization: Bearer <redacted>" http://<grafana>:3000/api/datasources
 ```
 
 ### Zabbix
@@ -42,9 +42,9 @@ zabbix_get -s <agent> -k agent.ping
 ### Elastic / OpenSearch
 
 ```bash
-curl -s http://<cluster>:9200/_cluster/health
-curl -s http://<cluster>:9200/_cat/indices?v
-curl -s http://<cluster>:9200/_cat/nodes?v
+curl -q -s http://<cluster>:9200/_cluster/health
+curl -q -s http://<cluster>:9200/_cat/indices?v
+curl -q -s http://<cluster>:9200/_cat/nodes?v
 ```
 
 Interpretation:
@@ -62,9 +62,9 @@ Prefer approved secret stores, short-lived environment variables, `--netrc`/cred
 ```bash
 promtool check config <prometheus.yml>
 promtool tsdb analyze <data-dir>
-curl -sS http://<prometheus>:9090/api/v1/targets
-curl -sS http://<prometheus>:9090/api/v1/rules
-curl -sS http://<prometheus>:9090/api/v1/alerts
+curl -q -sS http://<prometheus>:9090/api/v1/targets
+curl -q -sS http://<prometheus>:9090/api/v1/rules
+curl -q -sS http://<prometheus>:9090/api/v1/alerts
 ```
 
 Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; TSDB analysis can be `RESOURCE_INTENSIVE` on large datasets.
@@ -72,9 +72,9 @@ Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; TSDB analysis can be `RESOURCE_INTE
 ### Elastic/OpenSearch checks
 
 ```bash
-curl -sS http://<es>:9200/_cluster/health?pretty
-curl -sS http://<es>:9200/_cat/shards?v
-curl -sS -XGET http://<es>:9200/_cluster/allocation/explain?pretty
+curl -q -sS http://<es>:9200/_cluster/health?pretty
+curl -q -sS http://<es>:9200/_cat/shards?v
+curl -q -sS -XGET http://<es>:9200/_cluster/allocation/explain?pretty
 ```
 
 Risk: `SAFE_READ_ONLY` + `SENSITIVE_OUTPUT`; allocation explain can reveal node names, index names, and topology.

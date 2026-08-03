@@ -14,7 +14,7 @@ Use this for Apache, NGINX, IIS, Tomcat/Jetty gateways, app gateway routing, HTT
 ### Linux web servers
 
 ```bash
-curl -vI https://<host>/
+curl -q -I https://<host>/
 nginx -t && nginx -T
 apachectl -t && apachectl -S
 journalctl -u nginx --since "1 hour ago" --no-pager

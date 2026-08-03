@@ -37,11 +37,11 @@ These are patterns, not vendor-neutral guarantees. Use only with authorized API 
 
 ```bash
 # ServiceNow-style read-only record lookup pattern
-curl -sS -H "Authorization: Bearer <token>" \
+curl -q -sS -H "Authorization: Bearer <token>" \
   "https://<instance>/api/now/table/incident?sysparm_query=number=<INC>&sysparm_limit=1"
 
 # Jira-style issue lookup pattern
-curl -sS -H "Authorization: Bearer <token>" \
+curl -q -sS -H "Authorization: Bearer <token>" \
   "https://<site>/rest/api/3/issue/<KEY>"
 ```
 
