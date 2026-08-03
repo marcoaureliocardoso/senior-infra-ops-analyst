@@ -226,8 +226,8 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_DMESG_CONTROL_RISK', file: 'command-guard/catalogue.mjs',
-    search: "      risk = 'DESTRUCTIVE';",
-    replacement: "      risk = 'SAFE_READ_ONLY';",
+    search: "    if (destructive.has(word)) {\n      risk = 'DESTRUCTIVE';",
+    replacement: "    if (destructive.has(word)) {\n      risk = 'SAFE_READ_ONLY';",
   },
   {
     id: 'POLICY_CREDENTIAL_STAGE_OWNERSHIP', file: 'command-guard/credential-flow.mjs',
@@ -246,8 +246,8 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_PACKET_SELECTOR_UNIQUENESS', file: 'command-guard/catalogue.mjs',
-    search: '      if (values.has(group)) return null;',
-    replacement: '      if (false) return null;',
+    search: '    if (valueOptions.has(name)) {\n      const group = valueOptions.get(name);\n      if (values.has(group)) return null;',
+    replacement: '    if (valueOptions.has(name)) {\n      const group = valueOptions.get(name);\n      if (false) return null;',
   },
   {
     id: 'POLICY_CREDENTIAL_EFFECTIVE_CONSUMER', file: 'command-guard/policy.mjs',
@@ -263,5 +263,45 @@ export const MUTATIONS = Object.freeze([
     id: 'CATALOGUE_REMOTE_ADDRESS_FAMILY_CANONICAL', file: 'command-guard/catalogue.mjs',
     search: "    return setSelector(selectorName, name === 'addressfamily' ? value.toLowerCase() : value);",
     replacement: '    return setSelector(selectorName, value);',
+  },
+  {
+    id: 'CATALOGUE_GIT_PUSH_EXEC_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "    if (/^(?:--exec|--receive-pack|--push-option)(?:=|$)|^-o(?:.|$)|^--no-verify$/u.test(word)) return null;",
+    replacement: "    if (/^(?:--exec|--receive-pack|--push-option)(?:=|$)|^-o(?:.|$)|^--no-verify$/u.test(word)) continue;",
+  },
+  {
+    id: 'CATALOGUE_GIT_PUSH_DESTINATION_BINDING', file: 'command-guard/catalogue.mjs',
+    search: "  return { risk, target: mirror ? 'refs:*' : operands.join(','), environment: repository };",
+    replacement: "  return { risk, target: mirror ? 'refs:*' : operands.join(','), environment: 'local' };",
+  },
+  {
+    id: 'CATALOGUE_JOURNAL_FOLLOW_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "function parseJournalctl(words) {\n  const valueOptions",
+    replacement: "function parseJournalctl(words) {\n  if (words.includes('--follow') || words.includes('-f')) return { risk: 'SAFE_READ_ONLY', target: 'local-log' };\n  const valueOptions",
+  },
+  {
+    id: 'CATALOGUE_CONTAINER_FOLLOW_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "function parseContainerLogs(words, commandIndex) {\n  const prefix",
+    replacement: "function parseContainerLogs(words, commandIndex) {\n  if (words.includes('--follow') || words.includes('-f')) return { target: words.at(-1) };\n  const prefix",
+  },
+  {
+    id: 'CATALOGUE_GH_WATCH_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "    if (word === '--watch' || word.startsWith('--watch=')) return null;",
+    replacement: "    if (word === '--watch' || word.startsWith('--watch=')) continue;",
+  },
+  {
+    id: 'CATALOGUE_GH_LIMIT_BOUND', file: 'command-guard/catalogue.mjs',
+    search: "  if (limit !== undefined && !boundedInteger(limit, LIMITS.outputRows)) return null;",
+    replacement: "  if (false && limit !== undefined && !boundedInteger(limit, LIMITS.outputRows)) return null;",
+  },
+  {
+    id: 'CATALOGUE_GH_LOG_APPROVAL', file: 'command-guard/catalogue.mjs',
+    search: "  const broadLogs = key === 'run view' && flags.has('log');",
+    replacement: '  const broadLogs = false;',
+  },
+  {
+    id: 'CATALOGUE_KUBECTL_DUMP_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "    'cluster-info': {},",
+    replacement: "    'cluster-info': { flags: ['--dump'] },",
   },
 ]);

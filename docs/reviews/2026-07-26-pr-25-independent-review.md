@@ -576,3 +576,25 @@ installed fixture corpus. The final Windows and Debian/WSL gates pass 220 tests
 with zero skips, 100 percent critical line/function/branch coverage, 53 of 53
 typed mutations, and all 91 installed fixtures. Diff and secret scans found no
 real credential or new Claude Code, Nori, Node.js, or model pin.
+
+## 2026-08-03 fifteenth independent review disposition
+
+A subsequent independent review found four Important catalogue-closure gaps.
+Prefix recognition still permitted executable or output controls that were not
+represented in the risk, destination, or audit identity. The reproductions
+were added through real policy entrypoints before their parsers were changed.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-76 | Git push did not consume its complete invocation | Remote controls such as `--exec` could be authorized while audit omitted the effective repository | Parse push options, repository, and bounded refspecs; reject executors, opaque server options, duplicates, unknowns, and malformed forms; bind repository and refspec targets | Remediated; independent verification pending |
+| RV-77 | Operational log reads could become unbounded streams | Journal and container `--follow`/`-f` forms inherited bounded read authorization | Use separate closed finite grammars, reject every follow spelling and unconsumed control, require explicit bounds and one container target, and preserve journal maintenance risk | Remediated; independent verification pending |
+| RV-78 | GitHub CLI read verbs accepted unmodelled output controls | Watch, excessive limits, and broad Actions logs could execute as narrow autonomous reads | Apply one closed schema per supported noun/verb, enforce output bounds, reject watch, and mark broad run logs sensitive, resource-intensive, and always-ask | Remediated; independent verification pending |
+| RV-79 | Kubernetes cluster dump inherited summary authorization | `kubectl cluster-info --dump` was accepted as the bounded cluster summary | Remove dump from the closed option schema while retaining plain `cluster-info` | Remediated; independent verification pending |
+
+The deterministic source gate now passes 232 tests with zero skips, 100 percent
+critical line/function/branch coverage, four fixed property seeds, and 61 of
+61 pristine-baseline typed mutations. Eight stable executable fixtures cover
+the four findings across source and installed-corpus gates. Version remains
+`0.11.0`; Claude Code, Nori, Node.js, and model selection remain unpinned. A
+fresh package validation and independent read-only review of this resulting
+head are still required before merge.

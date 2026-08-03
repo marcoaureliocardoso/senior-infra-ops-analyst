@@ -520,4 +520,51 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedDecision: 'allow',
     expectedEnvironment: 'ssh://ops@files.example.invalid:22;addressFamily=inet',
   },
+  {
+    id: 'RV76-GIT-PUSH-EXEC-OVERRIDE',
+    command: 'git push --exec=/tmp/payload origin main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV76-GIT-PUSH-DESTINATION-BINDING',
+    command: 'git push https://github.com/example/project.git main',
+    expectedDecision: 'allow',
+    expectedRisk: 'LOW_RISK_CHANGE',
+    expectedTarget: 'main',
+    expectedEnvironment: 'https://github.com/example/project.git',
+  },
+  {
+    id: 'RV77-JOURNAL-FOLLOW',
+    command: 'journalctl -u nginx -n 10 --follow',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV77-CONTAINER-LOG-FOLLOW',
+    command: 'docker logs --tail 10 --follow web',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV78-GH-CHECKS-WATCH',
+    command: 'gh pr checks 25 --watch --repo example/project',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV78-GH-LIMIT-BOUND',
+    command: 'gh pr list --limit 1001 --repo example/project',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV78-GH-RUN-LOG-APPROVAL',
+    command: 'gh run view 123 --log --repo example/project',
+    expectedDecision: 'ask',
+    expectedRisk: 'SAFE_READ_ONLY',
+    expectedTarget: '123',
+    expectedEnvironment: 'example/project',
+    expectedModifiers: ['ALWAYS_ASK', 'RESOURCE_INTENSIVE', 'SENSITIVE_OUTPUT'],
+  },
+  {
+    id: 'RV79-KUBECTL-CLUSTER-DUMP',
+    command: 'kubectl --context lab cluster-info --dump',
+    expectedDecision: 'deny',
+  },
 ]);

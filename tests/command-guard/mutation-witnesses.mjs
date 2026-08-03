@@ -315,6 +315,36 @@ const witnesses = {
     );
     assert.equal(result.environment, 'ssh://ops@files.example.invalid:22;addressFamily=inet');
   },
+  async CATALOGUE_GIT_PUSH_EXEC_REJECT(context) {
+    assert.equal((await policyFixture(context, 'git push --exec=/tmp/payload origin main')).decision, 'deny');
+  },
+  async CATALOGUE_GIT_PUSH_DESTINATION_BINDING(context) {
+    const result = await policyFixture(context, 'git push https://github.com/example/project.git main');
+    assert.equal(result.environment, 'https://github.com/example/project.git');
+    assert.equal(result.target, 'main');
+  },
+  async CATALOGUE_JOURNAL_FOLLOW_REJECT(context) {
+    assert.equal((await policyFixture(context, 'journalctl -u nginx -n 10 --follow')).decision, 'deny');
+  },
+  async CATALOGUE_CONTAINER_FOLLOW_REJECT(context) {
+    assert.equal((await policyFixture(context, 'docker logs --tail 10 --follow web')).decision, 'deny');
+  },
+  async CATALOGUE_GH_WATCH_REJECT(context) {
+    assert.equal((await policyFixture(context, 'gh pr checks 25 --watch --repo example/project')).decision, 'deny');
+  },
+  async CATALOGUE_GH_LIMIT_BOUND(context) {
+    assert.equal((await policyFixture(context, 'gh pr list --limit 1001 --repo example/project')).decision, 'deny');
+  },
+  async CATALOGUE_GH_LOG_APPROVAL(context) {
+    const result = await policyFixture(context, 'gh run view 123 --log --repo example/project');
+    assert.equal(result.decision, 'ask');
+    assert.ok(result.modifiers.includes('SENSITIVE_OUTPUT'));
+    assert.ok(result.modifiers.includes('RESOURCE_INTENSIVE'));
+    assert.ok(result.modifiers.includes('ALWAYS_ASK'));
+  },
+  async CATALOGUE_KUBECTL_DUMP_REJECT(context) {
+    assert.equal((await policyFixture(context, 'kubectl --context lab cluster-info --dump')).decision, 'deny');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

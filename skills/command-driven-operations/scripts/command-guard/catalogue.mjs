@@ -603,7 +603,7 @@ function hasClosedKubectlOptions(words, start, verb) {
     },
     events: { values: ['--for', '--types', '--chunk-size'], booleans: ['--watch', '--watch-only', '-w'] },
     version: { flags: ['--client', '--short'] },
-    'cluster-info': { flags: ['--dump'] },
+    'cluster-info': {},
     label: { values: ['-f', '--filename', '--resource-version', '--dry-run'], flags: ['--overwrite', '--list', '--local'] },
     annotate: { values: ['-f', '--filename', '--resource-version', '--dry-run'], flags: ['--overwrite', '--list', '--local'] },
     apply: {
@@ -686,6 +686,83 @@ function literalGitBranch(value) {
     && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(value)
     && !value.includes('..') && !value.includes('//')
     && !value.endsWith('/') && !value.endsWith('.') && !value.endsWith('.lock');
+}
+
+function literalGitRepository(value) {
+  return typeof value === 'string' && value.length <= LIMITS.tokenChars
+    && value.length > 0 && !value.startsWith('-')
+    && !/[$*?{}\[\]]/u.test(value);
+}
+
+function literalGitRefspec(value) {
+  const normalized = value.startsWith('+') ? value.slice(1) : value;
+  if (!normalized || normalized.split(':').length > 2) return false;
+  const [source, destination] = normalized.split(':');
+  if (destination === undefined) return literalGitBranch(source);
+  if (!destination || !literalGitBranch(destination)) return false;
+  return source === '' || literalGitBranch(source);
+}
+
+function parseGitPush(words) {
+  const operands = [];
+  const flags = new Set();
+  let repository = null;
+  let risk = 'LOW_RISK_CHANGE';
+  const allowedFlags = new Map([
+    ['-n', 'dryRun'], ['--dry-run', 'dryRun'],
+    ['--porcelain', 'porcelain'], ['--thin', 'thin'], ['--no-thin', 'thin'],
+    ['-u', 'upstream'], ['--set-upstream', 'upstream'],
+    ['--follow-tags', 'followTags'], ['--atomic', 'atomic'],
+    ['--verify', 'verify'], ['--progress', 'progress'],
+    ['-4', 'addressFamily'], ['--ipv4', 'addressFamily'],
+    ['-6', 'addressFamily'], ['--ipv6', 'addressFamily'],
+  ]);
+  const destructiveFlags = new Map([
+    ['-f', 'force'], ['--force', 'force'], ['--force-with-lease', 'force'],
+    ['--force-if-includes', 'forceIncludes'], ['-d', 'delete'], ['--delete', 'delete'],
+    ['--mirror', 'mirror'], ['--prune', 'prune'],
+  ]);
+
+  for (let index = 2; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '--repo' || word.startsWith('--repo=')) {
+      if (repository !== null) return null;
+      repository = word === '--repo' ? words[++index] : word.slice('--repo='.length);
+      if (!literalGitRepository(repository)) return null;
+      continue;
+    }
+    if (/^(?:--exec|--receive-pack|--push-option)(?:=|$)|^-o(?:.|$)|^--no-verify$/u.test(word)) return null;
+    if (word.startsWith('--force-with-lease=')) {
+      if (flags.has('force') || !literalOperand(word.slice('--force-with-lease='.length))) return null;
+      flags.add('force');
+      risk = 'DESTRUCTIVE';
+      continue;
+    }
+    const allowedGroup = allowedFlags.get(word);
+    if (allowedGroup) {
+      if (flags.has(allowedGroup)) return null;
+      flags.add(allowedGroup);
+      continue;
+    }
+    const destructiveGroup = destructiveFlags.get(word);
+    if (destructiveGroup) {
+      if (flags.has(destructiveGroup)) return null;
+      flags.add(destructiveGroup);
+      risk = 'DESTRUCTIVE';
+      continue;
+    }
+    if (word.startsWith('-')) return null;
+    if (operands.length > LIMITS.fanOut || !literalGitRepository(word)) return null;
+    operands.push(word);
+  }
+
+  if (repository === null) repository = operands.shift() ?? null;
+  if (!literalGitRepository(repository)) return null;
+  const mirror = flags.has('mirror');
+  if ((operands.length === 0 && !mirror) || operands.length > LIMITS.fanOut) return null;
+  if (!operands.every(literalGitRefspec)) return null;
+  if (operands.some((refspec) => refspec.startsWith('+') || refspec.startsWith(':'))) risk = 'DESTRUCTIVE';
+  return { risk, target: mirror ? 'refs:*' : operands.join(','), environment: repository };
 }
 
 function parseGitBranch(words) {
@@ -774,6 +851,163 @@ function parseGitRead(words, context) {
   return { risk: 'SAFE_READ_ONLY', target: operands[0] ?? 'local', modifiers: [] };
 }
 
+function parseGhRead(words) {
+  const key = `${words[1] ?? ''} ${words[2] ?? ''}`.toLowerCase();
+  const schemas = new Map([
+    ['repo view', { minOperands: 0, maxOperands: 1, values: ['--repo', '--json', '--jq', '--template'], flags: [] }],
+    ['pr view', { minOperands: 0, maxOperands: 1, values: ['--repo', '--json', '--jq', '--template'], flags: ['--comments'] }],
+    ['pr list', { minOperands: 0, maxOperands: 0, values: ['--repo', '--limit', '--state', '--author', '--assignee', '--search', '--head', '--base', '--label', '--json', '--jq', '--template', '--app'], flags: ['--draft'] }],
+    ['pr checks', { minOperands: 0, maxOperands: 1, values: ['--repo', '--json', '--jq', '--template'], flags: ['--required'] }],
+    ['run view', { minOperands: 1, maxOperands: 1, values: ['--repo', '--job', '--attempt', '--json', '--jq', '--template'], flags: ['--exit-status', '--log', '--log-failed'] }],
+    ['run list', { minOperands: 0, maxOperands: 0, values: ['--repo', '--limit', '--workflow', '--branch', '--user', '--event', '--status', '--commit', '--created', '--json', '--jq', '--template'], flags: ['--all'] }],
+    ['workflow view', { minOperands: 1, maxOperands: 1, values: ['--repo', '--ref'], flags: ['--yaml'] }],
+    ['workflow list', { minOperands: 0, maxOperands: 0, values: ['--repo', '--limit'], flags: ['--all'] }],
+  ]);
+  const schema = schemas.get(key);
+  if (!schema) return null;
+  const valueNames = new Set(schema.values);
+  const flagNames = new Set(schema.flags);
+  const values = new Map();
+  const flags = new Set();
+  const operands = [];
+
+  for (let index = 3; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '--watch' || word.startsWith('--watch=')) return null;
+    let name = word;
+    let value = null;
+    const separator = word.indexOf('=');
+    if (separator > 0 && word.startsWith('--')) {
+      name = word.slice(0, separator);
+      value = word.slice(separator + 1);
+    }
+    if (valueNames.has(name)) {
+      if (values.has(name)) return null;
+      if (value === null) value = words[++index];
+      if (!literalOperand(value)) return null;
+      values.set(name, value);
+      continue;
+    }
+    if (flagNames.has(word)) {
+      const group = word === '--log' || word === '--log-failed' ? 'log' : word;
+      if (flags.has(group)) return null;
+      flags.add(group);
+      continue;
+    }
+    if (word.startsWith('-') || !literalOperand(word) || operands.length >= schema.maxOperands) return null;
+    operands.push(word);
+  }
+
+  if (operands.length < schema.minOperands) return null;
+  const limit = values.get('--limit');
+  if (limit !== undefined && !boundedInteger(limit, LIMITS.outputRows)) return null;
+  const selectedRepo = values.get('--repo');
+  if (key === 'repo view' && selectedRepo && operands.length > 0) return null;
+  const remote = selectedRepo ?? (key === 'repo view' ? operands[0] : null) ?? 'local';
+  const broadLogs = key === 'run view' && flags.has('log');
+  return {
+    target: operands[0] ?? remote,
+    environment: remote,
+    modifiers: broadLogs ? ['SENSITIVE_OUTPUT', 'RESOURCE_INTENSIVE', 'ALWAYS_ASK'] : [],
+  };
+}
+
+function parseJournalctl(words) {
+  const valueOptions = new Map([
+    ['-n', 'lines'], ['--lines', 'lines'], ['-u', 'unit'], ['--unit', 'unit'],
+    ['--since', 'since'], ['--until', 'until'], ['-p', 'priority'], ['--priority', 'priority'],
+    ['-o', 'output'], ['--output', 'output'], ['-t', 'identifier'], ['--identifier', 'identifier'],
+    ['--vacuum-size', 'vacuumSize'], ['--vacuum-time', 'vacuumTime'], ['--vacuum-files', 'vacuumFiles'],
+  ]);
+  const flags = new Map([
+    ['--no-pager', 'noPager'], ['--utc', 'utc'], ['--reverse', 'reverse'], ['-r', 'reverse'],
+    ['--quiet', 'quiet'], ['-q', 'quiet'], ['--no-hostname', 'noHostname'],
+    ['--catalog', 'catalog'], ['-x', 'catalog'],
+    ['--rotate', 'rotate'], ['--flush', 'flush'], ['--sync', 'sync'], ['--relinquish-var', 'relinquish'],
+  ]);
+  const values = new Map();
+  const seenFlags = new Set();
+  let destructive = false;
+
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '--follow' || word === '-f' || word.startsWith('--follow=')) return null;
+    let name = word;
+    let value = null;
+    const separator = word.indexOf('=');
+    if (separator > 0 && word.startsWith('--')) {
+      name = word.slice(0, separator);
+      value = word.slice(separator + 1);
+    }
+    const group = valueOptions.get(name);
+    if (group) {
+      if (values.has(group)) return null;
+      if (value === null) value = words[++index];
+      if (!literalOperand(value)) return null;
+      values.set(group, value);
+      if (group.startsWith('vacuum')) destructive = true;
+      continue;
+    }
+    const flagGroup = flags.get(word);
+    if (!flagGroup || seenFlags.has(flagGroup)) return null;
+    seenFlags.add(flagGroup);
+    if (['rotate', 'flush', 'sync', 'relinquish'].includes(flagGroup)) destructive = true;
+  }
+
+  if (!boundedInteger(values.get('lines'), LIMITS.outputRows)) return null;
+  return {
+    risk: destructive ? 'DESTRUCTIVE' : 'SAFE_READ_ONLY',
+    target: values.get('unit') ?? 'local-log',
+  };
+}
+
+function parseContainerLogs(words, commandIndex) {
+  const prefix = words.slice(1, commandIndex);
+  if (prefix.length > 0) {
+    if (prefix.length !== 2 || prefix[0] !== '--context' || !literalOperand(prefix[1])) return null;
+  }
+  const values = new Map();
+  const flags = new Set();
+  const operands = [];
+  const valueOptions = new Map([
+    ['--tail', 'tail'], ['--since', 'since'], ['--until', 'until'],
+  ]);
+  const flagOptions = new Map([
+    ['--timestamps', 'timestamps'], ['-t', 'timestamps'], ['--details', 'details'],
+  ]);
+
+  for (let index = commandIndex + 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '--follow' || word === '-f' || word.startsWith('--follow=')) return null;
+    let name = word;
+    let value = null;
+    const separator = word.indexOf('=');
+    if (separator > 0 && word.startsWith('--')) {
+      name = word.slice(0, separator);
+      value = word.slice(separator + 1);
+    }
+    const group = valueOptions.get(name);
+    if (group) {
+      if (values.has(group)) return null;
+      if (value === null) value = words[++index];
+      if (!literalOperand(value)) return null;
+      values.set(group, value);
+      continue;
+    }
+    const flagGroup = flagOptions.get(word);
+    if (flagGroup) {
+      if (flags.has(flagGroup)) return null;
+      flags.add(flagGroup);
+      continue;
+    }
+    if (word.startsWith('-') || !literalOperand(word) || operands.length >= 1) return null;
+    operands.push(word);
+  }
+
+  if (!boundedInteger(values.get('tail'), LIMITS.outputRows) || operands.length !== 1) return null;
+  return { target: operands[0] };
+}
+
 function gitCiFamily(words, lower, context = {}) {
   const joined = words.slice(1).join(' ').toLowerCase();
   const remote = option(words, '--repo') ?? (lower === 'gh' ? words.find((word) => word.includes('/')) : 'local');
@@ -786,16 +1020,21 @@ function gitCiFamily(words, lower, context = {}) {
       const read = parseGitRead(words, context);
       return read ? result('GIT_CI', read.risk, read.target, 'local', read.modifiers) : null;
     }
-    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|push\s+.*(?:--force(?:-with-lease)?|-f\b|--delete|--mirror|--prune|(?:^|\s):[^\s]+|(?:^|\s)\+[^\s]+)|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
+    if (words[1] === 'push') {
+      const push = parseGitPush(words);
+      return push ? result('GIT_CI', push.risk, push.target, push.environment) : null;
+    }
+    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
       return result('GIT_CI', 'DESTRUCTIVE', words.at(-1), 'local');
     }
-    if (/^(?:add|commit|tag|push)(?:\s|$)/u.test(joined)) {
+    if (/^(?:add|commit|tag)(?:\s|$)/u.test(joined)) {
       return result('GIT_CI', 'LOW_RISK_CHANGE', words.at(-1), 'local');
     }
     return null;
   }
-  if (/^(?:repo view|pr (?:view|list|checks)|run (?:view|list)|workflow (?:view|list))(?:\s|$)/u.test(joined)) {
-    return result('GIT_CI', 'SAFE_READ_ONLY', remote, remote, [], { credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
+  const ghRead = parseGhRead(words);
+  if (ghRead) {
+    return result('GIT_CI', 'SAFE_READ_ONLY', ghRead.target, ghRead.environment, ghRead.modifiers, { credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
   }
   if (/^(?:repo delete|release delete|pr merge)(?:\s|$)/u.test(joined)) {
     return result('GIT_CI', 'DESTRUCTIVE', remote, remote, [], { requiresExplicitBinding: true, credentialConsumer: true, credentialTransports: ['VARIABLE'], credentialSelectors: ['GH_TOKEN', 'GITHUB_TOKEN'] });
@@ -1124,12 +1363,8 @@ export function lookupFamily(stage, context = {}) {
     return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
   }
   if (lower === 'journalctl') {
-    const lines = option(words, '-n', '--lines');
-    if (!boundedInteger(lines, LIMITS.outputRows)) return null;
-    if (words.some((word) => /^(?:--vacuum-|--rotate|--flush|--sync|--relinquish-var)/u.test(word))) {
-      return result('LOG_READ', 'DESTRUCTIVE', option(words, '-u', '--unit') ?? 'journal', 'local');
-    }
-    return result('LOG_READ', 'SAFE_READ_ONLY', option(words, '-u', '--unit') ?? 'local-log');
+    const invocation = parseJournalctl(words);
+    return invocation ? result('LOG_READ', invocation.risk, invocation.target, 'local') : null;
   }
   if (lower === 'dmesg') {
     const invocation = parseDmesg(words);
@@ -1218,9 +1453,10 @@ export function lookupFamily(stage, context = {}) {
     const verb = command?.word;
     if (!verb || (verb === 'stats' && !words.includes('--no-stream'))) return null;
     if (!['ps', 'inspect', 'logs', 'stats', 'images', 'info', 'pull', 'tag', 'rename', 'start', 'stop', 'restart', 'pause', 'unpause', 'rm', 'rmi', 'prune', 'reset'].includes(verb)) return null;
-    if (verb === 'logs' && !boundedInteger(option(words, '--tail'), LIMITS.outputRows)) return null;
+    const logInvocation = verb === 'logs' ? parseContainerLogs(words, command.index) : null;
+    if (verb === 'logs' && !logInvocation) return null;
     const risk = ['ps', 'inspect', 'logs', 'stats', 'images', 'info'].includes(verb) ? 'SAFE_READ_ONLY' : ['pull', 'tag', 'rename'].includes(verb) ? 'LOW_RISK_CHANGE' : ['rm', 'rmi', 'prune', 'reset'].includes(verb) ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
-    const target = operandsAfter(words, command.index, ['--time', '-t'])[0];
+    const target = logInvocation?.target ?? operandsAfter(words, command.index, ['--time', '-t'])[0];
     const modifiers = verb === 'inspect' ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [];
     const context = option(words, '--context');
     if (context && /[$*?{}]/u.test(context)) return null;
