@@ -27,9 +27,10 @@ missing or conflicting repositories, unknown options, `--exec`,
 `--receive-pack`, server push-options, local-hook bypass, dynamic operands, and
 ambiguous option repetition. Literal remote-helper transports such as
 `ext::<command>` also deny because they execute an unmodelled local helper.
-For `scheme://` URLs, only Git's reviewed native `file`, `git`, `ssh`, `http`,
-and `https` transports are accepted; unknown schemes would invoke an external
-`git-remote-<scheme>` helper and therefore deny.
+For `scheme://` URLs, only Git's reviewed exact-lowercase native `file`, `git`,
+`ssh`, `http`, and `https` transports are accepted. Git preserves the scheme's
+case when selecting its helper, so unknown or case-altered schemes would invoke
+a distinct external `git-remote-<scheme>` helper and therefore deny.
 
 The parser consumes a deliberately finite option set. Ordinary pushes are
 `LOW_RISK_CHANGE`; force, deletion, mirror, prune, or destructive refspec
@@ -79,7 +80,7 @@ read.
 Every decision is protected by:
 
 1. focused policy tests observed RED before production changes and GREEN after;
-2. stable RV-76 through RV-83 source and installed-corpus fixtures;
+2. stable RV-76 through RV-85 source and installed-corpus fixtures;
 3. exact one-site security mutations with typed behavioral witnesses;
 4. finite-inventory/orphan checks, 100 percent critical coverage, package
    byte-equivalence, repository validators, and an independent read-only review.

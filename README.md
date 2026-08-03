@@ -63,7 +63,8 @@ Git push, GitHub CLI reads, journal reads, and container logs use closed
 verb-specific grammars: every accepted option and operand is consumed, the
 explicit effective repository is bound to the audit environment, external Git
 remote-helper transports deny, and URL schemes are limited to Git's native
-`file`, `git`, `ssh`, `http`, and `https` transports. Implicit GitHub repository
+exact-lowercase `file`, `git`, `ssh`, `http`, and `https` transports because
+Git preserves scheme case when selecting remote helpers. Implicit GitHub repository
 selection denies.
 Streaming follow/watch forms and excessive output limits deny; broad GitHub
 Actions logs require native confirmation, and container log reads retain the
@@ -193,7 +194,7 @@ requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 - Added client-aligned credential transports plus closed HTTP, Kubernetes, AWS, and Docker route/trust/configuration boundaries with fail-closed singleton precedence.
 - Rejected mixed literal credential transports and repeated effective-value selectors, and made redaction cover full mixed-quote credential tokens.
 - Added a closed Redis CLI schema and canonical non-secret binding across transport, host, port, database, and ACL user.
-- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, sixty-five baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
+- Added 100% critical line/function/branch coverage including the command catalogue and output-path resolver, executable semantic fixtures for every finite inventory item, four property seeds, sixty-six baseline-proven typed security mutations, byte-equivalent installed artifacts, installed-corpus probes, and an opt-in OS-isolated live harness.
 - Closed Git push destination/executor ambiguity, finite journal/container logs, bounded GitHub CLI reads, and Kubernetes cluster-dump collection through complete verb-specific parsers.
 - Closed HTTP option arity and output-effect binding, database selector/domain precedence, and Git branch deletion alias parity; local file effects always require native confirmation.
 - Added ADR-004 and aligned model-facing execution/credential instructions without pinning Claude Code, Nori, Node.js, or the configured model.

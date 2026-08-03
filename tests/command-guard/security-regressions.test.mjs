@@ -84,6 +84,8 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     'git push helper::opaque-address main',
     'git push helper://opaque-address main',
     'git push --repo=helper://opaque-address main',
+    'git push HTTPS://git.example.invalid/ops/repo.git main',
+    'git push --repo=HtTpS://git.example.invalid/ops/repo.git main',
     'git push --repo origin --receive-pack helper main',
     'git push --receive-pack=helper origin main',
     'git push --push-option=payload origin main',

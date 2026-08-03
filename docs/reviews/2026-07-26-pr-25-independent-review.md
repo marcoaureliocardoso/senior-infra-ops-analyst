@@ -643,3 +643,22 @@ critical line/function/branch coverage, four fixed property seeds, 65 of 65
 pristine-baseline typed mutations, and all 105 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
 One fresh independent read-only verification remains required before merge.
+
+## 2026-08-03 eighteenth independent review disposition
+
+The independent review of RV-84 confirmed unknown URL schemes, `scheme::`
+helpers, lowercase native transports, SCP-like repositories, bindings, and
+installed behavior. It then reproduced one Critical case-sensitivity gap: Git
+preserves the URL scheme when selecting a remote-helper executable.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-85 | Case-altered schemes invoked distinct helpers | Positional `HTTPS://...` and `--repo=HtTpS://...` pushes were autonomous while Git selected case-distinct helpers | Require an exact-lowercase native scheme; protect both repository forms with source/installed fixtures and a typed mutation | Remediated; final verification pending |
+
+The real policy-entrypoint cases were observed RED before removing case
+normalization and GREEN afterward. The deterministic source and Debian/WSL
+package gates pass 237 tests with zero skips, 100 percent critical
+line/function/branch coverage, four fixed property seeds, 66 of 66
+pristine-baseline typed mutations, and all 107 installed fixtures. Markdown,
+spelling of changed documents, schema, and CI workflow validation also pass.
+One fresh independent read-only verification remains required before merge.

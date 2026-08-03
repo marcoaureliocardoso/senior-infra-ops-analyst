@@ -601,4 +601,14 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     command: 'git push --repo=helper://opaque-address main',
     expectedDecision: 'deny',
   },
+  {
+    id: 'RV85-GIT-PUSH-UPPERCASE-SCHEME',
+    command: 'git push HTTPS://git.example.invalid/ops/repo.git main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV85-GIT-PUSH-MIXEDCASE-SCHEME-REPO',
+    command: 'git push --repo=HtTpS://git.example.invalid/ops/repo.git main',
+    expectedDecision: 'deny',
+  },
 ]);
