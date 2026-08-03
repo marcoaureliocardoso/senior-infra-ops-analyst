@@ -716,7 +716,7 @@ only that literal.
 
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
-| RV-88 | Explicit address did not prove Git's effective destination or helper | All three repository forms were autonomous while persistent rewrites could select another address or helper | Keep aliases denied; parse literal requests; apply `ALWAYS_ASK` to every push; audit only the requested address | Remediated; final independent verification pending |
+| RV-88 | Explicit address did not prove Git's effective destination or helper | All three repository forms were autonomous while persistent rewrites could select another address or helper | Keep aliases denied; parse literal requests; apply `ALWAYS_ASK` to every push; audit only the requested address | Resolved; independently verified |
 
 The bypass behavior was observed RED through the real policy entrypoint before
 adding `ALWAYS_ASK` and GREEN afterward. Three stable RV-88 fixtures cover all
@@ -726,4 +726,7 @@ package gates pass 239 tests with zero skips, 100 percent critical
 line/function/branch coverage, four fixed property seeds, 68 of 68
 pristine-baseline typed mutations, and all 117 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
-One fresh independent read-only verification remains required before merge.
+The final independent review added a 56-check adversarial matrix across normal
+and bypass modes, reproduced both Git rewrite mechanisms, found no Critical,
+Important, or Minor issue, and returned `Ready to merge: Yes` for commit
+`86aaba7`.
