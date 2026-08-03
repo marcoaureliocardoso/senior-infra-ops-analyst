@@ -12,7 +12,7 @@ export const REASON_CODES = Object.freeze([
   'ASK_BOUNDED_READ', 'ASK_NORMAL_MODE_CHANGE', 'ASK_DESTRUCTIVE', 'ASK_LITERAL_CREDENTIAL_NORMAL',
   'ASK_EXTERNAL_SIDE_EFFECT', 'ASK_SENSITIVE_OPERATION',
   'DENY_UNSUPPORTED_SYNTAX', 'DENY_SECRET_PERSISTENCE', 'DENY_SECRET_OUTPUT',
-  'DENY_AUTHENTICATED_REDIRECT',
+  'DENY_AUTHENTICATED_REDIRECT', 'DENY_UNBOUND_HTTP_REDIRECT',
   'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
   'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', 'DENY_UNKNOWN_CREDENTIAL_CONSUMER',
   'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
@@ -54,6 +54,9 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_GIT_PUSH_URL_SCHEME_CASE',
   'CATALOGUE_GIT_PUSH_LITERAL_ADDRESS',
   'CATALOGUE_GIT_PUSH_ALWAYS_ASK',
+  'CATALOGUE_HTTP_REDIRECT_REJECT', 'CATALOGUE_POWERSHELL_REDIRECT_ZERO',
+  'CATALOGUE_POWERSHELL_HEADER_BINDING', 'REDACTION_SECRET_HEADER',
+  'POLICY_CATALOGUE_REJECTION',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -61,6 +64,7 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_SECRET_PERSISTENCE: 'Remove file, log, history, or other persistence sinks and pass the sensitive value only to a supported direct consumer.',
   DENY_SECRET_OUTPUT: 'Remove display, clipboard, or generic output sinks and pass the sensitive value only to a supported direct consumer.',
   DENY_AUTHENTICATED_REDIRECT: 'Use the final explicit origin directly; authenticated redirects are not followed.',
+  DENY_UNBOUND_HTTP_REDIRECT: 'Use the final literal URL directly and disable redirect following so the authorized origin is known before execution.',
   DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS: 'Use an operational credential source; Claude provider control credentials are outside the command boundary.',
   DENY_MULTIPLE_CREDENTIAL_TRANSPORTS: 'Use exactly one literal credential transport per command; split mixed Authorization, Cookie, flag, variable, or basic-auth transports into separately approved operations.',
   DENY_UNKNOWN_CREDENTIAL_CONSUMER: 'Use a catalogued credential consumer and an explicit supported transport without intermediate stages.',
@@ -116,6 +120,7 @@ export function analyzeCommand(event, env = {}) {
   for (const stage of composition.stages) {
     if (stage.redirects.some(({ destination }) => !['/dev/null', 'NUL', '&1'].includes(destination))) return denied(credentialAnalysis.metadata ? 'DENY_SECRET_PERSISTENCE' : 'DENY_UNSUPPORTED_SYNTAX', stage.index);
     const match = lookupFamily(stage, { cwd: event.cwd, env, dialect });
+    if (match?.denyReasonCode) return denied(match.denyReasonCode, stage.index);
     if (!match) return denied('DENY_UNKNOWN_COMMAND', stage.index);
     if (credentialAnalysis.metadata?.literal && match.modifiers.includes('CREDENTIAL_OUTPUT')) {
       return { ...denied('DENY_SECRET_OUTPUT', stage.index), credential: credentialAnalysis.metadata };

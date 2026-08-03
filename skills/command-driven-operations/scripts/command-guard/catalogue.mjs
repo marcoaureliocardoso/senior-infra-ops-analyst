@@ -216,6 +216,11 @@ const CURL_VALUE_GROUPS = new Map([
 const CURL_REPEATABLE_GROUPS = new Set(['body', 'header']);
 const CURL_SHORT_FLAGS = new Map([['s', '-s'], ['S', '-S'], ['f', '-f'], ['I', '-I'], ['i', '-i'], ['L', '-L'], ['O', '-O']]);
 
+function curlRedirectRequested(argv) {
+  return argv.slice(1).some((word) =>
+    ['-L', '--location', '--location-trusted'].includes(word) || /^-[sSfIiLO]*L[sSfIiLO]*$/u.test(word));
+}
+
 function addCurlFlag(flag, flags, groups) {
   if (flags.has(flag)) return false;
   if (CURL_SINK_FLAGS.has(flag)) {
@@ -306,6 +311,29 @@ function parsePowerShellHttpInvocation(argv) {
   return { values, flags, url: configuredUrl ?? positional[0] };
 }
 
+function powerShellRedirectDisabled(argv) {
+  const controls = [];
+  let abbreviated = false;
+  for (let index = 1; index < argv.length; index += 1) {
+    const word = argv[index];
+    if (!word.startsWith('-')) continue;
+    const separator = word.indexOf('=');
+    const name = (separator < 0 ? word : word.slice(0, separator)).toLowerCase();
+    if (name.startsWith('-max') && name !== '-maximumredirection') abbreviated = true;
+    if (name !== '-maximumredirection') continue;
+    controls.push(separator < 0 ? argv[index + 1] : word.slice(separator + 1));
+  }
+  return !abbreviated && controls.length === 1 && controls[0] === '0';
+}
+
+function powerShellHeadersAreBound(values) {
+  const header = values.get('headers');
+  if (header === undefined) return true;
+  if (/[$`*?{}\[\]()@\r\n]/u.test(header)) return false;
+  const match = /^\s*([^:\s]+)\s*:\s*(\S(?:.*\S)?)\s*$/u.exec(header);
+  return Boolean(match && match[1].toLowerCase() !== 'host');
+}
+
 function curlReadsLocalRequestFile(entries) {
   const uploads = new Set(['-T', '--upload-file']);
   const directAt = new Set(['-d', '--data', '--data-ascii', '--data-binary', '--json']);
@@ -342,6 +370,8 @@ function remoteNameOperand(parsedUrl) {
 
 function classifyHttp(words, context) {
   const isCurl = words[0].toLowerCase() === 'curl';
+  if (isCurl && curlRedirectRequested(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');
+  if (!isCurl && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');
   const invocation = isCurl ? parseCurlInvocation(words) : parsePowerShellHttpInvocation(words);
   if (!invocation || /[$*?{}]/u.test(invocation.url)) return null;
   let parsed;
@@ -361,6 +391,7 @@ function classifyHttp(words, context) {
     if (sink) { sinkOperand = sink.value; sinkOption = sink.name; }
     else if (invocation.flags.has('-O') || invocation.flags.has('--remote-name')) sinkOperand = remoteNameOperand(parsed);
   } else {
+    if (!powerShellHeadersAreBound(invocation.values)) return null;
     hasBody = invocation.values.has('body');
     if (invocation.values.has('upload')) return null;
     method = (invocation.values.get('method') ?? (hasBody ? 'POST' : 'GET')).toUpperCase();
@@ -503,6 +534,10 @@ function canonicalDatabaseEnvironment(family, invocation) {
 
 function result(policyId, risk, target, environment = null, modifiers = [], extra = {}) {
   return { policyId, risk, target: target ?? null, environment: environment ?? null, modifiers, ...extra };
+}
+
+function rejected(denyReasonCode) {
+  return { denyReasonCode };
 }
 
 function queryRisk(query, read, low, disruptive, destructive) {

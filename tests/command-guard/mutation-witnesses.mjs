@@ -389,6 +389,35 @@ const witnesses = {
     assert.equal(result.target, 'main');
     assert.equal(result.environment, 'https://git.example.invalid/ops/repo.git');
   },
+  async CATALOGUE_HTTP_REDIRECT_REJECT(context) {
+    const result = await policyFixture(context, 'curl -LsS https://origin.example.invalid/start');
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
+  },
+  async CATALOGUE_POWERSHELL_REDIRECT_ZERO(context) {
+    const deniedResult = await policyFixture(context, 'Invoke-WebRequest -Uri https://origin.example.invalid/start');
+    assert.equal(deniedResult.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
+    const allowedResult = await policyFixture(context, 'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0');
+    assert.equal(allowedResult.decision, 'allow');
+  },
+  async CATALOGUE_POWERSHELL_HEADER_BINDING(context) {
+    const result = await policyFixture(
+      context,
+      'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers malformed',
+    );
+    assert.equal(result.decision, 'deny');
+  },
+  async REDACTION_SECRET_HEADER(context) {
+    const { detectSensitiveSpans, redactText } = await import(moduleUrl(context.root, context.mutationId, 'redaction.mjs'));
+    const secret = 'SYNTH_SECRET_header_mutation';
+    const input = `X-Vault-Token: ${secret}`;
+    assert.doesNotMatch(redactText(input, detectSensitiveSpans(input)), new RegExp(secret));
+  },
+  async POLICY_CATALOGUE_REJECTION(context) {
+    const result = await policyFixture(context, 'curl -L https://origin.example.invalid/start');
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

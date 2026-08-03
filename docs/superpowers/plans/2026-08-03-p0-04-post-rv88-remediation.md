@@ -67,7 +67,7 @@
   `{ denyReasonCode: 'DENY_UNBOUND_HTTP_REDIRECT' }`; secret-like curl headers
   produce `AUTHORIZATION` spans; autonomous HTTP has exactly one literal origin.
 
-- [ ] **Step 1: Add failing policy tests for redirects and secret headers**
+- [x] **Step 1: Add failing policy tests for redirects and secret headers**
 
 Add a focused test containing these assertions:
 
@@ -104,11 +104,11 @@ Also assert that literal `Accept` and `Content-Type` headers remain accepted;
 `-H @headers.txt`, dynamic names/values, repeated redirect controls, and
 nonzero, negative, abbreviated, or malformed PowerShell redirect values deny.
 Exercise separated and `=` spellings of the canonical PowerShell option. For
-PowerShell `-Headers`, cover the existing literal hashtable spelling with an
-ordinary header and a secret-bearing header, then deny expression, variable,
-and file-derived values.
+PowerShell `-Headers`, cover the existing literal `Name: value` spelling with
+an ordinary header and a secret-bearing header, then deny expression,
+variable, and file-derived values.
 
-- [ ] **Step 2: Add a failing two-origin loopback regression**
+- [x] **Step 2: Add a failing two-origin loopback regression**
 
 Extend the local fixture with two listeners. The first returns `302 Location`
 to the second and the second records request headers. Invoke the real curl
@@ -116,7 +116,7 @@ client only with `SYNTH_SECRET_rv89`; assert the client demonstrates the threat
 fixture, while the guard denies the same command before execution. Keep the
 fixture loopback-only and never import provider credentials.
 
-- [ ] **Step 3: Run the focused RED suite**
+- [x] **Step 3: Run the focused RED suite**
 
 Run:
 
@@ -128,7 +128,7 @@ python tests/test-loopback-http-fixture.py
 Expected: current policy allows unauthenticated redirects and does not classify
 the four vendor headers as credentials.
 
-- [ ] **Step 4: Add explicit catalogue rejection results**
+- [x] **Step 4: Add explicit catalogue rejection results**
 
 Add a small helper next to `result`:
 
@@ -158,7 +158,7 @@ if (!match) return denied('DENY_UNKNOWN_COMMAND', stage.index);
 Register `DENY_UNBOUND_HTTP_REDIRECT` with guidance that tells the caller to use
 the final literal URL directly.
 
-- [ ] **Step 5: Generalize literal credential-header recognition**
+- [x] **Step 5: Generalize literal credential-header recognition**
 
 Add one shared predicate in `redaction.mjs`:
 
@@ -186,7 +186,7 @@ Use the same predicate from `headerKind`. Preserve Cookie handling and map
 recognized secret headers to `AUTHORIZATION`. Do not classify ordinary
 content-negotiation or tracing headers as credentials.
 
-- [ ] **Step 6: Add RV-89 fixtures and typed mutations**
+- [x] **Step 6: Add RV-89 fixtures and typed mutations**
 
 Register fixtures for long, trusted, compact, and repeated curl redirect
 spellings, both PowerShell clients, all four secret-header families, one
@@ -196,13 +196,15 @@ mutants:
 ```javascript
 CATALOGUE_HTTP_REDIRECT_REJECT
 CATALOGUE_POWERSHELL_REDIRECT_ZERO
+CATALOGUE_POWERSHELL_HEADER_BINDING
 REDACTION_SECRET_HEADER
+POLICY_CATALOGUE_REJECTION
 ```
 
 Each witness must call the real policy fixture and assert decision, reason,
 credential transport, redaction, requested environment, and modifiers.
 
-- [ ] **Step 7: Run GREEN and mutation checks**
+- [x] **Step 7: Run GREEN and mutation checks**
 
 Run the Step 3 command, then:
 
@@ -214,7 +216,7 @@ node tests/command-guard/run-mutations.mjs
 Expected: all focused tests pass and every new mutant is killed from a pristine
 baseline.
 
-- [ ] **Step 8: Commit the HTTP boundary**
+- [x] **Step 8: Commit the HTTP boundary**
 
 ```bash
 git add skills/command-driven-operations/scripts/command-guard tests/command-guard tests/loopback-http-fixture.py tests/test-loopback-http-fixture.py

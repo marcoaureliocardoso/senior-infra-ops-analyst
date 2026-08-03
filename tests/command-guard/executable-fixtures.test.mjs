@@ -21,10 +21,12 @@ test('every independent-review regression fixture executes its assertions', () =
   for (const fixture of REVIEW_REGRESSION_FIXTURES) {
     const result = analyze(fixture);
     assert.equal(result.decision, fixture.expectedDecision, fixture.id);
+    if (fixture.expectedReasonCode) assert.equal(result.reasonCode, fixture.expectedReasonCode, fixture.id);
     if (fixture.expectedRisk) assert.equal(result.risk, fixture.expectedRisk, fixture.id);
     if (fixture.expectedEnvironment) assert.equal(result.environment, fixture.expectedEnvironment, fixture.id);
     if (fixture.expectedTarget) assert.equal(result.target, fixture.expectedTarget, fixture.id);
     if (fixture.expectedCredentialBinding) assert.deepEqual(result.credentialBinding, fixture.expectedCredentialBinding, fixture.id);
+    if (fixture.expectedCredentialTransport) assert.equal(result.credential?.transport, fixture.expectedCredentialTransport, fixture.id);
     if (fixture.expectedModifiers) assert.deepEqual(result.modifiers.toSorted(), fixture.expectedModifiers.toSorted(), fixture.id);
     if (fixture.forbiddenText) {
       assert.doesNotMatch(JSON.stringify(result), new RegExp(fixture.forbiddenText, 'u'), fixture.id);

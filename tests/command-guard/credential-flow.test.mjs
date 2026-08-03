@@ -132,6 +132,25 @@ test('catalogued client credential spellings always ask and preserve transport',
   }
 });
 
+test('secret-like literal HTTP headers use authorization credential controls', () => {
+  for (const name of ['X-Vault-Token', 'X-Auth-Token', 'X-Secret', 'X-Access-Key']) {
+    const command = `curl -H "${name}: ${SECRET}" https://api.example.invalid/health`;
+    for (const mode of ['default', 'bypassPermissions']) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'ask', `${mode}: ${name}`);
+      assert.equal(result.credential?.transport, 'AUTHORIZATION', name);
+      assert.doesNotMatch(JSON.stringify(result), new RegExp(SECRET), name);
+      assert.doesNotMatch(redactText(command), new RegExp(SECRET), name);
+    }
+  }
+
+  for (const header of ['Accept: application/json', 'Content-Type: application/json', 'X-Trace-Id: trace-123']) {
+    const result = analyze(`curl -H "${header}" https://api.example.invalid/health`);
+    assert.equal(result.decision, 'allow', header);
+    assert.equal(result.credential, null, header);
+  }
+});
+
 test('credential identity metadata is not itself a credential transport', () => {
   const identityOnly = analyze('OPS_CREDENTIAL_IDENTITY=operator curl https://api.example.invalid/health');
   assert.equal(identityOnly.decision, 'allow');

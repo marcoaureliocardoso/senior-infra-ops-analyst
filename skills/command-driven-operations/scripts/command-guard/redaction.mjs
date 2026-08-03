@@ -7,9 +7,17 @@ function isSensitiveVariable(name) {
     /(?:^|_)(?:PASSWORD|PASS|TOKEN|SECRET|CREDENTIAL)(?:_|$)|(?:^|_)(?:API|ACCESS|PRIVATE)_KEY(?:_|$)/iu.test(name);
 }
 
+function credentialHeaderName(name) {
+  const normalized = name.trim().toLowerCase();
+  return /(?:^|[-_])(?:authorization|auth|token|secret|credential|password|passphrase)(?:$|[-_])/u.test(normalized) ||
+    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized);
+}
+
 const PATTERNS = [
-  { kind: 'AUTHORIZATION', regex: /Authorization:\s*(?:[A-Za-z][A-Za-z0-9._~-]*\s+)?([^\s"']+)/giu },
-  { kind: 'AUTHORIZATION', regex: /(?:X-API-Key|PRIVATE-TOKEN):\s*([^\s"']+)/giu },
+  {
+    kind: 'AUTHORIZATION', regex: /\b([!#$%&'*+.^_`|~0-9A-Za-z-]+):\s*([^\r\n"']+)/gu,
+    valueGroup: 2, accept: (match) => credentialHeaderName(match[1]),
+  },
   { kind: 'COOKIE', regex: /(?:Cookie|Set-Cookie):\s*([^\r\n"']+)/giu },
   { kind: 'COOKIE', regex: /(?:^|\s)(?:-b|--cookie)(?:=|\s+)"([^"]*=[^"]*)"/giu },
   { kind: 'COOKIE', regex: /(?:^|\s)(?:-b|--cookie)(?:=|\s+)'([^']*=[^']*)'/giu },
@@ -52,7 +60,8 @@ function rawValueSpan(token, rawOffset, kind) {
 }
 
 function headerKind(value) {
-  if (/^(?:Authorization|X-API-Key|PRIVATE-TOKEN):/iu.test(value)) return 'AUTHORIZATION';
+  const name = /^\s*([^:\s]+)\s*:/u.exec(value)?.[1];
+  if (name && credentialHeaderName(name)) return 'AUTHORIZATION';
   if (/^(?:Cookie|Set-Cookie):/iu.test(value)) return 'COOKIE';
   return null;
 }

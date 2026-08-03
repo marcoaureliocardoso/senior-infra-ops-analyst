@@ -41,8 +41,8 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'REDACTION_AUTHORIZATION', file: 'command-guard/redaction.mjs',
-    search: '/Authorization:\\s*(?:[A-Za-z][A-Za-z0-9._~-]*\\s+)?([^\\s"\']+)/giu',
-    replacement: '/X-Authorization:\\s*(?:[A-Za-z][A-Za-z0-9._~-]*\\s+)?([^\\s"\']+)/giu',
+    search: "/\\b([!#$%&'*+.^_`|~0-9A-Za-z-]+):\\s*([^\\r\\n\"']+)/gu",
+    replacement: "/\\bX-([!#$%&'*+.^_`|~0-9A-Za-z-]+):\\s*([^\\r\\n\"']+)/gu",
   },
   {
     id: 'AUDIT_FORBIDDEN_FIELD_REJECT', file: 'command-guard/audit.mjs',
@@ -338,5 +338,30 @@ export const MUTATIONS = Object.freeze([
     id: 'CATALOGUE_GIT_PUSH_ALWAYS_ASK', file: 'command-guard/catalogue.mjs',
     search: "      return push ? result('GIT_CI', push.risk, push.target, push.environment, ['ALWAYS_ASK']) : null;",
     replacement: "      return push ? result('GIT_CI', push.risk, push.target, push.environment) : null;",
+  },
+  {
+    id: 'CATALOGUE_HTTP_REDIRECT_REJECT', file: 'command-guard/catalogue.mjs',
+    search: "  if (isCurl && curlRedirectRequested(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
+    replacement: "  if (false && curlRedirectRequested(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
+  },
+  {
+    id: 'CATALOGUE_POWERSHELL_REDIRECT_ZERO', file: 'command-guard/catalogue.mjs',
+    search: "  if (!isCurl && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
+    replacement: "  if (false && !powerShellRedirectDisabled(words)) return rejected('DENY_UNBOUND_HTTP_REDIRECT');",
+  },
+  {
+    id: 'CATALOGUE_POWERSHELL_HEADER_BINDING', file: 'command-guard/catalogue.mjs',
+    search: "  return Boolean(match && match[1].toLowerCase() !== 'host');",
+    replacement: '  return true;',
+  },
+  {
+    id: 'REDACTION_SECRET_HEADER', file: 'command-guard/redaction.mjs',
+    search: "  return /(?:^|[-_])(?:authorization|auth|token|secret|credential|password|passphrase)(?:$|[-_])/u.test(normalized) ||\n    /(?:^|[-_])(?:api|access|private)[-_]key(?:$|[-_])/u.test(normalized);",
+    replacement: '  return false;',
+  },
+  {
+    id: 'POLICY_CATALOGUE_REJECTION', file: 'command-guard/policy.mjs',
+    search: '    if (match?.denyReasonCode) return denied(match.denyReasonCode, stage.index);',
+    replacement: '    if (false) return denied(match.denyReasonCode, stage.index);',
   },
 ]);

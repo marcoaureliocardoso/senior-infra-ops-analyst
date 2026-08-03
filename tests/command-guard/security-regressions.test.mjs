@@ -319,6 +319,54 @@ test('authenticated HTTP denies redirect and persistence sinks', () => {
   }
 });
 
+test('HTTP clients deny redirect targets that cannot be bound before execution', () => {
+  const redirects = [
+    'curl -L https://origin.example.invalid/start',
+    'curl --location https://origin.example.invalid/start',
+    'curl --location-trusted https://origin.example.invalid/start',
+    'curl -LsS https://origin.example.invalid/start',
+    'curl -L -L https://origin.example.invalid/start',
+    'Invoke-WebRequest -Uri https://origin.example.invalid/start',
+    'Invoke-RestMethod -Uri https://origin.example.invalid/start -MaximumRedirection 1',
+    'Invoke-WebRequest -Uri https://origin.example.invalid/start -MaximumRedirection -1',
+    'Invoke-WebRequest -Uri https://origin.example.invalid/start -MaxRedirection 0',
+    'Invoke-WebRequest -Uri https://origin.example.invalid/start -MaximumRedirection 0 -MaximumRedirection 0',
+  ];
+  for (const mode of ['default', 'bypassPermissions']) {
+    for (const command of redirects) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'deny', `${mode}: ${command}`);
+      assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT', `${mode}: ${command}`);
+    }
+  }
+
+  for (const command of [
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0',
+    'Invoke-RestMethod -Uri https://api.example.invalid/health -MaximumRedirection=0',
+  ]) assert.equal(analyze(command).decision, 'allow', command);
+});
+
+test('PowerShell HTTP headers accept only a bound literal header value', () => {
+  assert.equal(analyze(
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers "Accept: application/json"',
+  ).decision, 'allow');
+
+  const secret = 'SYNTH_SECRET_ps_header_rv89';
+  const authenticated = analyze(
+    `Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers "X-Vault-Token: ${secret}"`,
+  );
+  assert.equal(authenticated.decision, 'ask');
+  assert.equal(authenticated.credential?.transport, 'AUTHORIZATION');
+  assert.doesNotMatch(JSON.stringify(authenticated), new RegExp(secret));
+
+  for (const command of [
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers @headers.txt',
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers "(Get-Content headers.txt)"',
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers "$OPS_HEADER"',
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -Headers malformed',
+  ]) assert.equal(analyze(command).decision, 'deny', command);
+});
+
 test('HTTP routing and peer verification cannot diverge from the bound origin', () => {
   const commands = [
     'curl --resolve api.example.invalid:443:192.0.2.123 https://api.example.invalid/health',
@@ -330,7 +378,7 @@ test('HTTP routing and peer verification cannot diverge from the bound origin', 
     'curl -k https://api.example.invalid/health',
     'curl --insecure https://api.example.invalid/health',
     'curl --cacert /secure/alternate-ca.pem https://api.example.invalid/health',
-    'Invoke-WebRequest -Uri https://api.example.invalid/health -SkipCertificateCheck',
+    'Invoke-WebRequest -Uri https://api.example.invalid/health -MaximumRedirection 0 -SkipCertificateCheck',
     `curl --oauth2-bearer ${SECRET} --resolve api.example.invalid:443:192.0.2.123 -k https://api.example.invalid/health`,
   ];
   for (const mode of ['default', 'bypassPermissions']) {
@@ -349,7 +397,7 @@ test('HTTP clients derive effective methods, uploads, and file sinks from every 
     'curl --data=value https://api.example.invalid/items',
     'curl --json={} https://api.example.invalid/items',
     'curl -F field=value https://api.example.invalid/items',
-    'Invoke-RestMethod -Uri https://api.example.invalid/items -Body value',
+    'Invoke-RestMethod -Uri https://api.example.invalid/items -MaximumRedirection 0 -Body value',
   ];
   for (const command of mutations) {
     const result = analyze(command);
@@ -358,14 +406,14 @@ test('HTTP clients derive effective methods, uploads, and file sinks from every 
     assert.ok(result.modifiers.includes('EXTERNAL_SIDE_EFFECT'), command);
   }
   assert.equal(analyze('curl -T payload.bin https://api.example.invalid/items/1').decision, 'deny');
-  assert.equal(analyze('Invoke-WebRequest -Uri https://api.example.invalid/items -InFile payload.bin').decision, 'deny');
+  assert.equal(analyze('Invoke-WebRequest -Uri https://api.example.invalid/items -MaximumRedirection 0 -InFile payload.bin').decision, 'deny');
 
   const sinks = [
     'curl -o response.json https://api.example.invalid/items',
     'curl --output=response.json https://api.example.invalid/items',
     'curl -D headers.txt https://api.example.invalid/items',
     'curl -c cookies.txt https://api.example.invalid/items',
-    'Invoke-WebRequest -Uri https://api.example.invalid/items -OutFile response.json',
+    'Invoke-WebRequest -Uri https://api.example.invalid/items -MaximumRedirection 0 -OutFile response.json',
   ];
   for (const command of sinks) {
     const result = analyze(command, 'bypassPermissions', { cwd: '/srv/ops' });
@@ -375,13 +423,13 @@ test('HTTP clients derive effective methods, uploads, and file sinks from every 
 
   for (const command of [
     'curl --unknown-option value https://api.example.invalid/items',
-    'Invoke-WebRequest -Uri https://api.example.invalid/items -Unknown value',
+    'Invoke-WebRequest -Uri https://api.example.invalid/items -MaximumRedirection 0 -Unknown value',
   ]) assert.equal(analyze(command).decision, 'deny', command);
 
   assert.equal(analyze('curl -sS https://api.example.invalid/items').decision, 'allow');
-  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing -Uri https://api.example.invalid/items').decision, 'allow');
-  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing -UseBasicParsing -Uri https://api.example.invalid/items').decision, 'deny');
-  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing=true -Uri https://api.example.invalid/items').decision, 'deny');
+  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing -Uri https://api.example.invalid/items -MaximumRedirection 0').decision, 'allow');
+  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing -UseBasicParsing -Uri https://api.example.invalid/items -MaximumRedirection 0').decision, 'deny');
+  assert.equal(analyze('Invoke-WebRequest -UseBasicParsing=true -Uri https://api.example.invalid/items -MaximumRedirection 0').decision, 'deny');
 });
 
 test('closed HTTP parsers consume every accepted arity and reject incomplete combinations', () => {
@@ -394,9 +442,9 @@ test('closed HTTP parsers consume every accepted arity and reject incomplete com
     'curl --url',
     'curl --url=https://api.example.invalid/items https://other.example.invalid/items',
     'curl --url= https://api.example.invalid/items',
-    'Invoke-WebRequest -Uri',
-    'Invoke-WebRequest https://api.example.invalid/a https://api.example.invalid/b',
-    'Invoke-WebRequest -Uri=',
+    'Invoke-WebRequest -Uri -MaximumRedirection 0',
+    'Invoke-WebRequest https://api.example.invalid/a https://api.example.invalid/b -MaximumRedirection 0',
+    'Invoke-WebRequest -Uri= -MaximumRedirection 0',
   ]) assert.equal(analyze(command).decision, 'deny', command);
 
   for (const command of [
@@ -405,9 +453,9 @@ test('closed HTTP parsers consume every accepted arity and reject incomplete com
     'curl --url=https://api.example.invalid/items',
     'curl -I https://api.example.invalid/items',
     'curl --head https://api.example.invalid/items',
-    'Invoke-WebRequest https://api.example.invalid/items',
-    'Invoke-WebRequest -Uri=https://api.example.invalid/items',
-    'Invoke-RestMethod -Uri=https://api.example.invalid/items -Body value',
+    'Invoke-WebRequest https://api.example.invalid/items -MaximumRedirection 0',
+    'Invoke-WebRequest -Uri=https://api.example.invalid/items -MaximumRedirection 0',
+    'Invoke-RestMethod -Uri=https://api.example.invalid/items -MaximumRedirection 0 -Body value',
   ]) assert.notEqual(analyze(command).decision, 'deny', command);
 
   for (const command of [
@@ -451,12 +499,12 @@ test('HTTP sinks bind the normalized local destination and always ask', () => {
 
   assert.equal(analyze('curl -o "$DEST/report.json" https://api.example.invalid/reports/current', 'bypassPermissions', { cwd: '/srv/ops', env }).decision, 'deny');
 
-  const psLiteral = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -OutFile reports/status.json"', 'bypassPermissions', { cwd: 'C:\\ops' });
+  const psLiteral = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile reports/status.json"', 'bypassPermissions', { cwd: 'C:\\ops' });
   assert.equal(psLiteral.decision, 'ask');
   assert.equal(psLiteral.target, 'GET /reports/current -> file:C:\\ops\\reports\\status.json');
 
   const psEnv = { OPS_COMMAND_GUARD_OUTPUT_VARIABLES: 'OPS_OUTPUT_DIR', OPS_OUTPUT_DIR: 'C:\\guard-output' };
-  const psConfigured = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -OutFile $env:OPS_OUTPUT_DIR/report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env: psEnv });
+  const psConfigured = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile $env:OPS_OUTPUT_DIR/report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env: psEnv });
   assert.equal(psConfigured.decision, 'ask');
   assert.equal(psConfigured.target, 'GET /reports/current -> file:C:\\guard-output\\report.json');
 });
@@ -473,7 +521,7 @@ test('HTTP sinks deny ambiguous destinations and unsupported sink controls', () 
     'curl -o "${OPS_OUTPUT_DIR:-/tmp}/report.json" https://api.example.invalid/report.json',
   ];
   for (const command of commands) assert.equal(analyze(command, 'bypassPermissions', { env }).decision, 'deny', command);
-  assert.equal(analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/report.json -OutFile $env:DEST\\report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env }).decision, 'deny');
+  assert.equal(analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/report.json -MaximumRedirection 0 -OutFile $env:DEST\\report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env }).decision, 'deny');
 });
 
 test('HTTP method aliases cannot be repeated to hide the effective destructive request', () => {
@@ -574,7 +622,7 @@ test('uncatalogued mutable HTTP effects always require operator confirmation', (
     'curl -X POST https://api.example.invalid/restart',
     'curl -X PUT https://api.example.invalid/items/1',
     'curl -X PATCH https://api.example.invalid/approvals/1',
-    'Invoke-RestMethod -Uri https://api.example.invalid/messages -Method POST -Body value',
+    'Invoke-RestMethod -Uri https://api.example.invalid/messages -MaximumRedirection 0 -Method POST -Body value',
   ];
   for (const mode of ['default', 'bypassPermissions']) {
     for (const command of mutations) {
