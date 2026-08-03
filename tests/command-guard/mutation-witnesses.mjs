@@ -444,6 +444,16 @@ const witnesses = {
     assert.match(result.message, /git add, commit, or tag/u);
     assert.doesNotMatch(result.message, /--list/u);
   },
+  async CATALOGUE_KUBECTL_PRUNE_RISK(context) {
+    for (const prefix of ['kubectl', 'k3s kubectl']) {
+      const result = await policyFixture(
+        context,
+        `${prefix} --context prod --namespace app apply --prune -l app=demo -f manifest.yaml`,
+      );
+      assert.equal(result.decision, 'ask');
+      assert.equal(result.risk, 'DESTRUCTIVE');
+    }
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

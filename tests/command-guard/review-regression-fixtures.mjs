@@ -785,4 +785,28 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedDecision: 'deny',
     expectedReasonCode: 'DENY_UNSUPPORTED_GIT_FORM',
   },
+  {
+    id: 'RV91-KUBECTL-PRUNE-DESTRUCTIVE',
+    command: 'kubectl --context prod --namespace app apply --prune -l app=demo -f manifest.yaml',
+    expectedDecision: 'ask',
+    expectedRisk: 'DESTRUCTIVE',
+    expectedTarget: 'manifest.yaml',
+    expectedEnvironment: 'prod@app',
+  },
+  {
+    id: 'RV91-K3S-PRUNE-DESTRUCTIVE',
+    command: 'k3s kubectl --context prod --namespace app apply --prune=true -l app=demo -f manifest.yaml',
+    expectedDecision: 'ask',
+    expectedRisk: 'DESTRUCTIVE',
+    expectedTarget: 'manifest.yaml',
+    expectedEnvironment: 'prod@app',
+  },
+  {
+    id: 'RV91-KUBECTL-PRUNE-FALSE-CONTROL',
+    command: 'kubectl --context prod --namespace app apply --prune=false -l app=demo -f manifest.yaml',
+    expectedDecision: 'allow',
+    expectedRisk: 'DISRUPTIVE_CHANGE',
+    expectedTarget: 'manifest.yaml',
+    expectedEnvironment: 'prod@app',
+  },
 ]);

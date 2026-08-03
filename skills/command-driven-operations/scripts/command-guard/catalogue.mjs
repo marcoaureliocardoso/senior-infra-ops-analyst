@@ -643,7 +643,8 @@ function hasClosedKubectlOptions(words, start, verb) {
     annotate: { values: ['-f', '--filename', '--resource-version', '--dry-run'], flags: ['--overwrite', '--list', '--local'] },
     apply: {
       values: ['-f', '--filename', '--dry-run', '--field-manager', '--validate', '--selector', '-l'],
-      flags: ['--server-side', '--force-conflicts', '--prune', '--wait'],
+      flags: ['--server-side', '--force-conflicts', '--wait'],
+      booleans: ['--prune'],
     },
     patch: {
       values: ['-p', '--patch', '--patch-file', '--type', '--subresource', '--dry-run', '--field-manager'],
@@ -1672,6 +1673,7 @@ export function lookupFamily(stage, context = {}) {
     const verb = command?.word;
     if (!verb) return null;
     if (!verbs.includes(verb)) return null;
+    if (verb === 'apply' && repeatedOptionGroup(words, ['--prune'])) return null;
     if (!hasClosedKubectlOptions(words, lower === 'k3s' ? 2 : 1, verb)) return null;
     if (verb === 'cluster-info' && operandsAfter(words, command.index, ['--context', '--namespace', '-n', '--request-timeout', '-o', '--output']).length > 0) return null;
     if (['get', 'describe', 'logs', 'events'].includes(verb) && enabledBooleanOption(words, '--watch', '--watch-only', '-w')) return null;
@@ -1680,7 +1682,8 @@ export function lookupFamily(stage, context = {}) {
     if (chunkSize !== null && !boundedInteger(chunkSize, LIMITS.outputRows)) return null;
     if (verb === 'logs' && !boundedInteger(option(words, '--tail'), LIMITS.outputRows)) return null;
     const forceReplace = verb === 'replace' && words.includes('--force');
-    const risk = ['get', 'describe', 'logs', 'events', 'version', 'cluster-info'].includes(verb) ? 'SAFE_READ_ONLY' : ['label', 'annotate'].includes(verb) ? 'LOW_RISK_CHANGE' : ['delete', 'drain'].includes(verb) || forceReplace ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
+    const destructivePrune = verb === 'apply' && enabledBooleanOption(words, '--prune');
+    const risk = ['get', 'describe', 'logs', 'events', 'version', 'cluster-info'].includes(verb) ? 'SAFE_READ_ONLY' : ['label', 'annotate'].includes(verb) ? 'LOW_RISK_CHANGE' : ['delete', 'drain'].includes(verb) || forceReplace || destructivePrune ? 'DESTRUCTIVE' : 'DISRUPTIVE_CHANGE';
     const context = option(words, '--context');
     const namespace = option(words, '--namespace', '-n');
     const operands = operandsAfter(words, command.index, ['--tail', '--replicas', '-f', '--filename', '--type', '-p', '--patch']);

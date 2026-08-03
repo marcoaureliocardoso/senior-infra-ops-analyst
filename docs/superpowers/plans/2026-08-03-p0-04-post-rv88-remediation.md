@@ -350,7 +350,7 @@ git commit -m "fix: close local Git write grammars"
 - Consumes: the existing closed kubectl option grammar and `enabledBooleanOption`.
 - Produces: enabled `apply --prune` risk `DESTRUCTIVE` for kubectl and k3s.
 
-- [ ] **Step 1: Add failing prune risk tests**
+- [x] **Step 1: Add failing prune risk tests**
 
 ```javascript
 for (const prefix of ['kubectl', 'k3s kubectl']) {
@@ -366,7 +366,7 @@ for (const prefix of ['kubectl', 'k3s kubectl']) {
 Also retain a non-pruning apply control as `DISRUPTIVE_CHANGE` and test repeated,
 malformed, and false-valued prune spellings according to the existing grammar.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 node --test --test-name-pattern="apply prune" tests/command-guard/security-regressions.test.mjs
@@ -374,7 +374,7 @@ node --test --test-name-pattern="apply prune" tests/command-guard/security-regre
 
 Expected: bypass returns allow and risk remains `DISRUPTIVE_CHANGE`.
 
-- [ ] **Step 3: Implement minimal risk derivation**
+- [x] **Step 3: Implement minimal risk derivation**
 
 Before the existing risk expression, derive the value through the existing
 closed boolean-option helper so both separated and inline forms agree:
@@ -385,13 +385,13 @@ const destructivePrune = verb === 'apply' && enabledBooleanOption(words, '--prun
 
 Include it with delete, drain, and force-replace in the `DESTRUCTIVE` branch.
 
-- [ ] **Step 4: Add RV-91 fixtures and one mutation**
+- [x] **Step 4: Add RV-91 fixtures and one mutation**
 
 Register kubectl and k3s cases plus the non-prune control. Add
 `CATALOGUE_KUBECTL_PRUNE_RISK`, mutate `destructivePrune` to false, and witness
 both client paths.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 Run the focused test, executable fixtures, and mutation runner, then:
 

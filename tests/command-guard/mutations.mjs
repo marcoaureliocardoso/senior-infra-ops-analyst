@@ -389,4 +389,9 @@ export const MUTATIONS = Object.freeze([
     search: "  DENY_UNSUPPORTED_GIT_FORM: 'Use a supported git add, commit, or tag form with only finite literal options and operands.',",
     replacement: "  DENY_UNSUPPORTED_GIT_FORM: 'Unsupported.',",
   },
+  {
+    id: 'CATALOGUE_KUBECTL_PRUNE_RISK', file: 'command-guard/catalogue.mjs',
+    search: "    const destructivePrune = verb === 'apply' && enabledBooleanOption(words, '--prune');",
+    replacement: '    const destructivePrune = false;',
+  },
 ]);

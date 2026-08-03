@@ -1264,6 +1264,32 @@ test('Kubernetes singleton context and namespace aliases cannot be repeated', ()
   }
 });
 
+test('Kubernetes apply prune is destructive only when explicitly enabled', () => {
+  for (const prefix of ['kubectl', 'k3s kubectl']) {
+    for (const spelling of ['--prune', '--prune=true', '--prune true']) {
+      const command = `${prefix} --context prod --namespace app apply ${spelling} -l app=demo -f manifest.yaml`;
+      for (const mode of ['default', 'bypassPermissions']) {
+        const result = analyze(command, mode);
+        assert.equal(result.decision, 'ask', `${mode}: ${command}`);
+        assert.equal(result.risk, 'DESTRUCTIVE', `${mode}: ${command}`);
+      }
+    }
+
+    for (const spelling of ['', '--prune=false', '--prune false']) {
+      const command = `${prefix} --context prod --namespace app apply ${spelling} -l app=demo -f manifest.yaml`;
+      assert.equal(analyze(command, 'default').risk, 'DISRUPTIVE_CHANGE', command);
+      assert.equal(analyze(command, 'bypassPermissions').decision, 'allow', command);
+    }
+
+    for (const spelling of ['--prune=maybe', '--prune true --prune=false', '--prune --prune']) {
+      const command = `${prefix} --context prod --namespace app apply ${spelling} -l app=demo -f manifest.yaml`;
+      for (const mode of ['default', 'bypassPermissions']) {
+        assert.equal(analyze(command, mode).decision, 'deny', `${mode}: ${command}`);
+      }
+    }
+  }
+});
+
 test('ask and deny explanations are actionable without echoing the command', () => {
   const denied = analyze('mysteryctl deploy production');
   assert.match(denied.message, /DENY_UNKNOWN_COMMAND/u);
