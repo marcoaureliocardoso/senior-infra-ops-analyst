@@ -372,6 +372,7 @@ const witnesses = {
   async CATALOGUE_GIT_PUSH_URL_SCHEME_CASE(context) {
     assert.equal((await policyFixture(context, 'git push HTTPS://git.example.invalid/ops/repo.git main')).decision, 'deny');
     assert.equal((await policyFixture(context, 'git push --repo=HtTpS://git.example.invalid/ops/repo.git main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo HtTpS://git.example.invalid/ops/repo.git main')).decision, 'deny');
   },
 };
 

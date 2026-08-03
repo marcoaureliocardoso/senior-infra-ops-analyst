@@ -653,12 +653,12 @@ preserves the URL scheme when selecting a remote-helper executable.
 
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
-| RV-85 | Case-altered schemes invoked distinct helpers | Positional `HTTPS://...` and `--repo=HtTpS://...` pushes were autonomous while Git selected case-distinct helpers | Require an exact-lowercase native scheme; protect both repository forms with source/installed fixtures and a typed mutation | Remediated; final verification pending |
+| RV-85 | Case-altered schemes invoked distinct helpers | Positional `HTTPS://...` and `--repo=HtTpS://...` pushes were autonomous while Git selected case-distinct helpers | Require an exact-lowercase native scheme; protect positional and both `--repo` forms with source/installed fixtures and a typed mutation | Remediated; final verification pending |
 
 The real policy-entrypoint cases were observed RED before removing case
 normalization and GREEN afterward. The deterministic source and Debian/WSL
 package gates pass 237 tests with zero skips, 100 percent critical
 line/function/branch coverage, four fixed property seeds, 66 of 66
-pristine-baseline typed mutations, and all 107 installed fixtures. Markdown,
+pristine-baseline typed mutations, and all 108 installed fixtures. Markdown,
 spelling of changed documents, schema, and CI workflow validation also pass.
 One fresh independent read-only verification remains required before merge.
