@@ -275,6 +275,17 @@ uses conservative normal-mode semantics rather than a version allowlist.
 45. The CodeQL matrix contains exactly Python and JavaScript/TypeScript. An
     executable workflow-mutation test rejects either omission and unexpected
     languages.
+46. Every authorized curl command places exactly one literal `-q` or
+    `--disable` first. Missing, late, repeated, negated, and compact controls
+    deny before HTTP effect classification so implicit configuration cannot
+    alter the audited invocation.
+47. Delimited `function-key`, `functions-key`, and `subscription-key` HTTP
+    headers use the Authorization credential path. This includes Azure
+    Functions and API Management key headers without classifying nearby
+    ordinary names as secrets.
+48. Workflow validation requires `security.yml`, exactly one CodeQL init step,
+    and exactly one matrix-language binding in addition to the exact language
+    set.
 
 ## Enforcement points
 
@@ -346,13 +357,15 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 254 active Node tests with zero
-  skips, four recorded property seeds, a finite inventory orphan check, and
-  exact mutation-site validation.
+- The current Windows source gate runs 262 active Node tests with zero skips,
+  four recorded property seeds, a finite inventory orphan check, and exact
+  mutation-site validation. Debian/WSL totals are reported separately because
+  platform capability cases add tests there; current package evidence remains
+  required before the final verdict.
 - Critical contract, lexer, composition, credential-flow, binding-state,
   policy, catalogue, redaction, response, audit, and both entrypoint modules achieve 100%
   line, function, and branch coverage with native Node test coverage.
-- Eighty registered security mutations are baseline-proven and killed by
+- Eighty-two registered security mutations are baseline-proven and killed by
   their exact typed witnesses, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
@@ -372,13 +385,13 @@ ambiguous destinations deny.
   local Git writes, destructive Kubernetes prune, and profile-free PowerShell
   wrappers.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same current 145-case stable-ID
+  modules with source, then executes the same current 155-case stable-ID
   adversarial corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
   executable semantic fixture. One ledger proves every declared fixture ran
   exactly once and fails on stale, missing, duplicate, or unexecuted evidence.
-- Final Debian/WSL package evidence for the current 145-case corpus is required
+- Final Debian/WSL package evidence for the current 155-case corpus is required
   before merge. Runtime acceptance is capability-based; observed Node.js,
   Claude Code, Nori, and model identifiers are evidence, not requirements.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a

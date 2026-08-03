@@ -153,6 +153,12 @@ effective redirect target. Curl location flags are rejected, and PowerShell
 HTTP clients require exactly `-MaximumRedirection 0`. Literal secret-bearing
 header names such as token, credential, password, and API-key variants enter
 the same redaction and approval path as Authorization.
+Every curl invocation accepted by the guard must place exactly one `-q` or
+`--disable` first, preventing implicit curl configuration from changing the
+audited request. Missing, late, repeated, negated, or compact disable controls
+deny with actionable guidance. Azure Functions `X-Functions-Key` and Azure API
+Management `Ocp-Apim-Subscription-Key` are treated as credential-bearing
+headers; nearby ordinary header names remain available.
 
 PostgreSQL and MySQL consume closed singleton connection selectors and bind
 credential approval to scheme, user, host, port, and database. Networked

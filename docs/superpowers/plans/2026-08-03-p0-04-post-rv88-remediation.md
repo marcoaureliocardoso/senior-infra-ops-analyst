@@ -21,6 +21,8 @@
 - Unknown, repeated, conflicting, dynamic, file-fed, interactive, or unconsumed forms deny.
 - Never persist or echo raw commands or credentials.
 - Every behavior change must be observed RED before production code changes and GREEN afterward.
+- Every authorized curl form must place exactly one literal `-q` or
+  `--disable` first; implicit client configuration is not audited.
 
 ---
 
@@ -622,7 +624,7 @@ git commit -m "docs: record post-RV-88 remediation"
 - Consumes: final source and documentation commits.
 - Produces: clean local/package evidence and an independent merge verdict.
 
-- [ ] **Step 1: Run the complete source gate**
+- [x] **Step 1: Run the complete source gate**
 
 ```bash
 node tests/run-command-guard-tests.mjs
@@ -631,7 +633,7 @@ node tests/run-command-guard-tests.mjs
 Require zero failures/skips, 100 percent critical line/function/branch
 coverage, all pristine witnesses passing, and every typed mutant killed.
 
-- [ ] **Step 2: Run repository validators**
+- [x] **Step 2: Run repository validators**
 
 ```bash
 python tests/test-command-guard-install-policy.py
@@ -646,7 +648,7 @@ bash tests/validate-ci-workflows.sh
 git diff --check
 ```
 
-- [ ] **Step 3: Run the installed Debian/WSL package gate**
+- [x] **Step 3: Run the installed Debian/WSL package gate**
 
 ```bash
 command -v node
@@ -661,7 +663,7 @@ observed version as test evidence only; do not add it as a package requirement
 or version pin. Require source-to-installed byte equivalence and execution of
 all review fixtures.
 
-- [ ] **Step 4: Request a fresh independent adversarial review**
+- [x] **Step 4: Request a fresh independent adversarial review**
 
 Review the final head against the pre-remediation commit `24a3331`. Require
 explicit checks for RV-89 through RV-93, adjacent HTTP/Git/Kubernetes/
@@ -673,6 +675,13 @@ workflow coverage. Do not reuse the earlier verdict.
 For each finding, reproduce RED, implement the smallest correction, rerun the
 affected and full gates, and request another independent review. Do not mark
 the ledger resolved while any Critical or Important finding remains.
+
+The review of `02e480b` produced RV-94 through RV-97. Their implementation
+requires the first-argument curl default-configuration disable boundary,
+platform key-header credential recognition, exact CodeQL init wiring
+validation, platform-qualified test evidence, 155 source/installed fixtures,
+and 82 typed mutation witnesses. Focused Windows gates are green; Debian/WSL,
+the complete repository gate, and the next independent verdict remain pending.
 
 - [ ] **Step 6: Record the final independent verdict**
 

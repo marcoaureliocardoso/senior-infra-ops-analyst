@@ -30,6 +30,9 @@
 - Closed RV-91 by classifying enabled `kubectl` and `k3s kubectl apply --prune` as destructive while preserving explicit false values and denying malformed or repeated prune controls.
 - Closed RV-92 by requiring exactly one canonical `-NoProfile` on `pwsh` and `powershell` wrappers before the analyzed payload, with dedicated safe reformulation guidance for missing or duplicate profile suppression.
 - Closed RV-93 by adding JavaScript/TypeScript to the CodeQL matrix and executable workflow-mutation tests that require the exact Python plus JavaScript/TypeScript language set.
+- Closed RV-94 by requiring exactly one `curl -q` or `curl --disable` control as the first argument so implicit default configuration cannot alter the audited request.
+- Closed RV-95 by recognizing Azure Functions and API Management key headers as authorization credentials while preserving benign adjacent header names.
+- Closed RV-96 and RV-97 by proving the CodeQL matrix-to-initialization binding and documenting platform-qualified test totals instead of one ambiguous universal count.
 - Added native `PreToolUse` common-field compatibility, including bounded `prompt_id` and documented `effort.level`, plus quoted, escaped, Unicode, empty, and repeated literal-credential handling and direct `gpg`/`age` to `sudo -S` or `sshpass -d 0` flows.
 - Added executable fixture-ledger/orphan gates, bounded per-stage findings, four deterministic property seeds, 100% critical line/function/branch coverage including the command catalogue and output resolver, eighty security mutations with pristine baselines and typed matching assertion witnesses, byte-equivalent installed artifacts, and installed-corpus behavior probes.
 - Replaced generated coverage labels with executable semantic fixtures for every finite grammar, operator, command-family, reason-code, limit, credential-transport, edge-case, and independent-review inventory item.

@@ -3,7 +3,7 @@
 <!-- cspell:words pathspec -->
 
 **Date:** 2026-08-03  
-**Status:** Implemented; independent verification pending
+**Status:** Remediated through RV-97; final independent verification pending
 **Scope:** PR #25, native command guard for executor subagents
 
 ## Context
@@ -25,6 +25,13 @@ The existing source and installed gates are green, but their inventory does
 not represent these cases. This design closes those gaps without pinning
 Claude Code, Nori, Node.js, or the configured model and without adding runtime
 dependencies.
+
+A subsequent independent review of the implemented RV-89 through RV-93 head
+found four adjacent delivery gaps: curl could still load implicit default
+configuration, two platform credential headers were not recognized, the
+workflow validator did not prove that CodeQL initialization consumed the
+matrix value, and platform-specific test totals were documented ambiguously.
+These findings are tracked as RV-94 through RV-97 below.
 
 ## Approved scope boundary
 
@@ -86,6 +93,10 @@ covers vendor headers such as `X-Vault-Token`, `X-Auth-Token`, `X-Secret`, and
 `X-Access-Key` without reducing the rule to a short exact-name enumeration.
 Their values receive the same redaction, first-use approval, binding, and
 forbidden-output treatment as other literal authorization credentials.
+The bounded taxonomy also includes Azure Functions `X-Functions-Key` and API
+Management `Ocp-Apim-Subscription-Key` spellings through delimited
+`function-key`, `functions-key`, and `subscription-key` concepts. Nearby
+ordinary names such as `X-Function` and `Subscription` remain non-secret.
 
 Clearly non-secret literal headers such as `Accept` and `Content-Type` remain
 available. Dynamic header names or values and header-file forms deny. A
@@ -166,8 +177,25 @@ automatic module loading or every behavior internal to an accepted cmdlet.
 
 The CodeQL job matrix contains both `python` and `javascript-typescript`.
 Existing action references, permissions, timeouts, and ShellCheck remain
-unchanged. Repository validation asserts both languages so later edits cannot
-silently remove JavaScript coverage.
+unchanged. Repository validation requires `security.yml`, exactly one CodeQL
+initialization step, the exact two-language matrix, and exactly one
+`languages: ${{ matrix.language }}` binding so later edits cannot silently
+remove JavaScript coverage or hard-code the initialized language.
+
+## Decision 6: neutralize implicit curl configuration
+
+Curl may load user or system default configuration before applying visible
+arguments. The guard cannot audit that external state atomically. Every curl
+form eligible for authorization therefore requires exactly one literal `-q`
+or `--disable` as its first argument. Missing, late, repeated, negated, or
+compact spellings deny with `DENY_CURL_DEFAULT_CONFIG` and operator guidance.
+The accepted option is still consumed by the closed client grammar.
+
+This rule applies before redirect, method, credential, sink, and target
+classification. It prevents an implicit configuration file from adding a
+redirect, body, upload, secret header, method, or output sink that is absent
+from the audited command. It does not inspect or depend on the contents of
+the operator's curl configuration.
 
 ## Policy and error behavior
 
@@ -203,7 +231,14 @@ the real policy entrypoint.
    bypass modes.
 5. PowerShell wrapper fixtures cover both executables, missing and duplicate
    `-NoProfile`, canonical options, abbreviations, conflicts, and outer arity.
-6. A workflow validator requires both CodeQL languages.
+6. A workflow validator requires both CodeQL languages, the security workflow,
+   and the exact matrix-to-initialization binding.
+7. A loopback fixture demonstrates that a synthetic `.curlrc` body changes a
+   visible GET into POST without `-q`, while the first-argument `-q` form
+   remains the audited GET.
+8. Stable RV-94 and RV-95 fixtures exercise source and installed policy for
+   missing, late, repeated, negated, short and long curl configuration controls
+   plus platform-key and benign adjacent headers.
 
 Each security boundary has a stable review-regression ID, source and installed
 corpus fixture, exact one-site typed mutation where runtime behavior changes,

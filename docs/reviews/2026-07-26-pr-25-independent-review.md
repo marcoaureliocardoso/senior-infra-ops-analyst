@@ -749,10 +749,34 @@ the workflow gap was observed RED through a repository-copy mutation test.
 The approved scope does not claim control over Git hooks, clean/process
 filters, configured signers, or other indirect local subprocesses launched from
 persistent Git configuration. That residual risk is accepted and documented;
-direct command semantics remain enforced. The current source gate passes 254
-tests with zero skips, 100 percent critical line/function/branch coverage, four
-fixed property seeds, and 80 of 80 pristine-baseline typed mutations. The
-shared source/installed registry contains 145 stable review fixtures. Final
+direct command semantics remain enforced. At that head, the Windows source
+gate passed 254 tests while Debian/WSL passed 258; both had zero skips, 100
+percent critical line/function/branch coverage, four fixed property seeds, and
+80 of 80 pristine-baseline typed mutations. The shared source/installed
+registry contained 145 stable review fixtures. Final
 Debian/WSL package validation and a fresh independent read-only review of this
 resulting head remain required before merge. Runtime and model versions remain
 unpinned.
+
+## 2026-08-03 twenty-third independent review disposition
+
+The next read-only review confirmed RV-90 through RV-92 and reproduced one
+Critical runtime boundary, one Important credential-classification gap, and
+two Minor verification/documentation gaps. Each runtime finding was observed
+RED through the real policy entrypoint; the CodeQL gap was observed by mutating
+a repository copy while preserving its declared matrix.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-94 | Curl default configuration escaped the visible grammar | An implicit `.curlrc` could add redirects, bodies, methods, credentials, or sinks while the guard authorized only visible arguments | Require exactly one literal `-q` or `--disable` as the first curl argument and reject missing, late, repeated, negated, or compact controls | Remediated; final independent verification pending |
+| RV-95 | Platform key headers escaped credential handling | `X-Functions-Key` and `Ocp-Apim-Subscription-Key` were treated as ordinary headers | Add bounded platform-key concepts to secret-header recognition with redaction, approval, negative controls, typed mutation, and source/installed fixtures | Remediated; final independent verification pending |
+| RV-96 | CodeQL language declaration did not prove init wiring | Hard-coding `languages: python` in the init step passed while the two-language matrix remained declared | Require `security.yml`, one CodeQL init step, and exactly one `languages: ${{ matrix.language }}` binding | Remediated; final independent verification pending |
+| RV-97 | Test counts were documented as platform-neutral | The ledger and ADR reported 254 universally although Debian/WSL executed 258 at that head | Qualify evidence by platform and record current counts only after execution | Remediated; final independent verification pending |
+
+The Windows source gate now passes 262 tests with zero skips, 100 percent
+critical line/function/branch coverage, four fixed property seeds, and 82 of
+82 typed mutations killed. The source/installed registry contains 155 stable
+review fixtures. The workflow mutation suite passes through local Git Bash,
+and the loopback suite passes on Windows with its POSIX-only `.curlrc` location
+case explicitly skipped. A fresh Debian package run, final independent review,
+and GitHub checks remain required before merge.
