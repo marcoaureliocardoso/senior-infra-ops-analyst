@@ -730,3 +730,29 @@ The final independent review added a 56-check adversarial matrix across normal
 and bypass modes, reproduced both Git rewrite mechanisms, found no Critical,
 Important, or Minor issue, and returned `Ready to merge: Yes` for commit
 `86aaba7`.
+
+## 2026-08-03 twenty-second independent review disposition
+
+A new adversarial review of the post-RV-88 head reproduced four Important
+runtime boundaries and one delivery gap not represented by the then-green
+suite. Each runtime case was observed RED through the real policy entrypoint;
+the workflow gap was observed RED through a repository-copy mutation test.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-89 | Redirects and vendor credential headers escaped the bound HTTP origin | Redirect-following clients could reach an unaudited origin, while secret-bearing vendor headers were not always treated as credentials | Deny curl redirects, require PowerShell `-MaximumRedirection 0`, parse literal headers, and generalize credential-header recognition | Remediated; independent verification pending |
+| RV-90 | Local Git writes used prefix recognition | Unsupported or destructive `add`, `commit`, and `tag` forms inherited a generic low-risk target | Replace prefixes with complete parsers, canonical targets, and destructive amend/force/delete classification | Remediated; independent verification pending |
+| RV-91 | Kubernetes prune retained disruptive risk | Enabled `apply --prune` could delete resources while `bypassPermissions` allowed it autonomously | Model prune as a boolean singleton and classify enabled prune as destructive for kubectl and k3s | Remediated; independent verification pending |
+| RV-92 | PowerShell wrappers could load profiles | `pwsh` and `powershell` accepted a payload without suppressing startup profiles | Require exactly one canonical `-NoProfile` and reject wrapper ambiguity before payload analysis | Remediated; independent verification pending |
+| RV-93 | CodeQL omitted the JavaScript guard | Static analysis covered Python but not the security-critical JavaScript implementation | Require the exact Python and JavaScript/TypeScript CodeQL matrix through an executable mutation test | Remediated; independent verification pending |
+
+The approved scope does not claim control over Git hooks, clean/process
+filters, configured signers, or other indirect local subprocesses launched from
+persistent Git configuration. That residual risk is accepted and documented;
+direct command semantics remain enforced. The current source gate passes 254
+tests with zero skips, 100 percent critical line/function/branch coverage, four
+fixed property seeds, and 80 of 80 pristine-baseline typed mutations. The
+shared source/installed registry contains 145 stable review fixtures. Final
+Debian/WSL package validation and a fresh independent read-only review of this
+resulting head remain required before merge. Runtime and model versions remain
+unpinned.

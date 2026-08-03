@@ -255,6 +255,26 @@ uses conservative normal-mode semantics rather than a version allowlist.
 40. Kubernetes `cluster-info` accepts only its bounded summary form. The real
     positional `dump` subcommand, including through `k3s kubectl`, is outside
     the grammar and denies instead of inheriting narrow-read authorization.
+41. HTTP authorization binds only the requested literal origin. Curl redirect
+    flags deny, while PowerShell HTTP clients require exactly
+    `-MaximumRedirection 0`; audit never claims that the requested origin is an
+    effective redirect target. Literal secret-bearing vendor headers share the
+    Authorization credential, redaction, and approval path.
+42. Local `git add`, `git commit`, and `git tag` use complete bounded grammars
+    and canonical targets. Amend, forced tag replacement, and tag deletion are
+    destructive. Persistent hooks, clean/process filters, configured signers,
+    and other indirect local subprocesses are an approved residual risk outside
+    this current-call enforcement point.
+43. Enabled Kubernetes `apply --prune` is destructive for both `kubectl` and
+    `k3s kubectl`. Explicit false values preserve disruptive-apply semantics;
+    malformed, repeated, and unconsumed forms deny.
+44. An outer `pwsh` or `powershell` invocation requires exactly one canonical
+    case-insensitive `-NoProfile` before a single `-Command` payload. Wrapper
+    abbreviations, unknowns, duplicates, apartment conflicts, outer
+    composition, and trailing arguments deny.
+45. The CodeQL matrix contains exactly Python and JavaScript/TypeScript. An
+    executable workflow-mutation test rejects either omission and unexpected
+    languages.
 
 ## Enforcement points
 
@@ -326,13 +346,13 @@ ambiguous destinations deny.
 
 ## Validation evidence
 
-- The remediated deterministic gate runs 220 active Node tests with zero
+- The remediated deterministic gate runs 254 active Node tests with zero
   skips, four recorded property seeds, a finite inventory orphan check, and
   exact mutation-site validation.
 - Critical contract, lexer, composition, credential-flow, binding-state,
   policy, catalogue, redaction, response, audit, and both entrypoint modules achieve 100%
   line, function, and branch coverage with native Node test coverage.
-- Fifty-three registered security mutations are baseline-proven and killed by
+- Eighty registered security mutations are baseline-proven and killed by
   their exact typed witnesses, including background and
   size bounds, dynamic syntax, unknown family, target binding, destructive
   precedence, risk aggregation, unsafe credential sink, authorization
@@ -348,18 +368,19 @@ ambiguous destinations deny.
   matching, complete remote endpoint and address-family identity, packet stdout
   identity and selector uniqueness, and the MongoDB,
   IP batch, remote-transfer, packet-capture, nested `ctr`, Git output, and
-  `dmesg` control closures.
+  `dmesg` control closures, HTTP redirect and secret-header handling, closed
+  local Git writes, destructive Kubernetes prune, and profile-free PowerShell
+  wrappers.
 - Installed validation byte-compares the launcher, entrypoints, and all guard
-  modules with source, then executes the same 91-case stable-ID adversarial
-  corpus against both forms.
+  modules with source, then executes the same current 145-case stable-ID
+  adversarial corpus against both forms.
 - Each finite grammar, shell operator, command family, reason code, limit,
   credential transport, edge case, and review regression is bound to an
   executable semantic fixture. One ledger proves every declared fixture ran
   exactly once and fails on stale, missing, duplicate, or unexecuted evidence.
-- A fresh Debian/WSL package gate passed with an observed capability-compatible
-  Node.js `v24.17.0`. A temporary isolated Nori `0.31.0` install registered 12
-  subagents, 24 skills, and 20 slash commands; installed semantic validation
-  and all 91 installed fixtures passed. These observations are not requirements.
+- Final Debian/WSL package evidence for the current 145-case corpus is required
+  before merge. Runtime acceptance is capability-based; observed Node.js,
+  Claude Code, Nori, and model identifiers are evidence, not requirements.
 - A static safety contract constrains opt-in live Claude Code/Nori probes to a
   generated home, Bubblewrap, disposable local processes, loopback targets,
   retained-output scans, and redacted evidence.

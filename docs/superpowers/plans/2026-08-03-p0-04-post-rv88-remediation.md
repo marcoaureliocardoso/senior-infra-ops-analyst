@@ -556,7 +556,7 @@ git commit -m "ci: analyze command guard JavaScript"
   count, and approved scope boundary.
 - Produces: one consistent operator and architecture description for PR #25.
 
-- [ ] **Step 1: Append the next independent-review disposition**
+- [x] **Step 1: Append the next independent-review disposition**
 
 Record the fresh review findings as stable IDs:
 
@@ -572,14 +572,14 @@ Mark runtime findings remediated with final verification pending. Record the
 Git indirect-process exclusion as an approved residual risk, not as a fixed
 finding.
 
-- [ ] **Step 2: Correct architecture claims**
+- [x] **Step 2: Correct architecture claims**
 
 Update README and ADR-004 to state that requested HTTP origin is not an
 effective redirect target, redirects deny, PowerShell wrappers require
 `-NoProfile`, direct Git semantics are closed, and Git hooks/filters/signers are
 outside scope. Remove or qualify claims contradicted by the review.
 
-- [ ] **Step 3: Update release notes without changing version**
+- [x] **Step 3: Update release notes without changing version**
 
 Add concise 0.11.0 changelog bullets for RV-89 through RV-93. Derive executable
 test, fixture, and mutation counts from the test runner and registries, and
@@ -592,7 +592,7 @@ Change the approved spec status to `Implemented and independently verified`
 only after source and installed tests and the fresh independent review pass.
 Record exact behavior rather than implementation history.
 
-- [ ] **Step 5: Validate and commit documentation**
+- [x] **Step 5: Validate and commit documentation**
 
 ```bash
 npx --yes markdownlint-cli2 "**/*.md" "#.tmp/**"

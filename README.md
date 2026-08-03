@@ -60,6 +60,11 @@ Verbs must occupy their family-defined position, filters cannot add independent
 file inputs, and log, scan, query, packet, and cloud-list bounds are checked
 before authorization.
 
+An outer `pwsh` or `powershell` wrapper must contain exactly one canonical
+case-insensitive `-NoProfile` before one `-Command` payload. Unknown,
+abbreviated, duplicated, conflicting, or unconsumed wrapper options deny, so
+profile startup code cannot run before the analyzed payload.
+
 Git push, GitHub CLI reads, journal reads, and container logs use closed
 verb-specific grammars: every accepted option and operand is consumed, the
 explicit requested Git repository address is bound to the audit environment, external Git
@@ -73,10 +78,18 @@ local path. Git can also rewrite explicit addresses through persistent
 `git push` carries `ALWAYS_ASK`, including in `bypassPermissions`. The audit
 records the requested address and does not claim it is the effective
 destination or helper. Implicit GitHub repository selection denies.
+Local `git add`, `git commit`, and `git tag` also use closed grammars with
+canonical targets; amend, forced tag replacement, and tag deletion are
+destructive. Git hooks, clean/process filters, configured signers, and other
+indirect local subprocesses remain an approved out-of-scope residual risk and
+are not claimed as enforced by the current-call guard.
 Streaming follow/watch forms and excessive output limits deny; broad GitHub
 Actions logs require native confirmation, and container log reads retain the
 container as audit target. Plain `kubectl cluster-info` remains a narrow read,
-while `cluster-info dump` denies as an unbounded sensitive collection.
+while `cluster-info dump` denies as an unbounded sensitive collection. Enabled
+`kubectl apply --prune` and `k3s kubectl apply --prune` are destructive and
+therefore always require native confirmation; explicit `--prune=false` retains
+ordinary disruptive-apply treatment.
 
 Profiles, agents, keychains, cached sessions, credential helpers, runtime
 variables, and protected-file direct flows configured outside the generated
@@ -135,6 +148,11 @@ contribute `SENSITIVE_OUTPUT + ALWAYS_ASK`; the `-` pseudo-sink is never
 misreported as a local file. A curl trace produced while a literal credential
 is present denies outright: stdout traces use `DENY_SECRET_OUTPUT`, while file
 traces use `DENY_SECRET_PERSISTENCE`.
+Redirect following denies because the requested literal origin cannot prove an
+effective redirect target. Curl location flags are rejected, and PowerShell
+HTTP clients require exactly `-MaximumRedirection 0`. Literal secret-bearing
+header names such as token, credential, password, and API-key variants enter
+the same redaction and approval path as Authorization.
 
 PostgreSQL and MySQL consume closed singleton connection selectors and bind
 credential approval to scheme, user, host, port, and database. Networked
@@ -169,6 +187,8 @@ Mandatory static and installed-form validation:
 ```bash
 node tests/run-command-guard-tests.mjs
 python3 tests/test-command-guard-install-policy.py
+python3 tests/test-ci-workflows.py
+bash tests/validate-ci-workflows.sh
 bash tests/live-command-guard-smoke.sh --self-test
 ```
 

@@ -3,7 +3,7 @@
 <!-- cspell:words pathspec -->
 
 **Date:** 2026-08-03  
-**Status:** Approved for implementation by the operator
+**Status:** Implemented; independent verification pending
 **Scope:** PR #25, native command guard for executor subagents
 
 ## Context
@@ -135,15 +135,15 @@ operands rather than the final raw token.
 
 ## Decision 3: classify Kubernetes prune as destructive
 
-The existing closed Kubernetes option grammar remains unchanged except for
-risk derivation. An enabled `--prune` on `apply` produces `DESTRUCTIVE` for
+The closed Kubernetes option grammar models prune as a boolean singleton and
+uses it in risk derivation. An enabled `--prune` on `apply` produces `DESTRUCTIVE` for
 both `kubectl` and `k3s kubectl`, so native confirmation is mandatory in every
 permission mode. The operation remains authorizable and therefore returns
 `ask`, not `deny`.
 
-Disabled, malformed, repeated, or unconsumed prune forms continue to follow the
-closed option grammar. Existing explicit context, namespace, file target, and
-selector binding remains required.
+Disabled prune remains an ordinary disruptive apply. Malformed, repeated, or
+unconsumed prune forms deny under the closed option grammar. Existing explicit
+context, namespace, file target, and selector binding remains required.
 
 ## Decision 4: require profile-free PowerShell wrappers
 
@@ -165,7 +165,7 @@ automatic module loading or every behavior internal to an accepted cmdlet.
 ## Decision 5: extend static security analysis
 
 The CodeQL job matrix contains both `python` and `javascript-typescript`.
-Existing pinned action references, permissions, timeouts, and ShellCheck remain
+Existing action references, permissions, timeouts, and ShellCheck remain
 unchanged. Repository validation asserts both languages so later edits cannot
 silently remove JavaScript coverage.
 
