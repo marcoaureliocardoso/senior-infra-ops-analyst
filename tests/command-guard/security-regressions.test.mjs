@@ -53,6 +53,14 @@ test('Git push closed grammar binds destination and rejects execution overrides'
   assert.equal(mapped.target, 'main:other');
   assert.equal(mapped.environment, 'origin');
 
+  for (const repository of [
+    'https://git.example.invalid/ops/repo.git',
+    'http://git.example.invalid/ops/repo.git',
+    'ssh://ops@git.example.invalid/ops/repo.git',
+    'git://git.example.invalid/ops/repo.git',
+    'file:///srv/git/repo.git',
+  ]) assert.notEqual(analyze(`git push ${repository} main`).decision, 'deny', repository);
+
   for (const command of [
     'git push origin main --force-with-lease',
     'git push origin main --force-with-lease=main:expected',
@@ -74,6 +82,8 @@ test('Git push closed grammar binds destination and rejects execution overrides'
     "git push 'ext::/tmp/review-helper %S repo' main",
     "git push --repo='ext::/tmp/review-helper %S repo' main",
     'git push helper::opaque-address main',
+    'git push helper://opaque-address main',
+    'git push --repo=helper://opaque-address main',
     'git push --repo origin --receive-pack helper main',
     'git push --receive-pack=helper origin main',
     'git push --push-option=payload origin main',

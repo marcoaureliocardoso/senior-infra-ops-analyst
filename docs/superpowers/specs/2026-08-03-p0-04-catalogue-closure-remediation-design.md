@@ -27,6 +27,9 @@ missing or conflicting repositories, unknown options, `--exec`,
 `--receive-pack`, server push-options, local-hook bypass, dynamic operands, and
 ambiguous option repetition. Literal remote-helper transports such as
 `ext::<command>` also deny because they execute an unmodelled local helper.
+For `scheme://` URLs, only Git's reviewed native `file`, `git`, `ssh`, `http`,
+and `https` transports are accepted; unknown schemes would invoke an external
+`git-remote-<scheme>` helper and therefore deny.
 
 The parser consumes a deliberately finite option set. Ordinary pushes are
 `LOW_RISK_CHANGE`; force, deletion, mirror, prune, or destructive refspec

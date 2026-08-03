@@ -319,4 +319,9 @@ export const MUTATIONS = Object.freeze([
     search: "    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' && verb !== 'logs' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });",
     replacement: "    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });",
   },
+  {
+    id: 'CATALOGUE_GIT_PUSH_URL_TRANSPORT', file: 'command-guard/catalogue.mjs',
+    search: '    && (urlScheme === undefined || GIT_NATIVE_TRANSPORTS.has(urlScheme))',
+    replacement: '    && true',
+  },
 ]);

@@ -33,7 +33,7 @@
 Add literal assertions that `--repo` and positional repository forms bind the
 same environment; `--exec`, `--receive-pack`, duplicate/conflicting repository
 selectors, server push-options, local-hook bypass, external `*::` helper
-transports, missing repositories,
+transports, unknown `scheme://` remote helpers, missing repositories,
 unknown options, and malformed refspecs deny in both modes. Assert force,
 deletion, mirror, prune, `+refspec`, and `:destination` remain destructive.
 

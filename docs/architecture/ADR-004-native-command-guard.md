@@ -226,7 +226,9 @@ uses conservative normal-mode semantics rather than a version allowlist.
 37. Git push uses a complete grammar rather than prefix recognition. Remote
     program, push-option, hook-bypass, unknown, repeated, conflicting, dynamic,
     external `*::` remote-helper, and unconsumed forms deny. The literal
-    effective repository is the audited
+    `scheme://` grammar accepts only native `file`, `git`, `ssh`, `http`, and
+    `https` transports because any other scheme can invoke an external
+    `git-remote-<scheme>` helper. The effective repository is the audited
     environment, bounded refspecs form the target, and force, delete, mirror,
     prune, plus-prefixed, and deletion refspecs remain destructive.
 38. Journal and container log reads consume closed finite schemas. Enabled

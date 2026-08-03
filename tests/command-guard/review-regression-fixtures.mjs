@@ -591,4 +591,14 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     command: 'k3s kubectl --context lab cluster-info dump',
     expectedDecision: 'deny',
   },
+  {
+    id: 'RV84-GIT-PUSH-URL-HELPER',
+    command: 'git push helper://opaque-address main',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV84-GIT-PUSH-URL-HELPER-REPO',
+    command: 'git push --repo=helper://opaque-address main',
+    expectedDecision: 'deny',
+  },
 ]);

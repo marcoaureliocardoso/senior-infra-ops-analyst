@@ -624,3 +624,22 @@ four fixed property seeds, 64 of 64 pristine-baseline typed mutations, and all
 103 installed fixtures. Markdown, spelling of changed documents, schema, and
 CI workflow validation also pass. One fresh independent read-only verification
 remains required before merge.
+
+## 2026-08-03 seventeenth independent review disposition
+
+The final-review attempt confirmed RV-80 through RV-83, then reproduced one
+remaining Critical transport gap. Git can execute a remote helper not only for
+`scheme::address`, but also for an unknown `scheme://address` URL.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-84 | Unknown Git URL schemes invoked external helpers | Positional and `--repo=helper://opaque-address` pushes were autonomous in `bypassPermissions` | Allow only native `file`, `git`, `ssh`, `http`, and `https` URL transports; reject every other scheme and protect both forms with fixtures and a typed mutation | Remediated; final independent verification pending |
+
+The two real policy-entrypoint cases were observed RED before the finite scheme
+allowlist and GREEN afterward. RV-84 adds source and installed fixtures plus a
+dedicated exact mutation for the URL-scheme boundary. The deterministic source
+and Debian/WSL package gates pass 236 tests with zero skips, 100 percent
+critical line/function/branch coverage, four fixed property seeds, 65 of 65
+pristine-baseline typed mutations, and all 105 installed fixtures. Markdown,
+spelling of changed documents, schema, and CI workflow validation also pass.
+One fresh independent read-only verification remains required before merge.

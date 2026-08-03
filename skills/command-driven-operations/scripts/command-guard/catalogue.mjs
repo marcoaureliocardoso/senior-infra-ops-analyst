@@ -688,10 +688,14 @@ function literalGitBranch(value) {
     && !value.endsWith('/') && !value.endsWith('.') && !value.endsWith('.lock');
 }
 
+const GIT_NATIVE_TRANSPORTS = new Set(['file', 'git', 'ssh', 'http', 'https']);
+
 function literalGitRepository(value) {
+  const urlScheme = /^([A-Za-z][A-Za-z0-9+.-]*):\/\//u.exec(value ?? '')?.[1]?.toLowerCase();
   return typeof value === 'string' && value.length <= LIMITS.tokenChars
     && value.length > 0 && !value.startsWith('-')
     && !/^[A-Za-z][A-Za-z0-9+.-]*::/u.test(value)
+    && (urlScheme === undefined || GIT_NATIVE_TRANSPORTS.has(urlScheme))
     && !/[$*?{}\[\]]/u.test(value);
 }
 

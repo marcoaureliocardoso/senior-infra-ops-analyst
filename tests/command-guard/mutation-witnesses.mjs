@@ -365,6 +365,10 @@ const witnesses = {
     assert.equal(result.target, 'web');
     assert.equal(result.environment, 'lab');
   },
+  async CATALOGUE_GIT_PUSH_URL_TRANSPORT(context) {
+    assert.equal((await policyFixture(context, 'git push helper://opaque-address main')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'git push --repo=helper://opaque-address main')).decision, 'deny');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);
