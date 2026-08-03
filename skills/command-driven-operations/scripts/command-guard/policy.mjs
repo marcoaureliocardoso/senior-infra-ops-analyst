@@ -16,6 +16,7 @@ export const REASON_CODES = Object.freeze([
   'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
   'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', 'DENY_UNKNOWN_CREDENTIAL_CONSUMER',
   'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET', 'DENY_UNSUPPORTED_GIT_FORM',
+  'DENY_POWERSHELL_PROFILE',
 ]);
 export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CONTRACT_BACKGROUND_REJECT', 'CONTRACT_COMMAND_BOUND', 'LEXER_DYNAMIC_REJECT',
@@ -60,6 +61,7 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_GIT_LOCAL_CLOSED_GRAMMAR', 'CATALOGUE_GIT_COMMIT_AMEND_RISK',
   'CATALOGUE_GIT_TAG_FORCE_RISK', 'CATALOGUE_GIT_TAG_DELETE_RISK',
   'POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE', 'CATALOGUE_KUBECTL_PRUNE_RISK',
+  'POLICY_POWERSHELL_NOPROFILE_REQUIRED',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -74,7 +76,15 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_UNKNOWN_COMMAND: 'Reformulate with a catalogued executable, verb, literal operands, and finite options.',
   DENY_AMBIGUOUS_TARGET: 'Reformulate with explicit target and environment selectors; variables, globs, and implicit remote context are not sufficient.',
   DENY_UNSUPPORTED_GIT_FORM: 'Use a supported git add, commit, or tag form with only finite literal options and operands.',
+  DENY_POWERSHELL_PROFILE: 'Invoke pwsh or powershell with exactly one canonical -NoProfile option before -Command.',
 });
+
+class CommandPolicyError extends Error {
+  constructor(reasonCode, message) {
+    super(message);
+    this.reasonCode = reasonCode;
+  }
+}
 
 function denied(reasonCode, stage = 1) {
   const guidance = DENY_GUIDANCE[reasonCode];
@@ -91,10 +101,15 @@ function lexCommand(command) {
       .filter((index) => index >= 0);
     if (commandIndexes.length !== 1) throw new Error('unsupported PowerShell wrapper');
     const [commandIndex] = commandIndexes;
-    const allowedWrapperOptions = new Set(['-noprofile', '-noninteractive', '-nolog', '-sta', '-mta']);
-    if (words.slice(1, commandIndex).some(({ cooked }) => !allowedWrapperOptions.has(cooked.toLowerCase()))) {
+    const wrapperOptions = words.slice(1, commandIndex).map(({ cooked }) => cooked.toLowerCase());
+    const allowedWrapperOptions = new Set(['-noprofile', '-noninteractive', '-nologo', '-sta', '-mta']);
+    if (wrapperOptions.some((optionName) => !allowedWrapperOptions.has(optionName))) {
       throw new Error('unsupported PowerShell wrapper option');
     }
+    const profileCount = wrapperOptions.filter((optionName) => optionName === '-noprofile').length;
+    if (profileCount !== 1) throw new CommandPolicyError('DENY_POWERSHELL_PROFILE', 'PowerShell profile loading must be disabled exactly once');
+    if (new Set(wrapperOptions).size !== wrapperOptions.length) throw new Error('duplicate PowerShell wrapper option');
+    if (wrapperOptions.includes('-sta') && wrapperOptions.includes('-mta')) throw new Error('conflicting PowerShell apartment options');
     if (!words[commandIndex + 1] || commandIndex + 2 !== words.length) throw new Error('unconsumed PowerShell wrapper argument');
     const credentialCommand = words[commandIndex + 1].cooked;
     return { lexed: lexPowerShell(credentialCommand), dialect: 'powershell', credentialCommand };
@@ -115,7 +130,12 @@ export function analyzeCommand(event, env = {}) {
     composition = buildComposition(lexed.lexed);
     dialect = lexed.dialect;
     credentialCommand = lexed.credentialCommand;
-  } catch { return denied('DENY_UNSUPPORTED_SYNTAX'); }
+  } catch (error) {
+    const reasonCode = error instanceof CommandPolicyError && error.reasonCode === 'DENY_POWERSHELL_PROFILE'
+      ? error.reasonCode
+      : 'DENY_UNSUPPORTED_SYNTAX';
+    return denied(reasonCode);
+  }
   const spans = detectSensitiveSpans(credentialCommand);
   const credentialAnalysis = classifyCredentials(composition, credentialCommand, spans);
   const credentialErrors = credentialFlowErrors(composition, credentialAnalysis);

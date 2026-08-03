@@ -418,7 +418,7 @@ git commit -m "fix: classify Kubernetes prune as destructive"
 - Consumes: the outer Bash token stream and `lexPowerShell(payload)`.
 - Produces: exact wrapper grammar and `DENY_POWERSHELL_PROFILE` guidance.
 
-- [ ] **Step 1: Add failing wrapper tests**
+- [x] **Step 1: Add failing wrapper tests**
 
 Cover `pwsh` and `powershell` with these classes:
 
@@ -441,7 +441,7 @@ Missing or duplicate `-NoProfile` must deny with
 `DENY_UNSUPPORTED_SYNTAX`. Preserve outer-composition and exact payload-arity
 tests.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 node --test --test-name-pattern="PowerShell wrapper|profile-free" tests/command-guard/policy.test.mjs tests/command-guard/security-regressions.test.mjs
@@ -450,7 +450,7 @@ node --test --test-name-pattern="PowerShell wrapper|profile-free" tests/command-
 Expected: missing profile suppression and accepted abbreviation expose the old
 behavior.
 
-- [ ] **Step 3: Implement typed wrapper rejection**
+- [x] **Step 3: Implement typed wrapper rejection**
 
 Add an internal helper that throws a reason-bearing error only for the missing
 or duplicate profile condition. In the top-level catch, allow only the known
@@ -460,16 +460,17 @@ Validate canonical case-insensitive option names, uniqueness, `Sta`/`Mta`
 exclusion, exactly one `-Command`, and exactly one payload. Replace `-nolog`
 with canonical `-nologo`.
 
-- [ ] **Step 4: Add RV-92 fixtures and one mutation**
+- [x] **Step 4: Add RV-92 fixtures and one mutation**
 
 Register both missing-profile wrappers, canonical allowed wrappers, duplicate,
 abbreviation, conflict, and arity cases. Add
 `POLICY_POWERSHELL_NOPROFILE_REQUIRED`; its witness must assert the dedicated
 reason and that a canonical wrapper still allows.
 
-- [ ] **Step 5: Update live self-test, run GREEN, and commit**
+- [x] **Step 5: Update live self-test, run GREEN, and commit**
 
-Ensure every live PowerShell wrapper includes `-NoProfile`. Run focused tests,
+Ensure every live PowerShell wrapper includes `-NoProfile` (the existing smoke
+wrapper was already compliant, so no script edit was required). Run focused tests,
 the live smoke self-test, executable fixtures, and mutations, then:
 
 ```bash

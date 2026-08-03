@@ -394,4 +394,9 @@ export const MUTATIONS = Object.freeze([
     search: "    const destructivePrune = verb === 'apply' && enabledBooleanOption(words, '--prune');",
     replacement: '    const destructivePrune = false;',
   },
+  {
+    id: 'POLICY_POWERSHELL_NOPROFILE_REQUIRED', file: 'command-guard/policy.mjs',
+    search: "    if (profileCount !== 1) throw new CommandPolicyError('DENY_POWERSHELL_PROFILE', 'PowerShell profile loading must be disabled exactly once');",
+    replacement: '    if (false) throw new CommandPolicyError(\'DENY_POWERSHELL_PROFILE\', \'PowerShell profile loading must be disabled exactly once\');',
+  },
 ]);

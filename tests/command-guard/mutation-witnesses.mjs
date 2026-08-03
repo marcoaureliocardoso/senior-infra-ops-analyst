@@ -454,6 +454,12 @@ const witnesses = {
       assert.equal(result.risk, 'DESTRUCTIVE');
     }
   },
+  async POLICY_POWERSHELL_NOPROFILE_REQUIRED(context) {
+    const deniedResult = await policyFixture(context, 'pwsh -Command "Get-Service"');
+    assert.equal(deniedResult.decision, 'deny');
+    assert.equal(deniedResult.reasonCode, 'DENY_POWERSHELL_PROFILE');
+    assert.equal((await policyFixture(context, 'pwsh -NoProfile -Command "Get-Service"')).decision, 'allow');
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

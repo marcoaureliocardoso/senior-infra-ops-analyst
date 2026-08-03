@@ -83,6 +83,7 @@ const REASONS = Object.freeze({
   DENY_UNKNOWN_COMMAND: ['mysteryctl deploy production', 'default'],
   DENY_AMBIGUOUS_TARGET: ['docker restart web', 'default'],
   DENY_UNSUPPORTED_GIT_FORM: ['git commit -F message.txt', 'default'],
+  DENY_POWERSHELL_PROFILE: ['pwsh -Command "Get-Service"', 'default'],
 });
 
 const CREDENTIALS = Object.freeze({

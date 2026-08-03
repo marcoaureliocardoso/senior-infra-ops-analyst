@@ -48,6 +48,36 @@ test('explicit literal PowerShell read pipeline is analyzed separately', () => {
   assert.equal(analyze(command).decision, 'allow');
 });
 
+test('PowerShell wrappers require one canonical profile-free option set', () => {
+  for (const command of [
+    'pwsh -Command "Get-Service"',
+    'powershell -Command "Get-Service"',
+    'pwsh -NoProfile -NoProfile -Command "Get-Service"',
+  ]) {
+    assert.equal(analyze(command).reasonCode, 'DENY_POWERSHELL_PROFILE', command);
+  }
+
+  for (const command of [
+    'pwsh -NoP -Command "Get-Service"',
+    'pwsh -NoLog -NoProfile -Command "Get-Service"',
+    'pwsh -NoProfile -NoLogo -NoLogo -Command "Get-Service"',
+    'pwsh -Sta -Mta -NoProfile -Command "Get-Service"',
+    'pwsh -NoProfile -Command "Get-Service" ignored',
+    'pwsh -NoProfile -Command "Get-Service" -Command "Get-Process"',
+  ]) {
+    assert.equal(analyze(command).reasonCode, 'DENY_UNSUPPORTED_SYNTAX', command);
+  }
+
+  for (const command of [
+    'pwsh -NoProfile -Command "Get-Service"',
+    'powershell -NoProfile -NonInteractive -NoLogo -Command "Get-Service"',
+    'pwsh -noprofile -sta -command "Get-Service"',
+    'pwsh -NoProfile -Mta -Command "Get-Service"',
+  ]) {
+    assert.equal(analyze(command).decision, 'allow', command);
+  }
+});
+
 test('initial operational catalogue covers documented infrastructure families', () => {
   const reads = [
     ['docker ps', 'CONTAINER'],

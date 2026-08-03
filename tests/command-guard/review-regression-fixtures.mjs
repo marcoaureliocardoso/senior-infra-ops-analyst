@@ -809,4 +809,52 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedTarget: 'manifest.yaml',
     expectedEnvironment: 'prod@app',
   },
+  {
+    id: 'RV92-PWSH-MISSING-NOPROFILE',
+    command: 'pwsh -Command "Get-Service"',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_POWERSHELL_PROFILE',
+  },
+  {
+    id: 'RV92-POWERSHELL-MISSING-NOPROFILE',
+    command: 'powershell -Command "Get-Service"',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_POWERSHELL_PROFILE',
+  },
+  {
+    id: 'RV92-PWSH-CANONICAL-WRAPPER',
+    command: 'pwsh -NoProfile -Command "Get-Service"',
+    expectedDecision: 'allow',
+    expectedRisk: 'SAFE_READ_ONLY',
+  },
+  {
+    id: 'RV92-POWERSHELL-CANONICAL-WRAPPER',
+    command: 'powershell -NoProfile -NonInteractive -NoLogo -Command "Get-Service"',
+    expectedDecision: 'allow',
+    expectedRisk: 'SAFE_READ_ONLY',
+  },
+  {
+    id: 'RV92-PWSH-DUPLICATE-NOPROFILE',
+    command: 'pwsh -NoProfile -NoProfile -Command "Get-Service"',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_POWERSHELL_PROFILE',
+  },
+  {
+    id: 'RV92-PWSH-ABBREVIATED-NOPROFILE',
+    command: 'pwsh -NoP -Command "Get-Service"',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_UNSUPPORTED_SYNTAX',
+  },
+  {
+    id: 'RV92-PWSH-APARTMENT-CONFLICT',
+    command: 'pwsh -NoProfile -Sta -Mta -Command "Get-Service"',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_UNSUPPORTED_SYNTAX',
+  },
+  {
+    id: 'RV92-PWSH-TRAILING-ARGUMENT',
+    command: 'pwsh -NoProfile -Command "Get-Service" ignored',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_UNSUPPORTED_SYNTAX',
+  },
 ]);

@@ -589,12 +589,12 @@ test('HTTP sinks bind the normalized local destination and always ask', () => {
 
   assert.equal(analyze('curl -o "$DEST/report.json" https://api.example.invalid/reports/current', 'bypassPermissions', { cwd: '/srv/ops', env }).decision, 'deny');
 
-  const psLiteral = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile reports/status.json"', 'bypassPermissions', { cwd: 'C:\\ops' });
+  const psLiteral = analyze('pwsh -NoProfile -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile reports/status.json"', 'bypassPermissions', { cwd: 'C:\\ops' });
   assert.equal(psLiteral.decision, 'ask');
   assert.equal(psLiteral.target, 'GET /reports/current -> file:C:\\ops\\reports\\status.json');
 
   const psEnv = { OPS_COMMAND_GUARD_OUTPUT_VARIABLES: 'OPS_OUTPUT_DIR', OPS_OUTPUT_DIR: 'C:\\guard-output' };
-  const psConfigured = analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile $env:OPS_OUTPUT_DIR/report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env: psEnv });
+  const psConfigured = analyze('pwsh -NoProfile -Command "Invoke-WebRequest -Uri https://api.example.invalid/reports/current -MaximumRedirection 0 -OutFile $env:OPS_OUTPUT_DIR/report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env: psEnv });
   assert.equal(psConfigured.decision, 'ask');
   assert.equal(psConfigured.target, 'GET /reports/current -> file:C:\\guard-output\\report.json');
 });
@@ -611,7 +611,7 @@ test('HTTP sinks deny ambiguous destinations and unsupported sink controls', () 
     'curl -o "${OPS_OUTPUT_DIR:-/tmp}/report.json" https://api.example.invalid/report.json',
   ];
   for (const command of commands) assert.equal(analyze(command, 'bypassPermissions', { env }).decision, 'deny', command);
-  assert.equal(analyze('pwsh -Command "Invoke-WebRequest -Uri https://api.example.invalid/report.json -MaximumRedirection 0 -OutFile $env:DEST\\report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env }).decision, 'deny');
+  assert.equal(analyze('pwsh -NoProfile -Command "Invoke-WebRequest -Uri https://api.example.invalid/report.json -MaximumRedirection 0 -OutFile $env:DEST\\report.json"', 'bypassPermissions', { cwd: 'C:\\ops', env }).decision, 'deny');
 });
 
 test('HTTP method aliases cannot be repeated to hide the effective destructive request', () => {
