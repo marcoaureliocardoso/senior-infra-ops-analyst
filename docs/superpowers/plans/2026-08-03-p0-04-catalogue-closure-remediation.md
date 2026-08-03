@@ -32,7 +32,8 @@
 
 Add literal assertions that `--repo` and positional repository forms bind the
 same environment; `--exec`, `--receive-pack`, duplicate/conflicting repository
-selectors, server push-options, local-hook bypass, missing repositories,
+selectors, server push-options, local-hook bypass, external `*::` helper
+transports, missing repositories,
 unknown options, and malformed refspecs deny in both modes. Assert force,
 deletion, mirror, prune, `+refspec`, and `:destination` remain destructive.
 
@@ -91,7 +92,8 @@ Expected: Docker, Podman, and journal follow reproductions return `allow`.
 Add `parseJournalctl(words)` and `parseContainerLogs(words, client)`. Track
 semantic option groups, consume every accepted arity, enforce the existing row
 bound, require one container target, reject follow and unknown controls, and
-return canonical targets and modifiers to `lookupFamily`.
+return canonical targets and modifiers to `lookupFamily` without discarding the
+container target during integration.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -110,10 +112,11 @@ Run the Step 2 command and require zero failures.
 
 - [ ] **Step 1: Write failing GH and Kubernetes behavior tests**
 
-Assert watch, excessive limits, unknown options, duplicate repository/limit
-selectors, and missing option values deny. Assert `run view --log` asks with
-sensitive/resource modifiers. Change the existing `cluster-info --dump`
-positive assertion to a plain `cluster-info` positive and add a dump denial.
+Assert watch, excessive limits, unknown options, implicit repository selection,
+duplicate repository/limit selectors, and missing option values deny. Assert
+`run view --log` asks with sensitive/resource modifiers. Change the existing
+dump positive assertion to a plain `cluster-info` positive and add denial for
+the real positional `cluster-info dump` subcommand in kubectl and k3s.
 
 - [ ] **Step 2: Verify RED**
 
@@ -128,9 +131,10 @@ authorized as narrow reads.
 
 - [ ] **Step 3: Implement verb-specific schemas**
 
-Add `parseGhRead(words)` with one closed schema per supported noun/verb and use
-its returned modifiers in `gitCiFamily`. Remove `--dump` from the cluster-info
-option schema so `hasClosedKubectlOptions` rejects it.
+Add `parseGhRead(words)` with one closed schema per supported noun/verb, require
+an explicit repository domain, and use its returned modifiers in `gitCiFamily`.
+Reject positional operands after `cluster-info` so the `dump` subcommand cannot
+inherit summary authorization.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -160,9 +164,10 @@ forbidden-text assertions rather than source-text checks.
 
 - [ ] **Step 2: Add four one-site mutations and typed witnesses**
 
-Register mutations that bypass Git override rejection, log-follow rejection,
-GitHub closed-option validation, and Kubernetes dump rejection. Each pristine
-witness must pass and only its matching mutant may satisfy the failing witness.
+Register dedicated mutations for Git override/helper rejection and destination
+binding, log follow/target behavior, GitHub option/repository/log boundaries,
+and the real Kubernetes dump subcommand. Each pristine witness must pass and
+only its matching mutant may satisfy the failing witness.
 
 - [ ] **Step 3: Update documentation without a version bump**
 

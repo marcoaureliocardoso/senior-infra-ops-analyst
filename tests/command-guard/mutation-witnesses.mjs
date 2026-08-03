@@ -343,7 +343,27 @@ const witnesses = {
     assert.ok(result.modifiers.includes('ALWAYS_ASK'));
   },
   async CATALOGUE_KUBECTL_DUMP_REJECT(context) {
-    assert.equal((await policyFixture(context, 'kubectl --context lab cluster-info --dump')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'kubectl --context lab cluster-info dump')).decision, 'deny');
+    assert.equal((await policyFixture(context, 'k3s kubectl --context lab cluster-info dump')).decision, 'deny');
+  },
+  async CATALOGUE_GIT_PUSH_REPOSITORY_TRANSPORT(context) {
+    assert.equal((await policyFixture(context, "git push 'ext::/tmp/review-helper %S repo' main")).decision, 'deny');
+    assert.equal((await policyFixture(context, "git push --repo='ext::/tmp/review-helper %S repo' main")).decision, 'deny');
+  },
+  async CATALOGUE_GH_REPOSITORY_BINDING(context) {
+    const result = await policyFixture(
+      context,
+      'OPS_CREDENTIAL_IDENTITY=operator GH_TOKEN=SYNTH_SECRET_gh_binding gh pr view 25',
+      'bypassPermissions',
+      { cwd: '/srv/repo-a' },
+    );
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.credentialBinding, undefined);
+  },
+  async CATALOGUE_CONTAINER_LOG_TARGET(context) {
+    const result = await policyFixture(context, 'docker --context lab logs --tail 10 web');
+    assert.equal(result.target, 'web');
+    assert.equal(result.environment, 'lab');
   },
 };
 

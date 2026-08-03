@@ -10,7 +10,7 @@ credential and remote-identity remediations:
    reporting a bounded read;
 3. supported GitHub CLI read verbs accept arbitrary options, including watch,
    broad logs, and excessive list limits;
-4. `kubectl cluster-info --dump` is classified as a narrow read despite its
+4. `kubectl cluster-info dump` is classified as a narrow read despite its
    broad diagnostic and log output.
 
 All four defects have the same root cause: a command family recognizes the
@@ -25,7 +25,8 @@ requires one literal repository, selected either positionally or by one
 `--repo` spelling, and one to `LIMITS.fanOut` literal refspecs. It rejects
 missing or conflicting repositories, unknown options, `--exec`,
 `--receive-pack`, server push-options, local-hook bypass, dynamic operands, and
-ambiguous option repetition.
+ambiguous option repetition. Literal remote-helper transports such as
+`ext::<command>` also deny because they execute an unmodelled local helper.
 
 The parser consumes a deliberately finite option set. Ordinary pushes are
 `LOW_RISK_CHANGE`; force, deletion, mirror, prune, or destructive refspec
@@ -44,14 +45,18 @@ vacuum, flush, sync, and relinquish operations. The container parser supports
 the documented finite Docker, Podman, Nerdctl, and CRI client spellings,
 including timestamps and literal since/until selectors, while requiring one
 literal container target. The hook deadline remains only a guard-evaluation
-deadline and is not treated as command-runtime containment.
+deadline and is not treated as command-runtime containment. The parsed
+container remains the audit target rather than collapsing to `local`.
 
 ## Decision 3: close GitHub CLI read verbs individually
 Replace the shared read-prefix expression with verb-specific schemas for
 `repo view`, `pr view`, `pr list`, `pr checks`, `run view`, `run list`,
 `workflow view`, and `workflow list`. Each schema consumes its literal selector,
 one repository selector, bounded list limits, and only documented output or
-filter options. Unknown, repeated, routing, web, and watch options deny.
+filter options. The repository must be explicit through `--repo` or the
+`repo view` operand; implicit current-directory selection denies because it
+cannot form a stable credential or audit domain. Unknown, repeated, routing,
+web, and watch options deny.
 
 `run view --log` and `--log-failed` remain operationally useful but are
 classified `SAFE_READ_ONLY` with `SENSITIVE_OUTPUT`, `RESOURCE_INTENSIVE`, and
@@ -60,8 +65,9 @@ an absent limit retains the client's finite default. The effective repository
 continues to form the non-secret credential and audit domain.
 
 ## Decision 4: reject broad Kubernetes dumps
-Remove `--dump` from the accepted `cluster-info` grammar. Plain
-`kubectl cluster-info` remains a bounded read. `cluster-info --dump` and any
+Reject the positional `dump` subcommand from the accepted `cluster-info`
+grammar. Plain `kubectl cluster-info` remains a bounded read. `cluster-info
+dump`, its `k3s kubectl` form, and any
 unconsumed variant deny until the catalogue can model a finite destination and
 scope; it does not inherit `SAFE_READ_ONLY` merely because the parent verb is a
 read.
@@ -70,7 +76,7 @@ read.
 Every decision is protected by:
 
 1. focused policy tests observed RED before production changes and GREEN after;
-2. stable RV-76 through RV-79 source and installed-corpus fixtures;
+2. stable RV-76 through RV-83 source and installed-corpus fixtures;
 3. exact one-site security mutations with typed behavioral witnesses;
 4. finite-inventory/orphan checks, 100 percent critical coverage, package
    byte-equivalence, repository validators, and an independent read-only review.

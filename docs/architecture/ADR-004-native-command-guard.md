@@ -225,20 +225,24 @@ uses conservative normal-mode semantics rather than a version allowlist.
     display-level selector is also present.
 37. Git push uses a complete grammar rather than prefix recognition. Remote
     program, push-option, hook-bypass, unknown, repeated, conflicting, dynamic,
-    and unconsumed forms deny. The literal effective repository is the audited
+    external `*::` remote-helper, and unconsumed forms deny. The literal
+    effective repository is the audited
     environment, bounded refspecs form the target, and force, delete, mirror,
     prune, plus-prefixed, and deletion refspecs remain destructive.
 38. Journal and container log reads consume closed finite schemas. Enabled
     follow aliases, duplicate semantic options, missing values, unknown
     controls, dynamic values, and absent container targets deny. Journal
-    maintenance retains its destructive classification.
+    maintenance retains its destructive classification; an accepted container
+    log read retains that container as its audit target.
 39. Each supported GitHub CLI read noun/verb has its own operand and option
     schema. Watch forms and excessive limits deny; broad Actions log output is
     `SENSITIVE_OUTPUT + RESOURCE_INTENSIVE + ALWAYS_ASK`, so it requires native
-    confirmation even in `bypassPermissions`.
-40. Kubernetes `cluster-info` accepts only its bounded summary form. `--dump`
-    is outside the schema and denies instead of inheriting narrow-read
-    authorization.
+    confirmation even in `bypassPermissions`. Every accepted read also requires
+    an explicit repository selector; implicit current-directory selection
+    cannot create a reusable `local` credential domain.
+40. Kubernetes `cluster-info` accepts only its bounded summary form. The real
+    positional `dump` subcommand, including through `k3s kubectl`, is outside
+    the grammar and denies instead of inheriting narrow-read authorization.
 
 ## Enforcement points
 

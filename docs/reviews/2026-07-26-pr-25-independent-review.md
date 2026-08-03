@@ -589,7 +589,7 @@ were added through real policy entrypoints before their parsers were changed.
 | RV-76 | Git push did not consume its complete invocation | Remote controls such as `--exec` could be authorized while audit omitted the effective repository | Parse push options, repository, and bounded refspecs; reject executors, opaque server options, duplicates, unknowns, and malformed forms; bind repository and refspec targets | Remediated; independent verification pending |
 | RV-77 | Operational log reads could become unbounded streams | Journal and container `--follow`/`-f` forms inherited bounded read authorization | Use separate closed finite grammars, reject every follow spelling and unconsumed control, require explicit bounds and one container target, and preserve journal maintenance risk | Remediated; independent verification pending |
 | RV-78 | GitHub CLI read verbs accepted unmodelled output controls | Watch, excessive limits, and broad Actions logs could execute as narrow autonomous reads | Apply one closed schema per supported noun/verb, enforce output bounds, reject watch, and mark broad run logs sensitive, resource-intensive, and always-ask | Remediated; independent verification pending |
-| RV-79 | Kubernetes cluster dump inherited summary authorization | `kubectl cluster-info --dump` was accepted as the bounded cluster summary | Remove dump from the closed option schema while retaining plain `cluster-info` | Remediated; independent verification pending |
+| RV-79 | Nominal Kubernetes dump flag inherited summary authorization | `kubectl cluster-info --dump` was accepted as the bounded cluster summary | Remove the nominal flag from the closed option schema while retaining plain `cluster-info` | Remediated nominal spelling; superseded by RV-81 |
 
 The deterministic source gate now passes 232 tests with zero skips, 100 percent
 critical line/function/branch coverage, four fixed property seeds, and 61 of
@@ -598,3 +598,29 @@ the four findings across source and installed-corpus gates. Version remains
 `0.11.0`; Claude Code, Nori, Node.js, and model selection remain unpinned. A
 fresh package validation and independent read-only review of this resulting
 head are still required before merge.
+
+## 2026-08-03 sixteenth independent review disposition
+
+The independent review of the RV-76 through RV-79 remediation confirmed the
+nominal cases, then reproduced one Critical, two Important, and one Minor
+adjacent gap. The passing structural gates had protected the spellings they
+registered but did not yet represent the effective executable transport,
+repository domain, positional subcommand, or read target.
+
+| ID | Finding | Reproduced behavior | Remediation | Status |
+|---|---|---|---|---|
+| RV-80 | Git repository operand could execute a remote helper | `git push 'ext::/tmp/review-helper %S repo' main` was autonomous in `bypassPermissions` | Reject every literal `scheme::` external remote-helper transport in positional and `--repo` forms | Remediated; final independent verification pending |
+| RV-81 | The real Kubernetes dump syntax remained autonomous | `kubectl cluster-info dump` and its `k3s kubectl` form inherited narrow summary authorization | Reject every positional operand after `cluster-info`; retain only the bounded summary grammar | Remediated; final independent verification pending |
+| RV-82 | Implicit GitHub repositories shared one reusable domain | Credential-bearing reads in different working directories both bound to `local` | Require an explicit `--repo` or `repo view` operand for every accepted GitHub read; implicit selection denies before binding | Remediated; final independent verification pending |
+| RV-83 | Container log target was discarded | The closed parser found the container, but integration recorded `target=local` | Preserve the parsed container target and context in policy, audit, source fixtures, and installed fixtures | Remediated; final independent verification pending |
+
+The new cases were observed RED through real policy entrypoints before the
+corrections. RV-80 through RV-83 now have stable source/installed fixtures;
+three new exact mutations cover the added boundaries, and the RV-79 mutation
+now attacks the real positional dump rejection rather than the nominal
+`--dump` spelling. The deterministic source and Debian/WSL package gates pass
+235 tests with zero skips, 100 percent critical line/function/branch coverage,
+four fixed property seeds, 64 of 64 pristine-baseline typed mutations, and all
+103 installed fixtures. Markdown, spelling of changed documents, schema, and
+CI workflow validation also pass. One fresh independent read-only verification
+remains required before merge.

@@ -534,6 +534,11 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedEnvironment: 'https://github.com/example/project.git',
   },
   {
+    id: 'RV80-GIT-PUSH-EXT-TRANSPORT',
+    command: "git push 'ext::/tmp/review-helper %S repo' main",
+    expectedDecision: 'deny',
+  },
+  {
     id: 'RV77-JOURNAL-FOLLOW',
     command: 'journalctl -u nginx -n 10 --follow',
     expectedDecision: 'deny',
@@ -542,6 +547,13 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     id: 'RV77-CONTAINER-LOG-FOLLOW',
     command: 'docker logs --tail 10 --follow web',
     expectedDecision: 'deny',
+  },
+  {
+    id: 'RV83-CONTAINER-LOG-TARGET',
+    command: 'docker --context lab logs --tail 10 web',
+    expectedDecision: 'allow',
+    expectedTarget: 'web',
+    expectedEnvironment: 'lab',
   },
   {
     id: 'RV78-GH-CHECKS-WATCH',
@@ -563,8 +575,20 @@ export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
     expectedModifiers: ['ALWAYS_ASK', 'RESOURCE_INTENSIVE', 'SENSITIVE_OUTPUT'],
   },
   {
-    id: 'RV79-KUBECTL-CLUSTER-DUMP',
-    command: 'kubectl --context lab cluster-info --dump',
+    id: 'RV82-GH-EXPLICIT-REPOSITORY',
+    command: 'OPS_CREDENTIAL_IDENTITY=operator GH_TOKEN=SYNTH_SECRET_rv78 gh pr view 25',
+    cwd: '/srv/repo-a',
+    expectedDecision: 'deny',
+    forbiddenText: 'SYNTH_SECRET_rv78',
+  },
+  {
+    id: 'RV81-KUBECTL-CLUSTER-DUMP',
+    command: 'kubectl --context lab cluster-info dump',
+    expectedDecision: 'deny',
+  },
+  {
+    id: 'RV81-K3S-CLUSTER-DUMP',
+    command: 'k3s kubectl --context lab cluster-info dump',
     expectedDecision: 'deny',
   },
 ]);

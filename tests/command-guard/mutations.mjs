@@ -301,7 +301,22 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_KUBECTL_DUMP_REJECT', file: 'command-guard/catalogue.mjs',
-    search: "    'cluster-info': {},",
-    replacement: "    'cluster-info': { flags: ['--dump'] },",
+    search: "    if (verb === 'cluster-info' && operandsAfter(words, command.index, ['--context', '--namespace', '-n', '--request-timeout', '-o', '--output']).length > 0) return null;",
+    replacement: "    if (false && verb === 'cluster-info' && operandsAfter(words, command.index, ['--context', '--namespace', '-n', '--request-timeout', '-o', '--output']).length > 0) return null;",
+  },
+  {
+    id: 'CATALOGUE_GIT_PUSH_REPOSITORY_TRANSPORT', file: 'command-guard/catalogue.mjs',
+    search: "    && !/^[A-Za-z][A-Za-z0-9+.-]*::/u.test(value)",
+    replacement: '    && true',
+  },
+  {
+    id: 'CATALOGUE_GH_REPOSITORY_BINDING', file: 'command-guard/catalogue.mjs',
+    search: "  if (remote === 'local') return null;",
+    replacement: "  if (false && remote === 'local') return null;",
+  },
+  {
+    id: 'CATALOGUE_CONTAINER_LOG_TARGET', file: 'command-guard/catalogue.mjs',
+    search: "    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' && verb !== 'logs' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });",
+    replacement: "    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });",
   },
 ]);

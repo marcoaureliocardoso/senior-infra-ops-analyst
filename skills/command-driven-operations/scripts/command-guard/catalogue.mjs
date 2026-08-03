@@ -691,6 +691,7 @@ function literalGitBranch(value) {
 function literalGitRepository(value) {
   return typeof value === 'string' && value.length <= LIMITS.tokenChars
     && value.length > 0 && !value.startsWith('-')
+    && !/^[A-Za-z][A-Za-z0-9+.-]*::/u.test(value)
     && !/[$*?{}\[\]]/u.test(value);
 }
 
@@ -904,6 +905,7 @@ function parseGhRead(words) {
   const selectedRepo = values.get('--repo');
   if (key === 'repo view' && selectedRepo && operands.length > 0) return null;
   const remote = selectedRepo ?? (key === 'repo view' ? operands[0] : null) ?? 'local';
+  if (remote === 'local') return null;
   const broadLogs = key === 'run view' && flags.has('log');
   return {
     target: operands[0] ?? remote,
@@ -1424,6 +1426,7 @@ export function lookupFamily(stage, context = {}) {
     if (!verb) return null;
     if (!verbs.includes(verb)) return null;
     if (!hasClosedKubectlOptions(words, lower === 'k3s' ? 2 : 1, verb)) return null;
+    if (verb === 'cluster-info' && operandsAfter(words, command.index, ['--context', '--namespace', '-n', '--request-timeout', '-o', '--output']).length > 0) return null;
     if (['get', 'describe', 'logs', 'events'].includes(verb) && enabledBooleanOption(words, '--watch', '--watch-only', '-w')) return null;
     if (verb === 'logs' && enabledBooleanOption(words, '--follow', '-f')) return null;
     const chunkSize = option(words, '--chunk-size');
@@ -1460,7 +1463,7 @@ export function lookupFamily(stage, context = {}) {
     const modifiers = verb === 'inspect' ? ['SENSITIVE_OUTPUT', 'ALWAYS_ASK'] : [];
     const context = option(words, '--context');
     if (context && /[$*?{}]/u.test(context)) return null;
-    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
+    return result('CONTAINER', risk, risk === 'SAFE_READ_ONLY' && verb !== 'logs' ? 'local' : target, context, modifiers, { requiresExplicitBinding: risk !== 'SAFE_READ_ONLY' });
   }
 
   if (lower === 'aws') {
