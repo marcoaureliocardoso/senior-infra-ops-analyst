@@ -3,7 +3,7 @@
 <!-- cspell:words pathspec -->
 
 **Date:** 2026-08-03  
-**Status:** Approved design, pending written-spec review  
+**Status:** Approved for implementation by the operator
 **Scope:** PR #25, native command guard for executor subagents
 
 ## Context
@@ -67,8 +67,9 @@ The command guard authorizes one literal HTTP origin. It does not execute a
 preflight request and cannot bind an unknown redirect target before the tool
 call. Redirect following is therefore outside autonomous HTTP authorization.
 
-- Curl invocations containing `-L` or `--location` deny in every permission
-  mode. Repetition, compact forms, and conflicting forms remain fail-closed.
+- Curl invocations containing `-L`, `--location`, or `--location-trusted` deny
+  in every permission mode. Repetition, compact forms, and conflicting forms
+  remain fail-closed.
 - `Invoke-WebRequest` and `Invoke-RestMethod` require exactly one explicit
   `-MaximumRedirection 0`. Their nonzero and missing forms deny because the
   clients otherwise follow redirects by default.
@@ -182,7 +183,8 @@ The risk taxonomy and native decision matrix remain unchanged:
 
 New denial guidance is specific to redirects, missing `-NoProfile`, and closed
 Git forms. It explains what was rejected and how to produce a supported command
-without echoing the original command or secret.
+without echoing the original command or secret. The implementation exposes
+distinct stable reason codes for these three classes.
 
 ## Executable evidence
 
