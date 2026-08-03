@@ -82,6 +82,7 @@ const REASONS = Object.freeze({
   DENY_UNKNOWN_CREDENTIAL_CONSUMER: ['OPS_CREDENTIAL_IDENTITY=operator SSHPASS=SYNTH_SECRET_coverage sudo systemctl restart nginx', 'default'],
   DENY_UNKNOWN_COMMAND: ['mysteryctl deploy production', 'default'],
   DENY_AMBIGUOUS_TARGET: ['docker restart web', 'default'],
+  DENY_UNSUPPORTED_GIT_FORM: ['git commit -F message.txt', 'default'],
 });
 
 const CREDENTIALS = Object.freeze({

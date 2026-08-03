@@ -848,6 +848,202 @@ function literalOperand(value) {
   return typeof value === 'string' && value.length > 0 && !/[$*?{}\[\]]/u.test(value);
 }
 
+function boundedGitLiteral(value) {
+  // lexBash already enforces LIMITS.tokenChars before catalogue classification.
+  return literalOperand(value);
+}
+
+function literalGitObject(value) {
+  const match = /^([A-Za-z0-9][A-Za-z0-9._/-]*)((?:(?:~|\^)\d*)*)$/u.exec(value);
+  return match !== null && literalGitBranch(match[1]);
+}
+
+function parseGitAdd(words) {
+  const scopeOptions = new Map([
+    ['-A', 'all'], ['--all', 'all'], ['-u', 'update'], ['--update', 'update'],
+    ['-N', 'intent-to-add'], ['--intent-to-add', 'intent-to-add'],
+    ['--renormalize', 'renormalize'],
+  ]);
+  const paths = [];
+  let scope = null;
+  let afterSeparator = false;
+  for (const word of words.slice(2)) {
+    if (!afterSeparator && word === '--') {
+      afterSeparator = true;
+      continue;
+    }
+    if (!afterSeparator && scopeOptions.has(word)) {
+      if (scope !== null) return null;
+      scope = scopeOptions.get(word);
+      continue;
+    }
+    if (!afterSeparator && word.startsWith('-')) return null;
+    if (!boundedGitLiteral(word) || paths.length >= LIMITS.fanOut) return null;
+    paths.push(word);
+  }
+  if (scope === null && paths.length === 0) return null;
+  const parts = [];
+  if (scope !== null) parts.push(`scope:${scope}`);
+  if (paths.length > 0) parts.push(`paths:${paths.join(',')}`);
+  return { risk: 'LOW_RISK_CHANGE', target: parts.join(';') };
+}
+
+function parseGitCommit(words) {
+  const flagGroups = new Map([
+    ['-a', 'all'], ['--all', 'all'], ['--allow-empty', 'allow-empty'],
+    ['--allow-empty-message', 'allow-empty-message'], ['--no-verify', 'no-verify'],
+    ['-s', 'signoff'], ['--signoff', 'signoff'], ['--amend', 'amend'],
+  ]);
+  const seen = new Set();
+  const messages = [];
+  let signerSeen = false;
+  let authorSeen = false;
+  let dateSeen = false;
+  let amend = false;
+
+  const addMessage = (value) => {
+    if (!boundedGitLiteral(value) || messages.length >= LIMITS.fanOut) return false;
+    messages.push(value);
+    return true;
+  };
+
+  for (let index = 2; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '-m' || word === '--message') {
+      if (!addMessage(words[++index])) return null;
+      continue;
+    }
+    if (word.startsWith('--message=')) {
+      if (!addMessage(word.slice('--message='.length))) return null;
+      continue;
+    }
+    if (/^-m.+/u.test(word)) {
+      if (!addMessage(word.slice(2))) return null;
+      continue;
+    }
+    if (word === '--author' || word === '--date') {
+      const group = word.slice(2);
+      if (group === 'author' ? authorSeen : dateSeen) return null;
+      const value = words[++index];
+      if (!boundedGitLiteral(value)) return null;
+      if (group === 'author') authorSeen = true;
+      else dateSeen = true;
+      continue;
+    }
+    if (word.startsWith('--author=') || word.startsWith('--date=')) {
+      const author = word.startsWith('--author=');
+      if (author ? authorSeen : dateSeen) return null;
+      const value = word.slice(word.indexOf('=') + 1);
+      if (!boundedGitLiteral(value)) return null;
+      if (author) authorSeen = true;
+      else dateSeen = true;
+      continue;
+    }
+    if (word === '-S' || word === '--gpg-sign') {
+      if (signerSeen) return null;
+      signerSeen = true;
+      continue;
+    }
+    if (word.startsWith('--gpg-sign=') || /^-S.+/u.test(word)) {
+      if (signerSeen) return null;
+      const value = word.startsWith('--gpg-sign=') ? word.slice('--gpg-sign='.length) : word.slice(2);
+      if (!boundedGitLiteral(value)) return null;
+      signerSeen = true;
+      continue;
+    }
+    const group = flagGroups.get(word);
+    if (group !== undefined) {
+      if (seen.has(group)) return null;
+      seen.add(group);
+      if (group === 'amend') amend = true;
+      continue;
+    }
+    return null;
+  }
+  if (messages.length === 0) return null;
+  return { risk: amend ? 'DESTRUCTIVE' : 'LOW_RISK_CHANGE', target: 'commit:HEAD' };
+}
+
+function parseGitTag(words) {
+  const operands = [];
+  const messages = [];
+  let deletion = false;
+  let force = false;
+  let annotated = false;
+  let sign = false;
+  let noSign = false;
+  let localUser = null;
+
+  const addMessage = (value) => {
+    if (!boundedGitLiteral(value) || messages.length >= LIMITS.fanOut) return false;
+    messages.push(value);
+    return true;
+  };
+
+  for (let index = 2; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '-d' || word === '--delete') {
+      if (deletion) return null;
+      deletion = true;
+      continue;
+    }
+    if (word === '-f' || word === '--force') {
+      if (force) return null;
+      force = true;
+      continue;
+    }
+    if (word === '-a' || word === '--annotate') {
+      if (annotated) return null;
+      annotated = true;
+      continue;
+    }
+    if (word === '-s' || word === '--sign') {
+      if (sign) return null;
+      sign = true;
+      continue;
+    }
+    if (word === '--no-sign') {
+      if (noSign) return null;
+      noSign = true;
+      continue;
+    }
+    if (word === '-u' || word === '--local-user') {
+      if (localUser !== null) return null;
+      localUser = words[++index];
+      if (!boundedGitLiteral(localUser)) return null;
+      continue;
+    }
+    if (word.startsWith('--local-user=') || /^-u.+/u.test(word)) {
+      if (localUser !== null) return null;
+      localUser = word.startsWith('--local-user=') ? word.slice('--local-user='.length) : word.slice(2);
+      if (!boundedGitLiteral(localUser)) return null;
+      continue;
+    }
+    if (word === '-m' || word === '--message') {
+      if (!addMessage(words[++index])) return null;
+      continue;
+    }
+    if (word.startsWith('--message=') || /^-m.+/u.test(word)) {
+      const value = word.startsWith('--message=') ? word.slice('--message='.length) : word.slice(2);
+      if (!addMessage(value)) return null;
+      continue;
+    }
+    if (word.startsWith('-') || !boundedGitLiteral(word) || operands.length >= LIMITS.fanOut) return null;
+    operands.push(word);
+  }
+
+  if (deletion) {
+    if (force || annotated || sign || noSign || localUser !== null || messages.length > 0) return null;
+    if (operands.length < 1 || !operands.every(literalGitBranch)) return null;
+    return { risk: 'DESTRUCTIVE', target: operands.length === 1 ? `tag:${operands[0]}` : `tags:${operands.join(',')}` };
+  }
+  if (operands.length < 1 || operands.length > 2 || !literalGitBranch(operands[0])) return null;
+  if (operands[1] !== undefined && !literalGitObject(operands[1])) return null;
+  if (annotated && (sign || localUser !== null) || noSign && (sign || localUser !== null)) return null;
+  if ((annotated || sign || localUser !== null) && messages.length === 0) return null;
+  return { risk: force ? 'DESTRUCTIVE' : 'LOW_RISK_CHANGE', target: `tag:${operands[0]}` };
+}
+
 function parseGitRead(words, context) {
   const verb = words[1];
   const args = words.slice(2);
@@ -1070,11 +1266,18 @@ function gitCiFamily(words, lower, context = {}) {
       const push = parseGitPush(words);
       return push ? result('GIT_CI', push.risk, push.target, push.environment, ['ALWAYS_ASK']) : null;
     }
-    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f|tag\s+(?:-d|--delete)\b)/u.test(joined)) {
+    if (/^(?:reset\s+--hard|clean\s+.*-[A-Za-z]*f)/u.test(joined)) {
       return result('GIT_CI', 'DESTRUCTIVE', words.at(-1), 'local');
     }
-    if (/^(?:add|commit|tag)(?:\s|$)/u.test(joined)) {
-      return result('GIT_CI', 'LOW_RISK_CHANGE', words.at(-1), 'local');
+    const localWriteParsers = new Map([
+      ['add', parseGitAdd], ['commit', parseGitCommit], ['tag', parseGitTag],
+    ]);
+    const localWriteParser = localWriteParsers.get(words[1]);
+    if (localWriteParser) {
+      const localWrite = localWriteParser(words);
+      return localWrite
+        ? result('GIT_CI', localWrite.risk, localWrite.target, 'local')
+        : rejected('DENY_UNSUPPORTED_GIT_FORM');
     }
     return null;
   }

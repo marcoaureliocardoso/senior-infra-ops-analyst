@@ -418,6 +418,32 @@ const witnesses = {
     assert.equal(result.decision, 'deny');
     assert.equal(result.reasonCode, 'DENY_UNBOUND_HTTP_REDIRECT');
   },
+  async CATALOGUE_GIT_LOCAL_CLOSED_GRAMMAR(context) {
+    const result = await policyFixture(context, 'git commit -F message.txt');
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_UNSUPPORTED_GIT_FORM');
+  },
+  async CATALOGUE_GIT_COMMIT_AMEND_RISK(context) {
+    const result = await policyFixture(context, 'git commit --amend -m change');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'DESTRUCTIVE');
+  },
+  async CATALOGUE_GIT_TAG_FORCE_RISK(context) {
+    const result = await policyFixture(context, 'git tag --force v1.2.3');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'DESTRUCTIVE');
+  },
+  async CATALOGUE_GIT_TAG_DELETE_RISK(context) {
+    const result = await policyFixture(context, 'git tag --delete v1.2.3');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.risk, 'DESTRUCTIVE');
+  },
+  async POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE(context) {
+    const result = await policyFixture(context, 'git tag --list');
+    assert.equal(result.reasonCode, 'DENY_UNSUPPORTED_GIT_FORM');
+    assert.match(result.message, /git add, commit, or tag/u);
+    assert.doesNotMatch(result.message, /--list/u);
+  },
 };
 
 export const MUTATION_WITNESSES = Object.freeze(witnesses);

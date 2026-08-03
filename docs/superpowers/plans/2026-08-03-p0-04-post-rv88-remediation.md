@@ -243,7 +243,7 @@ git commit -m "fix: deny unaudited HTTP redirects"
   `{ denyReasonCode: 'DENY_UNSUPPORTED_GIT_FORM' }` after recognized local
   subcommands with invalid or unconsumed grammar.
 
-- [ ] **Step 1: Write the accepted Git grammar matrix**
+- [x] **Step 1: Write the accepted Git grammar matrix**
 
 Add direct parser-policy tests for:
 
@@ -267,7 +267,7 @@ Assert accepted low-risk forms ask normally and allow in bypass; destructive
 forms ask in both modes. Assert canonical target values rather than the last
 raw argument.
 
-- [ ] **Step 2: Write the rejected Git grammar matrix**
+- [x] **Step 2: Write the rejected Git grammar matrix**
 
 Cover unknown and unconsumed options, duplicate singleton options, conflicting
 scope/sign modes, dynamic paths, excessive operands/messages, missing message
@@ -277,7 +277,7 @@ case must deny in default and bypass modes.
 Assert `DENY_UNSUPPORTED_GIT_FORM` for every rejected `add`, `commit`, or `tag`
 form so the operator receives Git-specific reformulation guidance.
 
-- [ ] **Step 3: Run the Git RED suite**
+- [x] **Step 3: Run the Git RED suite**
 
 ```bash
 node --test --test-name-pattern="local Git closed grammar|Git workflow" tests/command-guard/security-regressions.test.mjs tests/command-guard/branches.test.mjs
@@ -286,10 +286,11 @@ node --test --test-name-pattern="local Git closed grammar|Git workflow" tests/co
 Expected: prefix-recognized destructive and unsupported forms are still
 accepted, and several supported target bindings are not canonical.
 
-- [ ] **Step 4: Implement bounded literal helpers and three parsers**
+- [x] **Step 4: Implement bounded literal helpers and three parsers**
 
-Use one literal operand helper that enforces token length, dynamic-character
-rejection, and the fan-out bound. Implement each parser as a single pass over
+Rely on the Bash lexer for the global token-length bound, then use literal
+operand and Git-object helpers for dynamic-character and revision-grammar
+rejection. Enforce fan-out in each parser. Implement each parser as a single pass over
 argv with explicit value options, flags, singleton groups, `--` handling, and
 complete consumption. Once exact dispatch recognizes `add`, `commit`, or
 `tag`, convert parser failure to
@@ -306,7 +307,7 @@ guidance to use only finite literal options and operands. Return examples:
 Replace the `add|commit|tag` regex and the overlapping tag delete prefix with
 exact parser dispatch. Do not inspect or neutralize hooks, filters, or signers.
 
-- [ ] **Step 5: Add RV-90 fixtures and typed mutations**
+- [x] **Step 5: Add RV-90 fixtures and typed mutations**
 
 Add source/installed fixtures for basic success, `commit --amend`, `tag -f`,
 tag deletion, signed tag, add renormalization, interactive/file-fed denial, and
@@ -316,16 +317,17 @@ unknown option denial. Add and witness:
 CATALOGUE_GIT_LOCAL_CLOSED_GRAMMAR
 CATALOGUE_GIT_COMMIT_AMEND_RISK
 CATALOGUE_GIT_TAG_FORCE_RISK
+CATALOGUE_GIT_TAG_DELETE_RISK
 POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE
 ```
 
-- [ ] **Step 6: Run GREEN and mutation checks**
+- [x] **Step 6: Run GREEN and mutation checks**
 
 Run the Step 3 command plus executable fixtures and the full mutation runner.
 Expected: every matrix case and mutant passes without weakening RV-76 through
 RV-88.
 
-- [ ] **Step 7: Commit the Git parsers**
+- [x] **Step 7: Commit the Git parsers**
 
 ```bash
 git add skills/command-driven-operations/scripts/command-guard tests/command-guard

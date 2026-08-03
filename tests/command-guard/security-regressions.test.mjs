@@ -304,6 +304,96 @@ test('every Git branch deletion alias is destructive and complete', () => {
   ]) assert.equal(analyze(command).risk, risk, command);
 });
 
+test('local Git write commands use closed grammars and canonical targets', () => {
+  const accepted = [
+    ['git add -- src/app.mjs', 'LOW_RISK_CHANGE', 'paths:src/app.mjs'],
+    ['git add -A', 'LOW_RISK_CHANGE', 'scope:all'],
+    ['git add --update src/app.mjs', 'LOW_RISK_CHANGE', 'scope:update;paths:src/app.mjs'],
+    ['git add --renormalize .', 'LOW_RISK_CHANGE', 'scope:renormalize;paths:.'],
+    ['git commit -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -m first -m second', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit --message=change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -mchange', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -a --signoff --author "Ops User <ops@example.invalid>" --date 2026-08-03 -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit --author="Ops User <ops@example.invalid>" --date=2026-08-03 --gpg-sign=release@example.invalid -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -Srelease@example.invalid -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -S -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit --gpg-sign -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit --amend -m change', 'DESTRUCTIVE', 'commit:HEAD'],
+    ['git tag v1.2.3', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag v1.2.3 HEAD', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag v1.2.3 HEAD~1', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -a v1.2.3 -m release', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -s -u release@example.invalid v1.2.3 -m release', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -s -urelease@example.invalid v1.2.3 -mrelease', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag --sign --local-user=release@example.invalid v1.2.3 --message=release', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag --no-sign v1.2.3', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -f v1.2.3', 'DESTRUCTIVE', 'tag:v1.2.3'],
+    ['git tag --delete v1.2.3', 'DESTRUCTIVE', 'tag:v1.2.3'],
+    ['git tag --delete v1.2.3 v1.2.2', 'DESTRUCTIVE', 'tags:v1.2.3,v1.2.2'],
+  ];
+  for (const [command, risk, target] of accepted) {
+    for (const mode of ['default', 'bypassPermissions']) {
+      const result = analyze(command, mode);
+      assert.equal(result.risk, risk, `${mode}: ${command}`);
+      assert.equal(result.target, target, `${mode}: ${command}`);
+      assert.equal(result.decision, risk === 'DESTRUCTIVE' || mode === 'default' ? 'ask' : 'allow', `${mode}: ${command}`);
+    }
+  }
+});
+
+test('local Git write commands reject unsupported or unconsumed forms', () => {
+  const excessivePaths = Array.from({ length: 21 }, (_, index) => `file-${index}`).join(' ');
+  const excessiveMessages = Array.from({ length: 21 }, (_, index) => `-m message-${index}`).join(' ');
+  const commands = [
+    'git add', 'git add --', 'git add -A -u', 'git add -p file',
+    'git add --pathspec-from-file paths.txt', 'git add $PATHSPEC', `git add ${excessivePaths}`,
+    'git commit', 'git commit -m', 'git commit -e -m change', 'git commit -F message.txt',
+    'git commit --message=', 'git commit --author= -m change', 'git commit --date= -m change',
+    'git commit -m$MESSAGE', 'git commit --author $AUTHOR -m change',
+    'git commit --author one --author two -m change', 'git commit --date one --date two -m change',
+    'git commit --author one --author=two -m change', 'git commit --date one --date=two -m change',
+    'git commit -S --gpg-sign -m change', 'git commit --gpg-sign= -m change',
+    'git commit -S --gpg-sign=release@example.invalid -m change',
+    'git commit -a --all -m change', 'git commit --signoff -s -m change',
+    'git commit --fixup HEAD -m change', 'git commit --squash HEAD -m change',
+    'git commit -c HEAD', 'git commit -C HEAD', 'git commit --amend',
+    'git commit -m change --unknown', `git commit ${excessiveMessages}`,
+    'git tag', 'git tag -d', 'git tag -l', 'git tag --list', 'git tag -a v1.2.3',
+    'git tag -s --no-sign v1.2.3 -m release', 'git tag -a -s v1.2.3 -m release',
+    'git tag -a -u release@example.invalid v1.2.3 -m release',
+    'git tag --no-sign -u release@example.invalid v1.2.3 -m release',
+    'git tag -d -d v1.2.3', 'git tag -f --force v1.2.3',
+    'git tag -d -f v1.2.3', 'git tag -d -a v1.2.3 -m release',
+    'git tag -d -s v1.2.3 -m release', 'git tag -d --no-sign v1.2.3',
+    'git tag -d -u release@example.invalid v1.2.3 -m release',
+    'git tag -d v1.2.3 -m release', 'git tag -d bad..name',
+    'git tag -a --annotate v1.2.3 -m release', 'git tag -s --sign v1.2.3 -m release',
+    'git tag --no-sign --no-sign v1.2.3',
+    'git tag -u one --local-user two v1.2.3 -m release',
+    'git tag -u one --local-user=two v1.2.3 -m release',
+    'git tag -u $KEY v1.2.3 -m release',
+    'git tag --local-user= v1.2.3 -m release', 'git tag --message= v1.2.3',
+    'git tag -u release@example.invalid v1.2.3',
+    'git tag -F message.txt v1.2.3', 'git tag --contains HEAD',
+    'git tag v1.2.3 HEAD extra', "git tag v1.2.3 'HEAD extra'", 'git tag v1.2.3 $OBJECT',
+    "git tag v1.2.3 '?'",
+    'git tag bad..name', 'git tag $TAG', 'git tag --unknown v1.2.3',
+    `git tag v1.2.3 ${Array.from({ length: 21 }, (_, index) => `-m message-${index}`).join(' ')}`,
+  ];
+  for (const mode of ['default', 'bypassPermissions']) {
+    for (const command of commands) {
+      const result = analyze(command, mode);
+      assert.equal(result.decision, 'deny', `${mode}: ${command}`);
+      assert.equal(result.reasonCode, 'DENY_UNSUPPORTED_GIT_FORM', `${mode}: ${command}`);
+    }
+  }
+
+  for (const command of ['git frobnicate', 'git toString', 'git __proto__']) {
+    assert.equal(analyze(command, 'bypassPermissions').reasonCode, 'DENY_UNKNOWN_COMMAND', command);
+  }
+});
+
 test('authenticated HTTP denies redirect and persistence sinks', () => {
   const prefix = `curl -H "Authorization: Bearer ${SECRET}"`;
   for (const command of [

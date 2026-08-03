@@ -364,4 +364,29 @@ export const MUTATIONS = Object.freeze([
     search: '    if (match?.denyReasonCode) return denied(match.denyReasonCode, stage.index);',
     replacement: '    if (false) return denied(match.denyReasonCode, stage.index);',
   },
+  {
+    id: 'CATALOGUE_GIT_LOCAL_CLOSED_GRAMMAR', file: 'command-guard/catalogue.mjs',
+    search: '      const localWrite = localWriteParser(words);',
+    replacement: "      const localWrite = localWriteParser(words) ?? { risk: 'LOW_RISK_CHANGE', target: words.at(-1) };",
+  },
+  {
+    id: 'CATALOGUE_GIT_COMMIT_AMEND_RISK', file: 'command-guard/catalogue.mjs',
+    search: "  return { risk: amend ? 'DESTRUCTIVE' : 'LOW_RISK_CHANGE', target: 'commit:HEAD' };",
+    replacement: "  return { risk: 'LOW_RISK_CHANGE', target: 'commit:HEAD' };",
+  },
+  {
+    id: 'CATALOGUE_GIT_TAG_FORCE_RISK', file: 'command-guard/catalogue.mjs',
+    search: "  return { risk: force ? 'DESTRUCTIVE' : 'LOW_RISK_CHANGE', target: `tag:${operands[0]}` };",
+    replacement: "  return { risk: 'LOW_RISK_CHANGE', target: `tag:${operands[0]}` };",
+  },
+  {
+    id: 'CATALOGUE_GIT_TAG_DELETE_RISK', file: 'command-guard/catalogue.mjs',
+    search: "    return { risk: 'DESTRUCTIVE', target: operands.length === 1 ? `tag:${operands[0]}` : `tags:${operands.join(',')}` };",
+    replacement: "    return { risk: 'LOW_RISK_CHANGE', target: operands.length === 1 ? `tag:${operands[0]}` : `tags:${operands.join(',')}` };",
+  },
+  {
+    id: 'POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE', file: 'command-guard/policy.mjs',
+    search: "  DENY_UNSUPPORTED_GIT_FORM: 'Use a supported git add, commit, or tag form with only finite literal options and operands.',",
+    replacement: "  DENY_UNSUPPORTED_GIT_FORM: 'Unsupported.',",
+  },
 ]);

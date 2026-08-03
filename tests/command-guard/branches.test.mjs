@@ -208,6 +208,24 @@ test('catalogue filter and Git schemas distinguish bounded operations from file 
     ['gh issue create --repo owner/project --title issue', 'LOW_RISK_CHANGE'],
   ];
   for (const [command, risk] of gitCases) assert.equal(family(command)?.risk, risk, command);
+
+  const localWriteCases = [
+    ['git add -- src/app.mjs', 'LOW_RISK_CHANGE', 'paths:src/app.mjs'],
+    ['git add -A', 'LOW_RISK_CHANGE', 'scope:all'],
+    ['git add --renormalize .', 'LOW_RISK_CHANGE', 'scope:renormalize;paths:.'],
+    ['git commit -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit -a --signoff -m change', 'LOW_RISK_CHANGE', 'commit:HEAD'],
+    ['git commit --amend -m change', 'DESTRUCTIVE', 'commit:HEAD'],
+    ['git tag v1.2.3', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -a v1.2.3 -m release', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -s v1.2.3 -m release', 'LOW_RISK_CHANGE', 'tag:v1.2.3'],
+    ['git tag -f v1.2.3', 'DESTRUCTIVE', 'tag:v1.2.3'],
+    ['git tag -d v1.2.3', 'DESTRUCTIVE', 'tag:v1.2.3'],
+  ];
+  for (const [command, risk, target] of localWriteCases) {
+    assert.equal(family(command)?.risk, risk, command);
+    assert.equal(family(command)?.target, target, command);
+  }
   assert.equal(family('git frobnicate'), null);
   assert.equal(family('gh api /repos/owner/project'), null);
 });

@@ -15,7 +15,7 @@ export const REASON_CODES = Object.freeze([
   'DENY_AUTHENTICATED_REDIRECT', 'DENY_UNBOUND_HTTP_REDIRECT',
   'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
   'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', 'DENY_UNKNOWN_CREDENTIAL_CONSUMER',
-  'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET',
+  'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET', 'DENY_UNSUPPORTED_GIT_FORM',
 ]);
 export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CONTRACT_BACKGROUND_REJECT', 'CONTRACT_COMMAND_BOUND', 'LEXER_DYNAMIC_REJECT',
@@ -57,6 +57,9 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_HTTP_REDIRECT_REJECT', 'CATALOGUE_POWERSHELL_REDIRECT_ZERO',
   'CATALOGUE_POWERSHELL_HEADER_BINDING', 'REDACTION_SECRET_HEADER',
   'POLICY_CATALOGUE_REJECTION',
+  'CATALOGUE_GIT_LOCAL_CLOSED_GRAMMAR', 'CATALOGUE_GIT_COMMIT_AMEND_RISK',
+  'CATALOGUE_GIT_TAG_FORCE_RISK', 'CATALOGUE_GIT_TAG_DELETE_RISK',
+  'POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -70,6 +73,7 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_UNKNOWN_CREDENTIAL_CONSUMER: 'Use a catalogued credential consumer and an explicit supported transport without intermediate stages.',
   DENY_UNKNOWN_COMMAND: 'Reformulate with a catalogued executable, verb, literal operands, and finite options.',
   DENY_AMBIGUOUS_TARGET: 'Reformulate with explicit target and environment selectors; variables, globs, and implicit remote context are not sufficient.',
+  DENY_UNSUPPORTED_GIT_FORM: 'Use a supported git add, commit, or tag form with only finite literal options and operands.',
 });
 
 function denied(reasonCode, stage = 1) {
