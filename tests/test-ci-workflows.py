@@ -28,6 +28,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         duplicate_init_languages: bool = False,
         move_language_matrix_to_decoy_job: bool = False,
         add_codeql_matrix_expansion: str | None = None,
+        replace_init_with_shaped_scalar: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -128,6 +129,24 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 )
                 self.assertNotEqual(mutated, source, "CodeQL matrix expansion mutation failed")
                 source = mutated
+            if replace_init_with_shaped_scalar:
+                canonical_block = (
+                    "      - uses: github/codeql-action/init@v3\n"
+                    "        with:\n"
+                    "          languages: ${{ matrix.language }}"
+                )
+                mutated_block = (
+                    "      - name: Init-shaped scalar\n"
+                    "        env:\n"
+                    "          CODEQL_TEXT: |\n"
+                    "            - uses: github/codeql-action/init@v3\n"
+                    "              with:\n"
+                    "                languages: ${{ matrix.language }}\n"
+                    "        run: echo ignored"
+                )
+                mutated = source.replace(canonical_block, mutated_block)
+                self.assertNotEqual(mutated, source, "CodeQL init scalar mutation failed")
+                source = mutated
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
             shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
@@ -203,6 +222,11 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 result = self.run_validator(add_codeql_matrix_expansion=key)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("security.yml CodeQL languages", result.stdout + result.stderr)
+
+    def test_init_shaped_scalar_cannot_impersonate_a_step(self) -> None:
+        result = self.run_validator(replace_init_with_shaped_scalar=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("security.yml CodeQL init wiring", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

@@ -117,20 +117,29 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         if (text == "" || text ~ /^#/) next
         if (level == 2 && text ~ /^[A-Za-z0-9_-]+:[[:space:]]*$/) {
           in_codeql = (text == "codeql:")
-          in_init = in_with = 0
+          in_steps = in_init = in_with = 0
           next
         }
         if (!in_codeql) next
-        if (text ~ /^- uses:[[:space:]]*github\/codeql-action\/init@/) {
-          in_init = 1
-          in_with = 0
-          init_indent = level
-          init_count += 1
+        if (level == 4 && text ~ /^[A-Za-z0-9_-]+:/) {
+          in_steps = (text == "steps:")
+          if (in_steps) {
+            steps_indent = level
+            steps_count += 1
+          }
+          in_init = in_with = 0
           next
         }
-        if (in_init && text ~ /^- / && level <= init_indent) {
+        if (!in_steps) next
+        if (level == steps_indent + 2 && text ~ /^- /) {
           in_init = 0
           in_with = 0
+          if (text ~ /^- uses:[[:space:]]*github\/codeql-action\/init@/) {
+            in_init = 1
+            init_indent = level
+            init_count += 1
+          }
+          next
         }
         if (in_init && level == init_indent + 2 && text == "with:") {
           in_with = 1
@@ -142,9 +151,11 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         if (in_with && level == with_indent + 2 && text ~ /^languages:/) language_count += 1
         if (in_with && level == with_indent + 2 && text == "languages: ${{ matrix.language }}") matrix_count += 1
       }
-      END { print (init_count + 0) ":" (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0) }
+      END {
+        print (steps_count + 0) ":" (init_count + 0) ":" (matrix_count + 0) ":" (with_count + 0) ":" (language_count + 0)
+      }
     ' "$workflow")
-    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1" ]; then
+    if [ "$codeql_init_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1:1" ]; then
       echo 'FAIL: security.yml CodeQL init wiring must use languages: ${{ matrix.language }} exactly once'
       errors=$((errors + 1))
     fi
