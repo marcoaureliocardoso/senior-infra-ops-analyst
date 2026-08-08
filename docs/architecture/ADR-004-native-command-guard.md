@@ -287,8 +287,8 @@ uses conservative normal-mode semantics rather than a version allowlist.
     matrix under `jobs.codeql.strategy`, and one direct unconditional `init`
     plus `analyze` step in that job. The init step has one direct
     `with.languages` matrix binding. Matrix expansion, duplicate keys, decoy
-    jobs, scalar lookalikes, conditional execution, and non-blocking failures
-    are rejected.
+    jobs, scalar lookalikes, quoted mapping keys, conditional execution, and
+    non-blocking failures are rejected.
 
 ## Enforcement points
 

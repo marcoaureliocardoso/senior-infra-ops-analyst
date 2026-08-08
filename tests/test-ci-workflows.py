@@ -33,6 +33,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         conditional_codeql_step: str | None = None,
         continue_on_error_step: str | None = None,
         codeql_job_control: str | None = None,
+        quote_step_control_key: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -158,17 +159,19 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 source = mutated
             if conditional_codeql_step is not None:
                 canonical = f"      - uses: github/codeql-action/{conditional_codeql_step}@v3"
+                control_key = '"if"' if quote_step_control_key else "if"
                 mutated = source.replace(
                     canonical,
-                    f"{canonical}\n        if: matrix.language == 'python'",
+                    f"{canonical}\n        {control_key}: matrix.language == 'python'",
                 )
                 self.assertNotEqual(mutated, source, "CodeQL conditional step mutation failed")
                 source = mutated
             if continue_on_error_step is not None:
                 canonical = f"      - uses: github/codeql-action/{continue_on_error_step}@v3"
+                control_key = '"continue-on-error"' if quote_step_control_key else "continue-on-error"
                 mutated = source.replace(
                     canonical,
-                    f"{canonical}\n        continue-on-error: true",
+                    f"{canonical}\n        {control_key}: true",
                 )
                 self.assertNotEqual(mutated, source, "CodeQL continue-on-error mutation failed")
                 source = mutated
@@ -266,13 +269,22 @@ class CiWorkflowValidationTests(unittest.TestCase):
     def test_codeql_security_steps_are_unconditional_and_fail_closed(self) -> None:
         for parameter in ("conditional_codeql_step", "continue_on_error_step"):
             for step in ("init", "analyze"):
-                with self.subTest(parameter=parameter, step=step):
-                    result = self.run_validator(**{parameter: step})
-                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-                    self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
+                for quoted in (False, True):
+                    with self.subTest(parameter=parameter, step=step, quoted=quoted):
+                        result = self.run_validator(
+                            **{parameter: step},
+                            quote_step_control_key=quoted,
+                        )
+                        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
 
     def test_codeql_job_is_unconditional_and_fail_closed(self) -> None:
-        for control in ("if: false", "continue-on-error: true"):
+        for control in (
+            "if: false",
+            "continue-on-error: true",
+            "\"if\": false",
+            "'continue-on-error': true",
+        ):
             with self.subTest(control=control):
                 result = self.run_validator(codeql_job_control=control)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
