@@ -549,12 +549,24 @@ required_adrs = [
     'ADR-002-subagent-skill-preload.md',
     'ADR-003-subagent-runtime-controls.md',
     'ADR-004-native-command-guard.md',
+    'ADR-005-context-continuity-and-preventive-compaction.md',
 ]
 adr004_headings = (
     '## Context', '## Decision', '## Implemented architecture',
     '## Enforcement points', '## Credential handling',
     '## Alternatives rejected', '## Validation evidence',
     '## Consequences and limitations', '## Forward compatibility',
+)
+adr005_headings = (
+    '## Context', '## Decision', '## Implemented architecture',
+    '## Enforcement points', '## Alternatives rejected',
+    '## Validation evidence', '## Consequences and limitations',
+    '## Forward compatibility',
+)
+adr005_fragments = (
+    'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', '72', 'PreCompact', 'PostCompact',
+    'credential reuse', 'numeric-only', 'DeepSeek',
+    'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
 )
 if not architecture_index.exists():
     err('missing architecture decision index')
@@ -571,6 +583,26 @@ else:
         for heading in adr004_headings:
             if heading not in adr004_text:
                 err(f'ADR-004 missing required heading: {heading}')
+    adr005_path = architecture_index.parent / 'ADR-005-context-continuity-and-preventive-compaction.md'
+    if adr005_path.exists():
+        adr005_text = adr005_path.read_text(encoding='utf-8')
+        for heading in adr005_headings:
+            if heading not in adr005_text:
+                err(f'ADR-005 missing required heading: {heading}')
+        for fragment in adr005_fragments:
+            if fragment not in adr005_text:
+                err(f'ADR-005 missing required fragment: {fragment}')
+
+for operator_doc in ('README.md', 'docs.md'):
+    operator_text = read(operator_doc)
+    for marker in (
+        '--check', '--apply', '--status-line', '--remove-owned',
+        '70', '75', '72', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+    ):
+        if marker not in operator_text:
+            err(f'{operator_doc} missing context continuity guidance: {marker}')
+    if 'CLAUDE_CODE_AUTO_COMPACT_WINDOW is the default' in operator_text:
+        err(f'{operator_doc} claims absolute context window is the default')
 
 if errors:
     print('Validation failed:')

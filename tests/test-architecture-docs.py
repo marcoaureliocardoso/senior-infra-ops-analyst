@@ -11,6 +11,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REQUIRED_ADR_005 = (
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+    "72",
+    "PreCompact",
+    "PostCompact",
+    "credential reuse",
+    "numeric-only",
+    "DeepSeek",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "Validation evidence",
+)
 
 
 class ArchitectureDocumentationTests(unittest.TestCase):
@@ -88,6 +99,30 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ADR-004 missing required heading", result.stdout)
+
+    def test_adr005_documents_implemented_continuity_contract(self) -> None:
+        path = self.index_path.parent / "ADR-005-context-continuity-and-preventive-compaction.md"
+        text = path.read_text(encoding="utf-8")
+        for fragment in REQUIRED_ADR_005:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, text)
+        for heading in (
+            "## Implemented architecture", "## Enforcement points",
+            "## Validation evidence", "## Consequences and limitations",
+            "## Forward compatibility",
+        ):
+            self.assertIn(heading, text)
+
+    def test_operator_docs_expose_owned_configuration_and_rollback(self) -> None:
+        for name in ("README.md", "docs.md"):
+            text = (self.sandbox / name).read_text(encoding="utf-8")
+            with self.subTest(name=name):
+                for marker in (
+                    "--check", "--apply", "--status-line", "--remove-owned",
+                    "70", "75", "72", "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+                ):
+                    self.assertIn(marker, text)
+                self.assertNotIn("CLAUDE_CODE_AUTO_COMPACT_WINDOW is the default", text)
 
 
 if __name__ == "__main__":

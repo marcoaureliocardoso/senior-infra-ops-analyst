@@ -1,8 +1,8 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "type": "skillset",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset for safe hybrid infrastructure operations. Version 0.11.1 modernizes the CI toolchain with immutable Actions, CodeQL v4, current Python compatibility, and checksum-verified ShellCheck.",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset with preventive percentage compaction, native task continuity, non-blocking content-free hooks, safe credential-reuse invalidation, and numeric context evidence.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "skills": [

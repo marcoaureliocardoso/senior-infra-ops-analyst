@@ -72,6 +72,12 @@ class SchemaValidationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_release_version_is_0_12_0(self) -> None:
+        manifest = json.loads(self.original_manifest)
+        metadata = json.loads(self.original_nori_version)
+        self.assertEqual(manifest["version"], "0.12.0")
+        self.assertEqual(metadata["version"], "0.12.0")
+
     def test_missing_manifest_type_is_rejected(self) -> None:
         manifest = json.loads(self.original_manifest)
         manifest.pop("type", None)
