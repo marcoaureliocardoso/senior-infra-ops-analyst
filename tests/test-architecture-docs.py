@@ -21,7 +21,9 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         shutil.copytree(
             ROOT,
             cls.sandbox,
-            ignore=shutil.ignore_patterns(".git", ".worktrees", "__pycache__"),
+            ignore=shutil.ignore_patterns(
+                ".git", ".worktrees", ".tmp", "__pycache__"
+            ),
         )
         cls.index_path = cls.sandbox / "docs" / "architecture" / "README.md"
 
@@ -40,8 +42,7 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         source_dir = ROOT / "docs" / "architecture"
         for source in source_dir.glob("ADR-*.md"):
             target = self.index_path.parent / source.name
-            if not target.exists():
-                shutil.copy2(source, target)
+            shutil.copy2(source, target)
 
     def run_validator(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -76,6 +77,17 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing architecture decision record", result.stdout)
+
+    def test_adr004_missing_required_heading_is_rejected(self) -> None:
+        path = self.index_path.parent / "ADR-004-native-command-guard.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(
+            text.replace("## Credential handling", "## Credential notes", 1),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ADR-004 missing required heading", result.stdout)
 
 
 if __name__ == "__main__":

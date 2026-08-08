@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json, re, sys, hashlib
 from pathlib import Path
+from command_guard_install_policy import EXECUTOR_AGENTS, source_hook_errors
 from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
 errors = []
@@ -411,6 +412,26 @@ if not subagents_from_manifest:
 
 subagent_ids = {s['id'] for s in subagents_from_manifest if s.get('id')}
 valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'Skill'}
+native_guard_clauses = (
+    "## Native command guard",
+    "Obey the native `PreToolUse` decision",
+    "Proceed on `allow`",
+    "use the native operator prompt on `ask`",
+    "reformulate safely on `deny`",
+    "same `bypassPermissions` session, credential domain, identity, and transport",
+    "different explicit catalogued targets in that domain",
+    "Re-evaluate every command",
+    "Credential reuse is not command approval",
+    "mode, session, or model context is lost",
+    "Never reconstruct, persist, echo, hash, or search the transcript for a credential",
+)
+unconditional_executor_approval_fragments = (
+    "Stop before any `LOW_RISK_CHANGE`, `DISRUPTIVE_CHANGE`, or `DESTRUCTIVE` action and request explicit approval.",
+    "Do not create, modify, or delete cloud resources without explicit approval.",
+    "Do not apply manifests, patch resources, scale workloads, drain nodes, or restart deployments without approval.",
+    "Never modify firewall rules, NAT, routing, DNS records, load balancer configs, or VPN settings without explicit approval.",
+    "Never trigger a build, deployment, or pipeline re-run without explicit approval.",
+)
 
 for sa in subagents_from_manifest:
     sa_id = sa.get('id', '')
@@ -424,6 +445,15 @@ for sa in subagents_from_manifest:
     t = sa_file.read_text(encoding='utf-8')
     for runtime_error in runtime_control_errors(sa_id, t):
         err(runtime_error)
+    for hook_error in source_hook_errors(sa_id, t):
+        err(hook_error)
+    if sa_id in EXECUTOR_AGENTS:
+        for clause in native_guard_clauses:
+            if clause not in t:
+                err(f'subagent missing native command guard clause: {sa_id}: {clause}')
+        for fragment in unconditional_executor_approval_fragments:
+            if fragment in t:
+                err(f'subagent has bypass-conflicting approval rule: {sa_id}: {fragment}')
     if '<required>' not in t:
         err(f'subagent lacks <required> block: {sa_id}')
     if 'references/risk-levels.md' not in t:
@@ -502,7 +532,14 @@ required_adrs = [
     'ADR-001-risk-taxonomy.md',
     'ADR-002-subagent-skill-preload.md',
     'ADR-003-subagent-runtime-controls.md',
+    'ADR-004-native-command-guard.md',
 ]
+adr004_headings = (
+    '## Context', '## Decision', '## Implemented architecture',
+    '## Enforcement points', '## Credential handling',
+    '## Alternatives rejected', '## Validation evidence',
+    '## Consequences and limitations', '## Forward compatibility',
+)
 if not architecture_index.exists():
     err('missing architecture decision index')
 else:
@@ -512,6 +549,12 @@ else:
             err(f'architecture index missing ADR: {adr}')
         if not (architecture_index.parent / adr).exists():
             err(f'missing architecture decision record: {adr}')
+    adr004_path = architecture_index.parent / 'ADR-004-native-command-guard.md'
+    if adr004_path.exists():
+        adr004_text = adr004_path.read_text(encoding='utf-8')
+        for heading in adr004_headings:
+            if heading not in adr004_text:
+                err(f'ADR-004 missing required heading: {heading}')
 
 if errors:
     print('Validation failed:')

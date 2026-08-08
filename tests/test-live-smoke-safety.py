@@ -38,6 +38,12 @@ class LiveSmokeSafetyTests(unittest.TestCase):
         self.assertIn('"SubagentStart"', SCRIPT)
         self.assertIn('"SubagentStop"', SCRIPT)
 
+    def test_installed_validator_receives_agents_and_skills_roots(self) -> None:
+        self.assertIn('--installed-agents-dir "$INSTALLED_AGENTS_DIR"', SCRIPT)
+        self.assertIn('--installed-skills-dir "$INSTALLED_SKILLS_DIR"', SCRIPT)
+        self.assertIn('INSTALLED_SKILL="$(', SCRIPT)
+        self.assertNotIn('INSTALLED_SKILL="$ (', SCRIPT)
+
 
 if __name__ == "__main__":
     unittest.main()

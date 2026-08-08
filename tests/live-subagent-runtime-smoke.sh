@@ -399,8 +399,23 @@ if [[ ! -d "$INSTALLED_AGENTS_DIR" ]]; then
 fi
 [[ -n "$INSTALLED_AGENTS_DIR" && -d "$INSTALLED_AGENTS_DIR" ]] ||
   blocked "Nori did not produce a Claude Code agents directory"
+INSTALLED_SKILLS_DIR="$INSTALL_DIR/skills"
+if [[ ! -d "$INSTALLED_SKILLS_DIR/command-driven-operations" ]]; then
+  INSTALLED_SKILL="$(
+    find "$INSTALL_DIR" -type f \
+      -path '*/command-driven-operations/SKILL.md' -print -quit
+  )"
+  if [[ -n "$INSTALLED_SKILL" ]]; then
+    INSTALLED_SKILLS_DIR="$(dirname "$(dirname "$INSTALLED_SKILL")")"
+  else
+    INSTALLED_SKILLS_DIR=""
+  fi
+fi
+[[ -n "$INSTALLED_SKILLS_DIR" && -d "$INSTALLED_SKILLS_DIR" ]] ||
+  blocked "Nori did not produce a Claude Code skills directory"
 python3 "$ROOT/tests/validate-installed-subagents.py" \
-  --installed-agents-dir "$INSTALLED_AGENTS_DIR"
+  --installed-agents-dir "$INSTALLED_AGENTS_DIR" \
+  --installed-skills-dir "$INSTALLED_SKILLS_DIR"
 
 while IFS= read -r installed_agent; do
   resolved_agent="$(readlink -f "$installed_agent")"

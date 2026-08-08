@@ -9,6 +9,23 @@ skills:
   - audit-compliance-evidence
   - vendor-escalation-management
   - root-cause-analysis
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: "{{skills_dir}}/command-driven-operations/scripts/command-guard-launcher.sh"
+          args:
+            - pre
+          timeout: 7
+  PostToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: "{{skills_dir}}/command-driven-operations/scripts/command-guard-launcher.sh"
+          args:
+            - post
+          timeout: 7
 ---
 
 # Audit Evidence Collector
@@ -66,7 +83,7 @@ If the task cannot be completed inside the operational budget, stop voluntarily 
 3. Record every piece of evidence with: command/query, timestamp with timezone, source system, actor, scope, and known limitations.
 4. Redact secrets, tokens, personal data, internal topology, customer data, and unnecessary account details before presenting.
 5. Preserve raw evidence only when safe and authorized; otherwise summarize with explicit redaction notes.
-6. Do not broaden evidence collection beyond the stated purpose without approval — scope creep turns audit into investigation.
+6. Keep collection within the stated purpose. Any broader query must be explicitly bounded and submitted to the native guard; obey its `allow`, `ask`, or `deny` result.
 7. Distinguish observed evidence from interpretation and conclusion — label each clearly.
 8. Evidence should be repeatable or explain why it is point-in-time only and cannot be reproduced.
 9. Screenshots alone are weaker than exported records with source and timestamp — prefer machine-readable evidence.
@@ -144,6 +161,14 @@ Apply redaction before presenting evidence:
 - "We don't have evidence for that" is a valid finding — document the gap and move on.
 - Evidence that proves something went wrong is as valuable as evidence that proves something went right.
 - Over-collection is a security risk — if in doubt about scope, narrow it, not broaden it.
+
+## Native command guard
+
+- Obey the native `PreToolUse` decision. Proceed on `allow`, use the native operator prompt on `ask`, and reformulate safely on `deny`; never claim a rejected call was approved.
+- Re-evaluate every command, including its target, environment, scope, pipeline, redirects, credential transport, timeout, and background flag.
+- Reuse an operator-supplied credential only in the same `bypassPermissions` session, credential domain, identity, and transport; different explicit catalogued targets in that domain are allowed.
+- Credential reuse is not command approval: every call must independently satisfy policy, and destructive actions still require `ask`.
+- Reprompt when the mode, session, or model context is lost. Never reconstruct, persist, echo, hash, or search the transcript for a credential.
 
 ## Output
 

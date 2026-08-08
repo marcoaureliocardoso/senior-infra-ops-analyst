@@ -74,3 +74,73 @@ The parser can be validated without model/API consumption:
 ```bash
 bash tests/live-subagent-runtime-smoke.sh --self-test
 ```
+
+## Native command guard validation
+
+The P0-04 release gate is deterministic and mandatory. It runs the unit,
+finite-inventory, property/fuzz, 100% critical line/function/branch coverage,
+mutation, synthetic-secret retention, and installed-layout checks:
+
+```bash
+node tests/run-command-guard-tests.mjs
+python3 tests/test-command-guard-install-policy.py
+python3 tests/test-load-claude-env.py
+python3 tests/test-loopback-http-fixture.py
+python3 tests/test-live-command-guard-safety.py
+bash tests/live-command-guard-smoke.sh --self-test
+```
+
+The self-test creates a generated isolated Claude home, materializes an
+installed-form fixture, validates both the installed agents and skills roots,
+and directly exercises normal-mode `allow`/`ask`, bypass-mode `allow`, the
+destructive `ask` boundary, detailed `deny`, Bash and PowerShell pipelines,
+malformed input, audit failure, and permitted/forbidden synthetic credential
+flows. It uses only local fixture data and loopback URL metadata; the direct
+guard never executes a proposed command.
+
+On Windows, run the Python tests with PowerShell and the shell harness through
+Git Bash:
+
+```powershell
+python tests/test-load-claude-env.py
+python tests/test-loopback-http-fixture.py
+python tests/test-live-command-guard-safety.py
+& 'C:\Program Files\Git\usr\bin\bash.exe' -lc 'bash tests/live-command-guard-smoke.sh --self-test'
+```
+
+From a configured WSL distribution, run the same Bash commands in the mounted
+worktree. The opt-in live probe additionally requires Linux Bubblewrap, local
+Claude Code and Nori CLIs, operator-configured model credentials, and network
+access for the model transport:
+
+```bash
+bash tests/live-command-guard-smoke.sh --run-live
+```
+
+`--run-live` installs the current worktree with the discovered Nori CLI,
+records the observed Node.js, Nori, Claude Code, platform, permission modes,
+and model label, then confines model probes to a generated home and a
+loopback-only disposable service. The harness imports only an explicit
+Claude/Anthropic environment allowlist from the operator settings through a
+NUL-delimited FIFO; it does not copy the settings file, and an already exported
+value takes precedence. Bubblewrap preserves a non-root UID, handles usrmerge
+links, and exposes only the read-only runtime, resolver, host, and certificate
+paths needed by the model transport. The loopback fixture accepts only the
+synthetic `/health` and `/reload` targets, allocates a free port, and records
+only method and path. It checks both the native
+`--permission-mode bypassPermissions` form and, only inside Bubblewrap, the
+`--dangerously-skip-permissions` form. Observed versions are evidence, not
+compatibility pins. Exit `2` means a prerequisite or capability is unavailable;
+it is not a passing live result. Authentication values and raw model
+transcripts are never retained by the harness.
+
+An authorized live run on 2026-07-26 passed in Debian WSL2. It observed
+Bubblewrap `0.11.0`, Node.js `v20.19.2`, Nori `0.27.0`, and Claude Code
+`2.1.218`; the model route came from the operator configuration. The Nori
+activation registered all 12 subagents, 24 skills, 20 slash commands, and the
+project hooks. Both permissive forms completed, and the dangerous-mode probe
+produced the expected synthetic `POST /reload` without retaining its token.
+These identifiers document that run only and do not constrain future versions.
+The observed hook envelope included `prompt_id` and `effort`; the contract has
+regression coverage for a bounded prompt identifier and the documented effort
+levels without relaxing unknown top-level or `tool_input` fields.

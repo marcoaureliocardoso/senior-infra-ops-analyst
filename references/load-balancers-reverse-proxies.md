@@ -18,7 +18,7 @@ nginx -T
 nginx -t
 systemctl status nginx --no-pager
 journalctl -u nginx --since "1 hour ago" --no-pager
-curl -vI https://<host>/
+curl -q -I https://<host>/
 ```
 
 Interpretation:

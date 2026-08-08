@@ -27,15 +27,17 @@ urls=$(find . -name '*.md' \
   -not -path './.worktrees/*' \
   -not -path './tests/reports/*' \
   -exec grep -Eo 'https?://[^])>[:space:]]+' {} \; \
-  | sed -e 's/[.,;:]*$//' -e 's/`$//' \
+  | sed -e 's/[.,;:]*$//' -e 's/`$//' -e "s/'$//" -e 's/"$//' \
   | grep -v '[<>]' \
-  | sort -u \
+  | LC_ALL=C sort -u \
   | while IFS= read -r url; do
       host=$(echo "$url" | sed -n 's|^https\?://\([^/:]*\).*|\1|p')
       # Skip bare hostnames (no dot — e.g., app02, localhost)
       [[ "$host" != *.* ]] && continue
       # Skip .local domains (RFC 6762 reserved — never publicly routable)
       [[ "$host" == *.local ]] && continue
+      # Skip .invalid domains (RFC 2606 reserved for deliberately invalid names)
+      [[ "$host" == *.invalid ]] && continue
       # Skip example/placeholder domains used in operational scenarios
       [[ "$host" == *.example.edu ]] && continue
       echo "$url"
@@ -57,7 +59,7 @@ total=0
 check_url() {
   local url="$1"
   local code
-  code=$(curl -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  code=$(curl -q -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
   case "$code" in
     2*|3*|401|403)
       ok_count=$((ok_count + 1))
@@ -65,7 +67,7 @@ check_url() {
       ;;
     429)
       sleep 3
-      code=$(curl -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+      code=$(curl -q -L -I --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
       case "$code" in
         2*|3*|401|403) ok_count=$((ok_count + 1)); return ;;
       esac
@@ -75,7 +77,7 @@ check_url() {
   # HEAD failed — some servers reject HEAD but serve GET.
   # Try GET with Range: bytes=0-0 to verify reachability without downloading content.
   local get_code
-  get_code=$(curl -L --range 0-0 --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+  get_code=$(curl -q -L --range 0-0 --max-time 15 -o /dev/null -s -w '%{http_code}' "$url" 2>/dev/null || echo "000")
   case "$get_code" in
     2*|3*|401|403)
       ok_count=$((ok_count + 1))
