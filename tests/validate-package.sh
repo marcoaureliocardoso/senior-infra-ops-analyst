@@ -6,6 +6,7 @@ node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
 node --test tests/context-continuity/compact-hook.test.mjs
 python3 tests/test-command-guard-install-policy.py
+python3 tests/test-context-continuity-install-policy.py
 python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
 python3 tests/test-risk-taxonomy.py

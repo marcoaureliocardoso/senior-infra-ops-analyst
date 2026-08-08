@@ -131,7 +131,11 @@ def source_hook_errors(agent_id: str, text: str) -> list[str]:
     )
     if matcher and matcher != ["Bash", "Bash"]:
         errors.append(f"command guard matcher must be exactly Bash: {agent_id}")
-    timeout = re.findall(r"^\s*timeout:\s*(.*?)\s*$", frontmatter, re.MULTILINE)
+    timeout = re.findall(
+        r"^\s*(?:Pre|Post)ToolUse:\s*$.*?^\s*timeout:\s*(.*?)\s*$",
+        frontmatter,
+        re.MULTILINE | re.DOTALL,
+    )
     if timeout and timeout != ["7", "7"]:
         errors.append(f"command guard timeout must be 7 seconds: {agent_id}")
     if pretool_count and exact_count != 1:

@@ -10,6 +10,21 @@ skills:
   - ssh-privileged-access-operations
   - automation-safe-operations
   - incident-response
+hooks:
+  PreCompact:
+    - hooks:
+        - type: command
+          command: "{{skills_dir}}/context-continuity/scripts/compact-hook-launcher.sh"
+          args:
+            - pre
+          timeout: 5
+  PostCompact:
+    - hooks:
+        - type: command
+          command: "{{skills_dir}}/context-continuity/scripts/compact-hook-launcher.sh"
+          args:
+            - post
+          timeout: 5
 ---
 
 # Security Operations Reviewer

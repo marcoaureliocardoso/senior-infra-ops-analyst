@@ -9,6 +9,21 @@ skills:
   - incident-response
   - infrastructure-troubleshooting
   - root-cause-analysis
+hooks:
+  PreCompact:
+    - hooks:
+        - type: command
+          command: "{{skills_dir}}/context-continuity/scripts/compact-hook-launcher.sh"
+          args:
+            - pre
+          timeout: 5
+  PostCompact:
+    - hooks:
+        - type: command
+          command: "{{skills_dir}}/context-continuity/scripts/compact-hook-launcher.sh"
+          args:
+            - post
+          timeout: 5
 ---
 
 # Incident Commander
