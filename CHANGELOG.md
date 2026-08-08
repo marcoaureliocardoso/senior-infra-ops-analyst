@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.1 - 2026-08-08
+
+- Updated every external GitHub Action to its stable release and immutable full commit SHA, including checkout v7.0.1, setup-python v7.0.0, CodeQL v4, upload-artifact v7.0.1, action-gh-release v3.0.2, markdownlint-cli2-action v24.2.0, and cspell-action v8.4.0.
+- Added exact Python 3.12 and 3.14 schema-validation lanes with direct fail-closed matrix wiring.
+- Provisioned ShellCheck 0.11.0 from the official release archive with a fixed SHA-256 verification and an exact pre-analysis version assertion.
+- Extended executable workflow mutations for immutable Action references, alternate YAML mappings, Python matrix decoys and expansion, unsafe controls, and ShellCheck supply-chain or ordering drift.
+- Changed GitHub Actions Dependabot cadence from monthly to weekly.
+- Left Claude Code, Nori Skillsets, DeepSeek, and `model: inherit` unchanged and outside the toolchain upgrade.
+
 ## 0.11.0 - 2026-07-26
 
 - Added native Claude Code `PreToolUse` and `PostToolUse` hooks to all eight executor subagents, invoking one shared deterministic validator and approval recorder through the Nori-installed skills root.
@@ -128,7 +137,7 @@
 - Bug fixes: `set -uo pipefail` → `set -euo pipefail` in link validator, git tracked permissions on bash scripts (100644 → 100755), TBD placeholders replaced with real GitHub URLs, link validation rate-limiting and 429 retry.
 - Configuration: `.markdownlint.json`, `.cspell.json`, `.github/dependabot.yml` (github-actions + pip monthly), `.github/link-audit-issue-template.md`.
 - CI/Security/Release status badges added to `README.md`.
-- Dependabot updates: `actions/checkout` v4.2.2→v7.0.0, `actions/setup-python` v5.3.0→v6.3.0, `github/codeql-action` v3→v4, `markdownlint-cli2-action` v19→v24, `cspell-action` v6→v8.
+- Dependabot updates: `actions/checkout` v4.2.2→v7.0.0, `markdownlint-cli2-action` v19→v24, and `cspell-action` v6→v8.
 
 ## 0.5.1 - 2026-07-09
 

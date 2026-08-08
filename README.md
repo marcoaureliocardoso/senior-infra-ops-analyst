@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.11.0
+Version: 0.11.1
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -217,6 +217,15 @@ future replacement.
 
 Observed runtime/model versions are recorded as evidence and are not package
 requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
+
+## What changed in v0.11.1
+
+- Updated every external GitHub Action to its stable release and pinned each reference to an immutable full commit SHA with a release comment.
+- Migrated CodeQL from v3 to v4 while preserving the exact Python and JavaScript/TypeScript matrix and its fail-closed structural tests.
+- Upgraded `actions/setup-python` to v7 and added exact Python 3.12 and 3.14 schema-validation lanes without declaring a skillset runtime requirement.
+- Provisioned ShellCheck 0.11.0 from its official release archive with a fixed SHA-256 check and an exact pre-analysis version assertion.
+- Extended workflow mutation coverage for mutable or malformed Action references, alternate YAML keys, decoy or expanded Python matrices, unsafe job controls, ShellCheck origin/checksum/version drift, and pre-verification execution.
+- Changed GitHub Actions Dependabot checks from monthly to weekly while leaving Claude Code, Nori Skillsets, DeepSeek, and `model: inherit` unchanged.
 
 ## What changed in v0.11.0
 
