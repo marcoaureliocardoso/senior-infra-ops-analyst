@@ -80,9 +80,9 @@ function atomicWriteTarget(target, state) {
 
 function writeState(sessionId, state, env) {
   const directory = stateDirectory(env);
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  if (!existsSync(directory)) mkdirSync(directory, { recursive: true, mode: 0o700 });
   const directoryInfo = lstatSync(directory);
-  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) throw new Error('unsafe binding state directory');
+  if (!directoryInfo.isDirectory()) throw new Error('unsafe binding state directory');
   chmodSync(directory, 0o700);
   atomicWriteTarget(statePath(sessionId, env), state);
 }
@@ -132,13 +132,13 @@ export function invalidateAllBindings(env = process.env) {
   const directory = stateDirectory(env);
   if (!existsSync(directory)) return 0;
   const directoryInfo = lstatSync(directory);
-  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) throw new Error('unsafe binding state directory');
+  if (!directoryInfo.isDirectory()) throw new Error('unsafe binding state directory');
   let invalidated = 0;
   for (const name of readdirSync(directory)) {
     if (!/^[a-f0-9]{64}\.json$/u.test(name)) continue;
     const target = path.join(directory, name);
     const info = lstatSync(target);
-    if (!info.isFile() || info.isSymbolicLink()) continue;
+    if (!info.isFile()) continue;
     atomicWriteTarget(target, emptyState());
     invalidated += 1;
   }

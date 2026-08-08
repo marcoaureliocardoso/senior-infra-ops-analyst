@@ -88,6 +88,38 @@ test('unverifiable compaction invalidates every bounded binding file', async () 
   });
 });
 
+test('global invalidation safely handles absent invalid and non-file state targets', async () => {
+  const parent = await mkdtemp(path.join(os.tmpdir(), 'ops-binding-invalidation-'));
+  try {
+    const absent = path.join(parent, 'absent');
+    assert.equal(invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: absent }), 0);
+
+    const createdOnDemand = path.join(parent, 'created-on-demand');
+    assert.equal(writePendingBinding(binding, { OPS_COMMAND_GUARD_STATE_DIR: createdOnDemand }, NOW), true);
+    assert.equal((await readdir(createdOnDemand)).length, 1);
+
+    const notDirectory = path.join(parent, 'not-directory');
+    await writeFile(notDirectory, 'operator-owned\n', 'utf8');
+    assert.throws(
+      () => invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: notDirectory }),
+      /unsafe binding state directory/u,
+    );
+    assert.throws(
+      () => writePendingBinding(binding, { OPS_COMMAND_GUARD_STATE_DIR: notDirectory }, NOW),
+      /unsafe binding state directory/u,
+    );
+
+    const directory = path.join(parent, 'state');
+    await mkdir(directory);
+    await mkdir(path.join(directory, `${'a'.repeat(64)}.json`));
+    await writeFile(path.join(directory, 'operator.json'), '{"keep":true}\n', 'utf8');
+    assert.equal(invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: directory }), 0);
+    assert.equal(await readFile(path.join(directory, 'operator.json'), 'utf8'), '{"keep":true}\n');
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
 test('literal credential requires fresh native approval after compaction', async () => {
   await withState(async (env) => {
     const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
