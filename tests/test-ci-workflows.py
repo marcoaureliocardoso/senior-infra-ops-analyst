@@ -8,10 +8,47 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_LANGUAGES = "language: [python, javascript-typescript]"
+CODEQL_SHA = "5595ccaf912efad79be6eef63a5619ff05969be3"
+CODEQL_INIT_USE = f"github/codeql-action/init@{CODEQL_SHA} # v4"
+CODEQL_ANALYZE_USE = f"github/codeql-action/analyze@{CODEQL_SHA} # v4"
+PYTHON_MATRIX_BLOCK = (
+    "    strategy:\n"
+    "      fail-fast: false\n"
+    "      matrix:\n"
+    "        python-version: ['3.12', '3.14']"
+)
+PYTHON_WIRING = "          python-version: ${{ matrix.python-version }}"
+SHELLCHECK_VERSION = "0.11.0"
+SHELLCHECK_SHA256 = "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+SHELLCHECK_URL = (
+    "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/"
+    "shellcheck-v0.11.0.linux.x86_64.tar.xz"
+)
+EXPECTED_ACTION_USES = {
+    "checkout": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+    "setup-python": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0",
+    "markdownlint": (
+        "DavidAnson/markdownlint-cli2-action@"
+        "21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0"
+    ),
+    "cspell": (
+        "streetsidesoftware/cspell-action@"
+        "de2a73e963e7443969755b648a1008f77033c5b2 # v8.4.0"
+    ),
+    "codeql-init": CODEQL_INIT_USE,
+    "codeql-analyze": CODEQL_ANALYZE_USE,
+    "upload-artifact": (
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1"
+    ),
+    "gh-release": (
+        "softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2"
+    ),
+}
 
 
 class CiWorkflowValidationTests(unittest.TestCase):
@@ -54,7 +91,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 source = mutated
             if misplace_init_wiring:
                 canonical = "languages: ${{ matrix.language }}"
-                analyze_step = "- uses: github/codeql-action/analyze@v3"
+                analyze_step = f"- uses: {CODEQL_ANALYZE_USE}"
                 mutated = source.replace(canonical, "languages: python").replace(
                     analyze_step,
                     f"- name: Unrelated metadata\n        {canonical}\n      {analyze_step}",
@@ -136,7 +173,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 source = mutated
             if replace_init_with_shaped_scalar:
                 canonical_block = (
-                    "      - uses: github/codeql-action/init@v3\n"
+                    f"      - uses: {CODEQL_INIT_USE}\n"
                     "        with:\n"
                     "          languages: ${{ matrix.language }}"
                 )
@@ -144,7 +181,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
                     "      - name: Init-shaped scalar\n"
                     "        env:\n"
                     "          CODEQL_TEXT: |\n"
-                    "            - uses: github/codeql-action/init@v3\n"
+                    f"            - uses: {CODEQL_INIT_USE}\n"
                     "              with:\n"
                     "                languages: ${{ matrix.language }}\n"
                     "        run: echo ignored"
@@ -153,12 +190,16 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 self.assertNotEqual(mutated, source, "CodeQL init scalar mutation failed")
                 source = mutated
             if remove_analyze_step:
-                canonical = "      - uses: github/codeql-action/analyze@v3"
+                canonical = f"      - uses: {CODEQL_ANALYZE_USE}"
                 mutated = source.replace(canonical, "      - run: echo analysis-disabled")
                 self.assertNotEqual(mutated, source, "CodeQL analyze removal failed")
                 source = mutated
             if conditional_codeql_step is not None:
-                canonical = f"      - uses: github/codeql-action/{conditional_codeql_step}@v3"
+                action_use = {
+                    "init": CODEQL_INIT_USE,
+                    "analyze": CODEQL_ANALYZE_USE,
+                }[conditional_codeql_step]
+                canonical = f"      - uses: {action_use}"
                 control = "if: matrix.language == 'python'"
                 if step_control_style == "quoted":
                     control = '"if": matrix.language == \'python\''
@@ -178,7 +219,11 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 self.assertNotEqual(mutated, source, "CodeQL conditional step mutation failed")
                 source = mutated
             if continue_on_error_step is not None:
-                canonical = f"      - uses: github/codeql-action/{continue_on_error_step}@v3"
+                action_use = {
+                    "init": CODEQL_INIT_USE,
+                    "analyze": CODEQL_ANALYZE_USE,
+                }[continue_on_error_step]
+                canonical = f"      - uses: {action_use}"
                 control = "continue-on-error: true"
                 if step_control_style == "quoted":
                     control = '"continue-on-error": true'
@@ -317,6 +362,189 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 result = self.run_validator(codeql_job_control=control)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
+
+
+class WorkflowToolchainTests(unittest.TestCase):
+    def workflow_text(self, name: str) -> str:
+        return (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+
+    def run_mutated_validator(
+        self,
+        workflow_name: str,
+        canonical: str,
+        replacement: str,
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory(prefix="toolchain-workflow-validation-") as temporary:
+            repository = Path(temporary)
+            workflow_directory = repository / ".github" / "workflows"
+            tests_directory = repository / "tests"
+            shutil.copytree(ROOT / ".github" / "workflows", workflow_directory)
+            tests_directory.mkdir()
+            shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
+
+            path = workflow_directory / workflow_name
+            source = path.read_text(encoding="utf-8")
+            mutated = source.replace(canonical, replacement, 1)
+            self.assertNotEqual(mutated, source, f"canonical text not found in {workflow_name}")
+            path.write_text(mutated, encoding="utf-8")
+
+            return subprocess.run(
+                ["bash", "tests/validate-ci-workflows.sh"],
+                cwd=repository,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+    def test_repository_actions_match_approved_immutable_releases(self) -> None:
+        corpus = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+        )
+        for name, expected in EXPECTED_ACTION_USES.items():
+            with self.subTest(action=name):
+                self.assertIn(f"uses: {expected}", corpus)
+
+        for line in corpus.splitlines():
+            match = re.search(r"\buses:\s*([^\s#]+)(?:\s+#\s*(\S+))?\s*$", line)
+            if match is None or match.group(1).startswith("./"):
+                continue
+            reference = match.group(1)
+            self.assertIn("@", reference, line)
+            revision = reference.rsplit("@", 1)[1]
+            self.assertRegex(revision, r"^[0-9a-f]{40}$", line)
+            self.assertIsNotNone(match.group(2), line)
+
+    def test_mutable_or_malformed_action_references_are_rejected(self) -> None:
+        canonical = f"uses: {EXPECTED_ACTION_USES['markdownlint']}"
+        for replacement in (
+            "uses: DavidAnson/markdownlint-cli2-action@v24",
+            "uses: DavidAnson/markdownlint-cli2-action@21c1be1",
+            "uses: DavidAnson/markdownlint-cli2-action@gggggggggggggggggggggggggggggggggggggggg # v24.2.0",
+            "uses: DavidAnson/markdownlint-cli2-action@21C1BE1B93AD9ED58FA840AACC3F279CDE2A72FF # v24.2.0",
+            "uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff",
+        ):
+            with self.subTest(replacement=replacement):
+                result = self.run_mutated_validator("ci.yml", canonical, replacement)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(
+                    "external action must use a full commit SHA",
+                    result.stdout + result.stderr,
+                )
+
+    def test_alternate_yaml_keys_cannot_hide_an_action_reference(self) -> None:
+        canonical = f"uses: {EXPECTED_ACTION_USES['markdownlint']}"
+        for replacement in (
+            f'"uses": {EXPECTED_ACTION_USES["markdownlint"]}',
+            f"? uses\n        : {EXPECTED_ACTION_USES['markdownlint']}",
+            (
+                "env:\n"
+                "          CONTROL_KEY: &control_key uses\n"
+                f"        *control_key: {EXPECTED_ACTION_USES['markdownlint']}"
+            ),
+            f"!!str uses: {EXPECTED_ACTION_USES['markdownlint']}",
+        ):
+            with self.subTest(replacement=replacement):
+                result = self.run_mutated_validator("ci.yml", canonical, replacement)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("canonical YAML mapping keys", result.stdout + result.stderr)
+
+    def test_python_schema_matrix_is_exact_and_directly_wired(self) -> None:
+        source = self.workflow_text("ci.yml")
+        self.assertIn(PYTHON_MATRIX_BLOCK, source)
+        self.assertEqual(source.count(PYTHON_WIRING), 1)
+
+    def test_python_schema_matrix_mutations_are_rejected(self) -> None:
+        for replacement in (
+            PYTHON_MATRIX_BLOCK.replace("['3.12', '3.14']", "['3.12']"),
+            PYTHON_MATRIX_BLOCK.replace("['3.12', '3.14']", "['3.14']"),
+            PYTHON_MATRIX_BLOCK.replace("['3.12', '3.14']", "['3.12', '3.13', '3.14']"),
+            PYTHON_MATRIX_BLOCK.replace(
+                "        python-version: ['3.12', '3.14']",
+                "        python-version: ['3.12', '3.14']\n        exclude:\n          - python-version: '3.14'",
+            ),
+            PYTHON_MATRIX_BLOCK.replace(
+                "        python-version: ['3.12', '3.14']",
+                "        python-version: ['3.12', '3.14']\n        include:\n          - python-version: '3.13'",
+            ),
+        ):
+            with self.subTest(replacement=replacement):
+                result = self.run_mutated_validator("ci.yml", PYTHON_MATRIX_BLOCK, replacement)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("nori-schema Python matrix", result.stdout + result.stderr)
+
+    def test_python_matrix_in_a_decoy_job_cannot_satisfy_nori_schema(self) -> None:
+        canonical = (
+            "\n  nori-schema:\n"
+            "    runs-on: ubuntu-24.04\n"
+            "    timeout-minutes: 5\n"
+            f"{PYTHON_MATRIX_BLOCK}"
+        )
+        replacement = (
+            "\n  python-matrix-decoy:\n"
+            "    runs-on: ubuntu-24.04\n"
+            "    timeout-minutes: 1\n"
+            f"{PYTHON_MATRIX_BLOCK}\n"
+            "    steps:\n"
+            "      - run: echo decoy\n"
+            "\n  nori-schema:\n"
+            "    runs-on: ubuntu-24.04\n"
+            "    timeout-minutes: 5\n"
+            "    strategy:\n"
+            "      fail-fast: false\n"
+            "      matrix:\n"
+            "        runtime: ['3.12', '3.14']"
+        )
+        result = self.run_mutated_validator("ci.yml", canonical, replacement)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("nori-schema Python matrix", result.stdout + result.stderr)
+
+    def test_python_schema_wiring_and_controls_are_fail_closed(self) -> None:
+        mutations = (
+            (PYTHON_WIRING, "          python-version: '3.14'", "Python setup wiring"),
+            ("  nori-schema:\n", "  nori-schema:\n    if: false\n", "Python setup wiring"),
+            (
+                f"      - uses: {EXPECTED_ACTION_USES['setup-python']}\n",
+                f"      - uses: {EXPECTED_ACTION_USES['setup-python']}\n        continue-on-error: true\n",
+                "Python setup wiring",
+            ),
+        )
+        for canonical, replacement, message in mutations:
+            with self.subTest(replacement=replacement):
+                result = self.run_mutated_validator("ci.yml", canonical, replacement)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(message, result.stdout + result.stderr)
+
+    def test_shellcheck_release_is_checksum_verified_before_use(self) -> None:
+        source = self.workflow_text("security.yml")
+        self.assertIn(SHELLCHECK_URL, source)
+        self.assertIn(SHELLCHECK_SHA256, source)
+        self.assertIn("sha256sum --check --strict", source)
+        self.assertIn('echo "$RUNNER_TEMP/shellcheck-v0.11.0" >> "$GITHUB_PATH"', source)
+        self.assertIn("version: 0.11.0", source)
+        self.assertLess(source.index(SHELLCHECK_URL), source.index("shellcheck -x"))
+
+    def test_shellcheck_supply_chain_mutations_are_rejected(self) -> None:
+        mutations = (
+            (SHELLCHECK_URL, SHELLCHECK_URL.replace("v0.11.0", "v0.10.0")),
+            (SHELLCHECK_URL, SHELLCHECK_URL.replace("github.com", "downloads.example.com")),
+            (SHELLCHECK_SHA256, "0" * 64),
+            ("sha256sum --check --strict", "sha256sum --check"),
+            ("sha256sum --check --strict", "true"),
+            ("version: 0.11.0", "version: 0.10.0"),
+            ("version: 0.11.0", "version check removed"),
+            (
+                "      - name: Provision verified ShellCheck 0.11.0",
+                "      - name: Run unverified ShellCheck first\n"
+                "        run: shellcheck -x tests/validate-package.sh\n"
+                "      - name: Provision verified ShellCheck 0.11.0",
+            ),
+        )
+        for canonical, replacement in mutations:
+            with self.subTest(replacement=replacement):
+                result = self.run_mutated_validator("security.yml", canonical, replacement)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("ShellCheck 0.11.0 provisioning", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
