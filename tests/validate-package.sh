@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 node tests/run-command-guard-tests.mjs
+node --test tests/context-continuity/settings.test.mjs
 python3 tests/test-command-guard-install-policy.py
 python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
