@@ -670,7 +670,7 @@ explicit checks for RV-89 through RV-93, adjacent HTTP/Git/Kubernetes/
 PowerShell bypasses, mutation quality, installed behavior, documentation, and
 workflow coverage. Do not reuse the earlier verdict.
 
-- [ ] **Step 5: Remediate every confirmed finding**
+- [x] **Step 5: Remediate every confirmed finding**
 
 For each finding, reproduce RED, implement the smallest correction, rerun the
 affected and full gates, and request another independent review. Do not mark
@@ -681,10 +681,11 @@ requires the first-argument curl default-configuration disable boundary,
 platform key-header credential recognition, exact fail-closed CodeQL job,
 matrix, `init`, `analyze`, and `with.languages` wiring validation,
 platform-qualified test evidence, 155 source/installed fixtures,
-and 82 typed mutation witnesses. Focused Windows gates are green; Debian/WSL,
-the complete repository gate, and the next independent verdict remain pending.
+and 82 typed mutation witnesses. Complete Windows and Debian/WSL package gates
+are green on `75f4e26`, and the independent review returned `GO` with no open
+finding.
 
-- [ ] **Step 6: Record the final independent verdict**
+- [x] **Step 6: Record the final independent verdict**
 
 Append exact gate counts and the final severity summary to the ledger, lint the
 changed document, and commit:

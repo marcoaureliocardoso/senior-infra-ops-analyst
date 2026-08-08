@@ -768,10 +768,10 @@ a repository copy while preserving its declared matrix.
 
 | ID | Finding | Reproduced behavior | Remediation | Status |
 |---|---|---|---|---|
-| RV-94 | Curl default configuration escaped the visible grammar | An implicit `.curlrc` could add redirects, bodies, methods, credentials, or sinks while the guard authorized only visible arguments | Require exactly one literal `-q` or `--disable` as the first curl argument and reject missing, late, repeated, negated, or compact controls | Remediated; final independent verification pending |
-| RV-95 | Platform key headers escaped credential handling | `X-Functions-Key` and `Ocp-Apim-Subscription-Key` were treated as ordinary headers | Add bounded platform-key concepts to secret-header recognition with redaction, approval, negative controls, typed mutation, and source/installed fixtures | Remediated; final independent verification pending |
-| RV-96 | CodeQL declaration did not prove job wiring | Decoy jobs, exclusions, scalars, conditions, or non-canonical keys preserved text without JavaScript analysis | Require the exact matrix, canonical keys without indirection, direct unconditional fail-closed `init`/`analyze`, and one direct `with.languages` binding in `jobs.codeql` | Remediated; final independent verification pending |
-| RV-97 | Test counts were documented as platform-neutral | The ledger and ADR reported 254 universally although Debian/WSL executed 258 at that head | Qualify evidence by platform and record current counts only after execution | Remediated; final independent verification pending |
+| RV-94 | Curl default configuration escaped the visible grammar | An implicit `.curlrc` could add redirects, bodies, methods, credentials, or sinks while the guard authorized only visible arguments | Require exactly one literal `-q` or `--disable` as the first curl argument and reject missing, late, repeated, negated, or compact controls | Resolved; independently verified |
+| RV-95 | Platform key headers escaped credential handling | `X-Functions-Key` and `Ocp-Apim-Subscription-Key` were treated as ordinary headers | Add bounded platform-key concepts to secret-header recognition with redaction, approval, negative controls, typed mutation, and source/installed fixtures | Resolved; independently verified |
+| RV-96 | CodeQL declaration did not prove job wiring | Decoy jobs, exclusions, scalars, conditions, or non-canonical keys preserved text without JavaScript analysis | Require the exact matrix, canonical keys without indirection, direct unconditional fail-closed `init`/`analyze`, and one direct `with.languages` binding in `jobs.codeql` | Resolved; independently verified |
+| RV-97 | Test counts were documented as platform-neutral | The ledger and ADR reported 254 universally although Debian/WSL executed 258 at that head | Qualify evidence by platform and record current counts only after execution | Resolved; independently verified |
 
 The Windows source gate now passes 262 tests with zero skips, 100 percent
 critical line/function/branch coverage, four fixed property seeds, and 82 of
@@ -786,3 +786,13 @@ reference to place `-q` first and removed unsupported curl verbose flags from
 examples intended to be catalogued reads. Historical plans and explicit
 negative fixtures retain their original spellings where the omission itself
 is the tested or recorded behavior.
+
+Final verification on commit `75f4e26` passed the complete Windows Git Bash
+and Debian/WSL package gates. Each platform executed 262 guard tests with zero
+skips, 100 percent critical line/function/branch coverage, four fixed property
+seeds, and 82 of 82 typed mutations killed. Installed validation passed 11 of
+11 tests, the workflow mutation suite passed 14 of 14 tests, and all 155
+source/installed review fixtures remained registered. The final independent
+read-only review found no Critical, Important, or Minor issue after exercising
+quoted and explicit mapping keys, scalar and decoy wiring, matrix exclusions,
+conditions, and YAML anchor/alias indirection. Its verdict was `GO`.

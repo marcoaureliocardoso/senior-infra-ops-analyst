@@ -3,7 +3,7 @@
 <!-- cspell:words pathspec -->
 
 **Date:** 2026-08-03  
-**Status:** Remediated through RV-97; final independent verification pending
+**Status:** Remediated through RV-97; independently verified
 **Scope:** PR #25, native command guard for executor subagents
 
 ## Context
