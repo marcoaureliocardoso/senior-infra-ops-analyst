@@ -289,7 +289,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
     shellcheck_url_count=$(grep -Fc "$shellcheck_url" "$workflow" || true)
     shellcheck_digest_count=$(grep -Fc "$shellcheck_digest" "$workflow" || true)
     shellcheck_verify_count=$(grep -Fc 'sha256sum --check --strict' "$workflow" || true)
-    shellcheck_path_count=$(grep -Fc 'echo "$RUNNER_TEMP/shellcheck-v0.11.0" >> "$GITHUB_PATH"' "$workflow" || true)
+    shellcheck_path_count=$(grep -Fc "echo \"\$RUNNER_TEMP/shellcheck-v0.11.0\" >> \"\$GITHUB_PATH\"" "$workflow" || true)
     shellcheck_version_count=$(grep -Fc "version: 0.11.0" "$workflow" || true)
     shellcheck_url_line=$(grep -nF "$shellcheck_url" "$workflow" | cut -d: -f1 || true)
     shellcheck_use_count=$(grep -Fc 'shellcheck -x' "$workflow" || true)
