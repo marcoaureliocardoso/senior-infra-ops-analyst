@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 node tests/run-command-guard-tests.mjs
 node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
+node --test tests/context-continuity/compact-hook.test.mjs
 python3 tests/test-command-guard-install-policy.py
 python3 -m json.tool nori.json >/dev/null
 python3 tests/validate-content.py
@@ -20,6 +21,7 @@ python3 tests/test-smoke-command-guard.py
 python3 tests/test-ci-workflows.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
+bash -n skills/context-continuity/scripts/compact-hook-launcher.sh
 bash -n tests/live-subagent-runtime-smoke.sh
 bash -n tests/live-command-guard-smoke.sh
 bash -n tests/validate-package.sh

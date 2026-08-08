@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, writeFileSync,
+  chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,17 +69,22 @@ function readState(sessionId, env, now) {
   };
 }
 
-function writeState(sessionId, state, env) {
-  const directory = stateDirectory(env);
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
-  chmodSync(directory, 0o700);
-  const target = statePath(sessionId, env);
+function atomicWriteTarget(target, state) {
   const temporary = `${target}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`;
   const serialized = `${JSON.stringify(state)}\n`;
   if (Buffer.byteLength(serialized, 'utf8') > MAX_STATE_BYTES) throw new Error('binding state size exceeded');
   writeFileSync(temporary, serialized, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
   chmodSync(temporary, 0o600);
   renameSync(temporary, target);
+}
+
+function writeState(sessionId, state, env) {
+  const directory = stateDirectory(env);
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const directoryInfo = lstatSync(directory);
+  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) throw new Error('unsafe binding state directory');
+  chmodSync(directory, 0o700);
+  atomicWriteTarget(statePath(sessionId, env), state);
 }
 
 function sameBinding(left, right, fields = MATCH_FIELDS) {
@@ -115,6 +120,29 @@ export function hasActiveBinding(binding, env = process.env, now = Date.now()) {
   const normalized = normalizeBinding(binding);
   const state = readState(normalized.sessionId, env, now);
   return state.active.some((entry) => sameBinding(entry, normalized));
+}
+
+export function invalidateSessionBindings(sessionId, env = process.env) {
+  const bounded = requiredBounded(sessionId, 'sessionId');
+  writeState(bounded, emptyState(), env);
+  return true;
+}
+
+export function invalidateAllBindings(env = process.env) {
+  const directory = stateDirectory(env);
+  if (!existsSync(directory)) return 0;
+  const directoryInfo = lstatSync(directory);
+  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) throw new Error('unsafe binding state directory');
+  let invalidated = 0;
+  for (const name of readdirSync(directory)) {
+    if (!/^[a-f0-9]{64}\.json$/u.test(name)) continue;
+    const target = path.join(directory, name);
+    const info = lstatSync(target);
+    if (!info.isFile() || info.isSymbolicLink()) continue;
+    atomicWriteTarget(target, emptyState());
+    invalidated += 1;
+  }
+  return invalidated;
 }
 
 export function bindingFromResult(result, event) {
