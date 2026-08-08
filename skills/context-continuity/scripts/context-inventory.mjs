@@ -145,6 +145,9 @@ export function normalizeRuntimeEvidence(events) {
   let gatewayUnavailable = false;
   let connectedCount = 0;
   let visibleToolCount = 0;
+  let reportedWindow = null;
+  let observedWindow = null;
+  let absoluteOverrideApplied = false;
   const created = new Set();
   const observedAfter = new Set();
   const taskFamilies = new Set();
@@ -189,6 +192,11 @@ export function normalizeRuntimeEvidence(events) {
         connectedCount = boundedCount(event.connectedCount);
         visibleToolCount = boundedCount(event.visibleToolCount);
         break;
+      case 'window':
+        reportedWindow = boundedCount(event.reportedWindow);
+        observedWindow = boundedCount(event.observedWindow);
+        absoluteOverrideApplied = event.absoluteOverrideApplied === true;
+        break;
       case 'runtime':
         runtime = {
           claudeCode: boundedRuntimeId(event.claudeCode),
@@ -208,6 +216,10 @@ export function normalizeRuntimeEvidence(events) {
   const reasonCode = searchAvailable ? 'TOOL_SEARCH_AVAILABLE'
     : gatewayUnavailable ? 'TOOL_SEARCH_UNAVAILABLE_GATEWAY'
       : 'TOOL_SEARCH_NOT_OBSERVED';
+  const windowReasonCode = reportedWindow === null || observedWindow === null
+    ? 'WINDOW_REPORTING_NOT_OBSERVED'
+    : reportedWindow === observedWindow
+      ? 'WINDOW_REPORTING_CONSISTENT' : 'WINDOW_REPORTING_DIVERGENCE';
   return Object.freeze({
     schemaVersion: 1,
     context: Object.freeze({
@@ -226,6 +238,12 @@ export function normalizeRuntimeEvidence(events) {
       visibleCountBefore, visibleCountAfter, searchAvailable: searchObserved && searchAvailable, reasonCode,
     }),
     mcp: Object.freeze({ connectedCount, visibleToolCount }),
+    window: Object.freeze({
+      reportedWindow,
+      observedWindow,
+      reasonCode: windowReasonCode,
+      absoluteOverrideEvidenceGated: windowReasonCode === 'WINDOW_REPORTING_DIVERGENCE' && absoluteOverrideApplied,
+    }),
     runtime: Object.freeze(runtime),
   });
 }

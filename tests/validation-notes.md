@@ -144,3 +144,52 @@ These identifiers document that run only and do not constrain future versions.
 The observed hook envelope included `prompt_id` and `effort`; the contract has
 regression coverage for a bounded prompt identifier and the documented effort
 levels without relaxing unknown top-level or `tool_input` fields.
+
+## Context continuity and preventive compaction validation
+
+The deterministic P0-04A parser and safety checks do not use a model or provider:
+
+```bash
+node --test tests/context-continuity/inventory.test.mjs
+python3 tests/test-live-context-continuity-safety.py
+bash -n tests/live-context-continuity-smoke.sh
+bash tests/live-context-continuity-smoke.sh --self-test
+```
+
+The self-test proves native `TaskCreate`/`TaskUpdate` and `TodoWrite` family
+normalization, task-identifier survival across one synthetic compaction,
+available/unavailable/not-observed tool-search reason codes, consistent and
+divergent window metadata, and rejection of deliberately unsafe retained
+evidence. The retained schema contains only numeric values, booleans, bounded
+identifiers, and closed reason codes; prompts, responses, summaries,
+transcripts, commands, tool payloads, headers, and credentials are forbidden.
+
+The opt-in real-provider run requires a Linux or WSL environment with non-root
+Bubblewrap, Node.js, Python, the `timeout` and pseudo-terminal `script`
+utilities, Claude Code, Nori, network access, and an operator-configured
+DeepSeek route. It requires this exact temporary acknowledgment:
+
+```bash
+P0_04A_LIVE_NORMAL_CREDENTIALS_ACK=I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK \
+  bash tests/live-context-continuity-smoke.sh --run-live
+```
+
+Exit `0` means every requested deterministic or live invariant passed. Exit
+`1` means a safety or behavioral invariant failed. Exit `2` means a
+prerequisite or runtime capability is unavailable and must never be reported as
+a pass. The harness creates a generated HOME and `CLAUDE_CONFIG_DIR`, installs
+the current worktree through discovered Nori, imports only the approved Claude
+transport environment allowlist through a NUL-delimited FIFO, and deletes
+content-bearing JSONL, PTY, transcript, and request captures. Explicit
+`--keep-artifacts` retains them only inside the verified temporary directory
+and prints a warning that they contain model content.
+
+Production configuration remains percentage-based with default `72` and
+preserves an operator value from 70 through 75. The automatic-compaction probe
+uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5` solely to make the test
+bounded; it does not change installed settings. The real DeepSeek route runs
+with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset. An absolute override is
+diagnostic-only and may be exercised against a disposable divergent-window
+fixture only after normalized evidence reports `WINDOW_REPORTING_DIVERGENCE`;
+the evidence then records `absoluteOverrideEvidenceGated` without retaining a
+prompt, response, or raw gateway request.

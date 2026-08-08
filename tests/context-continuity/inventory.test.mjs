@@ -92,6 +92,25 @@ test('MCP measurements retain counts only', () => {
 });
 
 
+test('window evidence gates the exceptional absolute override', () => {
+  const consistent = normalizeRuntimeEvidence([{
+    kind: 'window', reportedWindow: 64000, observedWindow: 64000,
+  }]);
+  assert.deepEqual(consistent.window, {
+    reportedWindow: 64000,
+    observedWindow: 64000,
+    reasonCode: 'WINDOW_REPORTING_CONSISTENT',
+    absoluteOverrideEvidenceGated: false,
+  });
+  const divergent = normalizeRuntimeEvidence([{
+    kind: 'window', reportedWindow: 128000, observedWindow: 64000,
+    absoluteOverrideApplied: true,
+  }]);
+  assert.equal(divergent.window.reasonCode, 'WINDOW_REPORTING_DIVERGENCE');
+  assert.equal(divergent.window.absoluteOverrideEvidenceGated, true);
+});
+
+
 test('runtime identifiers are bounded and untrusted labels are not copied', () => {
   const report = normalizeRuntimeEvidence([{
     kind: 'runtime', claudeCode: '2.9.1', nori: '0.4.0', modelLabel: 'deepseek-chat',

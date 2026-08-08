@@ -19,6 +19,7 @@ python3 tests/test-live-smoke-safety.py
 python3 tests/test-load-claude-env.py
 python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
+python3 tests/test-live-context-continuity-safety.py
 python3 tests/test-smoke-command-guard.py
 python3 tests/test-ci-workflows.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
@@ -26,9 +27,11 @@ bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
 bash -n skills/context-continuity/scripts/compact-hook-launcher.sh
 bash -n tests/live-subagent-runtime-smoke.sh
 bash -n tests/live-command-guard-smoke.sh
+bash -n tests/live-context-continuity-smoke.sh
 bash -n tests/validate-package.sh
 bash tests/live-subagent-runtime-smoke.sh --self-test
 bash tests/live-command-guard-smoke.sh --self-test
+bash tests/live-context-continuity-smoke.sh --self-test
 skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev/null
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then
