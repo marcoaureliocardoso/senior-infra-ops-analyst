@@ -188,7 +188,8 @@
     "outform",
     "certbot",
     "keytool",
-    "certutil"
+    "certutil",
+    "Alertmanager"
   ],
   "ignorePaths": [
     ".git/**",

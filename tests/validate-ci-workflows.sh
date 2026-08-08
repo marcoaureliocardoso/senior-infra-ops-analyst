@@ -109,7 +109,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
     fi
     codeql_init_steps=$(grep -Ec 'github/codeql-action/init@' "$workflow" || true)
     codeql_analyze_steps=$(grep -Ec 'github/codeql-action/analyze@' "$workflow" || true)
-    matrix_wiring=$(grep -Fc 'languages: ${{ matrix.language }}' "$workflow" || true)
+    matrix_wiring=$(grep -Fc "languages: \${{ matrix.language }}" "$workflow" || true)
     init_wiring_stats=$(awk '
       function indentation(line, stripped) {
         stripped = line
@@ -174,7 +174,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
       }
     ' "$workflow")
     if [ "$codeql_init_steps" -ne 1 ] || [ "$codeql_analyze_steps" -ne 1 ] || [ "$matrix_wiring" -ne 1 ] || [ "$init_wiring_stats" != "1:1:1:1:1:1:0" ]; then
-      echo 'FAIL: security.yml CodeQL init wiring must use direct with.languages: ${{ matrix.language }} exactly once'
+      echo "FAIL: security.yml CodeQL init wiring must use direct with.languages: \${{ matrix.language }} exactly once"
       echo 'FAIL: security.yml CodeQL steps must contain direct unconditional init and analyze actions with fail-closed matrix wiring'
       errors=$((errors + 1))
     fi
