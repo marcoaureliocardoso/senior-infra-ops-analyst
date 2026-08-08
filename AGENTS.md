@@ -67,6 +67,17 @@ destructive operation still asks. Reprompt after mode, session, or model
 context loss. Never reconstruct, persist, echo, hash, compare, or search the
 transcript for a credential.
 
+## Context continuity and compaction
+
+<required>
+1. Keep auto-compaction enabled. Prefer `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from 70 through 75; the package default is 72. Never assume an absolute context size.
+2. For long work, maintain the native task list. Use `TaskCreate`/`TaskGet`/`TaskList`/`TaskUpdate` when available or `TodoWrite` on runtimes that expose that interface. Read it immediately after compaction.
+3. Compact the minimum operational ledger: current objective and completion criteria; scope exclusions; approved decisions and rejected alternatives; evidence and artifact locations; branch, commits, files, tests, blockers, residual risks, rollback, and Immediate next action.
+4. Treat compaction as invalidating any authorization or credential reuse that current native state cannot prove again. Reprompt before literal credential reuse.
+5. Never preserve transcript, prompt, compact summary, or secret as a continuity artifact. Preserve references and non-secret results, not conversation content.
+6. When context pressure persists, inspect `/context`, narrow skills and MCPs, read large artifacts in chunks, use focused `/compact` instructions, and state what `/rewind`, `/clear`, or `/resume` invalidates.
+</required>
+
 ## Dependencies
 
 This skillset requires the `read-the-damn-docs` skill (`public/read-the-damn-docs`). It forces web-search for current official documentation before acting on third-party APIs, CLIs, cloud services, and infrastructure tools — preventing stale or hallucinated commands in high-stakes operational contexts. Declared in `nori.json` dependencies and auto-installed by the Nori CLI.

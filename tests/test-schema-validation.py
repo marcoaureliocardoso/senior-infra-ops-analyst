@@ -32,6 +32,10 @@ class SchemaValidationTests(unittest.TestCase):
         cls.original_nori_version = cls.nori_version_path.read_text(
             encoding="utf-8"
         )
+        cls.skills_json_path = cls.sandbox / "skills.json"
+        cls.original_skills_json = cls.skills_json_path.read_text(
+            encoding="utf-8"
+        )
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -41,6 +45,9 @@ class SchemaValidationTests(unittest.TestCase):
         self.manifest_path.write_text(self.original_manifest, encoding="utf-8")
         self.nori_version_path.write_text(
             self.original_nori_version, encoding="utf-8"
+        )
+        self.skills_json_path.write_text(
+            self.original_skills_json, encoding="utf-8"
         )
 
     def run_validator(self) -> subprocess.CompletedProcess[str]:
@@ -91,6 +98,28 @@ class SchemaValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
             ".nori-version version must match nori.json",
+            result.stdout + result.stderr,
+        )
+
+    def test_context_continuity_skill_is_registered_in_both_manifests(self) -> None:
+        manifest = json.loads(self.original_manifest)
+        skills = json.loads(self.original_skills_json)
+        self.assertIn("context-continuity", manifest["skills"])
+        self.assertEqual(skills["context-continuity"], "*")
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_missing_context_continuity_tier_is_rejected(self) -> None:
+        skills = json.loads(self.original_skills_json)
+        skills.pop("context-continuity", None)
+        self.skills_json_path.write_text(
+            json.dumps(skills, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "skill 'context-continuity' in nori.json not found in skills.json",
             result.stdout + result.stderr,
         )
 

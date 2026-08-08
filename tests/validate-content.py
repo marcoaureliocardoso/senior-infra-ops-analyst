@@ -286,6 +286,19 @@ agents = read('AGENTS.md')
 for ref in refs:
     if ref not in agents: err(f'AGENTS.md missing required reference: {ref}')
 
+continuity_clauses = (
+    "## Context continuity and compaction",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+    "TaskCreate`/`TaskGet`/`TaskList`/`TaskUpdate",
+    "`TodoWrite`",
+    "authorization or credential reuse",
+    "transcript, prompt, compact summary, or secret",
+    "Immediate next action",
+)
+for clause in continuity_clauses:
+    if clause not in agents:
+        err(f'missing context continuity clause: {clause}')
+
 # Template convention: no root templates; skill-owned templates only.
 if (root/'templates').exists():
     err('root templates directory exists; templates must be owned under skills/<skill>/templates/')

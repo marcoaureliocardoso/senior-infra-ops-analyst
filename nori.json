@@ -29,7 +29,8 @@
     "itsm-cmdb-workflows",
     "disaster-recovery-drills",
     "vendor-escalation-management",
-    "audit-compliance-evidence"
+    "audit-compliance-evidence",
+    "context-continuity"
   ],
   "dependencies": {
     "skills": [
