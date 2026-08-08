@@ -49,8 +49,9 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
   if [ "$name" = "security.yml" ]; then
     if grep -Eq '^[[:space:]]*"[^"]+"[[:space:]]*:' "$workflow" ||
       grep -Eq "^[[:space:]]*'[^']+'[[:space:]]*:" "$workflow" ||
-      grep -Eq '^[[:space:]]*[?:][[:space:]]+' "$workflow"; then
-      echo "FAIL: security.yml CodeQL steps require unquoted canonical mapping keys"
+      grep -Eq '^[[:space:]]*[?:][[:space:]]+' "$workflow" ||
+      grep -Eq '(^|[[:space:]])[&*!][^[:space:]]' "$workflow"; then
+      echo "FAIL: security.yml CodeQL steps require canonical YAML mapping keys"
       errors=$((errors + 1))
     fi
 

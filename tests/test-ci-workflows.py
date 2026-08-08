@@ -33,8 +33,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         conditional_codeql_step: str | None = None,
         continue_on_error_step: str | None = None,
         codeql_job_control: str | None = None,
-        quote_step_control_key: bool = False,
-        explicit_step_control_key: bool = False,
+        step_control_style: str = "plain",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -160,12 +159,18 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 source = mutated
             if conditional_codeql_step is not None:
                 canonical = f"      - uses: github/codeql-action/{conditional_codeql_step}@v3"
-                control_key = '"if"' if quote_step_control_key else "if"
-                control = (
-                    "? if\n        : matrix.language == 'python'"
-                    if explicit_step_control_key
-                    else f"{control_key}: matrix.language == 'python'"
-                )
+                control = "if: matrix.language == 'python'"
+                if step_control_style == "quoted":
+                    control = '"if": matrix.language == \'python\''
+                elif step_control_style == "explicit":
+                    control = "? if\n        : matrix.language == 'python'"
+                elif step_control_style == "alias":
+                    control = (
+                        "env:\n          CONTROL_KEY: &control_key if\n"
+                        "        *control_key: matrix.language == 'python'"
+                    )
+                elif step_control_style == "tagged":
+                    control = "!!str if: matrix.language == 'python'"
                 mutated = source.replace(
                     canonical,
                     f"{canonical}\n        {control}",
@@ -174,12 +179,18 @@ class CiWorkflowValidationTests(unittest.TestCase):
                 source = mutated
             if continue_on_error_step is not None:
                 canonical = f"      - uses: github/codeql-action/{continue_on_error_step}@v3"
-                control_key = '"continue-on-error"' if quote_step_control_key else "continue-on-error"
-                control = (
-                    "? continue-on-error\n        : true"
-                    if explicit_step_control_key
-                    else f"{control_key}: true"
-                )
+                control = "continue-on-error: true"
+                if step_control_style == "quoted":
+                    control = '"continue-on-error": true'
+                elif step_control_style == "explicit":
+                    control = "? continue-on-error\n        : true"
+                elif step_control_style == "alias":
+                    control = (
+                        "env:\n          CONTROL_KEY: &control_key continue-on-error\n"
+                        "        *control_key: true"
+                    )
+                elif step_control_style == "tagged":
+                    control = "!!str continue-on-error: true"
                 mutated = source.replace(
                     canonical,
                     f"{canonical}\n        {control}",
@@ -280,12 +291,11 @@ class CiWorkflowValidationTests(unittest.TestCase):
     def test_codeql_security_steps_are_unconditional_and_fail_closed(self) -> None:
         for parameter in ("conditional_codeql_step", "continue_on_error_step"):
             for step in ("init", "analyze"):
-                for style in ("plain", "quoted", "explicit"):
+                for style in ("plain", "quoted", "explicit", "alias", "tagged"):
                     with self.subTest(parameter=parameter, step=step, style=style):
                         result = self.run_validator(
                             **{parameter: step},
-                            quote_step_control_key=style == "quoted",
-                            explicit_step_control_key=style == "explicit",
+                            step_control_style=style,
                         )
                         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                         self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
@@ -298,6 +308,10 @@ class CiWorkflowValidationTests(unittest.TestCase):
             "'continue-on-error': true",
             "? if\n    : false",
             "? continue-on-error\n    : true",
+            "env:\n      CONTROL_KEY: &control_key if\n    *control_key: false",
+            "env:\n      CONTROL_KEY: &control_key continue-on-error\n    *control_key: true",
+            "!!str if: false",
+            "!!str continue-on-error: true",
         ):
             with self.subTest(control=control):
                 result = self.run_validator(codeql_job_control=control)
