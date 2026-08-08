@@ -182,8 +182,8 @@ two-language-only matrix under `jobs.codeql.strategy`, and exactly one direct
 and unconditional CodeQL `init` plus `analyze` step in that same job. The init
 step has exactly one direct `with.languages: ${{ matrix.language }}` binding.
 Matrix `include`/`exclude`, duplicate keys, decoy jobs, scalar lookalikes,
-quoted mapping keys, step/job `if`, and step/job `continue-on-error` are
-rejected so later edits
+quoted or explicit mapping keys, step/job `if`, and step/job
+`continue-on-error` are rejected so later edits
 cannot silently remove JavaScript coverage, hard-code the initialized
 language, skip a security step, or make its failure non-blocking.
 

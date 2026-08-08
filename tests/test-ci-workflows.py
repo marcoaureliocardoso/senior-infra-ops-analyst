@@ -34,6 +34,7 @@ class CiWorkflowValidationTests(unittest.TestCase):
         continue_on_error_step: str | None = None,
         codeql_job_control: str | None = None,
         quote_step_control_key: bool = False,
+        explicit_step_control_key: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="ci-workflow-validation-") as temporary:
             repository = Path(temporary)
@@ -160,18 +161,28 @@ class CiWorkflowValidationTests(unittest.TestCase):
             if conditional_codeql_step is not None:
                 canonical = f"      - uses: github/codeql-action/{conditional_codeql_step}@v3"
                 control_key = '"if"' if quote_step_control_key else "if"
+                control = (
+                    "? if\n        : matrix.language == 'python'"
+                    if explicit_step_control_key
+                    else f"{control_key}: matrix.language == 'python'"
+                )
                 mutated = source.replace(
                     canonical,
-                    f"{canonical}\n        {control_key}: matrix.language == 'python'",
+                    f"{canonical}\n        {control}",
                 )
                 self.assertNotEqual(mutated, source, "CodeQL conditional step mutation failed")
                 source = mutated
             if continue_on_error_step is not None:
                 canonical = f"      - uses: github/codeql-action/{continue_on_error_step}@v3"
                 control_key = '"continue-on-error"' if quote_step_control_key else "continue-on-error"
+                control = (
+                    "? continue-on-error\n        : true"
+                    if explicit_step_control_key
+                    else f"{control_key}: true"
+                )
                 mutated = source.replace(
                     canonical,
-                    f"{canonical}\n        {control_key}: true",
+                    f"{canonical}\n        {control}",
                 )
                 self.assertNotEqual(mutated, source, "CodeQL continue-on-error mutation failed")
                 source = mutated
@@ -269,11 +280,12 @@ class CiWorkflowValidationTests(unittest.TestCase):
     def test_codeql_security_steps_are_unconditional_and_fail_closed(self) -> None:
         for parameter in ("conditional_codeql_step", "continue_on_error_step"):
             for step in ("init", "analyze"):
-                for quoted in (False, True):
-                    with self.subTest(parameter=parameter, step=step, quoted=quoted):
+                for style in ("plain", "quoted", "explicit"):
+                    with self.subTest(parameter=parameter, step=step, style=style):
                         result = self.run_validator(
                             **{parameter: step},
-                            quote_step_control_key=quoted,
+                            quote_step_control_key=style == "quoted",
+                            explicit_step_control_key=style == "explicit",
                         )
                         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                         self.assertIn("security.yml CodeQL steps", result.stdout + result.stderr)
@@ -284,6 +296,8 @@ class CiWorkflowValidationTests(unittest.TestCase):
             "continue-on-error: true",
             "\"if\": false",
             "'continue-on-error': true",
+            "? if\n    : false",
+            "? continue-on-error\n    : true",
         ):
             with self.subTest(control=control):
                 result = self.run_validator(codeql_job_control=control)
