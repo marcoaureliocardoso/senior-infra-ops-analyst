@@ -23,7 +23,7 @@ configuration are explicitly out of scope.
 |---|---|
 | `actions/checkout` | `v7.0.1` commit `3d3c42e5aac5ba805825da76410c181273ba90b1` |
 | `actions/setup-python` | `v7.0.0` commit `5fda3b95a4ea91299a34e894583c3862153e4b97` |
-| `github/codeql-action` | `v4` commit `24c7eb380a2dc368f2d129e4c65e51d172983a1e` |
+| `github/codeql-action` | `v4` commit `5595ccaf912efad79be6eef63a5619ff05969be3` |
 | `actions/upload-artifact` | `v7.0.1` commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` |
 | `softprops/action-gh-release` | `v3.0.2` commit `3d0d9888cb7fd7b750713d6e236d1fcb99157228` |
 | `DavidAnson/markdownlint-cli2-action` | `v24.2.0` commit `21c1be1b93ad9ed58fa840aacc3f279cde2a72ff` |

@@ -103,8 +103,8 @@ Assert that the checked-in workflows contain these exact references:
 ```text
 actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-github/codeql-action/init@24c7eb380a2dc368f2d129e4c65e51d172983a1e # v4
-github/codeql-action/analyze@24c7eb380a2dc368f2d129e4c65e51d172983a1e # v4
+github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
 actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
 softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
 DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0

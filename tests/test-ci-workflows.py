@@ -13,7 +13,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_LANGUAGES = "language: [python, javascript-typescript]"
-CODEQL_SHA = "24c7eb380a2dc368f2d129e4c65e51d172983a1e"
+CODEQL_SHA = "5595ccaf912efad79be6eef63a5619ff05969be3"
 CODEQL_INIT_USE = f"github/codeql-action/init@{CODEQL_SHA} # v4"
 CODEQL_ANALYZE_USE = f"github/codeql-action/analyze@{CODEQL_SHA} # v4"
 PYTHON_MATRIX_BLOCK = (
