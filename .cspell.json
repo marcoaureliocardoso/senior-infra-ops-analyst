@@ -189,7 +189,12 @@
     "certbot",
     "keytool",
     "certutil",
-    "Alertmanager"
+    "Alertmanager",
+    "autocompact",
+    "AUTOCOMPACT",
+    "configurator",
+    "reinjection",
+    "execve"
   ],
   "ignorePaths": [
     ".git/**",

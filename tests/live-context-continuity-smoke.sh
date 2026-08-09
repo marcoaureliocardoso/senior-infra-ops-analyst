@@ -642,13 +642,13 @@ run_context_role_probes() {
     network-edge-operator observability-sre rca-facilitator release-cicd-operator
     security-operations-reviewer
   )
-  local index role role_args status attempt
+  local index role role_args status
   for index in "${!roles[@]}"; do
     role="${roles[$index]}"
     role_args=()
     if [[ "$role" != "main" ]]; then role_args=(--agent "$role"); fi
     status=2
-    for attempt in 1 2; do
+    for _ in 1 2; do
       set +e
       timeout 120 "${PROVIDER_EXEC[@]}" \
         python3 "$ROOT/tests/claude-pty-driver.py" \

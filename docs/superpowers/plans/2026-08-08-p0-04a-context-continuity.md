@@ -4,7 +4,13 @@
 
 **Goal:** Add native, capability-based continuity controls that preserve operational state across Claude Code compaction without retaining conversation content or stale credential authorization.
 
-**Architecture:** A new `context-continuity` skill owns pure settings merge logic, an explicit local configurator, a stateless status line, content-free compaction hooks, and a numeric inventory collector. Root instructions and all 12 subagents carry the durable semantic contract, while the existing command-guard binding store gains atomic session invalidation. Deterministic tests, isolated Nori installation, and live DeepSeek probes establish behavior without pinning runtimes or context-window size.
+**Architecture:** A new `context-continuity` skill owns pure settings merge logic,
+an explicit local configurator, a stateless status line, content-free compaction
+hooks, and a numeric inventory collector. Root instructions and all 12 subagents
+carry the durable semantic contract, while the existing command-guard binding
+store gains atomic session invalidation. Deterministic tests, isolated Nori
+installation, and live DeepSeek probes establish behavior without pinning
+runtimes or context-window size.
 
 **Tech Stack:** Node.js built-ins and native test runner, Bash, Python `unittest`, Claude Code native settings/hooks/task tools/status line, Nori Skillsets, GitHub Actions.
 

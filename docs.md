@@ -6,7 +6,8 @@ Path: `senior-infra-ops-analyst/`
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
-25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
+25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
+Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
 Version: 0.12.0 | Author: Marco Aurelio Cardoso | License: MIT
 

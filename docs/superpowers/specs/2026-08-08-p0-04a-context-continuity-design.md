@@ -82,9 +82,11 @@ limit:
 | Subagent definitions | 12 files, 104,429 bytes |
 | Per-subagent lower bound | 27,134 to 37,401 bytes for root instructions, definition, and preloaded skills |
 | Package-provided MCP servers | none |
+
 Runtime evidence must add actual context percentages and feature availability.
 Byte counts remain useful for regressions but must never be converted into an
 assumed token or context-window size.
+
 ## Decision
 Use a hybrid architecture:
 1. Durable, short instructions distributed through the existing Nori-managed
