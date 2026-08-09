@@ -70,7 +70,7 @@ Relevant Nori source:
 - https://github.com/tilework-tech/nori-skillsets/blob/main/src/cli/features/shared/instructionsLoader.ts
 - https://github.com/tilework-tech/nori-skillsets/blob/main/src/cli/features/claude-code/hooks/loader.ts
 - https://github.com/tilework-tech/nori-skillsets/blob/main/src/cli/features/claude-code/statusline/loader.ts
-- https://github.com/tilework-tech/nori-skillsets/blob/main/src/cli/features/claude-code/settingsBackup.ts
+- https://github.com/tilework-tech/nori-skillsets/blob/main/src/cli/features/settingsBackup.ts
 ## Baseline Context Inventory
 The static baseline measured during design is evidence, not a compatibility
 limit:
