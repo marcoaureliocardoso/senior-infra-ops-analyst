@@ -43,7 +43,11 @@ test('pending binding activates only after a matching successful post event', as
   await withState(async (env) => {
     assert.equal(writePendingBinding(binding, env, NOW), true);
     assert.equal(hasActiveBinding(binding, env, NOW), false);
-    assert.equal(activatePendingBinding(binding, env, NOW + 1), true);
+    let afterReadCount = 0;
+    assert.equal(activatePendingBinding(binding, env, NOW + 1, {
+      afterRead() { afterReadCount += 1; },
+    }), true);
+    assert.equal(afterReadCount, 1);
     assert.equal(hasActiveBinding(binding, env, NOW + 2), true);
     assert.equal(activatePendingBinding(binding, env, NOW + 3), false);
   });
@@ -538,6 +542,20 @@ test('binding store bounds pending and active entries', async () => {
     }
     assert.equal(hasActiveBinding({ ...binding, toolUseId: 'new', identity: 'identity-0' }, env, NOW + 100), false);
     assert.equal(hasActiveBinding({ ...binding, toolUseId: 'new', identity: 'identity-16' }, env, NOW + 100), true);
+  });
+});
+
+test('binding mutation waits for a contended lock and fails closed at its bound', async () => {
+  await withState(async (env) => {
+    writePendingBinding(binding, env, NOW);
+    const [stateName] = (await readdir(env.OPS_COMMAND_GUARD_STATE_DIR))
+      .filter((name) => name.endsWith('.json'));
+    await mkdir(path.join(env.OPS_COMMAND_GUARD_STATE_DIR, `${stateName}.lock`));
+    assert.equal(hasActiveBinding(binding, env, NOW + 1), false);
+    assert.throws(
+      () => writePendingBinding({ ...binding, toolUseId: 'contended' }, env, NOW + 1),
+      /binding state lock unavailable/u,
+    );
   });
 });
 

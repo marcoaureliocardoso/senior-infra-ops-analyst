@@ -17,6 +17,9 @@ python3 tests/test-schema-validation.py
 python3 tests/test-architecture-docs.py
 python3 tests/test-live-smoke-safety.py
 python3 tests/test-load-claude-env.py
+python3 tests/test-exec-claude-env.py
+python3 tests/test-mcp-context-fixture.py
+python3 tests/test-mock-anthropic-gateway.py
 python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
 python3 tests/test-live-context-continuity-safety.py

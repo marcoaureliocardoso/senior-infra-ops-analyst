@@ -51,6 +51,7 @@ Official references:
 - https://code.claude.com/docs/en/llm-gateway
 - https://code.claude.com/docs/en/sessions
 - https://code.claude.com/docs/en/tools-reference
+- https://api-docs.deepseek.com/quick_start/pricing
 ## Nori Distribution Boundary
 Current Nori source shows four different ownership semantics that this design
 must not blur:
@@ -167,10 +168,11 @@ shows the current context percentage when available and a neutral unavailable
 state when usage is null or missing. It writes no files, calls no network, and
 does not calculate token usage from transcript content.
 Status-line installation is opt-in. `--apply` does not replace an effective
-operator or Nori status line unless the operator adds the explicit status-line
-flag. The first implementation supports safe replacement with ownership
-tracking, not composition of arbitrary shell commands. A changed or unowned
-status line is preserved during `--remove-owned`.
+operator or Nori status line. The explicit status-line flag installs the
+package renderer only when no inherited status line exists; otherwise it
+reports a conflict and makes no change. Package-owned installation is tracked
+for exact removal, while a changed or unowned status line is preserved during
+`--remove-owned`.
 ## Compaction Hooks
 Add `PreCompact` and `PostCompact` handlers with strict bounded input schemas.
 Both handlers:

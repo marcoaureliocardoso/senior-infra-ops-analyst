@@ -48,6 +48,7 @@ test('retained runtime schema cannot carry content', () => {
     { kind: 'context', stage: 'before', percent: 73, prompt: 'synthetic prompt SYNTH_SECRET' },
     { kind: 'task', action: 'created', family: 'TaskCreate', identifier: 'task-a', tool_input: 'SYNTH_SECRET' },
     { kind: 'task', action: 'completed', family: 'TaskUpdate', identifier: 'task-a', response: 'tool output' },
+    { kind: 'compact', phase: 'PreCompact', custom_instructions: 'SYNTH_SECRET prompt' },
     { kind: 'compact', phase: 'PostCompact', compact_summary: 'SYNTH_SECRET summary' },
     { kind: 'task', action: 'observed-after', family: 'TaskCreate', identifier: 'task-a', transcript: 'SYNTH_SECRET' },
     { kind: 'context', stage: 'after', percent: 21, content: 'SYNTH_SECRET' },
@@ -60,6 +61,34 @@ test('retained runtime schema cannot carry content', () => {
   assert.equal(report.tasks.createdCount, 1);
   assert.equal(report.tasks.completedCount, 1);
   assert.equal(report.tasks.survivedCompaction, true);
+});
+
+test('task survival requires ordered PreCompact PostCompact and later observation', () => {
+  for (const events of [
+    [
+      { kind: 'task', action: 'created', family: 'TaskCreate', identifier: 'task-a' },
+      { kind: 'task', action: 'observed-after', family: 'TaskCreate', identifier: 'task-a' },
+      { kind: 'compact', phase: 'PreCompact' },
+      { kind: 'compact', phase: 'PostCompact' },
+    ],
+    [
+      { kind: 'task', action: 'created', family: 'TaskCreate', identifier: 'task-a' },
+      { kind: 'compact', phase: 'PostCompact' },
+      { kind: 'task', action: 'observed-after', family: 'TaskCreate', identifier: 'task-a' },
+    ],
+    [
+      { kind: 'task', action: 'created', family: 'TaskCreate', identifier: 'task-a' },
+      { kind: 'compact', phase: 'PreCompact' },
+      { kind: 'task', action: 'observed-after', family: 'TaskCreate', identifier: 'task-a' },
+      { kind: 'compact', phase: 'PostCompact' },
+    ],
+  ]) {
+    const report = normalizeRuntimeEvidence(events);
+    assert.equal(report.tasks.survivedCompaction, false);
+  }
+  assert.equal(normalizeRuntimeEvidence([
+    { kind: 'compact', phase: 'PostCompact' },
+  ]).context.compactionCount, 0);
 });
 
 
@@ -83,12 +112,56 @@ test('tool search fixtures produce honest capability reason codes', async () => 
 test('MCP measurements retain counts only', () => {
   for (const [event, connected, visible] of [
     [undefined, 0, 0],
-    [{ kind: 'mcp', connectedCount: 1, visibleToolCount: 4 }, 1, 4],
+    [{ kind: 'mcp', connectedCount: 1, visibleToolCount: 4, beforePercent: 2, afterPercent: 3 }, 1, 4],
     [{ kind: 'mcp', connectedCount: 2 }, 2, 0],
   ]) {
     const report = normalizeRuntimeEvidence(event ? [event] : []);
-    assert.deepEqual(report.mcp, { connectedCount: connected, visibleToolCount: visible });
+    assert.equal(report.mcp.connectedCount, connected);
+    assert.equal(report.mcp.visibleToolCount, visible);
   }
+  assert.deepEqual(normalizeRuntimeEvidence([{
+    kind: 'mcp', connectedCount: 1, visibleToolCount: 1, beforePercent: 2, afterPercent: 5,
+  }]).mcp, { connectedCount: 1, visibleToolCount: 1, beforePercent: 2, afterPercent: 5, deltaPercent: 3 });
+});
+
+test('per-role context observations retain aggregate percentages only', () => {
+  const report = normalizeRuntimeEvidence([
+    { kind: 'context-role', role: 'main', percent: 4, prompt: 'SYNTH_SECRET' },
+    { kind: 'context-role', role: 'diagnostic-operator', percent: 9, response: 'SYNTH_SECRET' },
+  ]);
+  assert.equal(report.context.roleCount, 2);
+  assert.equal(report.context.rolePercentMin, 4);
+  assert.equal(report.context.rolePercentMax, 9);
+  assert.doesNotMatch(JSON.stringify(report), /main|diagnostic-operator|SYNTH_SECRET/u);
+});
+
+test('session continuity records resume rewind and isolated clear as booleans', () => {
+  const report = normalizeRuntimeEvidence([
+    { kind: 'session', action: 'resume-tasks', session_id: 'SYNTH_SECRET' },
+    { kind: 'session', action: 'rewind-tasks', transcript: 'SYNTH_SECRET' },
+    { kind: 'session', action: 'rewind-context' },
+    { kind: 'session', action: 'rewind-authorization-invalid' },
+    { kind: 'session', action: 'clear-isolated', prompt: 'SYNTH_SECRET' },
+  ]);
+  assert.deepEqual(report.session, {
+    resumeTasksObserved: true,
+    rewindTasksObserved: true,
+    rewindContextObserved: true,
+    rewindAuthorizationInvalidated: true,
+    isolatedClearObserved: true,
+  });
+  assert.doesNotMatch(JSON.stringify(report), /SYNTH_SECRET|session_id|transcript|prompt/u);
+});
+
+test('repeated skill use retains count and aggregate context percentages', () => {
+  const report = normalizeRuntimeEvidence([
+    { kind: 'skill-use', percent: 6, skill: 'SYNTH_SECRET' },
+    { kind: 'skill-use', percent: 8, response: 'SYNTH_SECRET' },
+  ]);
+  assert.equal(report.context.skillUseCount, 2);
+  assert.equal(report.context.skillPercentMin, 6);
+  assert.equal(report.context.skillPercentMax, 8);
+  assert.doesNotMatch(JSON.stringify(report), /SYNTH_SECRET|"skill":|"response":/u);
 });
 
 

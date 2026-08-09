@@ -145,11 +145,22 @@ export function normalizeRuntimeEvidence(events) {
   let gatewayUnavailable = false;
   let connectedCount = 0;
   let visibleToolCount = 0;
+  let mcpBeforePercent = null;
+  let mcpAfterPercent = null;
   let reportedWindow = null;
   let observedWindow = null;
   let absoluteOverrideApplied = false;
-  const created = new Set();
-  const observedAfter = new Set();
+  const rolePercentages = [];
+  const skillPercentages = [];
+  let resumeTasksObserved = false;
+  let rewindTasksObserved = false;
+  let rewindContextObserved = false;
+  let rewindAuthorizationInvalidated = false;
+  let isolatedClearObserved = false;
+  const createdAt = new Map();
+  const observedAt = new Map();
+  const compactionCycles = [];
+  let pendingPreCompact = null;
   const taskFamilies = new Set();
   let createdCount = 0;
   let completedCount = 0;
@@ -158,7 +169,7 @@ export function normalizeRuntimeEvidence(events) {
     providerLabel: 'unknown', platform: 'unknown',
   };
 
-  for (const event of events) {
+  for (const [eventIndex, event] of events.entries()) {
     if (!event || typeof event !== 'object' || Array.isArray(event)) continue;
     switch (event.kind) {
       case 'context': {
@@ -167,16 +178,39 @@ export function normalizeRuntimeEvidence(events) {
         else if (event.stage === 'after') afterPercent = percent;
         break;
       }
+      case 'context-role':
+        rolePercentages.push(boundedPercent(event.percent));
+        break;
+      case 'skill-use':
+        skillPercentages.push(boundedPercent(event.percent));
+        break;
+      case 'session':
+        if (event.action === 'resume-tasks') resumeTasksObserved = true;
+        else if (event.action === 'rewind-tasks') rewindTasksObserved = true;
+        else if (event.action === 'rewind-context') rewindContextObserved = true;
+        else if (event.action === 'rewind-authorization-invalid') rewindAuthorizationInvalidated = true;
+        else if (event.action === 'clear-isolated') isolatedClearObserved = true;
+        break;
       case 'compact':
-        if (event.phase === 'PostCompact') compactionCount += 1;
+        if (event.phase === 'PreCompact') pendingPreCompact = eventIndex;
+        else if (event.phase === 'PostCompact' && pendingPreCompact !== null) {
+          compactionCycles.push({ pre: pendingPreCompact, post: eventIndex });
+          pendingPreCompact = null;
+          compactionCount += 1;
+        }
         break;
       case 'task': {
         const identifier = boundedRuntimeId(event.identifier);
         const family = boundedRuntimeId(event.family);
         taskFamilies.add(family === 'TodoWrite' ? 'TodoWrite' : 'TaskTools');
-        if (event.action === 'created') { created.add(identifier); createdCount += 1; }
+        if (event.action === 'created') {
+          if (!createdAt.has(identifier)) createdAt.set(identifier, eventIndex);
+          createdCount += 1;
+        }
         else if (event.action === 'completed') completedCount += 1;
-        else if (event.action === 'observed-after') observedAfter.add(identifier);
+        else if (event.action === 'observed-after') {
+          observedAt.set(identifier, [...(observedAt.get(identifier) ?? []), eventIndex]);
+        }
         break;
       }
       case 'tool-snapshot':
@@ -191,6 +225,10 @@ export function normalizeRuntimeEvidence(events) {
       case 'mcp':
         connectedCount = boundedCount(event.connectedCount);
         visibleToolCount = boundedCount(event.visibleToolCount);
+        mcpBeforePercent = event.beforePercent === undefined
+          ? null : boundedPercent(event.beforePercent);
+        mcpAfterPercent = event.afterPercent === undefined
+          ? null : boundedPercent(event.afterPercent);
         break;
       case 'window':
         reportedWindow = boundedCount(event.reportedWindow);
@@ -227,17 +265,38 @@ export function normalizeRuntimeEvidence(events) {
       afterPercent,
       deltaPercent: beforePercent === null || afterPercent === null ? null : afterPercent - beforePercent,
       compactionCount,
+      roleCount: rolePercentages.length,
+      rolePercentMin: rolePercentages.length === 0 ? null : Math.min(...rolePercentages),
+      rolePercentMax: rolePercentages.length === 0 ? null : Math.max(...rolePercentages),
+      skillUseCount: skillPercentages.length,
+      skillPercentMin: skillPercentages.length === 0 ? null : Math.min(...skillPercentages),
+      skillPercentMax: skillPercentages.length === 0 ? null : Math.max(...skillPercentages),
     }),
     tasks: Object.freeze({
       toolFamily,
       createdCount,
       completedCount,
-      survivedCompaction: compactionCount > 0 && [...created].some((id) => observedAfter.has(id)),
+      survivedCompaction: [...createdAt].some(([identifier, creationIndex]) =>
+        compactionCycles.some(({ pre, post }) =>
+          creationIndex < pre && (observedAt.get(identifier) ?? []).some((index) => index > post))),
     }),
     tools: Object.freeze({
       visibleCountBefore, visibleCountAfter, searchAvailable: searchObserved && searchAvailable, reasonCode,
     }),
-    mcp: Object.freeze({ connectedCount, visibleToolCount }),
+    mcp: Object.freeze({
+      connectedCount, visibleToolCount,
+      beforePercent: mcpBeforePercent,
+      afterPercent: mcpAfterPercent,
+      deltaPercent: mcpBeforePercent === null || mcpAfterPercent === null
+        ? null : mcpAfterPercent - mcpBeforePercent,
+    }),
+    session: Object.freeze({
+      resumeTasksObserved,
+      rewindTasksObserved,
+      rewindContextObserved,
+      rewindAuthorizationInvalidated,
+      isolatedClearObserved,
+    }),
     window: Object.freeze({
       reportedWindow,
       observedWindow,

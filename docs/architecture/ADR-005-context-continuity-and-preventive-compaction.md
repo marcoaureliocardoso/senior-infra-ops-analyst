@@ -91,27 +91,32 @@ canonical source/installed hook validation for 12 subagents, inventory tests for
 25 skills and 12 subagents, and a content-free parser self-test covering task,
 compaction, tool-search, MCP, and window reason-code branches.
 
-The isolated live run passed on 2026-08-08 through the operator-configured
-DeepSeek route. It installed 25 skills and 12 subagents with Nori, preserved
-operator settings, completed manual compaction, and preserved three native task
-identifiers across manual and automatic compaction. The runtime reported a
-1,000,000-token window but did not emit `PreCompact(auto)` at a process-scoped
-1% threshold across three completed turns. Only then did the evidence gate
-derive a 100,000-token disposable diagnostic window; the retry emitted the
-native automatic hook and passed. Normalized evidence retained only numeric and
-closed structural fields and reported tool search unavailable at the gateway.
-Independent review and CI/Security remain separate gates on the reviewed head.
+The 2026-08-09 isolated run through the operator-configured DeepSeek route
+passed Nori installation and preservation, main plus 12 role context probes,
+repeated skill and bounded-output probes, the one-tool MCP fixture, an explicit
+ToolSearch probe, focused and unfocused manual compaction, authorization
+invalidation, loopback mock threshold behavior, `/resume`, actual `/rewind`,
+post-rewind task/context/authorization verification, and isolated `/clear`.
+Both manual compactions emitted ordered real `PreCompact/PostCompact` pairs.
+The automatic probe then reached 8% native context usage with 70,000 bounded
+synthetic units and a process-scoped 5% threshold, but did not complete an
+ordered automatic `PreCompact/PostCompact` cycle before the ten-minute limit.
+The live gate therefore remains blocked, emitted no passing final report, and
+deleted all content-bearing captures. Independent review and CI/Security remain
+separate gates on the reviewed head.
 
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
 reserves recovery margin without claiming a token count, and Claude Code may
-still compact earlier. The live automatic probe may use a process-scoped 1%
+still compact earlier. The live automatic probe may use a process-scoped 5%
 threshold solely to bound test time and cost. If a runtime exposes native
 `--autocompact`, the probe selects `auto` explicitly; older runtimes remain
-capability-driven. A diagnostic absolute window is runtime-derived and allowed
-only after completed-turn, percentage, and missing-hook evidence proves
-divergent reporting.
+capability-driven. The real route never receives an automatic absolute fallback.
+The loopback mock proves a threshold-behavior change with a measured boundary.
+The runtime's 1,000,000-token label agrees with current official DeepSeek model
+documentation, so an absolute real-route diagnostic currently lacks its
+required incorrect-reporting evidence and is not eligible.
 
 Hooks do not block native compaction. If invalidation cannot be verified, reuse
 is conservatively removed and the next credential-bearing call requires fresh

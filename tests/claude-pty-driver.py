@@ -42,7 +42,7 @@ def drive(
     """Run the fixed continuity dialogue and retain only the temporary PTY capture."""
     if (
         os.name != "posix" or not command or not 1 <= timeout_seconds <= 600
-        or dialogue not in {"manual", "automatic"}
+        or dialogue not in {"manual", "automatic", "context", "resume", "clear", "skill", "mock-window"}
         or (
             dialogue == "automatic"
             and (filler_path is None or compact_events_path is None)
@@ -50,7 +50,7 @@ def drive(
     ):
         return 2
     filler = ""
-    if dialogue == "automatic":
+    if dialogue == "automatic" or (dialogue == "mock-window" and filler_path is not None):
         try:
             if filler_path is None or not 1 <= filler_path.stat().st_size <= 1_000_000:
                 return 2
@@ -64,15 +64,13 @@ def drive(
         try:
             if not compact_events_path.is_file() or compact_events_path.stat().st_size > 64 * 1024:
                 return False
+            phases = []
             for line in compact_events_path.read_text(encoding="utf-8").splitlines():
                 event = json.loads(line)
-                if (
-                    isinstance(event, dict)
-                    and event.get("kind") == "compact"
-                    and event.get("phase") == "PreCompact"
-                    and event.get("trigger") == "auto"
-                ):
-                    return True
+                if isinstance(event, dict) and event.get("kind") == "compact" and event.get("trigger") == "auto":
+                    phases.append(event.get("phase"))
+            if phases[-2:] == ["PreCompact", "PostCompact"]:
+                return True
         except (OSError, UnicodeError, json.JSONDecodeError):
             return False
         return False
@@ -88,15 +86,21 @@ def drive(
         events_path.parent.mkdir(parents=True, exist_ok=True)
         events_path.write_text("", encoding="utf-8")
 
-    def record(stage: str, outcome: str) -> None:
+    def record(stage: str, outcome: str, percent: int | None = None,
+               output_bytes: int | None = None) -> None:
         if events_path is None:
             return
         with events_path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps({
+            event = {
                 "kind": "pty-driver",
                 "stage": stage,
                 "outcome": outcome,
-            }, sort_keys=True) + "\n")
+            }
+            if percent is not None and 0 <= percent <= 100:
+                event["percent"] = percent
+            if output_bytes is not None and 0 <= output_bytes <= MAX_CAPTURE_BYTES:
+                event["outputBytes"] = output_bytes
+            stream.write(json.dumps(event, sort_keys=True) + "\n")
 
     process = subprocess.Popen(
         command,
@@ -156,6 +160,13 @@ def drive(
         without_csi = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", data)
         return bytes(value for value in without_csi.lower() if 97 <= value <= 122)
 
+    def prompt_ready(data: bytes) -> bool:
+        return (
+            b"ctx" in folded_letters(data)
+            or "❯".encode("utf-8") in data
+            or (dialogue == "resume" and TASK_A in data and TASK_B in data)
+        )
+
     def advance_startup(predicate, label: str) -> None:
         for _ in range(4):
             send("")
@@ -170,9 +181,10 @@ def drive(
     def finish() -> int:
         nonlocal current_stage
         current_stage = "exit"
+        settle(0.8)
         send("/exit")
         try:
-            process.wait(timeout=min(2.0, max(0.2, deadline - time.monotonic())))
+            process.wait(timeout=min(8.0, max(0.2, deadline - time.monotonic())))
         except subprocess.TimeoutExpired:
             _stop(process)
             record(current_stage, "forced")
@@ -198,7 +210,7 @@ def drive(
                 advance_startup(
                     lambda data, size=previous_length: (
                         trust_prompt in folded_letters(data[size:])
-                        or b"ctx " in data[size:].lower()
+                        or prompt_ready(data[size:])
                     ),
                     "theme screen transition",
                 )
@@ -210,7 +222,7 @@ def drive(
                 current_stage = "trust_selection"
                 previous_length = len(retained)
                 advance_startup(
-                    lambda data, size=previous_length: b"ctx " in data[size:].lower(),
+                    lambda data, size=previous_length: prompt_ready(data[size:]),
                     "trust screen transition",
                 )
                 record(current_stage, "passed")
@@ -218,11 +230,169 @@ def drive(
 
             current_stage = "prompt_ready"
             wait_for(
-                lambda data: b"ctx " in data[startup_offset:].lower(),
+                lambda data: prompt_ready(data[startup_offset:]),
                 "interactive prompt readiness",
             )
             settle(1.0)
             record(current_stage, "passed")
+
+            if dialogue == "context":
+                current_stage = "context_inspected"
+                context_offset = len(retained)
+                send("/context")
+                wait_for(
+                    lambda data: b"%" in data[context_offset:],
+                    "native context inspection",
+                )
+                percentages = [
+                    int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:]))
+                    if 0 <= int(value) <= 100
+                ]
+                if not percentages:
+                    raise RuntimeError("native context percentage unavailable")
+                record(current_stage, "passed", percentages[-1])
+                return finish()
+
+            if dialogue == "mock-window":
+                current_stage = "mock_response"
+                response_offset = len(retained)
+                send("Reply with the three segments P004A, MOCK, and OK joined by underscores. " + filler)
+                wait_for(lambda data: b"P004A_MOCK_OK" in data[response_offset:], "mock model response")
+                record(current_stage, "passed")
+                current_stage = "mock_second_response"
+                second_offset = len(retained)
+                send("Reply again with the three segments P004A, MOCK, and OK joined by underscores.")
+                wait_for(lambda data: b"P004A_MOCK_OK" in data[second_offset:], "second mock model response")
+                record(current_stage, "passed")
+                current_stage = "context_inspected"
+                context_offset = len(retained)
+                send("/context")
+                wait_for(lambda data: b"%" in data[context_offset:], "mock context inspection")
+                percentages = [int(value) for value in re.findall(
+                    rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:])
+                ) if 0 <= int(value) <= 100]
+                if not percentages:
+                    raise RuntimeError("mock context percentage unavailable")
+                record(current_stage, "passed", percentages[-1])
+                return finish()
+
+            if dialogue == "clear":
+                current_stage = "clear_observed"
+                clear_offset = len(retained)
+                send("/clear")
+                wait_for(
+                    lambda data: prompt_ready(data[clear_offset:]),
+                    "isolated clear completion",
+                )
+                record(current_stage, "passed")
+                current_stage = "context_inspected"
+                context_offset = len(retained)
+                send("/context")
+                wait_for(lambda data: b"%" in data[context_offset:], "post-clear context inspection")
+                record(current_stage, "passed")
+                return finish()
+
+            if dialogue == "skill":
+                for ordinal, marker in (("one", b"P004A_SKILL_ONE_OK"), ("two", b"P004A_SKILL_TWO_OK")):
+                    current_stage = f"skill_{ordinal}_invoked"
+                    skill_offset = len(retained)
+                    suffix = (
+                        "Do not explain. Reply with exactly the four segments P004A, SKILL, "
+                        "ONE, and OK joined by underscores, and nothing else."
+                        if ordinal == "one" else
+                        "Produce exactly 128 short numbered lines. The mandatory final line "
+                        "is the four segments P004A, SKILL, TWO, and OK joined by underscores. "
+                        "Do not omit or alter that final line."
+                    )
+                    send(f"/context-continuity {suffix}")
+                    wait_for(lambda data, start=skill_offset, expected=marker: expected in data[start:],
+                             f"context-continuity skill invocation {ordinal}")
+                    settle(3.0)
+                    output_bytes = len(retained) - skill_offset
+                    if ordinal == "two" and output_bytes < 1024:
+                        raise RuntimeError("bounded large output was not observed")
+                    record(current_stage, "passed", output_bytes=output_bytes)
+                    current_stage = f"skill_{ordinal}_context"
+                    context_offset = len(retained)
+                    send("/context")
+                    wait_for(lambda data, start=context_offset: b"%" in data[start:],
+                             f"post-skill context inspection {ordinal}")
+                    percentages = [
+                        int(value) for value in re.findall(
+                            rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:])
+                        ) if 0 <= int(value) <= 100
+                    ]
+                    if not percentages:
+                        raise RuntimeError("post-skill context percentage unavailable")
+                    record(current_stage, "passed", percentages[-1])
+                return finish()
+
+            if dialogue == "resume":
+                current_stage = "resume_tasks"
+                resume_offset = len(retained)
+                send(
+                    "Read the native task list and report both identifiers. End with the three "
+                    "segments P004A, RESUME, and OK joined by underscores."
+                )
+                wait_for(
+                    lambda data: (
+                        TASK_A in data[resume_offset:]
+                        and TASK_B in data[resume_offset:]
+                        and b"P004A_RESUME_OK" in data[resume_offset:]
+                    ),
+                    "resumed native task list",
+                )
+                record(current_stage, "passed")
+                current_stage = "rewind_selection"
+                rewind_offset = len(retained)
+                send("/rewind")
+                wait_for(
+                    lambda data: b"esctocancel" in folded_letters(data[rewind_offset:]),
+                    "rewind selection",
+                )
+                record(current_stage, "passed")
+                current_stage = "rewind_restore_mode"
+                restore_offset = len(retained)
+                send("")
+                settle(3.0)
+                restore_mode_present = b"restore" in folded_letters(retained[restore_offset:])
+                record(current_stage, "passed" if restore_mode_present else "not-present")
+                if restore_mode_present:
+                    send("")
+                    settle(3.0)
+                current_stage = "rewind_observed"
+                record(current_stage, "passed")
+                current_stage = "post_rewind_tasks"
+                post_rewind_offset = len(retained)
+                send(
+                    "Read the native task list and report both identifiers. End with the four "
+                    "segments P004A, AFTER, REWIND, and OK joined by underscores."
+                )
+                wait_for(
+                    lambda data: (
+                        TASK_A in data[post_rewind_offset:]
+                        and TASK_B in data[post_rewind_offset:]
+                        and b"P004A_AFTER_REWIND_OK" in data[post_rewind_offset:]
+                    ),
+                    "post-rewind native task list",
+                )
+                record(current_stage, "passed")
+                current_stage = "post_rewind_context"
+                context_offset = len(retained)
+                send("/context")
+                wait_for(
+                    lambda data: b"%" in data[context_offset:],
+                    "post-rewind context inspection",
+                )
+                percentages = [
+                    int(value) for value in re.findall(
+                        rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:])
+                    ) if 0 <= int(value) <= 100
+                ]
+                if not percentages:
+                    raise RuntimeError("post-rewind context percentage unavailable")
+                record(current_stage, "passed", percentages[-1])
+                return finish()
 
             if dialogue == "automatic":
                 automatic_offset = len(retained)
@@ -241,6 +411,21 @@ def drive(
                 )
                 settle(1.0)
                 record(current_stage, "passed")
+                current_stage = "automatic_context_inspected"
+                context_offset = len(retained)
+                send("/context")
+                wait_for(
+                    lambda data: b"%" in data[context_offset:],
+                    "automatic probe context inspection",
+                )
+                percentages = [
+                    int(value) for value in re.findall(
+                        rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:])
+                    ) if 0 <= int(value) <= 100
+                ]
+                if not percentages:
+                    raise RuntimeError("automatic probe context percentage unavailable")
+                record(current_stage, "passed", percentages[-1])
                 current_stage = "automatic_compaction"
                 boundary_offset = len(retained)
                 send(
@@ -313,6 +498,15 @@ def drive(
                 "post-compaction task list",
             )
             record(current_stage, "passed")
+
+            current_stage = "manual_unfocused_compaction"
+            unfocused_offset = len(retained)
+            send("/compact")
+            wait_for(
+                lambda data: data[unfocused_offset:].lower().count(b"compact") >= 2,
+                "unfocused manual compaction",
+            )
+            record(current_stage, "passed")
             return finish()
     except (OSError, RuntimeError, TimeoutError):
         record(current_stage, "failed")
@@ -329,7 +523,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capture", required=True, type=Path)
     parser.add_argument("--events", type=Path)
-    parser.add_argument("--dialogue", choices=("manual", "automatic"), default="manual")
+    parser.add_argument(
+        "--dialogue",
+        choices=("manual", "automatic", "context", "resume", "clear", "skill", "mock-window"),
+        default="manual",
+    )
     parser.add_argument("--filler", type=Path)
     parser.add_argument("--compact-events", type=Path)
     parser.add_argument("--timeout", required=True, type=int)

@@ -146,16 +146,17 @@ async function readOriginal(target) {
 
 
 async function commitPair(settingsPath, settings, ownershipPath, ownership) {
-  const originalSettings = await readOriginal(settingsPath);
+  const originalOwnership = await readOriginal(ownershipPath);
   const settingsTemporary = await prepareAtomic(settingsPath, settings);
   let ownershipTemporary;
   try {
     ownershipTemporary = await prepareAtomic(ownershipPath, ownership);
-    await rename(settingsTemporary, settingsPath);
+    await rename(ownershipTemporary, ownershipPath);
+    if (process.env.CONTEXT_CONTINUITY_TEST_CRASH_AFTER_OWNERSHIP === '1') process.exit(86);
     try {
-      await rename(ownershipTemporary, ownershipPath);
+      await rename(settingsTemporary, settingsPath);
     } catch (error) {
-      await restoreOriginal(settingsPath, originalSettings);
+      await restoreOriginal(ownershipPath, originalOwnership);
       throw error;
     }
   } finally {
@@ -173,14 +174,19 @@ function publicReport({ operation, scope, settingsPath, inspection, capabilities
     settingsPath,
     autoCompactEnabled: inspection.effective.autoCompactEnabled,
     autoCompactPercent: inspection.effective.autoCompactPercent,
+    desired: inspection.desired,
+    configured: inspection.configured,
+    owned: inspection.owned,
     hooks: inspection.hooks,
     statusLine: {
       requested: inspection.statusLine.requested,
       owned: inspection.statusLine.owned,
-      conflict: conflicts.includes('statusLine'),
+      matches: inspection.statusLine.matches,
+      conflict: inspection.statusLine.conflict || conflicts.includes('statusLine'),
     },
     capabilities,
     blockers: inspection.blockers.map(({ code, scope: blockerScope }) => ({ code, scope: blockerScope })),
+    actions: inspection.actions.map(({ code, scope: actionScope }) => ({ code, scope: actionScope })),
     conflicts,
   };
 }
@@ -200,11 +206,16 @@ async function execute(options) {
   let inspection = inspectContinuity({ scopes, desired, ownership, processEnv: process.env });
   const capabilities = probeClaudeCapabilities({ claudeBin: options.claudeBin });
   if (options.operation === 'check') {
-    return { exitCode: inspection.blockers.length ? 2 : 0, report: publicReport({ operation: options.operation, scope: options.scope, settingsPath: target.path, inspection, capabilities }) };
+    return { exitCode: inspection.blockers.length || inspection.actions.length ? 2 : 0, report: publicReport({ operation: options.operation, scope: options.scope, settingsPath: target.path, inspection, capabilities }) };
   }
   if (options.operation === 'apply') {
     if (inspection.blockers.length) return { exitCode: 2, report: publicReport({ operation: options.operation, scope: options.scope, settingsPath: target.path, inspection, capabilities }) };
-    const applied = applyOwnedSettings({ current: target.settings, ownership, desired });
+    const applied = applyOwnedSettings({
+      current: target.settings,
+      ownership,
+      desired,
+      effectivePercent: inspection.effective.autoCompactPercent,
+    });
     await commitPair(target.path, applied.settings, ownershipPath, applied.ownership);
     target.settings = applied.settings;
     inspection = inspectContinuity({ scopes, desired, ownership: applied.ownership, processEnv: process.env });

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
@@ -21,6 +21,7 @@ import {
 const NOW = 1_800_000_000_000;
 const BASH = process.env.BASH_PATH ?? (process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash');
 const SOURCE_LAUNCHER = path.resolve('skills/context-continuity/scripts/compact-hook-launcher.sh');
+const RACE_WORKER = path.resolve('tests/fixtures/compact-binding-race-worker.mjs');
 const binding = Object.freeze({
   sessionId: 'compact-session',
   toolUseId: 'compact-tool',
@@ -129,6 +130,63 @@ test('duplicate security identity and concurrent delivery stay fail-safe', async
       Promise.resolve().then(() => evaluateCompactHook(JSON.stringify(compactEvent('PreCompact', { trigger: 'auto' })), 'PreCompact', env)));
     const results = await Promise.all(events);
     assert.equal(results.every(({ degraded }) => degraded === false), true);
+    assert.equal(hasActiveBinding(binding, env, NOW + 2), false);
+  });
+});
+
+async function waitForFile(target, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await access(target);
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  throw new Error(`timed out waiting for ${target}`);
+}
+
+function runRaceWorker(args) {
+  const child = spawn(process.execPath, [RACE_WORKER, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const completed = new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(stderr || `worker exited ${code}`)));
+  });
+  return { child, completed };
+}
+
+test('cross-process PostToolUse cannot resurrect reuse after PreCompact', async () => {
+  await withState(async (env) => {
+    const signal = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'activate.ready');
+    const compactSignal = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'compact.ready');
+    const release = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'activate.release');
+    writePendingBinding(binding, env, NOW);
+    const activating = runRaceWorker([
+      'activate', env.OPS_COMMAND_GUARD_STATE_DIR, signal, release,
+    ]);
+    await waitForFile(signal);
+    const compacting = runRaceWorker([
+      'compact', env.OPS_COMMAND_GUARD_STATE_DIR, compactSignal, release,
+    ]);
+    await waitForFile(compactSignal);
+    await writeFile(release, 'release', 'utf8');
+    await Promise.all([activating.completed, compacting.completed]);
+    assert.equal(hasActiveBinding(binding, env, NOW + 2), false);
+  });
+});
+
+test('an unavailable or stale binding lock fails closed for credential reuse', async () => {
+  await withState(async (env) => {
+    writePendingBinding(binding, env, NOW);
+    activatePendingBinding(binding, env, NOW + 1);
+    const stateName = (await readdir(env.OPS_COMMAND_GUARD_STATE_DIR)).find((name) => name.endsWith('.json'));
+    assert.ok(stateName);
+    await mkdir(path.join(env.OPS_COMMAND_GUARD_STATE_DIR, `${stateName}.lock`));
     assert.equal(hasActiveBinding(binding, env, NOW + 2), false);
   });
 });

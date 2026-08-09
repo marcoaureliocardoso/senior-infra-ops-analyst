@@ -99,6 +99,17 @@ test('apply preserves an operator percentage from 70 through 75', () => {
   }
 });
 
+test('apply does not shadow an allowed effective percentage from another scope', () => {
+  const result = applyOwnedSettings({
+    current: {},
+    ownership: emptyOwnership('project'),
+    desired: desired(),
+    effectivePercent: '70',
+  });
+  assert.equal('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' in (result.settings.env ?? {}), false);
+  assert.equal('env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' in result.ownership.values, false);
+});
+
 test('apply rejects disabled or conflicting auto compaction', () => {
   for (const current of [
     { autoCompactEnabled: false },
@@ -143,6 +154,39 @@ test('inspection respects managed local project user and process blockers', () =
   const blocked = inspectContinuity({ scopes, desired: desired(), ownership: emptyOwnership('project'), processEnv: { DISABLE_COMPACT: '1' } });
   assert.equal(blocked.blockers[0].code, 'AUTO_COMPACT_DISABLED');
   assert.equal('value' in blocked.blockers[0], false);
+});
+
+test('inspection distinguishes missing configuration from desired defaults', () => {
+  const report = inspectContinuity({
+    scopes: [{ name: 'local', precedence: 3, settings: {} }],
+    desired: desired(),
+    ownership: emptyOwnership('project'),
+    processEnv: {},
+  });
+  assert.equal(report.effective.autoCompactPercent, null);
+  assert.equal(report.desired.autoCompactPercent, 72);
+  assert.deepEqual(report.hooks, { preCompact: false, postCompact: false });
+  assert.deepEqual(report.actions.map(({ code }) => code), [
+    'AUTOCOMPACT_PERCENT_MISSING',
+    'PRECOMPACT_HOOK_MISSING',
+    'POSTCOMPACT_HOOK_MISSING',
+  ]);
+});
+
+test('inspection refuses to shadow an inherited operator status line', () => {
+  const report = inspectContinuity({
+    scopes: [{ name: 'user', precedence: 1, settings: {
+      statusLine: { type: 'command', command: '/operator/status' },
+      env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '72' },
+      hooks: desired().hooks,
+    } }],
+    desired: desired(true), ownership: emptyOwnership('project'), processEnv: {},
+  });
+  assert.equal(report.configured.statusLine, false);
+  assert.deepEqual(report.statusLine, {
+    requested: true, owned: false, matches: false, conflict: true,
+  });
+  assert.deepEqual(report.blockers, [{ code: 'STATUS_LINE_CONFLICT', scope: 'effective' }]);
 });
 
 test('scope discovery uses current documented platform paths', () => {
@@ -226,12 +270,70 @@ async function withCliFixture(run) {
   }
 }
 
-function runCli(args) {
+function runCli(args, extraEnv = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
     encoding: 'utf8',
-    env: cleanProcessEnv(),
+    env: { ...cleanProcessEnv(), ...extraEnv },
   });
 }
+
+test('CLI project apply preserves an allowed user-scope percentage', async () => {
+  await withCliFixture(async ({ repoRoot, claudeConfigDir, managedPath }) => {
+    await writeFile(
+      path.join(claudeConfigDir, 'settings.json'),
+      '{"env":{"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":"70"}}\n',
+      'utf8',
+    );
+    const common = ['--scope', 'project', '--root', repoRoot, '--claude-config-dir', claudeConfigDir, '--managed-settings', managedPath, '--claude-bin', '/missing/claude'];
+    const before = runCli(['--check', ...common]);
+    assert.equal(before.status, 2);
+    assert.equal(JSON.parse(before.stdout).autoCompactPercent, 70);
+    const applied = runCli(['--apply', ...common]);
+    assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+    const local = JSON.parse(await readFile(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
+    assert.equal('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' in (local.env ?? {}), false);
+    assert.equal(JSON.parse(applied.stdout).autoCompactPercent, 70);
+  });
+});
+
+test('CLI check reports an empty scope as requiring configuration', async () => {
+  await withCliFixture(async ({ repoRoot, claudeConfigDir, managedPath }) => {
+    const result = runCli([
+      '--check', '--scope', 'project', '--root', repoRoot,
+      '--claude-config-dir', claudeConfigDir, '--managed-settings', managedPath,
+      '--claude-bin', '/missing/claude',
+    ]);
+    assert.equal(result.status, 2);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.autoCompactPercent, null);
+    assert.deepEqual(report.hooks, { preCompact: false, postCompact: false });
+    assert.equal(report.desired.autoCompactPercent, 72);
+    assert.equal(report.configured.autoCompactPercent, false);
+    assert.equal(report.owned.autoCompactPercent, false);
+    assert.equal(report.actions.length, 3);
+  });
+});
+
+test('CLI recovers an interruption after ownership commits but before settings', async () => {
+  await withCliFixture(async ({ repoRoot, claudeConfigDir, managedPath }) => {
+    const common = ['--scope', 'project', '--root', repoRoot, '--claude-config-dir', claudeConfigDir, '--managed-settings', managedPath, '--claude-bin', '/missing/claude'];
+    const interrupted = runCli(['--apply', ...common], {
+      CONTEXT_CONTINUITY_TEST_CRASH_AFTER_OWNERSHIP: '1',
+    });
+    assert.equal(interrupted.status, 86);
+    const settingsPath = path.join(repoRoot, '.claude', 'settings.local.json');
+    const ownershipPath = path.join(repoRoot, '.claude', '.context-continuity-owned.json');
+    assert.equal(await readFile(settingsPath, 'utf8').catch(() => null), null);
+    assert.ok(JSON.parse(await readFile(ownershipPath, 'utf8')).values);
+    const recovered = runCli(['--apply', ...common]);
+    assert.equal(recovered.status, 0, recovered.stdout + recovered.stderr);
+    const removed = runCli(['--remove-owned', ...common]);
+    assert.equal(removed.status, 0, removed.stdout + removed.stderr);
+    const finalSettings = JSON.parse(await readFile(settingsPath, 'utf8'));
+    assert.equal('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' in (finalSettings.env ?? {}), false);
+    assert.equal('PreCompact' in (finalSettings.hooks ?? {}), false);
+  });
+});
 
 test('CLI apply check and remove preserve unrelated project-local settings', async () => {
   await withCliFixture(async ({ repoRoot, claudeConfigDir, managedPath }) => {

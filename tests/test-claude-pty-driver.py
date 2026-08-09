@@ -94,8 +94,9 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 assert "joined by underscores" in final
                 os.write(sys.stdout.fileno(), final.encode())
                 os.write(sys.stdout.fileno(), b"P004A_TASK_A P004A_TASK_B P004A_POST_COMPACT_OK")
+                assert line() == "/compact"
+                os.write(sys.stdout.fileno(), b"compact compact")
                 assert line() == "/exit"
-                time.sleep(30)
             '''), encoding="utf-8")
             result = driver.drive(
                 [sys.executable, str(fake)], capture, timeout_seconds=10,
@@ -123,6 +124,118 @@ class ClaudePtyDriverTests(unittest.TestCase):
             )
             self.assertNotEqual(result, 0)
             self.assertIn('"outcome": "failed"', events.read_text(encoding="utf-8"))
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_uses_native_context_without_model_prompt(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_context_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context usage 7%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="context",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "context_inspected"', event_text)
+            self.assertIn('"percent": 7', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_resume_dialogue_exercises_rewind_and_preserves_tasks(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_resume_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                first = line()
+                assert "task list" in first.lower() and "P004A_RESUME_OK" not in first
+                os.write(sys.stdout.fileno(), b"P004A_TASK_A P004A_TASK_B P004A_RESUME_OK")
+                assert line() == "/rewind"
+                os.write(sys.stdout.fileno(), b"rewind selection Esc to cancel")
+                assert line() == ""
+                os.write(sys.stdout.fileno(), b"Restore code and conversation")
+                assert line() == ""
+                os.write(sys.stdout.fileno(), b"ctx -- returned")
+                final = line()
+                assert "task list" in final.lower() and "P004A_AFTER_REWIND_OK" not in final
+                os.write(sys.stdout.fileno(), b"P004A_TASK_A P004A_TASK_B P004A_AFTER_REWIND_OK")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 9%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="resume",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "resume_tasks"', event_text)
+            self.assertIn('"stage": "rewind_selection"', event_text)
+            self.assertIn('"stage": "rewind_restore_mode"', event_text)
+            self.assertIn('"stage": "rewind_observed"', event_text)
+            self.assertIn('"stage": "post_rewind_tasks"', event_text)
+            self.assertIn('"stage": "post_rewind_context"', event_text)
+            self.assertIn('"percent": 9', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_clear_dialogue_is_isolated_and_rechecks_context(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_clear_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), b"ctx -- ready")
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/clear"
+                os.write(sys.stdout.fileno(), b"ctx -- cleared")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 2%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="clear",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "clear_observed"', event_text)
+            self.assertIn('"stage": "context_inspected"', event_text)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_automatic_dialogue_uses_filler_and_observes_compaction(self) -> None:
@@ -159,6 +272,8 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 if select.select([sys.stdin.fileno()], [], [], 0)[0]:
                     raise SystemExit("post-compaction request arrived before prompt settled")
                 os.write(sys.stdout.fileno(), b"ctx -- idle")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 7% ctx --")
                 second = line()
                 assert "P004A_SECOND_TURN" not in second
                 assert "joined by underscores" in second
@@ -167,9 +282,9 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 assert "task list" in third.lower()
                 assert "P004A_AUTO_CHECK_OK" not in third
                 assert "joined by underscores" in third
-                Path(sys.argv[1]).write_text(json.dumps({
-                    "kind": "compact", "phase": "PreCompact", "trigger": "auto",
-                }) + "\n", encoding="utf-8")
+                Path(sys.argv[1]).write_text("\n".join(json.dumps({
+                    "kind": "compact", "phase": phase, "trigger": "auto",
+                }) for phase in ("PreCompact", "PostCompact")) + "\n", encoding="utf-8")
                 os.write(sys.stdout.fileno(), b"P004A_AUTO P004A_AUTO_CHECK_OK ctx --")
                 assert line() == "/exit"
             '''), encoding="utf-8")
@@ -181,8 +296,94 @@ class ClaudePtyDriverTests(unittest.TestCase):
             )
             self.assertEqual(result, 0)
             event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "automatic_context_inspected"', event_text)
+            self.assertIn('"percent": 7', event_text)
             self.assertIn('"stage": "automatic_compaction"', event_text)
             self.assertNotIn("P004A_AUTO", event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_skill_dialogue_invokes_twice_measures_context_and_exercises_large_output(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_skill_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), b"ctx -- ready")
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                first = line()
+                assert first.startswith("/context-continuity ")
+                assert "P004A_SKILL_ONE_OK" not in first
+                assert "P004A, SKILL, ONE" in first
+                os.write(sys.stdout.fileno(), b"P004A_SKILL_ONE_OK ctx --")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 6%")
+                second = line()
+                assert second.startswith("/context-continuity ")
+                assert "128 short numbered lines" in second
+                assert "P004A_SKILL_TWO_OK" not in second
+                os.write(sys.stdout.fileno(), b"numbered output " + b"x" * 2048 + b" P004A_SKILL_TWO_OK ctx --")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 8%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="skill",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "skill_one_context"', event_text)
+            self.assertIn('"percent": 6', event_text)
+            self.assertIn('"stage": "skill_two_context"', event_text)
+            self.assertIn('"percent": 8', event_text)
+            self.assertIn('"outputBytes":', event_text)
+            self.assertNotIn("P004A_SKILL", event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_mock_window_dialogue_requires_a_response_before_context_measurement(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_mock_tui.py"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), b"ctx -- ready")
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                prompt = line()
+                assert "P004A_MOCK_OK" not in prompt and "P004A, MOCK" in prompt
+                os.write(sys.stdout.fileno(), b"P004A_MOCK_OK")
+                prompt = line()
+                assert "Reply again" in prompt and "P004A_MOCK_OK" not in prompt
+                os.write(sys.stdout.fileno(), b"P004A_MOCK_OK")
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"context [100k] 9%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], root / "capture.pty", 10,
+                events_path=events, dialogue="mock-window",
+            )
+            self.assertEqual(result, 0)
+            text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "mock_response"', text)
+            self.assertIn('"stage": "mock_second_response"', text)
+            self.assertIn('"percent": 9', text)
 
 
 if __name__ == "__main__":

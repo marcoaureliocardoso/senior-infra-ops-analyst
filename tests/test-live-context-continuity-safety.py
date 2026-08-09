@@ -24,7 +24,7 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         for marker in (
             "set -euo pipefail", "umask 077", "mktemp -d", "CLAUDE_CONFIG_DIR",
             "P0_04A_LIVE_NORMAL_CREDENTIALS_ACK", "Bubblewrap", "--self-test",
-            "--run-live", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1",
+            "--run-live", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "context-continuity-evidence.json",
         ):
             with self.subTest(marker=marker):
@@ -89,6 +89,8 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
 
     def test_network_targets_are_loopback_only_and_no_production_target_is_embedded(self) -> None:
         self.assertIn("127.0.0.1", self.script)
+        self.assertIn("run_mock_window_probe", self.script)
+        self.assertIn("mock-anthropic-gateway.py", self.script)
         self.assertNotRegex(
             self.script,
             r"https?://(?!127\.0\.0\.1|localhost)[A-Za-z0-9.-]+",
@@ -110,12 +112,15 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         self.assertIn('--compact-events "$PROBES/live-compact-hook-events.jsonl"', self.script)
         self.assertIn("live-compact-event-recorder.py", self.script)
         self.assertNotIn('--append-system-prompt-file "$PROBES/automatic.prompt"', self.script)
-        self.assertIn('set_isolated_diagnostic_threshold 1', self.script)
+        self.assertIn('set_isolated_diagnostic_threshold 5', self.script)
         self.assertIn('set_isolated_diagnostic_threshold 72', self.script)
         self.assertNotIn("emit bounded repetitive synthetic text", self.script)
         self.assertIn("SYNTH_SECRET", self.script)
+        self.assertNotIn("credential-first.jsonl", self.script)
         self.assertIn("rm -f --", self.script)
         self.assertIn("context-continuity-evidence.json", self.script)
+        self.assertIn('"reasonCode"] == "WINDOW_REPORTING_DIVERGENCE"', self.script)
+        self.assertIn('CLAUDE_CODE_AUTO_COMPACT_WINDOW="$MOCK_OBSERVED_WINDOW"', self.script)
 
 
 if __name__ == "__main__":

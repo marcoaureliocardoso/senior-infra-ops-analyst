@@ -28,6 +28,7 @@ CONTINUITY_ARTIFACTS = (
     LAUNCHER_RELATIVE_PATH,
     Path("context-continuity/scripts/compact-hook.mjs"),
     Path("context-continuity/scripts/context-statusline.mjs"),
+    Path("context-continuity/scripts/context-inventory.mjs"),
     Path("context-continuity/scripts/settings.mjs"),
     Path("context-continuity/scripts/configure-context-continuity.mjs"),
 )

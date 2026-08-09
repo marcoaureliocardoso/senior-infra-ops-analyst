@@ -250,8 +250,10 @@ function addOwnedHook(settings, ownership, event, group) {
     ownership.values[ownedPath].some((item) => isDeepStrictEqual(item, group));
   if (!exists) {
     settings.hooks[event].push(cloneObject(group));
-    ownership.values[ownedPath] ??= [];
-    ownership.values[ownedPath].push(cloneObject(group));
+    if (!alreadyOwned) {
+      ownership.values[ownedPath] ??= [];
+      ownership.values[ownedPath].push(cloneObject(group));
+    }
   } else if (alreadyOwned) {
     ownership.values[ownedPath] = ownership.values[ownedPath].filter((item) =>
       isDeepStrictEqual(item, group));
@@ -259,7 +261,7 @@ function addOwnedHook(settings, ownership, event, group) {
 }
 
 
-export function applyOwnedSettings({ current, ownership, desired }) {
+export function applyOwnedSettings({ current, ownership, desired, effectivePercent }) {
   assertSettingsObject(current);
   assertSettingsObject(desired);
   assertAutoCompact(current);
@@ -272,7 +274,13 @@ export function applyOwnedSettings({ current, ownership, desired }) {
   settings.env ??= {};
   if (settings.env === null || Array.isArray(settings.env) || typeof settings.env !== 'object') throw new Error('ENV_CONFLICT');
   const existingPercent = settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
-  if (existingPercent === undefined) {
+  const inheritedPercent = effectivePercent === undefined || effectivePercent === null
+    ? undefined
+    : String(effectivePercent);
+  if (inheritedPercent !== undefined && !ALLOWED_PERCENT.has(inheritedPercent)) {
+    throw new Error('AUTOCOMPACT_PERCENT_CONFLICT');
+  }
+  if (existingPercent === undefined && inheritedPercent === undefined) {
     settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = desired.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
     owned.values['env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'] = desired.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
   }
@@ -357,6 +365,14 @@ function effectiveScalar(scopes, key, fallback) {
   return value;
 }
 
+function desiredHooksPresent(scopes, desired, event) {
+  const required = desired?.hooks?.[event] ?? [];
+  if (required.length === 0) return false;
+  const configured = scopes.flatMap((scope) =>
+    Array.isArray(scope.settings?.hooks?.[event]) ? scope.settings.hooks[event] : []);
+  return required.every((group) => configured.some((item) => isDeepStrictEqual(item, group)));
+}
+
 
 export function inspectContinuity({ scopes, desired, ownership, processEnv = process.env }) {
   const environment = effectiveEnvironment(scopes);
@@ -367,6 +383,13 @@ export function inspectContinuity({ scopes, desired, ownership, processEnv = pro
     disableValue(processEnv.DISABLE_AUTO_COMPACT) ||
     disableValue(processEnv.DISABLE_COMPACT);
   const rawPercent = processEnv.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE ?? environment.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+  const preCompact = desiredHooksPresent(scopes, desired, 'PreCompact');
+  const postCompact = desiredHooksPresent(scopes, desired, 'PostCompact');
+  const effectiveStatusLine = effectiveScalar(scopes, 'statusLine', undefined);
+  const statusLineRequested = desired?.statusLine !== undefined;
+  const statusLineMatches = statusLineRequested &&
+    isDeepStrictEqual(effectiveStatusLine, desired.statusLine);
+  const actions = [];
   if (disabled) blockers.push({ code: 'AUTO_COMPACT_DISABLED', scope: 'effective' });
   if (rawPercent !== undefined && !ALLOWED_PERCENT.has(String(rawPercent))) {
     blockers.push({ code: 'AUTOCOMPACT_PERCENT_CONFLICT', scope: 'effective' });
@@ -374,20 +397,49 @@ export function inspectContinuity({ scopes, desired, ownership, processEnv = pro
   if (processEnv.CLAUDE_CODE_AUTO_COMPACT_WINDOW ?? environment.CLAUDE_CODE_AUTO_COMPACT_WINDOW) {
     blockers.push({ code: 'ABSOLUTE_WINDOW_REQUIRES_EVIDENCE', scope: 'effective' });
   }
+  if (rawPercent === undefined) actions.push({ code: 'AUTOCOMPACT_PERCENT_MISSING', scope: 'effective' });
+  if (!preCompact) actions.push({ code: 'PRECOMPACT_HOOK_MISSING', scope: 'effective' });
+  if (!postCompact) actions.push({ code: 'POSTCOMPACT_HOOK_MISSING', scope: 'effective' });
+  if (statusLineRequested && effectiveStatusLine === undefined) {
+    actions.push({ code: 'STATUS_LINE_MISSING', scope: 'effective' });
+  } else if (statusLineRequested && !statusLineMatches) {
+    blockers.push({ code: 'STATUS_LINE_CONFLICT', scope: 'effective' });
+  }
   return {
     schemaVersion: 1,
     effective: {
       autoCompactEnabled: !disabled,
-      autoCompactPercent: rawPercent === undefined ? Number(DEFAULT_PERCENT) : Number(rawPercent),
+      autoCompactPercent: rawPercent === undefined ? null : Number(rawPercent),
     },
-    hooks: {
+    desired: {
+      autoCompactPercent: Number(desired?.env?.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE ?? DEFAULT_PERCENT),
       preCompact: Boolean(desired?.hooks?.PreCompact),
       postCompact: Boolean(desired?.hooks?.PostCompact),
+      statusLine: desired?.statusLine !== undefined,
+    },
+    configured: {
+      autoCompactPercent: rawPercent !== undefined,
+      preCompact,
+      postCompact,
+      statusLine: statusLineRequested ? statusLineMatches : effectiveStatusLine !== undefined,
+    },
+    owned: {
+      autoCompactPercent: 'env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' in (ownership?.values ?? {}),
+      preCompact: Array.isArray(ownership?.values?.['hooks.PreCompact']),
+      postCompact: Array.isArray(ownership?.values?.['hooks.PostCompact']),
+      statusLine: Boolean(ownership?.values?.statusLine),
+    },
+    hooks: {
+      preCompact,
+      postCompact,
     },
     statusLine: {
-      requested: desired?.statusLine !== undefined,
+      requested: statusLineRequested,
       owned: Boolean(ownership?.values?.statusLine),
+      matches: statusLineMatches,
+      conflict: statusLineRequested && effectiveStatusLine !== undefined && !statusLineMatches,
     },
+    actions,
     blockers,
   };
 }

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync,
+  chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmdirSync,
+  writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +10,8 @@ const VERSION = 1;
 const TTL_MS = 15 * 60 * 1000;
 const MAX_ENTRIES = 16;
 const MAX_STATE_BYTES = 32 * 1024;
+const LOCK_ATTEMPTS = 400;
+const LOCK_WAIT_MS = 5;
 const BINDING_FIELDS = Object.freeze([
   'sessionId', 'toolUseId', 'domain', 'identity', 'transport', 'family', 'targetClass',
 ]);
@@ -79,12 +82,46 @@ function atomicWriteTarget(target, state) {
 }
 
 function writeState(sessionId, state, env) {
+  atomicWriteTarget(statePath(sessionId, env), state);
+}
+
+function waitForLock() {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, LOCK_WAIT_MS);
+}
+
+function withTargetLock(target, operation) {
+  const lock = `${target}.lock`;
+  let acquired = false;
+  for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
+    try {
+      mkdirSync(lock, { mode: 0o700 });
+      acquired = true;
+      break;
+    } catch (error) {
+      // OS-specific non-contention failures are propagated; portable tests cover EEXIST bounds.
+      /* node:coverage disable */
+      if (error?.code !== 'EEXIST') throw error;
+      /* node:coverage enable */
+      waitForLock();
+    }
+  }
+  if (!acquired) throw new Error('binding state lock unavailable');
+  try {
+    return operation();
+  } finally {
+    rmdirSync(lock);
+  }
+}
+
+function withStateLock(sessionId, env, operation) {
   const directory = stateDirectory(env);
   if (!existsSync(directory)) mkdirSync(directory, { recursive: true, mode: 0o700 });
   const directoryInfo = lstatSync(directory);
-  if (!directoryInfo.isDirectory()) throw new Error('unsafe binding state directory');
+  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) {
+    throw new Error('unsafe binding state directory');
+  }
   chmodSync(directory, 0o700);
-  atomicWriteTarget(statePath(sessionId, env), state);
+  return withTargetLock(statePath(sessionId, env), operation);
 }
 
 function sameBinding(left, right, fields = MATCH_FIELDS) {
@@ -93,39 +130,47 @@ function sameBinding(left, right, fields = MATCH_FIELDS) {
 
 export function writePendingBinding(binding, env = process.env, now = Date.now()) {
   const normalized = normalizeBinding(binding);
-  const state = readState(normalized.sessionId, env, now);
-  state.pending = state.pending.filter(({ toolUseId }) => toolUseId !== normalized.toolUseId);
-  state.pending.push({ ...normalized, expiresAt: now + TTL_MS });
-  if (state.pending.length > MAX_ENTRIES) state.pending.shift();
-  writeState(normalized.sessionId, state, env);
-  return true;
+  return withStateLock(normalized.sessionId, env, () => {
+    const state = readState(normalized.sessionId, env, now);
+    state.pending = state.pending.filter(({ toolUseId }) => toolUseId !== normalized.toolUseId);
+    state.pending.push({ ...normalized, expiresAt: now + TTL_MS });
+    if (state.pending.length > MAX_ENTRIES) state.pending.shift();
+    writeState(normalized.sessionId, state, env);
+    return true;
+  });
 }
 
-export function activatePendingBinding(binding, env = process.env, now = Date.now()) {
+export function activatePendingBinding(binding, env = process.env, now = Date.now(), testHooks = {}) {
   const sessionId = requiredBounded(binding.sessionId, 'sessionId');
   const toolUseId = requiredBounded(binding.toolUseId, 'toolUseId');
-  const state = readState(sessionId, env, now);
-  const index = state.pending.findIndex((entry) => entry.toolUseId === toolUseId &&
-    (!binding.domain || sameBinding(entry, binding)));
-  if (index < 0) return false;
-  const [pending] = state.pending.splice(index, 1);
-  state.active = state.active.filter((entry) => !sameBinding(entry, pending));
-  state.active.push({ ...pending, expiresAt: now + TTL_MS });
-  if (state.active.length > MAX_ENTRIES) state.active.shift();
-  writeState(sessionId, state, env);
-  return true;
+  return withStateLock(sessionId, env, () => {
+    const state = readState(sessionId, env, now);
+    if (typeof testHooks.afterRead === 'function') testHooks.afterRead();
+    const index = state.pending.findIndex((entry) => entry.toolUseId === toolUseId &&
+      (!binding.domain || sameBinding(entry, binding)));
+    if (index < 0) return false;
+    const [pending] = state.pending.splice(index, 1);
+    state.active = state.active.filter((entry) => !sameBinding(entry, pending));
+    state.active.push({ ...pending, expiresAt: now + TTL_MS });
+    if (state.active.length > MAX_ENTRIES) state.active.shift();
+    writeState(sessionId, state, env);
+    return true;
+  });
 }
 
 export function hasActiveBinding(binding, env = process.env, now = Date.now()) {
   const normalized = normalizeBinding(binding);
+  if (existsSync(`${statePath(normalized.sessionId, env)}.lock`)) return false;
   const state = readState(normalized.sessionId, env, now);
   return state.active.some((entry) => sameBinding(entry, normalized));
 }
 
 export function invalidateSessionBindings(sessionId, env = process.env) {
   const bounded = requiredBounded(sessionId, 'sessionId');
-  writeState(bounded, emptyState(), env);
-  return true;
+  return withStateLock(bounded, env, () => {
+    writeState(bounded, emptyState(), env);
+    return true;
+  });
 }
 
 export function invalidateAllBindings(env = process.env) {
@@ -139,7 +184,7 @@ export function invalidateAllBindings(env = process.env) {
     const target = path.join(directory, name);
     const info = lstatSync(target);
     if (!info.isFile()) continue;
-    atomicWriteTarget(target, emptyState());
+    withTargetLock(target, () => atomicWriteTarget(target, emptyState()));
     invalidated += 1;
   }
   return invalidated;

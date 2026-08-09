@@ -178,23 +178,27 @@ Exit `0` means every requested deterministic or live invariant passed. Exit
 `1` means a safety or behavioral invariant failed. Exit `2` means a
 prerequisite or runtime capability is unavailable and must never be reported as
 a pass. The harness creates a generated HOME and `CLAUDE_CONFIG_DIR`, installs
-the current worktree through discovered Nori, imports only the approved Claude
-transport environment allowlist through a NUL-delimited FIFO, and deletes
-content-bearing JSONL, PTY, transcript, and request captures. Explicit
+the current worktree through discovered Nori, validates the approved Claude
+transport allowlist through a NUL-delimited FIFO, and passes those values to
+Claude Code through a clean `execve` environment rather than process arguments.
+It deletes content-bearing JSONL, PTY, transcript, and request captures. Explicit
 `--keep-artifacts` retains them only inside the verified temporary directory
 and prints a warning that they contain model content.
 
 Production configuration remains percentage-based with default `72` and
 preserves an operator value from 70 through 75. The automatic-compaction probe
-uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1` solely to make the test
+uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5` solely to make the test
 bounded; it does not change installed settings. It detects and explicitly uses
 native `--autocompact auto` when the runtime exposes that option. The real
 DeepSeek route always runs first with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset.
-Only after three completed turns above the diagnostic percentage fail to emit
-`PreCompact(auto)` may the harness derive a smaller window as one tenth of the
-runtime-reported window and repeat the disposable probe. The normalized result
-records `WINDOW_REPORTING_DIVERGENCE` and `absoluteOverrideEvidenceGated`
-without retaining a prompt, response, transcript, or raw gateway request.
+It never derives or applies an absolute override on that route. A separate
+loopback mock enforces an observed numeric boundary, proves acceptance and
+rejection around it, records `WINDOW_REPORTING_DIVERGENCE`, and only then uses
+a process-scoped absolute override in the mock scenario. The mock proves the
+behavioral threshold change by observing automatic `PreCompact` only after the
+override; it does not synthesize a completed compaction. The real runtime and
+current official DeepSeek documentation both report a 1,000,000-token window,
+so the evidence prerequisite for a real-route override is absent.
 
 The interactive probe uses the standard-library PTY controller in
 `tests/claude-pty-driver.py`. It sends terminal carriage-return keys and waits
@@ -202,11 +206,28 @@ for bounded evidence of task creation, `/context`, manual `/compact`, and the
 post-compaction task list before advancing. This avoids treating a batch of
 input piped into an event-driven TUI as completed interaction.
 
-On 2026-08-08 the opt-in run passed against the operator-configured DeepSeek
-route. Claude Code reported a 1,000,000-token window but did not emit the native
-automatic-compaction hook at the 1% diagnostic threshold across three completed
-turns. The gated retry derived a 100,000-token diagnostic window, observed one
-manual and one automatic compaction, and preserved all three native task
-identifiers. The inventory measured 25 skills and 12 subagents; tool search was
-reported unavailable by the gateway. Content-bearing artifacts were deleted
-after normalization. Independent review and CI/Security remain separate gates.
+On 2026-08-09 the latest opt-in run reached every scenario except completed real
+automatic compaction. It installed 25 skills and 12 subagents, preserved the
+Nori status line and operator settings, measured `/context` for the main session
+and all roles, invoked the continuity skill twice, exercised a bounded large
+response, connected and listed the one-tool MCP fixture, and ran the explicit
+ToolSearch probe. It observed two ordered real manual `PreCompact/PostCompact`
+pairs, retained native tasks, invalidated the actual session's credential
+binding, completed `/resume`, selected a real `/rewind`, verified post-rewind
+tasks and context, proved the binding was not restored, and completed isolated
+`/clear`.
+
+The real automatic probe used 70,000 bounded synthetic units, reached a native
+`/context` reading of 8% with the isolated threshold set to 5%, and still did
+not produce a completed ordered automatic `PreCompact/PostCompact` cycle before
+the ten-minute limit. The run therefore exited blocked, emitted no passing final
+report, applied no absolute override to the DeepSeek route, and deleted all
+content-bearing artifacts. A real-route absolute diagnostic is not eligible on
+the current evidence because the reported 1,000,000-token window agrees with
+the provider's official current model documentation.
+
+Deterministic evidence includes strict settings merge and rollback, inherited
+status-line refusal, compact-hook concurrency and failure paths, authorization
+invalidation, 100% critical command-guard coverage, 82 security mutations,
+canonical source/installed hook validation for 12 subagents, inventory tests for
+25 skills and 12 subagents, and content-free parser self-tests.
