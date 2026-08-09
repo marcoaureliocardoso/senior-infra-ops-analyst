@@ -36,6 +36,9 @@ percentages, and task/window capabilities using counts, bytes, booleans, bounded
 identifiers, and reason codes only. Deterministic validation is available via
 `bash tests/live-context-continuity-smoke.sh --self-test`; real DeepSeek
 validation is isolated, opt-in, and reports unsupported capabilities honestly.
+The live gate detects native auto-compaction options at runtime and allows a
+derived absolute diagnostic only after structural evidence proves divergent
+window reporting.
 P0-04B browser automation is not included.
 
 ## Native executor command authorization

@@ -91,17 +91,27 @@ canonical source/installed hook validation for 12 subagents, inventory tests for
 25 skills and 12 subagents, and a content-free parser self-test covering task,
 compaction, tool-search, MCP, and window reason-code branches.
 
-Live evidence pending: the isolated Nori installation and real manual and
-automatic compaction run through the operator-configured DeepSeek route must
-still complete, followed by independent review and CI/Security on the reviewed
-head. This ADR does not treat deterministic fixtures as real-provider evidence.
+The isolated live run passed on 2026-08-08 through the operator-configured
+DeepSeek route. It installed 25 skills and 12 subagents with Nori, preserved
+operator settings, completed manual compaction, and preserved three native task
+identifiers across manual and automatic compaction. The runtime reported a
+1,000,000-token window but did not emit `PreCompact(auto)` at a process-scoped
+1% threshold across three completed turns. Only then did the evidence gate
+derive a 100,000-token disposable diagnostic window; the retry emitted the
+native automatic hook and passed. Normalized evidence retained only numeric and
+closed structural fields and reported tool search unavailable at the gateway.
+Independent review and CI/Security remain separate gates on the reviewed head.
 
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
 reserves recovery margin without claiming a token count, and Claude Code may
-still compact earlier. The live automatic probe may use a process-scoped 5%
-threshold solely to bound test time and cost.
+still compact earlier. The live automatic probe may use a process-scoped 1%
+threshold solely to bound test time and cost. If a runtime exposes native
+`--autocompact`, the probe selects `auto` explicitly; older runtimes remain
+capability-driven. A diagnostic absolute window is runtime-derived and allowed
+only after completed-turn, percentage, and missing-hook evidence proves
+divergent reporting.
 
 Hooks do not block native compaction. If invalidation cannot be verified, reuse
 is conservatively removed and the next credential-bearing call requires fresh

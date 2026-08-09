@@ -8,6 +8,7 @@
 - Invalidated pending and active credential reuse at compaction, including conservative all-binding invalidation when the session identity cannot be proved.
 - Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
 - Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.
+- Added runtime detection for native auto-compaction and a structural-only live hook observer; absolute diagnostic fallback remains evidence-gated and runtime-derived.
 - Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence.
 - Left P0-04B browser automation out of scope.
 

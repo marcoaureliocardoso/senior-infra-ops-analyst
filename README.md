@@ -52,6 +52,9 @@ bash tests/live-context-continuity-smoke.sh --self-test
 
 The opt-in live gate requires an isolated Linux/WSL DeepSeek setup and reports
 unavailable tool search or window metadata as capability results, not passes.
+It detects native `--autocompact auto` support and permits a runtime-derived
+absolute diagnostic only after completed-turn and missing-hook evidence proves
+window-reporting divergence.
 P0-04B browser automation remains outside this release.
 
 ## Subagents

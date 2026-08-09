@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "tests" / "live-context-continuity-smoke.sh"
+PTY_DRIVER = ROOT / "tests" / "claude-pty-driver.py"
 
 
 class LiveContextContinuitySafetyTests(unittest.TestCase):
@@ -23,7 +24,7 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         for marker in (
             "set -euo pipefail", "umask 077", "mktemp -d", "CLAUDE_CONFIG_DIR",
             "P0_04A_LIVE_NORMAL_CREDENTIALS_ACK", "Bubblewrap", "--self-test",
-            "--run-live", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5",
+            "--run-live", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "context-continuity-evidence.json",
         ):
             with self.subTest(marker=marker):
@@ -46,7 +47,7 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         self.assertIn('CLAUDE_CONFIG_DIR="$HOME/.claude"', self.script)
         self.assertIn('rm -rf -- "$WORK_REAL"', self.script)
         self.assertNotIn('rm -rf -- "$HOME"', self.script)
-        for suffix in ("*.jsonl", "*.pty", "*.transcript", "*.requests"):
+        for suffix in ("*.jsonl", "*.pty", "*.transcript", "*.requests", "*.prompt"):
             self.assertIn(suffix, self.script)
         self.assertIn("--keep-artifacts", self.script)
         self.assertIn("contains model content", self.script)
@@ -59,10 +60,29 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         self.assertNotRegex(self.script, r"\bcp\b[^\n]*settings\.json")
         self.assertNotRegex(self.script, r"\bcat\b[^\n]*settings\.json")
 
+    def test_interactive_onboarding_and_trust_are_generated_not_copied(self) -> None:
+        self.assertIn("seed_isolated_onboarding", self.script)
+        self.assertIn("hasCompletedOnboarding", self.script)
+        self.assertIn("hasCompletedProjectOnboarding", self.script)
+        self.assertIn("hasTrustDialogAccepted", self.script)
+        self.assertIn('settings["theme"] = "dark"', self.script)
+        self.assertIn('"$HOME/.claude.json"', self.script)
+        self.assertNotRegex(self.script, r"\bcp\b[^\n]*\.claude\.json")
+        self.assertNotIn('"model": "operator-model"', self.script)
+        self.assertIn("claude-pty-driver.py", self.script)
+        driver = PTY_DRIVER.read_text(encoding="utf-8")
+        self.assertIn('b"\\r"', driver)
+        self.assertIn("wait_for", driver)
+        self.assertIn('"TERM=xterm-256color"', self.script)
+        self.assertIn('DRIVER_TIMEOUT=$((MANUAL_TIMEOUT - 5))', self.script)
+        self.assertNotIn('/opt/claude --agent diagnostic-operator', self.script)
+
     def test_live_process_is_non_root_bubblewrap_and_time_bounded(self) -> None:
         self.assertIn("BWRAP_BIN", self.script)
         self.assertIn('"$BWRAP_BIN" "${BWRAP_ARGS[@]}" /usr/bin/true', self.script)
-        self.assertIn("timeout 600", self.script)
+        self.assertIn("MANUAL_TIMEOUT=600", self.script)
+        self.assertIn("AUTOMATIC_TIMEOUT=600", self.script)
+        self.assertIn('timeout "$MANUAL_TIMEOUT"', self.script)
         self.assertNotIn("--uid 0", self.script)
         self.assertNotIn("--gid 0", self.script)
         self.assertIn("/usr/bin/id -u", self.script)
@@ -79,6 +99,20 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
     def test_evidence_is_normalized_scanned_and_content_files_are_deleted(self) -> None:
         self.assertIn("context-inventory.mjs", self.script)
         self.assertIn("find_forbidden_evidence", self.script)
+        self.assertIn('"$PROBES/automatic-driver.jsonl"', self.script)
+        self.assertIn("CLAUDE_CODE_EFFORT_LEVEL=low", self.script)
+        self.assertIn('CLAUDE_RUNTIME_ARGS+=(--autocompact auto)', self.script)
+        self.assertIn('window_tokens', self.script)
+        self.assertIn('baseline_percent', self.script)
+        self.assertIn('target_tokens', self.script)
+        self.assertIn('--dialogue automatic', self.script)
+        self.assertIn('--filler "$PROBES/automatic.prompt"', self.script)
+        self.assertIn('--compact-events "$PROBES/live-compact-hook-events.jsonl"', self.script)
+        self.assertIn("live-compact-event-recorder.py", self.script)
+        self.assertNotIn('--append-system-prompt-file "$PROBES/automatic.prompt"', self.script)
+        self.assertIn('set_isolated_diagnostic_threshold 1', self.script)
+        self.assertIn('set_isolated_diagnostic_threshold 72', self.script)
+        self.assertNotIn("emit bounded repetitive synthetic text", self.script)
         self.assertIn("SYNTH_SECRET", self.script)
         self.assertIn("rm -f --", self.script)
         self.assertIn("context-continuity-evidence.json", self.script)

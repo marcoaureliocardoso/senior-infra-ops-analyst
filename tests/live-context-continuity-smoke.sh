@@ -57,6 +57,7 @@ EVIDENCE="$PROBES/context-continuity-evidence.json"
 delete_content_captures() {
   find "$PROBES" -type f \( \
     -name '*.jsonl' -o -name '*.pty' -o -name '*.transcript' -o -name '*.requests' \
+    -o -name '*.prompt' \
   \) -delete 2>/dev/null || true
 }
 
@@ -81,6 +82,27 @@ unset AWS_PROFILE AZURE_CONFIG_DIR CLOUDSDK_CONFIG KUBECONFIG
 unset GOOGLE_APPLICATION_CREDENTIALS AZURE_CLIENT_SECRET AWS_SECRET_ACCESS_KEY
 unset CLAUDE_CODE_AUTO_COMPACT_WINDOW
 mkdir -p "$CLAUDE_CONFIG_DIR" "$PROBES" "$WORK/project/.claude"
+
+seed_isolated_onboarding() {
+  python3 - "$HOME/.claude.json" "$CLAUDE_CONFIG_DIR/settings.json" "$WORK/project" "$1" <<'PY'
+import json, sys
+from pathlib import Path
+target, settings_path, project = map(Path, sys.argv[1:4])
+version = sys.argv[4]
+target.write_text(json.dumps({
+    "hasCompletedOnboarding": True,
+    "lastOnboardingVersion": version,
+    "projects": {str(project.resolve()): {
+        "hasCompletedProjectOnboarding": True,
+        "hasTrustDialogAccepted": True,
+        "projectOnboardingSeenCount": 1,
+    }},
+}) + "\n", encoding="utf-8")
+settings = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.exists() else {}
+settings["theme"] = "dark"
+settings_path.write_text(json.dumps(settings) + "\n", encoding="utf-8")
+PY
+}
 
 find_forbidden_evidence() {
   python3 - "$1" <<'PY'
@@ -124,8 +146,8 @@ import sys
 from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 runtime = report["runtime"]
-if runtime["context"]["compactionCount"] != 1:
-    raise SystemExit("expected one normalized compaction")
+if runtime["context"]["compactionCount"] != 2:
+    raise SystemExit("expected one manual and one automatic normalized compaction")
 if not runtime["tasks"]["survivedCompaction"]:
     raise SystemExit("native task identifiers did not survive compaction")
 if runtime["tools"]["reasonCode"] not in {
@@ -145,6 +167,7 @@ run_self_test() {
     '{"kind":"task","action":"completed","family":"TaskUpdate","identifier":"P004A_TASK_A"}' \
     '{"kind":"compact","phase":"PreCompact","custom_instructions":"SYNTH_SECRET"}' \
     '{"kind":"compact","phase":"PostCompact","compact_summary":"SYNTH_SECRET compact summary"}' \
+    '{"kind":"compact","phase":"PostCompact","trigger":"auto"}' \
     '{"kind":"task","action":"observed-after","family":"TaskCreate","identifier":"P004A_TASK_A"}' \
     '{"kind":"task","action":"observed-after","family":"TodoWrite","identifier":"P004A_TASK_B"}' \
     '{"kind":"tool-snapshot","stage":"before","visibleCount":18}' \
@@ -193,6 +216,29 @@ PY
     failed "forbidden-content scanner accepted an unsafe retained fixture"
   fi
   rm -f -- "$PROBES/unsafe-evidence.json" "$PROBES/unavailable-evidence.json" "$consistent_report"
+  printf '%s' 'runtime-model[1m] ctx 3%' >"$PROBES/manual.pty"
+  build_automatic_filler
+  python3 - "$PROBES/automatic.prompt" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+assert p.stat().st_size == 420_000
+assert p.read_text(encoding="utf-8").startswith(" probe probe")
+PY
+  printf '%s' 'P004A_READY_DONE P004A_SECOND_TURN P004A_AUTO_CHECK_OK ctx 3%' \
+    >"$PROBES/automatic.pty"
+  printf '%s\n' \
+    '{"kind":"pty-driver","outcome":"passed","stage":"automatic_task_created"}' \
+    '{"kind":"pty-driver","outcome":"failed","stage":"automatic_compaction"}' \
+    >"$PROBES/automatic-driver.jsonl"
+  read -r diagnostic_reported diagnostic_observed <<<"$(derive_diagnostic_window_override)"
+  [[ "$diagnostic_reported" == "1000000" && "$diagnostic_observed" == "100000" ]] || \
+    failed "diagnostic window derivation is not runtime-relative"
+  printf '%s\n' '{"kind":"compact","phase":"PreCompact","trigger":"auto"}' \
+    >"$PROBES/live-compact-hook-events.jsonl"
+  if derive_diagnostic_window_override >/dev/null; then
+    failed "diagnostic window override accepted an observed automatic compaction"
+  fi
   delete_content_captures
   printf '%s\n' 'live context continuity parser self-test passed'
 }
@@ -229,7 +275,7 @@ import json, sys
 from pathlib import Path
 p = Path(sys.argv[1])
 p.write_text(json.dumps({
-    "model": "operator-model",
+    "cleanupPeriodDays": 30,
     "env": {"OPERATOR_PREFERENCE_BEFORE": "keep"},
     "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/operator/stop"}]}]},
 }) + "\n", encoding="utf-8")
@@ -241,7 +287,7 @@ PY
 import json, sys
 from pathlib import Path
 p = Path(sys.argv[1]); value = json.loads(p.read_text(encoding="utf-8"))
-assert value["model"] == "operator-model"
+assert value["cleanupPeriodDays"] == 30
 assert value["env"]["OPERATOR_PREFERENCE_BEFORE"] == "keep"
 assert value["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] == "72"
 assert "CLAUDE_CODE_AUTO_COMPACT_WINDOW" not in value["env"]
@@ -258,6 +304,31 @@ v = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 assert v["env"]["OPERATOR_PREFERENCE_BEFORE"] == "keep"
 assert v["env"]["OPERATOR_PREFERENCE_AFTER"] == "keep"
 assert v["hooks"]["Stop"][0]["hooks"][0]["command"] == "/operator/stop"
+PY
+}
+
+install_live_compact_observer() {
+  local recorder="$WORK/project/.claude/live-compact-event-recorder.py"
+  local destination="$PROBES/live-compact-hook-events.jsonl"
+  cp "$ROOT/tests/live-compact-event-recorder.py" "$recorder"
+  chmod 0500 "$recorder"
+  python3 - "$WORK/project/.claude/settings.local.json" "$recorder" "$destination" <<'PY'
+import json, sys
+from pathlib import Path
+
+settings_path, recorder_path, destination_path = map(Path, sys.argv[1:4])
+settings = json.loads(settings_path.read_text(encoding="utf-8"))
+observer = {
+    "matcher": "auto",
+    "hooks": [{
+        "type": "command",
+        "command": "/usr/bin/python3",
+        "args": [str(recorder_path.resolve()), str(destination_path.resolve())],
+        "timeout": 5,
+    }],
+}
+settings.setdefault("hooks", {}).setdefault("PreCompact", []).append(observer)
+settings_path.write_text(json.dumps(settings) + "\n", encoding="utf-8")
 PY
 }
 
@@ -311,33 +382,151 @@ PY
 }
 
 normalize_live_capture() {
-  python3 - "$PROBES/manual.pty" "$PROBES/live-events.jsonl" <<'PY'
+  python3 - "$PROBES/manual.pty" "$PROBES/manual-driver.jsonl" \
+    "$PROBES/automatic-driver.jsonl" "$PROBES/live-events.jsonl" \
+    "${DIAGNOSTIC_REPORTED_WINDOW:-}" "${DIAGNOSTIC_OBSERVED_WINDOW:-}" <<'PY'
 import json, re, sys
 from pathlib import Path
-text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+manual_path, driver_path, automatic_path, output_path = map(Path, sys.argv[1:5])
+reported_window, observed_window = sys.argv[5:7]
+text = manual_path.read_text(encoding="utf-8", errors="replace")
+driver_events = [json.loads(line) for line in driver_path.read_text(encoding="utf-8").splitlines() if line]
+passed = {event["stage"] for event in driver_events if event.get("outcome") == "passed"}
 events = []
 percentages = [int(v) for v in re.findall(r"(?<!\d)(\d{1,3})%", text) if 0 <= int(v) <= 100]
-if percentages:
+if "context_inspected" in passed and percentages:
     events.append({"kind":"context","stage":"before","percent":percentages[0]})
     events.append({"kind":"context","stage":"after","percent":percentages[-1]})
-for identifier in ("P004A_TASK_A", "P004A_TASK_B"):
-    if text.count(identifier) >= 2:
+if {"tasks_created", "post_compaction_tasks"} <= passed:
+    for identifier in ("P004A_TASK_A", "P004A_TASK_B"):
         events.extend([
             {"kind":"task","action":"created","family":"TaskCreate","identifier":identifier},
             {"kind":"task","action":"observed-after","family":"TaskCreate","identifier":identifier},
         ])
-if re.search(r"compact(?:ed|ion|ing)|context compact", text, re.I):
+if "manual_compaction" in passed:
     events.append({"kind":"compact","phase":"PostCompact"})
+automatic_events = [
+    json.loads(line) for line in automatic_path.read_text(encoding="utf-8").splitlines()
+    if line
+]
+automatic_passed = {
+    event["stage"] for event in automatic_events if event.get("outcome") == "passed"
+}
+if "automatic_compaction" in automatic_passed:
+    events.append({"kind":"compact","phase":"PostCompact"})
+    events.extend([
+        {"kind":"task","action":"created","family":"TaskCreate","identifier":"P004A_AUTO"},
+        {"kind":"task","action":"observed-after","family":"TaskCreate","identifier":"P004A_AUTO"},
+    ])
 if re.search(r"tool[_ -]?search|tool_reference", text, re.I):
     events.append({"kind":"tool-search","available":True})
 else:
     events.append({"kind":"tool-search","available":False,"gatewayUnavailable":True})
-with Path(sys.argv[2]).open("w", encoding="utf-8") as stream:
+if reported_window and observed_window:
+    events.append({
+        "kind":"window",
+        "reportedWindow":int(reported_window),
+        "observedWindow":int(observed_window),
+        "absoluteOverrideApplied":True,
+    })
+with output_path.open("w", encoding="utf-8") as stream:
     for event in events:
         stream.write(json.dumps(event) + "\n")
 PY
   node "$INSTALLED_SKILLS_DIR/context-continuity/scripts/context-inventory.mjs" \
     --root "$ROOT" --runtime-jsonl "$PROBES/live-events.jsonl" >"$EVIDENCE"
+}
+
+derive_diagnostic_window_override() {
+  python3 - "$PROBES/manual.pty" "$PROBES/automatic.pty" \
+    "$PROBES/automatic-driver.jsonl" "$PROBES/live-compact-hook-events.jsonl" <<'PY'
+import json, math, re, sys
+from pathlib import Path
+
+manual_path, automatic_path, driver_path, hook_path = map(Path, sys.argv[1:5])
+driver_events = [
+    json.loads(line) for line in driver_path.read_text(encoding="utf-8").splitlines()
+    if line
+]
+passed = {event.get("stage") for event in driver_events if event.get("outcome") == "passed"}
+failed = {event.get("stage") for event in driver_events if event.get("outcome") == "failed"}
+if "automatic_task_created" not in passed or "automatic_compaction" not in failed:
+    raise SystemExit(1)
+capture = automatic_path.read_bytes().upper()
+for marker in (b"P004A_READY_DONE", b"P004A_SECOND_TURN", b"P004A_AUTO_CHECK_OK"):
+    if marker not in capture:
+        raise SystemExit(1)
+if hook_path.exists():
+    for line in hook_path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event.get("phase") == "PreCompact" and event.get("trigger") == "auto":
+            raise SystemExit(1)
+percentages = [
+    int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", capture)
+    if 0 <= int(value) <= 100
+]
+if not percentages or max(percentages) <= 1:
+    raise SystemExit(1)
+manual = manual_path.read_text(encoding="utf-8", errors="replace")
+windows = re.findall(r"\[(\d+(?:\.\d+)?)([kKmM])\]", manual)
+if not windows:
+    raise SystemExit(1)
+amount, unit = windows[-1]
+reported = int(float(amount) * ({"k": 1_000, "m": 1_000_000}[unit.lower()]))
+observed = math.ceil(reported / 10)
+if reported <= 0 or observed <= 0 or observed >= reported:
+    raise SystemExit(1)
+print(f"{reported} {observed}")
+PY
+}
+
+build_automatic_filler() {
+  python3 - "$PROBES/manual.pty" "$PROBES/automatic.prompt" <<'PY'
+import math, re, sys
+from pathlib import Path
+manual_path, output_path = map(Path, sys.argv[1:3])
+manual = manual_path.read_text(encoding="utf-8", errors="replace")
+percentages = [
+    int(value) for value in re.findall(
+        r"(?<!\d)(\d{1,3})%",
+        manual,
+    ) if 0 <= int(value) <= 100
+]
+if not percentages:
+    raise SystemExit("manual context percentage unavailable")
+baseline_percent = max(percentages)
+windows = re.findall(r"\[(\d+(?:\.\d+)?)([kKmM])\]", manual)
+if not windows:
+    raise SystemExit("runtime context window label unavailable")
+amount, unit = windows[-1]
+window_tokens = int(float(amount) * ({"k": 1_000, "m": 1_000_000}[unit.lower()]))
+target_percent = 5
+margin_percent = 2
+required_percent = margin_percent if baseline_percent >= target_percent else target_percent + margin_percent
+target_tokens = max(1, math.ceil(
+    window_tokens * required_percent / 100
+))
+if target_tokens > 100_000:
+    raise SystemExit("adaptive filler exceeds diagnostic safety bound")
+output_path.write_text(" probe" * target_tokens, encoding="utf-8")
+PY
+}
+
+set_isolated_diagnostic_threshold() {
+  python3 - "$WORK/project/.claude/settings.local.json" "$1" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+threshold = int(sys.argv[2])
+if threshold not in {1, 72}:
+    raise SystemExit("unsupported isolated diagnostic threshold")
+value = json.loads(path.read_text(encoding="utf-8"))
+current = int(value["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"])
+if current not in {1, 72}:
+    raise SystemExit("unexpected prior isolated threshold")
+value["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = str(threshold)
+path.write_text(json.dumps(value) + "\n", encoding="utf-8")
+PY
 }
 
 run_live() {
@@ -346,14 +535,21 @@ run_live() {
   [[ -n "$CLAUDE_BIN" ]] || blocked "Claude Code CLI not found"
   [[ -n "$BWRAP_BIN" ]] || blocked "Bubblewrap is required for --run-live"
   command -v timeout >/dev/null 2>&1 || blocked "timeout not found"
-  command -v script >/dev/null 2>&1 || blocked "pseudo-terminal script utility not found"
+  CLAUDE_RUNTIME_ARGS=()
+  if "$CLAUDE_BIN" --help 2>&1 | grep -F -- '--autocompact' >/dev/null; then
+    CLAUDE_RUNTIME_ARGS+=(--autocompact auto)
+  fi
   install_with_nori
   locate_installed_roots
   python3 "$ROOT/tests/validate-installed-subagents.py" \
     --installed-agents-dir "$INSTALLED_AGENTS_DIR" \
     --installed-skills-dir "$INSTALLED_SKILLS_DIR"
   configure_and_verify_preservation
+  install_live_compact_observer
   run_installed_credential_compaction_probe
+  observed_claude_version="$("$CLAUDE_BIN" --version | awk 'NR == 1 {print $1}')"
+  [[ "$observed_claude_version" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || blocked "Claude Code version label is unsafe"
+  seed_isolated_onboarding "$observed_claude_version"
 
   CLAUDE_REAL="$(readlink -f "$CLAUDE_BIN")"
   [[ -f "$CLAUDE_REAL" && -x "$CLAUDE_REAL" ]] || blocked "Claude Code executable cannot be resolved"
@@ -382,7 +578,7 @@ run_live() {
 
   PROBE_ENV=(
     "HOME=$WORK_REAL/home" "CLAUDE_CONFIG_DIR=$WORK_REAL/home/.claude"
-    "HISTFILE=/dev/null" "PATH=/usr/bin:/bin" "TMPDIR=/tmp"
+    "HISTFILE=/dev/null" "PATH=/usr/bin:/bin" "TMPDIR=/tmp" "TERM=xterm-256color"
     "CLAUDE_CODE_SKIP_PROMPT_HISTORY=1" "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
   )
   for key in "${ALLOWED_CLAUDE_ENV[@]}"; do
@@ -390,46 +586,75 @@ run_live() {
   done
   load_provider_environment
 
-  printf '%s\n' \
-    'Create native tasks named P004A_TASK_A and P004A_TASK_B. Complete only P004A_TASK_A.' \
-    '/context' \
-    '/compact Preserve task identifiers and immediate next action' \
-    'Read the native task list and report both task identifiers only.' \
-    '/exit' >"$PROBES/manual.input"
+  MANUAL_TIMEOUT=600
+  AUTOMATIC_TIMEOUT=600
+  if [[ -n "${P0_04A_LIVE_TIMEOUT_SECONDS:-}" ]]; then
+    [[ "$P0_04A_LIVE_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || blocked "live timeout override must be numeric"
+    (( P0_04A_LIVE_TIMEOUT_SECONDS >= 30 && P0_04A_LIVE_TIMEOUT_SECONDS <= 600 )) || \
+      blocked "live timeout override must be from 30 through 600 seconds"
+    MANUAL_TIMEOUT="$P0_04A_LIVE_TIMEOUT_SECONDS"
+    AUTOMATIC_TIMEOUT="$P0_04A_LIVE_TIMEOUT_SECONDS"
+  fi
+  DRIVER_TIMEOUT=$((MANUAL_TIMEOUT - 5))
+
   set +e
-  timeout 600 env -i "${PROBE_ENV[@]}" "$BWRAP_BIN" "${BWRAP_ARGS[@]}" \
-    /usr/bin/script --quiet --return --command "/opt/claude --agent diagnostic-operator" \
-    "$PROBES/manual.pty" <"$PROBES/manual.input" >"$PROBES/manual.transcript" 2>&1
+  timeout "$MANUAL_TIMEOUT" env -i "${PROBE_ENV[@]}" \
+    python3 "$ROOT/tests/claude-pty-driver.py" \
+    --capture "$PROBES/manual.pty" --events "$PROBES/manual-driver.jsonl" \
+    --timeout "$DRIVER_TIMEOUT" -- \
+    "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude "${CLAUDE_RUNTIME_ARGS[@]}" \
+    >"$PROBES/manual.transcript" 2>&1
   manual_status=$?
   set -e
   [[ $manual_status -eq 0 ]] || blocked "manual compact PTY capability unavailable or failed"
 
-  # The automatic probe deliberately lowers only its process-scoped percentage.
+  # The automatic probe lowers only the disposable project's percentage and restores it.
+  build_automatic_filler
+  set_isolated_diagnostic_threshold 1
+  DIAGNOSTIC_REPORTED_WINDOW=""
+  DIAGNOSTIC_OBSERVED_WINDOW=""
   set +e
-  timeout 600 env -i "${PROBE_ENV[@]}" CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5 \
-    "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude -p \
-    'Create one native task P004A_AUTO, then emit bounded repetitive synthetic text until automatic compaction occurs; read the task list afterward.' \
-    --output-format stream-json >"$PROBES/automatic.jsonl" 2>"$PROBES/automatic.transcript"
+  timeout "$AUTOMATIC_TIMEOUT" env -i "${PROBE_ENV[@]}" \
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1 CLAUDE_CODE_EFFORT_LEVEL=low \
+    python3 "$ROOT/tests/claude-pty-driver.py" \
+    --capture "$PROBES/automatic.pty" --events "$PROBES/automatic-driver.jsonl" \
+    --dialogue automatic --filler "$PROBES/automatic.prompt" \
+    --compact-events "$PROBES/live-compact-hook-events.jsonl" \
+    --timeout "$DRIVER_TIMEOUT" -- \
+    "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude "${CLAUDE_RUNTIME_ARGS[@]}" \
+    >"$PROBES/automatic.transcript" 2>&1
   automatic_status=$?
   set -e
+  if [[ $automatic_status -ne 0 ]]; then
+    set +e
+    diagnostic_windows="$(derive_diagnostic_window_override)"
+    diagnostic_status=$?
+    set -e
+    if [[ $diagnostic_status -eq 0 ]]; then
+      read -r DIAGNOSTIC_REPORTED_WINDOW DIAGNOSTIC_OBSERVED_WINDOW <<<"$diagnostic_windows"
+      rm -f -- "$PROBES/automatic.pty" "$PROBES/automatic-driver.jsonl" \
+        "$PROBES/automatic.transcript" "$PROBES/live-compact-hook-events.jsonl"
+      set +e
+      timeout "$AUTOMATIC_TIMEOUT" env -i "${PROBE_ENV[@]}" \
+        CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1 \
+        CLAUDE_CODE_AUTO_COMPACT_WINDOW="$DIAGNOSTIC_OBSERVED_WINDOW" \
+        CLAUDE_CODE_EFFORT_LEVEL=low \
+        python3 "$ROOT/tests/claude-pty-driver.py" \
+        --capture "$PROBES/automatic.pty" --events "$PROBES/automatic-driver.jsonl" \
+        --dialogue automatic --filler "$PROBES/automatic.prompt" \
+        --compact-events "$PROBES/live-compact-hook-events.jsonl" \
+        --timeout "$DRIVER_TIMEOUT" -- \
+        "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude "${CLAUDE_RUNTIME_ARGS[@]}" \
+        >"$PROBES/automatic.transcript" 2>&1
+      automatic_status=$?
+      set -e
+    fi
+  fi
+  set_isolated_diagnostic_threshold 72
   [[ $automatic_status -eq 0 ]] || blocked "automatic compact capability unavailable or failed"
 
   normalize_live_capture
   assert_evidence
-
-  # An absolute override is diagnostic-only and can be enabled only after numeric divergence evidence.
-  if python3 - "$EVIDENCE" <<'PY'
-import json, sys
-from pathlib import Path
-w = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["runtime"]["window"]
-raise SystemExit(0 if w["reasonCode"] == "WINDOW_REPORTING_DIVERGENCE" else 1)
-PY
-  then
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW="${P0_04A_MOCK_WINDOW_OVERRIDE:-64000}"
-    export CLAUDE_CODE_AUTO_COMPACT_WINDOW
-  else
-    unset CLAUDE_CODE_AUTO_COMPACT_WINDOW
-  fi
 
   find_forbidden_evidence "$EVIDENCE" || failed "live evidence failed forbidden-content scan"
   python3 - "$EVIDENCE" <<'PY'

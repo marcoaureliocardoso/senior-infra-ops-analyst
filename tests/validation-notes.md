@@ -165,8 +165,8 @@ identifiers, and closed reason codes; prompts, responses, summaries,
 transcripts, commands, tool payloads, headers, and credentials are forbidden.
 
 The opt-in real-provider run requires a Linux or WSL environment with non-root
-Bubblewrap, Node.js, Python, the `timeout` and pseudo-terminal `script`
-utilities, Claude Code, Nori, network access, and an operator-configured
+Bubblewrap, Node.js, Python, the `timeout` utility, Claude Code, Nori, network
+access, and an operator-configured
 DeepSeek route. It requires this exact temporary acknowledgment:
 
 ```bash
@@ -186,10 +186,27 @@ and prints a warning that they contain model content.
 
 Production configuration remains percentage-based with default `72` and
 preserves an operator value from 70 through 75. The automatic-compaction probe
-uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5` solely to make the test
-bounded; it does not change installed settings. The real DeepSeek route runs
-with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset. An absolute override is
-diagnostic-only and may be exercised against a disposable divergent-window
-fixture only after normalized evidence reports `WINDOW_REPORTING_DIVERGENCE`;
-the evidence then records `absoluteOverrideEvidenceGated` without retaining a
-prompt, response, or raw gateway request.
+uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1` solely to make the test
+bounded; it does not change installed settings. It detects and explicitly uses
+native `--autocompact auto` when the runtime exposes that option. The real
+DeepSeek route always runs first with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset.
+Only after three completed turns above the diagnostic percentage fail to emit
+`PreCompact(auto)` may the harness derive a smaller window as one tenth of the
+runtime-reported window and repeat the disposable probe. The normalized result
+records `WINDOW_REPORTING_DIVERGENCE` and `absoluteOverrideEvidenceGated`
+without retaining a prompt, response, transcript, or raw gateway request.
+
+The interactive probe uses the standard-library PTY controller in
+`tests/claude-pty-driver.py`. It sends terminal carriage-return keys and waits
+for bounded evidence of task creation, `/context`, manual `/compact`, and the
+post-compaction task list before advancing. This avoids treating a batch of
+input piped into an event-driven TUI as completed interaction.
+
+On 2026-08-08 the opt-in run passed against the operator-configured DeepSeek
+route. Claude Code reported a 1,000,000-token window but did not emit the native
+automatic-compaction hook at the 1% diagnostic threshold across three completed
+turns. The gated retry derived a 100,000-token diagnostic window, observed one
+manual and one automatic compaction, and preserved all three native task
+identifiers. The inventory measured 25 skills and 12 subagents; tool search was
+reported unavailable by the gateway. Content-bearing artifacts were deleted
+after normalization. Independent review and CI/Security remain separate gates.
