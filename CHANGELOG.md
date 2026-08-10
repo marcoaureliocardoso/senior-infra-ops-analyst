@@ -9,6 +9,7 @@
 - Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
 - Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.
 - Added runtime detection for native auto-compaction and a structural-only live hook observer; the real route blocks rather than deriving an automatic absolute fallback.
+- Hardened the live PTY driver to wait for delayed `PostCompact` within its bound and reject missing, orphaned, duplicated, or incorrectly ordered manual hook sequences.
 - Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence.
 - Left P0-04B browser automation out of scope.
 

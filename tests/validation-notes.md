@@ -226,6 +226,18 @@ content-bearing artifacts. A real-route absolute diagnostic is not eligible on
 the current evidence because the reported 1,000,000-token window agrees with
 the provider's official current model documentation.
 
+On 2026-08-10 a second opt-in run used a dedicated temporary provider key and
+again completed isolated Nori installation and preservation. It stopped before
+the automatic scenario when the structural observer recorded the second manual
+compaction as `PreCompact` without `PostCompact`. A deterministic delayed-hook
+fixture reproduced that the PTY driver could accept terminal text and exit
+before the late structural event. The repaired driver now requires the exact
+ordered manual sequence, rejects orphaned or duplicated phases, and fails
+immediately when the manual evidence path is omitted; a missing event otherwise
+waits only within the configured bound. Focused tests and the complete
+deterministic gate pass after the repair. A post-repair real run has not
+completed, so this observation does not close the automatic live gate.
+
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization
 invalidation, 100% critical command-guard coverage, 82 security mutations,

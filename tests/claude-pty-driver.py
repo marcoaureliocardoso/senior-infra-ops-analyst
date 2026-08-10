@@ -19,6 +19,39 @@ TASK_B = b"P004A_TASK_B"
 AUTO_TASK = b"P004A_AUTO"
 
 
+def drive_request_valid(
+    command: list[str], timeout_seconds: int, dialogue: str,
+    filler_path: Path | None, compact_events_path: Path | None,
+) -> bool:
+    if not command or not 1 <= timeout_seconds <= 600:
+        return False
+    if dialogue not in {"manual", "automatic", "context", "resume", "clear", "skill", "mock-window"}:
+        return False
+    if dialogue == "manual" and compact_events_path is None:
+        return False
+    if dialogue == "automatic" and (filler_path is None or compact_events_path is None):
+        return False
+    return True
+
+
+def compaction_pairs_observed(
+    compact_events_path: Path | None, trigger: str, expected_pairs: int,
+) -> bool:
+    if compact_events_path is None or expected_pairs < 1:
+        return False
+    try:
+        if not compact_events_path.is_file() or compact_events_path.stat().st_size > 64 * 1024:
+            return False
+        phases = []
+        for line in compact_events_path.read_text(encoding="utf-8").splitlines():
+            event = json.loads(line)
+            if isinstance(event, dict) and event.get("kind") == "compact" and event.get("trigger") == trigger:
+                phases.append(event.get("phase"))
+        return phases == ["PreCompact", "PostCompact"] * expected_pairs
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+
+
 def _stop(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is not None:
         return
@@ -40,13 +73,8 @@ def drive(
     compact_events_path: Path | None = None,
 ) -> int:
     """Run the fixed continuity dialogue and retain only the temporary PTY capture."""
-    if (
-        os.name != "posix" or not command or not 1 <= timeout_seconds <= 600
-        or dialogue not in {"manual", "automatic", "context", "resume", "clear", "skill", "mock-window"}
-        or (
-            dialogue == "automatic"
-            and (filler_path is None or compact_events_path is None)
-        )
+    if os.name != "posix" or not drive_request_valid(
+        command, timeout_seconds, dialogue, filler_path, compact_events_path,
     ):
         return 2
     filler = ""
@@ -58,22 +86,6 @@ def drive(
         except (OSError, UnicodeError):
             return 2
 
-    def automatic_compaction_observed() -> bool:
-        if compact_events_path is None:
-            return False
-        try:
-            if not compact_events_path.is_file() or compact_events_path.stat().st_size > 64 * 1024:
-                return False
-            phases = []
-            for line in compact_events_path.read_text(encoding="utf-8").splitlines():
-                event = json.loads(line)
-                if isinstance(event, dict) and event.get("kind") == "compact" and event.get("trigger") == "auto":
-                    phases.append(event.get("phase"))
-            if phases[-2:] == ["PreCompact", "PostCompact"]:
-                return True
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            return False
-        return False
     import fcntl
     import pty
     import struct
@@ -446,7 +458,7 @@ def drive(
                     lambda data: (
                         AUTO_TASK in data[final_offset:]
                         and b"P004A_AUTO_CHECK_OK" in data[final_offset:]
-                        and automatic_compaction_observed()
+                        and compaction_pairs_observed(compact_events_path, "auto", 1)
                     ),
                     "automatic compaction and post-compaction task list",
                 )
@@ -478,7 +490,10 @@ def drive(
             compact_offset = len(retained)
             send("/compact Preserve task identifiers and immediate next action")
             wait_for(
-                lambda data: data[compact_offset:].lower().count(b"compact") >= 2,
+                lambda data: (
+                    data[compact_offset:].lower().count(b"compact") >= 2
+                    and compaction_pairs_observed(compact_events_path, "manual", 1)
+                ),
                 "manual compaction",
             )
             record(current_stage, "passed")
@@ -503,7 +518,10 @@ def drive(
             unfocused_offset = len(retained)
             send("/compact")
             wait_for(
-                lambda data: data[unfocused_offset:].lower().count(b"compact") >= 2,
+                lambda data: (
+                    data[unfocused_offset:].lower().count(b"compact") >= 2
+                    and compaction_pairs_observed(compact_events_path, "manual", 2)
+                ),
                 "unfocused manual compaction",
             )
             record(current_stage, "passed")

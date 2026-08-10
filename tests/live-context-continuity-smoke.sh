@@ -1041,6 +1041,7 @@ run_live() {
   timeout "$MANUAL_TIMEOUT" "${PROVIDER_EXEC[@]}" \
     python3 "$ROOT/tests/claude-pty-driver.py" \
     --capture "$PROBES/manual.pty" --events "$PROBES/manual-driver.jsonl" \
+    --compact-events "$PROBES/live-compact-hook-events.jsonl" \
     --timeout "$DRIVER_TIMEOUT" -- \
     "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude "${CLAUDE_RUNTIME_ARGS[@]}" \
     --session-id "$SESSION_ID" \

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -30,17 +31,58 @@ class ClaudePtyDriverTests(unittest.TestCase):
     def test_driver_exists(self) -> None:
         self.assertTrue(DRIVER.is_file())
 
+    def test_structural_compaction_sequence_rejects_orphans_and_duplicates(self) -> None:
+        driver = load_driver()
+        self.assertTrue(hasattr(driver, "compaction_pairs_observed"))
+        with tempfile.TemporaryDirectory() as directory:
+            compact_events = Path(directory) / "compact-events.jsonl"
+
+            def write(phases: list[str]) -> None:
+                compact_events.write_text("\n".join(json.dumps({
+                    "kind": "compact", "phase": phase, "trigger": "manual",
+                }) for phase in phases) + "\n", encoding="utf-8")
+
+            write(["PreCompact", "PostCompact"])
+            self.assertTrue(driver.compaction_pairs_observed(compact_events, "manual", 1))
+            write(["PostCompact", "PreCompact", "PostCompact"])
+            self.assertFalse(driver.compaction_pairs_observed(compact_events, "manual", 1))
+            write(["PreCompact", "PreCompact", "PostCompact"])
+            self.assertFalse(driver.compaction_pairs_observed(compact_events, "manual", 1))
+            write(["PreCompact", "PostCompact", "PreCompact", "PostCompact"])
+            self.assertTrue(driver.compaction_pairs_observed(compact_events, "manual", 2))
+            write(["PreCompact", "PreCompact", "PostCompact", "PreCompact", "PostCompact"])
+            self.assertFalse(driver.compaction_pairs_observed(compact_events, "manual", 2))
+
+    def test_manual_dialogue_requires_structural_compaction_events(self) -> None:
+        driver = load_driver()
+        self.assertTrue(hasattr(driver, "drive_request_valid"))
+        compact_events = Path("compact-events.jsonl")
+        self.assertFalse(driver.drive_request_valid(
+            ["claude"], 600, "manual", None, None,
+        ))
+        self.assertTrue(driver.drive_request_valid(
+            ["claude"], 600, "manual", None, compact_events,
+        ))
+
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
-    def test_conditioned_dialogue_completes_with_carriage_return_keys(self) -> None:
+    def test_conditioned_dialogue_waits_for_ordered_manual_compaction_hooks(self) -> None:
         driver = load_driver()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fake = root / "fake_tui.py"
             capture = root / "capture.pty"
             events = root / "events.jsonl"
+            compact_events = root / "compact-events.jsonl"
             fake.write_text(textwrap.dedent(r'''
-                import fcntl, os, select, struct, sys, termios, time, tty
+                import fcntl, json, os, select, struct, sys, termios, time, tty
+                from pathlib import Path
                 tty.setraw(sys.stdin.fileno())
+                compact_events = Path(sys.argv[1])
+                def compact(phase):
+                    with compact_events.open("a", encoding="utf-8") as stream:
+                        stream.write(json.dumps({
+                            "kind": "compact", "phase": phase, "trigger": "manual",
+                        }) + "\n")
                 rows, columns, _, _ = struct.unpack(
                     "HHHH",
                     fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, bytes(8)),
@@ -87,6 +129,8 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 assert line() == "/context"
                 os.write(sys.stdout.fileno(), b"context usage 42%")
                 assert line().startswith("/compact ")
+                compact("PreCompact")
+                compact("PostCompact")
                 os.write(sys.stdout.fileno(), b"context compacted after compact")
                 final = line()
                 assert "task list" in final.lower()
@@ -95,12 +139,17 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 os.write(sys.stdout.fileno(), final.encode())
                 os.write(sys.stdout.fileno(), b"P004A_TASK_A P004A_TASK_B P004A_POST_COMPACT_OK")
                 assert line() == "/compact"
+                compact("PreCompact")
                 os.write(sys.stdout.fileno(), b"compact compact")
+                if select.select([sys.stdin.fileno()], [], [], 1.2)[0]:
+                    raise SystemExit("driver exited before PostCompact")
+                compact("PostCompact")
                 assert line() == "/exit"
             '''), encoding="utf-8")
             result = driver.drive(
-                [sys.executable, str(fake)], capture, timeout_seconds=10,
-                events_path=events,
+                [sys.executable, str(fake), str(compact_events)], capture,
+                timeout_seconds=10, events_path=events,
+                compact_events_path=compact_events,
             )
             self.assertEqual(result, 0)
             retained = capture.read_text(encoding="utf-8")
@@ -114,13 +163,15 @@ class ClaudePtyDriverTests(unittest.TestCase):
     def test_driver_times_out_without_claiming_success(self) -> None:
         driver = load_driver()
         with tempfile.TemporaryDirectory() as directory:
-            capture = Path(directory) / "capture.pty"
-            events = Path(directory) / "events.jsonl"
+            root = Path(directory)
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
             result = driver.drive(
                 [sys.executable, "-c", "import time; time.sleep(30)"],
                 capture,
                 timeout_seconds=1,
                 events_path=events,
+                compact_events_path=root / "compact-events.jsonl",
             )
             self.assertNotEqual(result, 0)
             self.assertIn('"outcome": "failed"', events.read_text(encoding="utf-8"))
