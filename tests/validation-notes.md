@@ -288,6 +288,28 @@ event file, the terminal evidence proves `complete_pair=false` but cannot
 honestly distinguish `pre_only` from `no_pre`. This classification limitation
 does not weaken the acceptance criterion or close the automatic live gate.
 
+### Remaining P0-04A acceptance and merge gates
+
+1. **Real automatic acceptance remains open.** The fourth run confirmed native
+   capacity `1000000`, reached 10% under the isolated 5% threshold, selected
+   `--autocompact auto`, and waited 600 seconds, approximately 855 seconds
+   overall, before exiting `BLOCKED`. It did not prove the required ordered
+   `PreCompact(auto)`/`PostCompact(auto)` pair.
+2. **Sanitized structural classification remains a diagnostic improvement.**
+   Cleanup removed the content-free event file with the temporary directory.
+   The retained terminal evidence proves only `complete_pair=false`, not
+   `pre_only` or `no_pre`. A future run may preserve only one closed
+   classification while still deleting every content-bearing artifact; that
+   classification cannot replace the required real pair.
+3. **Alternative acceptance remains conditional.** If direct observation stays
+   infeasible, a revised criterion requires a new explicit operator decision.
+4. **The exact final head still needs final gates.** Any subsequent change must
+   receive independent review without release-blocking findings and green CI
+   and Security results on that exact commit.
+5. **Merge and roadmap completion remain pending.** PR #32 stays draft until the
+   prior gates are satisfied. P0-04A remains pending until the approved final
+   head is merged into `main`.
+
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization
 invalidation, 100% critical command-guard coverage, 82 security mutations,

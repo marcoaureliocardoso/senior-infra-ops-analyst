@@ -158,6 +158,21 @@ cleanup also removes the content-free hook event file, the terminal record can
 prove only that no complete pair occurred; it cannot distinguish a lone
 `PreCompact` from no automatic hook. The acceptance criterion remains unmet.
 
+## Pending acceptance and merge gates
+
+1. Observe one real ordered `PreCompact(auto)` then `PostCompact(auto)` pair on
+   the reviewed head. No synthesized or inferred phase satisfies this gate.
+2. Improve future diagnostics to retain only the closed sanitized structural
+   classification `complete_pair`, `pre_only`, or `no_pre` after cleanup. This
+   is diagnostic precision, not an alternative to the required ordered pair.
+3. If direct observation remains infeasible, require a new explicit operator
+   decision before revising or treating the live acceptance criterion as met.
+4. Obtain independent review without release-blocking findings and green CI and
+   Security results on the exact final head after any further change.
+5. Keep PR #32 draft until gates 1 through 4 are satisfied. Keep P0-04A pending
+   until the approved final head is merged into `main`; only that merge permits
+   completion in the definitive roadmap.
+
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
