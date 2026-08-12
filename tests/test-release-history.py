@@ -18,6 +18,7 @@ README_LINK = (
 )
 UNRELEASED_HEADING = "## Unreleased package states"
 TAGGED_HEADING = "## Tagged versions"
+VERSION_LINE_ERROR = "noncanonical version-bearing line"
 CURRENT_UNRELEASED = (
     "### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-12"
 )
@@ -188,7 +189,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("version heading outside taxonomy", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
     def test_indented_wrong_level_version_heading_is_rejected(self) -> None:
         self.changelog.write_text(
@@ -197,7 +198,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("version heading must be level three", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
     def test_indented_version_heading_inside_taxonomy_is_rejected(self) -> None:
         self.changelog.write_text(
@@ -210,7 +211,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("version heading must be unindented", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
     def test_fenced_code_version_example_is_ignored(self) -> None:
         self.changelog.write_text(
@@ -229,7 +230,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("version heading outside taxonomy", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
     def test_tilde_fenced_code_version_example_is_ignored(self) -> None:
         self.changelog.write_text(
@@ -271,25 +272,44 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("noncanonical version heading", result.stdout)
 
-    def test_setext_version_heading_is_rejected(self) -> None:
+    def test_noncanonical_version_bearing_witnesses_are_rejected(self) -> None:
+        witnesses = (
+            "> ### 0.3.3 - 2026-07-08",
+            "- ### 0.3.3 - 2026-07-08",
+            "1. 0.3.3 - 2026-07-08",
+            "> - ### 0.3.3 - 2026-07-08",
+            "### 0.3.3-rc.1 - 2026-07-08",
+            "### 0.3.3+build.7 - 2026-07-08",
+        )
+        for witness in witnesses:
+            with self.subTest(witness=witness):
+                self.replace_changelog(
+                    TAGGED_HEADING,
+                    TAGGED_HEADING + "\n\n" + witness,
+                )
+                result = self.run_validator()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(VERSION_LINE_ERROR, result.stdout)
+
+    def test_direct_version_leading_line_is_rejected(self) -> None:
         self.replace_changelog(
             TAGGED_HEADING,
-            TAGGED_HEADING + "\n\n0.3.3 - 2026-07-08\n---",
+            TAGGED_HEADING + "\n\n0.3.3 - 2026-07-08",
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("setext version heading", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
-    def test_multiline_setext_version_heading_is_rejected(self) -> None:
+    def test_multiline_version_leading_paragraph_is_rejected(self) -> None:
         self.replace_changelog(
             TAGGED_HEADING,
             TAGGED_HEADING + "\n\n0.3.3 - 2026-07-08\ncontinued\n---",
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("setext version heading", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
-    def test_three_line_setext_version_heading_is_rejected(self) -> None:
+    def test_three_line_version_leading_paragraph_is_rejected(self) -> None:
         self.replace_changelog(
             TAGGED_HEADING,
             TAGGED_HEADING
@@ -297,9 +317,9 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("setext version heading", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
-    def test_indented_multiline_setext_version_heading_is_rejected(self) -> None:
+    def test_indented_version_leading_line_is_rejected(self) -> None:
         for indentation in range(1, 4):
             with self.subTest(indentation=indentation):
                 prefix = " " * indentation
@@ -311,18 +331,19 @@ class ReleaseHistoryTests(unittest.TestCase):
                 )
                 result = self.run_validator()
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("setext version heading", result.stdout)
+                self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
-    def test_blank_line_ends_multiline_setext_candidate_paragraph(self) -> None:
+    def test_blank_line_does_not_end_lexical_version_detection(self) -> None:
         self.replace_changelog(
             TAGGED_HEADING,
             TAGGED_HEADING
             + "\n\n0.3.3 - 2026-07-08\n\nordinary heading\n---",
         )
         result = self.run_validator()
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
-    def test_standalone_underline_does_not_hide_later_setext_version(self) -> None:
+    def test_standalone_underline_does_not_hide_later_version_line(self) -> None:
         self.replace_changelog(
             TAGGED_HEADING,
             TAGGED_HEADING
@@ -330,7 +351,25 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("setext version heading", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
+
+    def test_version_mentions_that_do_not_start_meaningful_content_are_accepted(self) -> None:
+        witnesses = (
+            "Version 0.3.4 introduced new validation.",
+            "- Version 0.3.4 remains documented here.",
+        )
+        for witness in witnesses:
+            with self.subTest(witness=witness):
+                self.replace_changelog(
+                    TAGGED_HEADING,
+                    TAGGED_HEADING + "\n\n" + witness,
+                )
+                result = self.run_validator()
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    result.stdout + result.stderr,
+                )
 
     def test_fenced_multiline_setext_version_examples_are_ignored(self) -> None:
         self.changelog.write_text(

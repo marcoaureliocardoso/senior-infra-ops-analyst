@@ -643,10 +643,37 @@ tagged_ledger = [
     ('0.2.1', '2026-07-08'),
 ]
 changelog_text = read('CHANGELOG.md')
+semver_core_identifier = r'(?:0|[1-9]\d*)'
+semver_prerelease_identifier = (
+    r'(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)'
+)
+semver_pattern = (
+    rf'{semver_core_identifier}\.{semver_core_identifier}\.'
+    rf'{semver_core_identifier}'
+    rf'(?:-{semver_prerelease_identifier}'
+    rf'(?:\.{semver_prerelease_identifier})*)?'
+    r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+)
+version_bearing_pattern = re.compile(
+    rf'^(?:#{{1,6}}[ \t]+)?{semver_pattern}(?=[ \t]|$)'
+)
+container_prefix_pattern = re.compile(
+    r'^(?:>[ \t]?|[-+*][ \t]+|\d+[.)][ \t]+)'
+)
+
+def first_meaningful_changelog_content(line):
+    content = re.sub(r'^ {0,3}', '', line, count=1)
+    while True:
+        container = container_prefix_pattern.match(content)
+        if not container:
+            return content
+        content = content[container.end():]
+        content = re.sub(r'^ {0,3}', '', content, count=1)
+
 def markdown_heading_inventory(text):
     headings = []
+    version_lines = []
     fence = None
-    paragraph = []
     offset = 0
     lines = text.splitlines(keepends=True)
     for raw_line in lines:
@@ -666,52 +693,31 @@ def markdown_heading_inventory(text):
             ):
                 marker = fence_opening.group(1)
                 fence = (marker[0], len(marker))
-                paragraph = []
             else:
                 heading = re.match(
-                    r'^( {0,3})(#{1,6})(?:[ \t]+(.*))?$',
+                    r'^(#{1,6})(?:[ \t]+(.*))?$',
                     line,
                 )
                 if heading:
                     headings.append({
-                        'kind': 'atx',
-                        'indentation': len(heading.group(1)),
-                        'level': len(heading.group(2)),
-                        'content': (heading.group(3) or '').strip(),
+                        'level': len(heading.group(1)),
+                        'content': (heading.group(2) or '').strip(),
                         'position': offset,
                     })
-                    paragraph = []
-                else:
-                    underline = re.match(r'^ {0,3}(=+|-+)[ \t]*$', line)
-                    if underline:
-                        if paragraph:
-                            first_line, first_position = paragraph[0]
-                            version_start = re.match(
-                                r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$',
-                                first_line,
-                            )
-                            if version_start:
-                                content = ' '.join(
-                                    content_line.strip()
-                                    for content_line, _ in paragraph
-                                )
-                                headings.append({
-                                    'kind': 'setext',
-                                    'indentation': len(version_start.group(1)),
-                                    'level': 1 if underline.group(1)[0] == '=' else 2,
-                                    'content': content,
-                                    'position': first_position,
-                                })
-                        paragraph = []
-                    elif line.strip():
-                        paragraph.append((line, offset))
-                    else:
-                        paragraph = []
+                meaningful_content = first_meaningful_changelog_content(line)
+                if version_bearing_pattern.match(meaningful_content):
+                    version_lines.append({
+                        'content': meaningful_content,
+                        'position': offset,
+                        'raw': line,
+                    })
         offset += len(raw_line)
-    return headings, fence is not None
+    return headings, version_lines, fence is not None
 
 
-heading_inventory, unclosed_fence = markdown_heading_inventory(changelog_text)
+heading_inventory, version_lines, unclosed_fence = markdown_heading_inventory(
+    changelog_text
+)
 if unclosed_fence:
     err('changelog fence drift: unclosed fenced code block')
 
@@ -719,9 +725,7 @@ def taxonomy_headings(name):
     return [
         heading for heading in heading_inventory
         if (
-            heading['kind'] == 'atx'
-            and heading['indentation'] == 0
-            and heading['level'] == 2
+            heading['level'] == 2
             and heading['content'] == name
         )
     ]
@@ -745,6 +749,15 @@ if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
 
 parsed_unpublished = []
 parsed_tagged = []
+consumed_version_positions = set()
+consumed_ledger_entries = {
+    'unpublished': set(),
+    'tagged': set(),
+}
+expected_ledger_entries = {
+    'unpublished': set(unpublished_ledger),
+    'tagged': set(tagged_ledger),
+}
 if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
     tagged_taxonomy = tagged_taxonomies[0]
@@ -753,13 +766,8 @@ if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
         err('tagged-ledger drift: taxonomy order must follow Unreleased package states')
 
 for heading in heading_inventory:
-    if not re.match(r'^\d+\.\d+\.\d+(?:[ \t]|$)', heading['content']):
+    if not re.match(rf'^{semver_pattern}(?=[ \t]|$)', heading['content']):
         continue
-    if heading['kind'] == 'setext':
-        err(f'setext version heading is not allowed: {heading["content"]}')
-        continue
-    if heading['indentation']:
-        err(f'version heading must be unindented: {heading["content"]}')
     if heading['level'] != 3:
         err(f'version heading must be level three: {heading["content"]}')
     taxonomy = next(
@@ -780,18 +788,36 @@ for heading in heading_inventory:
             heading['content'],
         )
         if parsed:
-            parsed_unpublished.append(parsed.groups())
+            ledger_entry = parsed.groups()
+            parsed_unpublished.append(ledger_entry)
         else:
             err(f'noncanonical version heading: {heading["content"]}')
+            continue
     else:
         parsed = re.fullmatch(
             r'(\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})',
             heading['content'],
         )
         if parsed:
-            parsed_tagged.append(parsed.groups())
+            ledger_entry = parsed.groups()
+            parsed_tagged.append(ledger_entry)
         else:
             err(f'noncanonical version heading: {heading["content"]}')
+            continue
+    if (
+        heading['level'] == 3
+        and ledger_entry in expected_ledger_entries[taxonomy]
+        and ledger_entry not in consumed_ledger_entries[taxonomy]
+    ):
+        consumed_ledger_entries[taxonomy].add(ledger_entry)
+        consumed_version_positions.add(heading['position'])
+
+for version_line in version_lines:
+    if version_line['position'] not in consumed_version_positions:
+        err(
+            'noncanonical version-bearing line: '
+            f'{version_line["raw"].strip()}'
+        )
 
 if parsed_unpublished != unpublished_ledger:
     err(
