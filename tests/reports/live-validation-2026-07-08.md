@@ -27,7 +27,7 @@ Scope: `references/external-sources.md` from `senior-infra-ops-analyst` v0.3.3.
 | `https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent` | direct fetch failed without explicit view | `https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-7.6` |
 | `https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/repadmin` | direct fetch failed/current command page unavailable | `https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/diagnose-replication-failures` |
 | `https://techdocs.broadcom.com/us/en/vmware-cis/vsphere.html` | direct fetch failed/403-style behavior | `https://knowledge.broadcom.com/external/article/344682/troubleshooting-an-esxi-host-in-a-not-re.html` |
-| `https://www.freedesktop.org/software/systemd/man/latest/systemctl.html` | direct fetch failed in this validator | `https://www.freedesktop.org/software/systemd/man/systemctl.html` |
+| `https://www.freedesktop.org/software/systemd/man/latest/systemctl.html` | direct fetch failed in this validator | `https://github.com/systemd/systemd/blob/main/man/systemctl.xml` |
 | `https://www.freedesktop.org/software/systemd/man/latest/journalctl.html` | direct fetch failed in this validator | `https://man7.org/linux/man-pages/man1/journalctl.1.html` |
 | `https://www.tcpdump.org/manpages/tcpdump.1.html` | blocked by robots for this fetcher | `https://man7.org/linux/man-pages/man8/tcpdump.8.html` |
 
