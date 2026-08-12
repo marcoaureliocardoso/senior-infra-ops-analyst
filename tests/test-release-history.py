@@ -322,6 +322,16 @@ class ReleaseHistoryTests(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_standalone_underline_does_not_hide_later_setext_version(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING
+            + "\n\n---\n0.3.3 - 2026-07-08\ncontinued\n---",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("setext version heading", result.stdout)
+
     def test_fenced_multiline_setext_version_examples_are_ignored(self) -> None:
         self.changelog.write_text(
             "```markdown\n0.3.3 - 2026-07-08\ncontinued\n---\n```\n\n"

@@ -683,24 +683,25 @@ def markdown_heading_inventory(text):
                     paragraph = []
                 else:
                     underline = re.match(r'^ {0,3}(=+|-+)[ \t]*$', line)
-                    if underline and paragraph:
-                        first_line, first_position = paragraph[0]
-                        version_start = re.match(
-                            r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$',
-                            first_line,
-                        )
-                        if version_start:
-                            content = ' '.join(
-                                content_line.strip()
-                                for content_line, _ in paragraph
+                    if underline:
+                        if paragraph:
+                            first_line, first_position = paragraph[0]
+                            version_start = re.match(
+                                r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$',
+                                first_line,
                             )
-                            headings.append({
-                                'kind': 'setext',
-                                'indentation': len(version_start.group(1)),
-                                'level': 1 if underline.group(1)[0] == '=' else 2,
-                                'content': content,
-                                'position': first_position,
-                            })
+                            if version_start:
+                                content = ' '.join(
+                                    content_line.strip()
+                                    for content_line, _ in paragraph
+                                )
+                                headings.append({
+                                    'kind': 'setext',
+                                    'indentation': len(version_start.group(1)),
+                                    'level': 1 if underline.group(1)[0] == '=' else 2,
+                                    'content': content,
+                                    'position': first_position,
+                                })
                         paragraph = []
                     elif line.strip():
                         paragraph.append((line, offset))
