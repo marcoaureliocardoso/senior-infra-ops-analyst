@@ -29,6 +29,8 @@ The comparison uses the unrounded native percentage. Equality does not warn.
 The first line continues to round the displayed percentage exactly as it does
 today. The warning therefore describes the threshold condition without
 claiming that compaction failed or that no native compaction is in progress.
+The conditional second line is a deliberate exception to the normally compact
+one-line presentation and appears only while recovery guidance is relevant.
 
 ## Effective Threshold
 
@@ -57,6 +59,10 @@ The warning:
   threshold;
 - disappears after usage is no longer above the threshold or becomes
   unavailable after compaction.
+
+Status-line installation remains opt-in. The configurator still refuses to
+replace an inherited operator or Nori status line, so this package warning is
+not universal in sessions that retain another owner's renderer.
 
 Malformed or oversized status input continues to degrade to `ctx --` without a
 warning and without blocking Claude Code.
