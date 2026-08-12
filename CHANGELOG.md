@@ -13,6 +13,7 @@
 - Hardened the live PTY driver to wait for delayed `PostCompact` within its bound and reject missing, orphaned, duplicated, or incorrectly ordered manual hook sequences.
 - Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence or an exact operator-approved match with the native runtime capacity.
 - Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
+- Standardized delivered agent and roadmap guidance in English, removing the Portuguese-default response rule.
 - Left P0-04B browser automation out of scope.
 
 ## 0.11.1 - 2026-08-08

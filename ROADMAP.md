@@ -122,11 +122,11 @@ Broken external links are detected weekly by `scheduled-maintenance.yml`. The st
 
 ### Decision matrix
 
-| Level | Automatiza? | Altera arquivos? | Custa tokens? | Risco | Vale? |
+| Level | Automated? | Changes files? | Uses tokens? | Risk | Worth it? |
 |-------|-------------|------------------|---------------|-------|-------|
-| 1 | Sim | Não (sugestão) | Zero | Nenhum | ✅ Já feito |
-| 2 | Sim | Não (sugestão) | Sim | Baixo | ✅ Próximo passo |
-| 3 | Sim | Sim (PR) | Sim | Médio | ⏸️ Só se necessário |
+| 1 | Yes | No (suggestion only) | Zero | None | ✅ Already implemented |
+| 2 | Yes | No (suggestion only) | Yes | Low | ✅ Next step |
+| 3 | Yes | Yes (PR) | Yes | Medium | ⏸️ Only if necessary |
 
 ### Strategy
 
