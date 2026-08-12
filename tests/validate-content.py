@@ -667,8 +667,11 @@ def markdown_version_headings(text):
             ):
                 fence = None
         else:
-            fence_opening = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
-            if fence_opening:
+            fence_opening = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+            if fence_opening and not (
+                fence_opening.group(1)[0] == '`'
+                and '`' in fence_opening.group(2)
+            ):
                 marker = fence_opening.group(1)
                 fence = (marker[0], len(marker))
             else:

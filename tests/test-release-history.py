@@ -221,6 +221,25 @@ class ReleaseHistoryTests(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_invalid_backtick_fence_info_does_not_hide_version_heading(self) -> None:
+        self.changelog.write_text(
+            "```markdown`invalid\n ### 9.9.9 - 2026-08-12\n```\n\n"
+            + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading outside taxonomy", result.stdout)
+
+    def test_tilde_fenced_code_version_example_is_ignored(self) -> None:
+        self.changelog.write_text(
+            "~~~markdown\n### 9.9.9 - 2026-08-12\n~~~\n\n"
+            + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_legacy_version_heading_is_rejected(self) -> None:
         mutated = self.original_readme.replace(
             README_HEADING,
