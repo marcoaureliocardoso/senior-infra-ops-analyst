@@ -157,10 +157,13 @@ The configurator follows these rules:
    operator resolution; it is never silently replaced.
 4. Any effective auto-compaction disablement is a blocker.
 5. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is never set by normal `--apply`.
-6. An absolute override may be proposed only by a separate diagnostic after a
-   controlled probe demonstrates that the provider or gateway reports an
-   incorrect effective context window. The diagnostic records observed numeric
-   metadata and operator approval, not provider credentials.
+6. An absolute override may be proposed only by a separate disposable
+   diagnostic after either a controlled probe demonstrates incorrect effective
+   window reporting or the operator-provided value exactly equals the native
+   runtime capacity. The exact-match form requires separate operator approval,
+   is injected only into the automatic-probe child, and never changes installed
+   settings. The diagnostic records numeric metadata and approval, not provider
+   credentials.
 The live auto-compaction test may use a lower, process-scoped percentage to keep
 cost and duration bounded. That test value is evidence-only; production tests
 separately assert that the installed default remains `72`.
@@ -335,9 +338,10 @@ P0-04A is ready for a PR when:
    MCPs, and tool search without retaining content.
 7. The real DeepSeek route passes the supported live scenarios and reports
    unsupported capabilities without fabricated success.
-8. The correct-window route works without
-   `CLAUDE_CODE_AUTO_COMPACT_WINDOW`; the divergent mock route proves the
-   evidence-gated exception.
+8. The correct-window route runs first without
+   `CLAUDE_CODE_AUTO_COMPACT_WINDOW`; the divergent mock route proves one
+   evidence-gated exception, while an operator-approved exact-match diagnostic
+   may investigate window-source compatibility without fabricating success.
 9. Unit, installed, live, package, CI, security, and independent-review gates
    pass with retained non-secret evidence.
 10. Version, changelog, README, references, and ADR validation evidence match

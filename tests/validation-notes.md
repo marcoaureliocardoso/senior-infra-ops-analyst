@@ -191,14 +191,19 @@ uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5` solely to make the test
 bounded; it does not change installed settings. It detects and explicitly uses
 native `--autocompact auto` when the runtime exposes that option. The real
 DeepSeek route always runs first with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset.
-It never derives or applies an absolute override on that route. A separate
+The normal real route never derives or applies an absolute fallback. A separate
 loopback mock enforces an observed numeric boundary, proves acceptance and
 rejection around it, records `WINDOW_REPORTING_DIVERGENCE`, and only then uses
-a process-scoped absolute override in the mock scenario. The mock proves the
+a process-scoped absolute override in the mock scenario. The operator may also
+select `--confirmed-window-diagnostic <tokens>` for a disposable real-route
+investigation. That form blocks unless the positive integer exactly equals the
+native `/context` capacity and injects it only into the automatic child; it
+never writes the value to installed settings. The mock proves the
 behavioral threshold change by observing automatic `PreCompact` only after the
 override; it does not synthesize a completed compaction. The real runtime and
 current official DeepSeek documentation both report a 1,000,000-token window,
-so the evidence prerequisite for a real-route override is absent.
+so the divergence prerequisite is absent while the distinct exact-match gate
+can still be used after explicit operator approval.
 
 The interactive probe uses the standard-library PTY controller in
 `tests/claude-pty-driver.py`. It sends terminal carriage-return keys and waits
@@ -246,6 +251,21 @@ The automatic probe again reached 8% native context usage under the isolated
 passing report, applied no absolute real-route override, and deleted its
 content-bearing captures. This confirms the PTY race repair without satisfying
 the mandatory automatic live gate.
+
+Later on 2026-08-12, three operator-approved confirmed-window runs supplied
+`1000000`. Each proved an exact match with the native `[1m]` label before the
+exceptional automatic child began. The first observed 3% and exposed that
+pressure sizing reused the percentage of a different manual session. The
+second also observed 3% and exposed that one large PTY write could be partial.
+Deterministic regressions now size every new automatic session independently
+and retry bounded PTY writes until every byte is accepted; all 13 PTY tests pass
+on POSIX. The final run, with 420,000 bytes delivered completely, still observed
+3% and no completed ordered automatic `PreCompact`/`PostCompact` pair before
+the ten-minute automatic bound. All three runs removed content-bearing captures
+and used a dedicated temporary provider key through process environment only.
+The exact-match technique is therefore implemented as an operator-authorized
+diagnostic, but this evidence remains inconclusive and does not close the live
+automatic acceptance gate.
 
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization

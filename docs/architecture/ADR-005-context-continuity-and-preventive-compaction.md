@@ -68,8 +68,11 @@ was requested, unsafe files, duplicate JSON keys, and conflicting owned values.
   subagent preload.
 
 `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is permitted only in a disposable diagnostic
-after numeric evidence reports `WINDOW_REPORTING_DIVERGENCE` and the operator
-approves the exception. The real DeepSeek route must first run without it.
+after either numeric evidence reports `WINDOW_REPORTING_DIVERGENCE` or an
+operator-provided value exactly equals the native runtime capacity. Both forms
+require separate operator approval. The exact-match form affects only the real
+automatic-probe child and never persists to settings. The real DeepSeek route
+must first run without it.
 
 ## Alternatives rejected
 
@@ -113,6 +116,17 @@ the real route, and deleted content-bearing captures. Implementation review
 and all CI/Security checks passed on `67956e3`; the automatic live acceptance
 criterion remains unmet.
 
+Three operator-approved confirmed-window diagnostics then made the already
+observed 1,000,000-token capacity explicit only for the automatic child. Every
+run first proved exact equality with the native `[1m]` label. The first exposed
+that the filler incorrectly reused a different session's percentage; the
+second exposed that a large PTY write was not guaranteed to complete. Both
+defects were repaired with deterministic regressions. After full bounded PTY
+delivery was proven, the final real run still observed only 3% and no completed
+ordered automatic pair before the ten-minute bound. The technique is therefore
+supported as an operator-authorized compatibility diagnostic but its result is
+inconclusive, and the automatic live acceptance criterion remains unmet.
+
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
@@ -123,8 +137,10 @@ threshold solely to bound test time and cost. If a runtime exposes native
 capability-driven. The real route never receives an automatic absolute fallback.
 The loopback mock proves a threshold-behavior change with a measured boundary.
 The runtime's 1,000,000-token label agrees with current official DeepSeek model
-documentation, so an absolute real-route diagnostic currently lacks its
-required incorrect-reporting evidence and is not eligible.
+documentation. It does not justify a divergence override, but it can qualify
+for the separate exact-match diagnostic after explicit operator approval. That
+diagnostic does not make the value a production default or satisfy acceptance
+without a real completed ordered automatic pair.
 
 Hooks do not block native compaction. If invalidation cannot be verified, reuse
 is conservatively removed and the next credential-bearing call requires fresh

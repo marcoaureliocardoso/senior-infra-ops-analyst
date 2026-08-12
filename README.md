@@ -36,8 +36,10 @@ node skills/context-continuity/scripts/configure-context-continuity.mjs --remove
 `--status-line` is opt-in and refuses to replace an existing status line.
 `--remove-owned` removes only values that remain package-owned and preserves
 later operator changes. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is not normal
-configuration; it requires evidence of divergent provider/gateway reporting and
-separate approval in a disposable diagnostic.
+configuration. A disposable diagnostic may use it after either measured window
+divergence or an exact match between the operator-confirmed value and the native
+runtime label. The confirmed-window form requires separate operator approval,
+affects only the automatic-probe child, and never changes installed settings.
 
 All 12 subagents receive non-blocking `PreCompact` and `PostCompact` hooks. They
 retain no transcript, prompt, compact summary, model output, tool payload, raw
@@ -52,10 +54,11 @@ bash tests/live-context-continuity-smoke.sh --self-test
 
 The opt-in live gate requires an isolated Linux/WSL DeepSeek setup and reports
 unavailable tool search or window metadata as capability results, not passes.
-It detects native `--autocompact auto` support and permits an absolute
-diagnostic only in a measured loopback divergence case. The real route blocks
-without an absolute fallback and requires separate operator approval for any
-exceptional process-scoped diagnostic.
+It detects native `--autocompact auto` support and always attempts the real
+route without an absolute override first. An exceptional process-scoped run may
+use `--confirmed-window-diagnostic <tokens>` only when that positive integer
+equals the native `/context` capacity exactly and the operator separately
+approves it. A mismatch blocks before the exceptional automatic probe.
 P0-04B browser automation remains outside this release.
 
 ## Subagents
