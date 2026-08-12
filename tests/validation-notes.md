@@ -235,8 +235,17 @@ before the late structural event. The repaired driver now requires the exact
 ordered manual sequence, rejects orphaned or duplicated phases, and fails
 immediately when the manual evidence path is omitted; a missing event otherwise
 waits only within the configured bound. Focused tests and the complete
-deterministic gate pass after the repair. A post-repair real run has not
-completed, so this observation does not close the automatic live gate.
+deterministic gate pass after the repair. That run did not reach the automatic
+scenario, so it did not close the automatic live gate.
+
+On 2026-08-12 the post-repair opt-in run completed every prerequisite and
+reached the real automatic stage with the exact manual pair checks enabled.
+The automatic probe again reached 8% native context usage under the isolated
+5% threshold but emitted no completed ordered automatic `PreCompact`/
+`PostCompact` pair before its bound. The harness exited `BLOCKED`, emitted no
+passing report, applied no absolute real-route override, and deleted its
+content-bearing captures. This confirms the PTY race repair without satisfying
+the mandatory automatic live gate.
 
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization

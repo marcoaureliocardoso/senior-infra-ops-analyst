@@ -105,6 +105,14 @@ The live gate therefore remains blocked, emitted no passing final report, and
 deleted all content-bearing captures. Independent review and CI/Security remain
 separate gates on the reviewed head.
 
+The 2026-08-12 post-repair rerun used the exact ordered manual hook checks and
+again reached 8% in the automatic scenario without a completed ordered
+automatic `PreCompact`/`PostCompact` pair before the bound. It therefore
+exited `BLOCKED`, emitted no passing report, applied no absolute override to
+the real route, and deleted content-bearing captures. Implementation review
+and all CI/Security checks passed on `67956e3`; the automatic live acceptance
+criterion remains unmet.
+
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
