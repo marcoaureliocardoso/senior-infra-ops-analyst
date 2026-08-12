@@ -150,7 +150,6 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         self.assertIn("CLAUDE_CODE_EFFORT_LEVEL=low", self.script)
         self.assertIn('CLAUDE_RUNTIME_ARGS+=(--autocompact auto)', self.script)
         self.assertIn('window_tokens', self.script)
-        self.assertIn('baseline_percent', self.script)
         self.assertIn('target_tokens', self.script)
         self.assertIn('--dialogue automatic', self.script)
         self.assertIn('--filler "$PROBES/automatic.prompt"', self.script)

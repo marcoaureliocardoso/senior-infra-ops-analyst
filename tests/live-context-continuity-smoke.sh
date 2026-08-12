@@ -302,6 +302,14 @@ p = Path(sys.argv[1])
 assert p.stat().st_size == 420_000
 assert p.read_text(encoding="utf-8").startswith(" probe probe")
 PY
+  printf '%s' 'runtime-model[1m] ctx 8%' >"$PROBES/manual.pty"
+  build_automatic_filler
+  python3 - "$PROBES/automatic.prompt" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+assert p.stat().st_size == 420_000
+PY
   delete_content_captures
   printf '%s\n' 'live context continuity parser self-test passed'
 }
@@ -930,15 +938,6 @@ import math, re, sys
 from pathlib import Path
 manual_path, output_path = map(Path, sys.argv[1:3])
 manual = manual_path.read_text(encoding="utf-8", errors="replace")
-percentages = [
-    int(value) for value in re.findall(
-        r"(?<!\d)(\d{1,3})%",
-        manual,
-    ) if 0 <= int(value) <= 100
-]
-if not percentages:
-    raise SystemExit("manual context percentage unavailable")
-baseline_percent = max(percentages)
 windows = re.findall(r"\[(\d+(?:\.\d+)?)([kKmM])\]", manual)
 if not windows:
     raise SystemExit("runtime context window label unavailable")
@@ -946,7 +945,7 @@ amount, unit = windows[-1]
 window_tokens = int(float(amount) * ({"k": 1_000, "m": 1_000_000}[unit.lower()]))
 target_percent = 5
 margin_percent = 2
-required_percent = margin_percent if baseline_percent >= target_percent else target_percent + margin_percent
+required_percent = target_percent + margin_percent
 target_tokens = max(1, math.ceil(
     window_tokens * required_percent / 100
 ))
