@@ -654,8 +654,27 @@ if len(unreleased_taxonomies) != 1:
 if len(tagged_taxonomies) != 1:
     err('tagged-ledger drift: expected one Tagged versions taxonomy')
 
-for match in re.finditer(r'^## (\d+\.\d+\.\d+)(?:\s|$)', changelog_text, re.MULTILINE):
-    err(f'version heading must be level three: {match.group(1)}')
+version_headings = list(re.finditer(
+    r'^(#{1,6})\s+(\d+\.\d+\.\d+)(?:\s|$)',
+    changelog_text,
+    re.MULTILINE,
+))
+taxonomy_ranges = []
+if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
+    unreleased_taxonomy = unreleased_taxonomies[0]
+    tagged_taxonomy = tagged_taxonomies[0]
+    if unreleased_taxonomy.start() < tagged_taxonomy.start():
+        taxonomy_ranges = [
+            (unreleased_taxonomy.end(), tagged_taxonomy.start()),
+            (tagged_taxonomy.end(), len(changelog_text)),
+        ]
+for match in version_headings:
+    level = len(match.group(1))
+    version = match.group(2)
+    if level != 3:
+        err(f'version heading must be level three: {version}')
+    if not any(start <= match.start() < end for start, end in taxonomy_ranges):
+        err(f'version heading outside taxonomy: {version}')
 
 parsed_unpublished = []
 parsed_tagged = []

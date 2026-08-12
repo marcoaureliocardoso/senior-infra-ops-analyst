@@ -163,6 +163,24 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("version heading must be level three", result.stdout)
 
+    def test_out_of_taxonomy_level_three_version_heading_is_rejected(self) -> None:
+        self.changelog.write_text(
+            "### 9.9.9 - 2026-08-12\n\n" + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading outside taxonomy", result.stdout)
+
+    def test_wrong_level_version_heading_is_rejected(self) -> None:
+        self.changelog.write_text(
+            "#### 9.9.9 - 2026-08-12\n\n" + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading must be level three", result.stdout)
+
     def test_legacy_version_heading_is_rejected(self) -> None:
         mutated = self.original_readme.replace(
             README_HEADING,
