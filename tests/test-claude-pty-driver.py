@@ -31,6 +31,31 @@ class ClaudePtyDriverTests(unittest.TestCase):
     def test_driver_exists(self) -> None:
         self.assertTrue(DRIVER.is_file())
 
+    def test_large_prompt_writer_retries_partial_pty_writes(self) -> None:
+        driver = load_driver()
+        payload = b"bounded-pressure-payload"
+        observed = bytearray()
+        calls = 0
+
+        def partial_writer(file_descriptor: int, remaining: memoryview) -> int:
+            nonlocal calls
+            self.assertEqual(file_descriptor, 17)
+            calls += 1
+            accepted = bytes(remaining[:4])
+            observed.extend(accepted)
+            return len(accepted)
+
+        driver.write_all(17, payload, partial_writer)
+
+        self.assertEqual(bytes(observed), payload)
+        self.assertGreater(calls, 1)
+
+    def test_large_prompt_writer_rejects_a_zero_length_pty_write(self) -> None:
+        driver = load_driver()
+
+        with self.assertRaises(OSError):
+            driver.write_all(17, b"payload", lambda _fd, _remaining: 0)
+
     def test_structural_compaction_sequence_rejects_orphans_and_duplicates(self) -> None:
         driver = load_driver()
         self.assertTrue(hasattr(driver, "compaction_pairs_observed"))

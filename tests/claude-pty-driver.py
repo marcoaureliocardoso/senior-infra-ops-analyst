@@ -19,6 +19,16 @@ TASK_B = b"P004A_TASK_B"
 AUTO_TASK = b"P004A_AUTO"
 
 
+def write_all(file_descriptor: int, payload: bytes, writer=os.write) -> None:
+    """Write every byte to a PTY even when the operating system accepts a prefix."""
+    remaining = memoryview(payload)
+    while remaining:
+        written = writer(file_descriptor, remaining)
+        if not isinstance(written, int) or written <= 0 or written > len(remaining):
+            raise OSError("PTY write made no bounded progress")
+        remaining = remaining[written:]
+
+
 def drive_request_valid(
     command: list[str], timeout_seconds: int, dialogue: str,
     filler_path: Path | None, compact_events_path: Path | None,
@@ -164,9 +174,9 @@ def drive(
 
     def send(line: str) -> None:
         if line:
-            os.write(master, line.encode("utf-8"))
+            write_all(master, line.encode("utf-8"))
             time.sleep(0.1)
-        os.write(master, b"\r")
+        write_all(master, b"\r")
 
     def folded_letters(data: bytes) -> bytes:
         without_csi = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", data)
