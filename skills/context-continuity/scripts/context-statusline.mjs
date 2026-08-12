@@ -5,8 +5,19 @@ import { pathToFileURL } from 'node:url';
 
 const MAX_INPUT_BYTES = 64 * 1024;
 
+export const DEFAULT_THRESHOLD = 72;
+export const COMPACT_SUGGESTION = 'Suggested: /compact Preserve objective, decisions, evidence locations, operational state, blockers, authorizations requiring revalidation, and immediate next action.';
 
-export function renderStatusLine(value) {
+
+export function effectiveThreshold(environment = {}) {
+  const configured = environment?.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+  return typeof configured === 'string' && /^(?:70|71|72|73|74|75)$/.test(configured)
+    ? Number(configured)
+    : DEFAULT_THRESHOLD;
+}
+
+
+export function renderStatusLine(value, environment = {}) {
   const context = value && typeof value === 'object' && !Array.isArray(value)
     ? value.context_window
     : null;
@@ -17,9 +28,14 @@ export function renderStatusLine(value) {
     : Number.isFinite(remaining)
       ? 100 - remaining
       : null;
-  return percent !== null && percent >= 0 && percent <= 100
+  const firstLine = percent !== null && percent >= 0 && percent <= 100
     ? `ctx ${Math.round(percent)}%`
     : 'ctx --';
+  const shouldSuggest = Number.isFinite(used)
+    && used >= 0
+    && used <= 100
+    && used > effectiveThreshold(environment);
+  return shouldSuggest ? `${firstLine}\n${COMPACT_SUGGESTION}` : firstLine;
 }
 
 
