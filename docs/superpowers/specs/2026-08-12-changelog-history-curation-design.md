@@ -5,8 +5,8 @@
 `CHANGELOG.md` currently presents every heading as a released version even
 though repository evidence distinguishes three different cases:
 
-- package states 0.11.0, 0.11.1, and 0.12.0 were declared in version metadata
-  but were never tagged;
+- package states 0.8.0, 0.9.0, 0.9.1, 0.11.0, 0.11.1, and 0.12.0 were
+  declared in version metadata but were never tagged;
 - 0.3.0 and 0.3.3 were neither package versions nor Git tags;
 - 0.2.1 is a real historical package version and Git tag but is absent from
   the changelog.
@@ -37,9 +37,9 @@ current package version remains 0.12.0.
 
 ## Historical Reconciliation
 
-- Retain the complete 0.12.0, 0.11.1, and 0.11.0 content under unpublished
-  package-state headings. Record 0.12.0 as declared on 2026-08-08 and updated
-  through 2026-08-12.
+- Retain the complete 0.12.0, 0.11.1, 0.11.0, 0.9.1, 0.9.0, and 0.8.0
+  content under unpublished package-state headings. Record 0.12.0 as declared
+  on 2026-08-08 and updated through 2026-08-12.
 - Start the tagged-version section with 0.10.0 and correct its date to the Git
   tag creator date, 2026-07-27.
 - Add 0.2.1 from the tagged manifest and tag evidence. Its entry summarizes
@@ -63,6 +63,8 @@ repository fails closed when changelog semantics drift:
 - require the current `nori.json` version to match the first unpublished
   package-state heading;
 - require unpublished package states to use explicit parseable headings;
+- require the audited unpublished package-state set so 0.8.0, 0.9.0, and
+  0.9.1 cannot be silently misrepresented as tagged versions;
 - require tagged-version headings to be unique and in strict reverse semantic
   version order;
 - reject 0.3.0 and 0.3.3 as version headings and require 0.2.1;
