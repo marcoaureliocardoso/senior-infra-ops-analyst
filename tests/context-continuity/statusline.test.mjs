@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 
 import {
@@ -108,19 +109,23 @@ test('status line renders neutral state when context usage is unavailable', () =
   ]) assert.equal(renderStatusLine(value), 'ctx --', JSON.stringify(value));
 });
 
-test('status line executable writes one line and no local artifact', async () => {
+test('status line executable writes exact warning lines and no local artifact', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'context-status-'));
   try {
     const result = spawnSync(process.execPath, [entrypoint], {
       input: JSON.stringify({
-        context_window: { used_percentage: 70 },
+        context_window: { used_percentage: 71 },
         model: { display_name: 'SYNTH_SECRET_ignored' },
       }),
       encoding: 'utf8',
       cwd: directory,
+      env: {
+        ...process.env,
+        CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '70',
+      },
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout, 'ctx 70%\n');
+    assert.equal(result.stdout, `ctx 71%\n${COMPACT_SUGGESTION}\n`);
     assert.equal(result.stderr, '');
     assert.deepEqual(await readdir(directory), []);
   } finally {
@@ -128,17 +133,34 @@ test('status line executable writes one line and no local artifact', async () =>
   }
 });
 
+test('status line main uses its child environment for the effective threshold', async () => {
+  let output = '';
+  const code = await main({
+    input: Readable.from([JSON.stringify({ context_window: { used_percentage: 71 } })]),
+    output: new Writable({
+      write(chunk, _encoding, callback) {
+        output += chunk.toString();
+        callback();
+      },
+    }),
+    environment: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '70' },
+  });
+  assert.equal(code, 0);
+  assert.equal(output, `ctx 71%\n${COMPACT_SUGGESTION}\n`);
+});
+
 test('status line main degrades malformed and oversized input without failing', async () => {
   for (const input of ['{', 'x'.repeat(65 * 1024)]) {
     let output = '';
     const code = await main({
-      input: (await import('node:stream')).Readable.from([input]),
-      output: new (await import('node:stream')).Writable({
+      input: Readable.from([input]),
+      output: new Writable({
         write(chunk, _encoding, callback) {
           output += chunk.toString();
           callback();
         },
       }),
+      environment: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '70' },
     });
     assert.equal(code, 0);
     assert.equal(output, 'ctx --\n');

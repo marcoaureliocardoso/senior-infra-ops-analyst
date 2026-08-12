@@ -52,10 +52,14 @@ async function readBounded(input) {
 }
 
 
-export async function main({ input = process.stdin, output = process.stdout } = {}) {
+export async function main({
+  input = process.stdin,
+  output = process.stdout,
+  environment = process.env,
+} = {}) {
   let rendered = 'ctx --';
   try {
-    rendered = renderStatusLine(JSON.parse(await readBounded(input)));
+    rendered = renderStatusLine(JSON.parse(await readBounded(input)), environment);
   } catch {
     rendered = 'ctx --';
   }
