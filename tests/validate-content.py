@@ -604,6 +604,18 @@ for operator_doc in ('README.md', 'docs.md'):
     if 'CLAUDE_CODE_AUTO_COMPACT_WINDOW is the default' in operator_text:
         err(f'{operator_doc} claims absolute context window is the default')
 
+readme_text = read('README.md')
+release_history_heading = '## Release history'
+release_history_link = (
+    'See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.'
+)
+if re.search(r'^## What changed in v', readme_text, re.MULTILINE):
+    err('README.md duplicates release history; use CHANGELOG.md')
+if not re.search(r'^## Release history$', readme_text, re.MULTILINE):
+    err('README.md missing release history heading')
+if release_history_link not in readme_text:
+    err('README.md missing canonical changelog link')
+
 if errors:
     print('Validation failed:')
     for e in errors: print('-', e)

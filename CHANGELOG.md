@@ -14,11 +14,13 @@
 - Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence or an exact operator-approved match with the native runtime capacity.
 - Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
 - Standardized delivered agent and roadmap guidance in English, removing the Portuguese-default response rule.
+- Consolidated version history in `CHANGELOG.md` and replaced duplicated README release sections with a canonical link.
 - Left P0-04B browser automation out of scope.
 
 ## 0.11.1 - 2026-08-08
 
 - Updated every external GitHub Action to its stable release and immutable full commit SHA, including checkout v7.0.1, setup-python v7.0.0, CodeQL v4, upload-artifact v7.0.1, action-gh-release v3.0.2, markdownlint-cli2-action v24.2.0, and cspell-action v8.4.0.
+- Migrated CodeQL from v3 to v4 while preserving the exact Python and JavaScript/TypeScript analysis matrix.
 - Added exact Python 3.12 and 3.14 schema-validation lanes with direct fail-closed matrix wiring.
 - Provisioned ShellCheck 0.11.0 from the official release archive with a fixed SHA-256 verification and an exact pre-analysis version assertion.
 - Extended executable workflow mutations for immutable Action references, alternate YAML mappings, Python matrix decoys and expansion, unsafe controls, and ShellCheck supply-chain or ordering drift.
@@ -95,6 +97,7 @@
   modifier-only records and prose, multiple base levels, one-line and
   multiline script fields, escaped table pipes, nested scripts, valid
   classifications, and false-positive resistance.
+- Kept runtime selection portable without pinning Claude Code, Nori, or model versions.
 
 ## 0.9.0 - 2026-07-23
 
@@ -141,6 +144,17 @@
 - `.cspell.json` extended with 20 domain-specific terms for spell-check coverage of subagent content.
 - `.claude/` added to `.gitignore`.
 
+## 0.5.1 - 2026-07-09
+
+- Robust link-checking: scans all markdown files (141 URLs), `--json` flag for machine-readable output, GET fallback for servers that reject HEAD (NIST, Microsoft Learn, Netgate docs).
+- Historical link health tracking: living issue with trend data (new this week, fixed this week, persistent), state embedded as hidden JSON for run-to-run comparison, auto-close when all links reachable, auto-reopen when broken links return.
+- Level 1 deterministic link auto-fix: pattern-based URL correction for known link rot patterns (RFC Editor → datatracker.ietf.org). Suggestions posted in link-audit issue with `sed` one-liner for application.
+- 13 RFC links corrected: `rfc-editor.org` URLs replaced with `datatracker.ietf.org/doc/html/rfcNNNN` after context verification confirmed identical RFC specifications.
+- Link-audit strategy documented in `ROADMAP.md` with 3-level plan (deterministic → AI-assisted → automated PR) and cost/benefit matrix.
+- Scheduled maintenance workflow hardened: inline Python heredoc replaced with `tests/link-audit-issue.py`, placeholder URL filtering, proper `gh` CLI issue management, 90-day artifact retention.
+- New labels: `maintenance`, `links`.
+- Documentation audit against Nori Skills standards: removed redundant `skill_id` from 10 skills (YAGNI), updated `CONTRIBUTING.md` with validation pipeline and AI-first conventions, updated `SECURITY.md` with automated scanning info.
+
 ## 0.5.0 - 2026-07-09
 
 - Complete CI critical revision — replaced single monolithic workflow with 4 hardened, modular workflows.
@@ -154,17 +168,6 @@
 - Configuration: `.markdownlint.json`, `.cspell.json`, `.github/dependabot.yml` (github-actions + pip monthly), `.github/link-audit-issue-template.md`.
 - CI/Security/Release status badges added to `README.md`.
 - Dependabot updates: `actions/checkout` v4.2.2→v7.0.0, `markdownlint-cli2-action` v19→v24, and `cspell-action` v6→v8.
-
-## 0.5.1 - 2026-07-09
-
-- Robust link-checking: scans all markdown files (141 URLs), `--json` flag for machine-readable output, GET fallback for servers that reject HEAD (NIST, Microsoft Learn, Netgate docs).
-- Historical link health tracking: living issue with trend data (new this week, fixed this week, persistent), state embedded as hidden JSON for run-to-run comparison, auto-close when all links reachable, auto-reopen when broken links return.
-- Level 1 deterministic link auto-fix: pattern-based URL correction for known link rot patterns (RFC Editor → datatracker.ietf.org). Suggestions posted in link-audit issue with `sed` one-liner for application.
-- 13 RFC links corrected: `rfc-editor.org` URLs replaced with `datatracker.ietf.org/doc/html/rfcNNNN` after context verification confirmed identical RFC specifications.
-- Link-audit strategy documented in `ROADMAP.md` with 3-level plan (deterministic → AI-assisted → automated PR) and cost/benefit matrix.
-- Scheduled maintenance workflow hardened: inline Python heredoc replaced with `tests/link-audit-issue.py`, placeholder URL filtering, proper `gh` CLI issue management, 90-day artifact retention.
-- New labels: `maintenance`, `links`.
-- Documentation audit against Nori Skills standards: removed redundant `skill_id` from 10 skills (YAGNI), updated `CONTRIBUTING.md` with validation pipeline and AI-first conventions, updated `SECURITY.md` with automated scanning info.
 
 ## 0.4.4 - 2026-07-08
 
