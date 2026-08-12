@@ -605,16 +605,119 @@ for operator_doc in ('README.md', 'docs.md'):
         err(f'{operator_doc} claims absolute context window is the default')
 
 readme_text = read('README.md')
-release_history_heading = '## Release history'
-release_history_link = (
-    'See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.'
+version_history_heading = '## Version history'
+version_history_link = (
+    'See [CHANGELOG.md](CHANGELOG.md) for unpublished package states, tagged\n'
+    'versions, and release notes.'
 )
-if re.search(r'^## What changed in v', readme_text, re.MULTILINE):
-    err('README.md duplicates release history; use CHANGELOG.md')
-if not re.search(r'^## Release history$', readme_text, re.MULTILINE):
-    err('README.md missing release history heading')
-if release_history_link not in readme_text:
-    err('README.md missing canonical changelog link')
+if re.search(r'^## (?:What changed in v[^\n]*|Release history)$', readme_text, re.MULTILINE):
+    err('README failure: duplicates release history')
+if len(re.findall(r'^## Version history$', readme_text, re.MULTILINE)) != 1:
+    err('README failure: missing version history heading')
+if version_history_link not in readme_text:
+    err('README failure: missing canonical changelog link')
+
+unpublished_ledger = [
+    ('0.12.0', '2026-08-08', '2026-08-12'),
+    ('0.11.1', '2026-08-08', None),
+    ('0.11.0', '2026-07-26', None),
+    ('0.9.1', '2026-07-23', None),
+    ('0.9.0', '2026-07-23', None),
+    ('0.8.0', '2026-07-23', None),
+]
+tagged_ledger = [
+    ('0.10.0', '2026-07-27'),
+    ('0.7.0', '2026-07-20'),
+    ('0.6.1', '2026-07-20'),
+    ('0.6.0', '2026-07-11'),
+    ('0.5.1', '2026-07-09'),
+    ('0.5.0', '2026-07-09'),
+    ('0.4.4', '2026-07-08'),
+    ('0.4.3', '2026-07-08'),
+    ('0.4.2', '2026-07-08'),
+    ('0.4.1', '2026-07-08'),
+    ('0.4.0', '2026-07-08'),
+    ('0.3.4', '2026-07-08'),
+    ('0.3.2', '2026-07-08'),
+    ('0.3.1', '2026-07-08'),
+    ('0.2.1', '2026-07-08'),
+]
+changelog_text = read('CHANGELOG.md')
+unreleased_taxonomies = list(re.finditer(
+    r'^## Unreleased package states$', changelog_text, re.MULTILINE
+))
+tagged_taxonomies = list(re.finditer(
+    r'^## Tagged versions$', changelog_text, re.MULTILINE
+))
+if len(unreleased_taxonomies) != 1:
+    err('unpublished-ledger drift: expected one Unreleased package states taxonomy')
+if len(tagged_taxonomies) != 1:
+    err('tagged-ledger drift: expected one Tagged versions taxonomy')
+
+for match in re.finditer(r'^## (\d+\.\d+\.\d+)(?:\s|$)', changelog_text, re.MULTILINE):
+    err(f'version heading must be level three: {match.group(1)}')
+
+parsed_unpublished = []
+parsed_tagged = []
+if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
+    unreleased_taxonomy = unreleased_taxonomies[0]
+    tagged_taxonomy = tagged_taxonomies[0]
+    if unreleased_taxonomy.start() > tagged_taxonomy.start():
+        err('unpublished-ledger drift: taxonomy order must precede Tagged versions')
+        err('tagged-ledger drift: taxonomy order must follow Unreleased package states')
+    else:
+        unpublished_section = changelog_text[
+            unreleased_taxonomy.end():tagged_taxonomy.start()
+        ]
+        tagged_section = changelog_text[tagged_taxonomy.end():]
+        parsed_unpublished = [
+            (match.group(1), match.group(2), match.group(3))
+            for match in re.finditer(
+                r'^### (\d+\.\d+\.\d+) \(unreleased\) - declared '
+                r'(\d{4}-\d{2}-\d{2})(?:; updated through '
+                r'(\d{4}-\d{2}-\d{2}))?$',
+                unpublished_section,
+                re.MULTILINE,
+            )
+        ]
+        parsed_tagged = [
+            (match.group(1), match.group(2))
+            for match in re.finditer(
+                r'^### (\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})$',
+                tagged_section,
+                re.MULTILINE,
+            )
+        ]
+        if parsed_unpublished != unpublished_ledger:
+            err(
+                'unpublished-ledger drift: '
+                f'expected {unpublished_ledger}, got {parsed_unpublished}'
+            )
+        if parsed_tagged != tagged_ledger:
+            err(
+                'tagged-ledger drift: '
+                f'expected {tagged_ledger}, got {parsed_tagged}'
+            )
+
+        tagged_versions = [version for version, _ in parsed_tagged]
+        semantic_versions = [tuple(map(int, version.split('.'))) for version in tagged_versions]
+        if (
+            len(tagged_versions) != len(set(tagged_versions))
+            or any(
+                earlier <= later
+                for earlier, later in zip(semantic_versions, semantic_versions[1:])
+            )
+        ):
+            err('semantic-order drift: tagged versions must be unique and strictly descending')
+
+manifest_version = manifest.get('version')
+first_unpublished_version = parsed_unpublished[0][0] if parsed_unpublished else None
+if manifest_version != first_unpublished_version:
+    err(
+        'current-version mismatch: '
+        f'nori.json has {manifest_version!r}; first unpublished state is '
+        f'{first_unpublished_version!r}'
+    )
 
 if errors:
     print('Validation failed:')

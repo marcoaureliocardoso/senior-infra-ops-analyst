@@ -273,9 +273,10 @@ future replacement.
 Observed runtime/model versions are recorded as evidence and are not package
 requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
 
-## Release history
+## Version history
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+See [CHANGELOG.md](CHANGELOG.md) for unpublished package states, tagged
+versions, and release notes.
 
 ## Slash commands
 
