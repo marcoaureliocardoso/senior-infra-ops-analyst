@@ -173,6 +173,25 @@ prove only that no complete pair occurred; it cannot distinguish a lone
    until the approved final head is merged into `main`; only that merge permits
    completion in the definitive roadmap.
 
+## Operator acceptance decision and deferred follow-up
+
+On 2026-08-12 the operator explicitly authorized merging PR #32 while deferring
+the real ordered `PreCompact(auto)` then `PostCompact(auto)` observation to a
+future non-blocking follow-up. This decision exercises gate 3 after four
+inconclusive real attempts, including the repaired strict native-field run. It
+does not claim that either automatic phase or the complete pair was observed.
+
+The future attempt should preserve only one sanitized structural classification
+of `complete_pair`, `pre_only`, or `no_pre` after cleanup. It must continue to
+delete transcripts, prompts, summaries, raw hook input, provider content, and
+secrets. The diagnostic classification improves evidence precision but does not
+retroactively change the result of the four historical runs.
+
+With this explicit decision, gates 1 and 2 become non-blocking follow-ups for
+this release and gate 3 is satisfied. Independent review and green CI/Security
+remain mandatory on the exact final head, followed by merge into `main` before
+the definitive roadmap can mark P0-04A complete.
+
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`

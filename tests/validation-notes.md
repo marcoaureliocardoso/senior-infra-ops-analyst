@@ -310,6 +310,21 @@ does not weaken the acceptance criterion or close the automatic live gate.
    prior gates are satisfied. P0-04A remains pending until the approved final
    head is merged into `main`.
 
+### Operator-approved release decision and future validation
+
+On 2026-08-12 the operator explicitly authorized merging PR #32 with the real
+ordered `PreCompact(auto)`/`PostCompact(auto)` observation deferred to a future
+non-blocking validation attempt. This satisfies the conditional alternative
+acceptance path without converting `complete_pair=false` into `pre_only`,
+`no_pre`, or a passing automatic-compaction result.
+
+The future attempt remains recorded as an open follow-up: obtain one real
+ordered pair and retain only the sanitized closed structural classification
+`complete_pair`, `pre_only`, or `no_pre` after cleanup. It must retain no
+transcript, prompt, summary, raw hook input, provider content, credential, or
+secret. Final independent review, CI/Security on the exact head, and merge into
+`main` remain required before the definitive roadmap can mark P0-04A complete.
+
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization
 invalidation, 100% critical command-guard coverage, 82 security mutations,
