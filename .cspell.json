@@ -194,7 +194,10 @@
     "AUTOCOMPACT",
     "configurator",
     "reinjection",
-    "execve"
+    "execve",
+    "Datagram",
+    "dcdiag",
+    "repadmin"
   ],
   "ignorePaths": [
     ".git/**",
