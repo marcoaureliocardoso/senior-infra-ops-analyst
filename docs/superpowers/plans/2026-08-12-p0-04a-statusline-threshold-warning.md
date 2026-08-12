@@ -4,7 +4,12 @@
 
 **Goal:** Add a stateless status-line suggestion for manual `/compact` only when native `context_window.used_percentage` is strictly greater than the effective 70–75 percent auto-compaction threshold, without changing native automatic compaction.
 
-**Architecture:** Extend the existing dependency-free status-line renderer with one pure threshold parser and one exported suggestion constant. The renderer keeps its current first line, conditionally appends the exact approved second line, and receives the child-process environment explicitly so deterministic tests do not mutate global state. Installation, hooks, automatic-compaction configuration, and absolute-window diagnostics remain unchanged.
+**Architecture:** Extend the existing dependency-free status-line renderer with
+one pure threshold parser and one exported suggestion constant. The renderer
+keeps its current first line, conditionally appends the exact approved second
+line, and receives the child-process environment explicitly so deterministic
+tests do not mutate global state. Installation, hooks, automatic-compaction
+configuration, and absolute-window diagnostics remain unchanged.
 
 **Tech Stack:** Node.js ES modules, built-in `node:test`, built-in streams and child processes, Markdown architecture/release documentation, existing Bash/Python package gates.
 
