@@ -280,6 +280,58 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("setext version heading", result.stdout)
 
+    def test_multiline_setext_version_heading_is_rejected(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING + "\n\n0.3.3 - 2026-07-08\ncontinued\n---",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("setext version heading", result.stdout)
+
+    def test_three_line_setext_version_heading_is_rejected(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING
+            + "\n\n0.3.3 - 2026-07-08\ncontinued\nstill continued\n---",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("setext version heading", result.stdout)
+
+    def test_indented_multiline_setext_version_heading_is_rejected(self) -> None:
+        for indentation in range(1, 4):
+            with self.subTest(indentation=indentation):
+                prefix = " " * indentation
+                self.replace_changelog(
+                    TAGGED_HEADING,
+                    TAGGED_HEADING
+                    + f"\n\n{prefix}0.3.3 - 2026-07-08"
+                    + f"\n{prefix}continued\n{prefix}---",
+                )
+                result = self.run_validator()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("setext version heading", result.stdout)
+
+    def test_blank_line_ends_multiline_setext_candidate_paragraph(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING
+            + "\n\n0.3.3 - 2026-07-08\n\nordinary heading\n---",
+        )
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_fenced_multiline_setext_version_examples_are_ignored(self) -> None:
+        self.changelog.write_text(
+            "```markdown\n0.3.3 - 2026-07-08\ncontinued\n---\n```\n\n"
+            "~~~markdown\n0.3.3 - 2026-07-08\ncontinued\n---\n~~~\n\n"
+            + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_legacy_version_heading_is_rejected(self) -> None:
         mutated = self.original_readme.replace(
             README_HEADING,

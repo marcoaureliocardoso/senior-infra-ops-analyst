@@ -646,9 +646,10 @@ changelog_text = read('CHANGELOG.md')
 def markdown_heading_inventory(text):
     headings = []
     fence = None
+    paragraph = []
     offset = 0
     lines = text.splitlines(keepends=True)
-    for index, raw_line in enumerate(lines):
+    for raw_line in lines:
         line = raw_line.rstrip('\r\n')
         if fence:
             fence_char, fence_length = fence
@@ -665,6 +666,7 @@ def markdown_heading_inventory(text):
             ):
                 marker = fence_opening.group(1)
                 fence = (marker[0], len(marker))
+                paragraph = []
             else:
                 heading = re.match(
                     r'^( {0,3})(#{1,6})(?:[ \t]+(.*))?$',
@@ -678,26 +680,32 @@ def markdown_heading_inventory(text):
                         'content': (heading.group(3) or '').strip(),
                         'position': offset,
                     })
+                    paragraph = []
                 else:
-                    setext = re.match(
-                        r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$', line
-                    )
-                    underline = (
-                        re.match(
-                            r'^ {0,3}(=+|-+)[ \t]*$',
-                            lines[index + 1].rstrip('\r\n'),
+                    underline = re.match(r'^ {0,3}(=+|-+)[ \t]*$', line)
+                    if underline and paragraph:
+                        first_line, first_position = paragraph[0]
+                        version_start = re.match(
+                            r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$',
+                            first_line,
                         )
-                        if index + 1 < len(lines)
-                        else None
-                    )
-                    if setext and underline:
-                        headings.append({
-                            'kind': 'setext',
-                            'indentation': len(setext.group(1)),
-                            'level': 1 if underline.group(1)[0] == '=' else 2,
-                            'content': setext.group(2),
-                            'position': offset,
-                        })
+                        if version_start:
+                            content = ' '.join(
+                                content_line.strip()
+                                for content_line, _ in paragraph
+                            )
+                            headings.append({
+                                'kind': 'setext',
+                                'indentation': len(version_start.group(1)),
+                                'level': 1 if underline.group(1)[0] == '=' else 2,
+                                'content': content,
+                                'position': first_position,
+                            })
+                        paragraph = []
+                    elif line.strip():
+                        paragraph.append((line, offset))
+                    else:
+                        paragraph = []
         offset += len(raw_line)
     return headings, fence is not None
 
