@@ -18,6 +18,10 @@ from command_guard_install_policy import (
     installed_corpus_errors,
     installed_hook_errors,
 )
+from context_continuity_install_policy import (
+    installed_continuity_artifact_errors,
+    installed_continuity_hook_errors,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +37,7 @@ def installed_subagent_errors(
         return [f"installed agents directory not found: {installed_dir}"]
 
     errors.extend(installed_artifact_errors(installed_skills_dir))
+    errors.extend(installed_continuity_artifact_errors(installed_skills_dir))
     if not errors:
         errors.extend(installed_corpus_errors(installed_skills_dir))
 
@@ -61,6 +66,11 @@ def installed_subagent_errors(
             errors.append(f"installed runtime precedence differs: {agent_id}")
         errors.extend(
             installed_hook_errors(
+                agent_id, source, installed, installed_skills_dir
+            )
+        )
+        errors.extend(
+            installed_continuity_hook_errors(
                 agent_id, source, installed, installed_skills_dir
             )
         )

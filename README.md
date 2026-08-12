@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.11.1
+Version: 0.12.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -14,7 +14,62 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 ## Included skills
 
-This package includes 24 skills covering core operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
+This package includes 25 skills covering core operations, continuity, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
+
+## Context continuity and preventive compaction
+
+Long work uses Claude Code's native task list and short Compact Instructions so
+the objective, decisions, evidence locations, operational state, and next action
+can be re-established after compaction. Auto-compaction stays enabled. The
+package default is `72` percent and an existing operator value from `70` through
+`75` is preserved; no absolute window size is pinned.
+
+Check before applying project-local, operator-owned settings:
+
+```bash
+node skills/context-continuity/scripts/configure-context-continuity.mjs --check --scope project
+node skills/context-continuity/scripts/configure-context-continuity.mjs --apply --scope project
+node skills/context-continuity/scripts/configure-context-continuity.mjs --apply --scope project --status-line
+node skills/context-continuity/scripts/configure-context-continuity.mjs --remove-owned --scope project
+```
+
+`--status-line` is opt-in and refuses to replace an existing status line.
+When this package owns that status line, it keeps the normal `ctx N%` line. If
+native `context_window.used_percentage` is strictly greater than the effective
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` threshold, it adds a second line suggesting
+the continuity-preserving `/compact` command. This is an advisory fallback
+only: native automatic compaction stays enabled, and the package never submits
+the command. An inherited operator or Nori status line remains untouched and
+therefore does not receive this package-owned warning.
+
+`--remove-owned` removes only values that remain package-owned and preserves
+later operator changes. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is not normal
+configuration. A disposable diagnostic may use it after either measured window
+divergence or an exact match between the operator-confirmed value and Claude
+Code's native status-line `context_window.context_window_size` field. The
+confirmed-window form requires separate operator approval,
+affects only the automatic-probe child, and never changes installed settings.
+
+All 12 subagents receive non-blocking `PreCompact` and `PostCompact` hooks. They
+retain no transcript, prompt, compact summary, model output, tool payload, raw
+command, header, credential, or secret. Compaction invalidates credential reuse;
+missing proof requires fresh native authorization. The optional inventory emits
+only bytes, counts, percentages, booleans, bounded identifiers, and reason codes:
+
+```bash
+node skills/context-continuity/scripts/context-inventory.mjs --root .
+bash tests/live-context-continuity-smoke.sh --self-test
+```
+
+The opt-in live gate requires an isolated Linux/WSL DeepSeek setup and reports
+unavailable tool search or window metadata as capability results, not passes.
+It detects native `--autocompact auto` support and always attempts the real
+route without an absolute override first. An exceptional process-scoped run may
+use `--confirmed-window-diagnostic <tokens>` only when that positive integer
+equals the single consistent capacity observed through that runtime field and
+the operator separately approves it. Missing, conflicting, or mismatched evidence
+blocks before the exceptional automatic probe.
+P0-04B browser automation remains outside this release.
 
 ## Subagents
 
@@ -217,6 +272,14 @@ future replacement.
 
 Observed runtime/model versions are recorded as evidence and are not package
 requirements. See `docs/architecture/ADR-004-native-command-guard.md`.
+
+## What changed in v0.12.0
+
+- Added percentage-based preventive compaction with a default of 72 and preservation of operator values from 70 through 75.
+- Added native task continuity instructions, an opt-in context status line, and non-blocking compact hooks to all 12 subagents.
+- Invalidated pending and active credential reuse across compaction without retaining conversation content or secrets.
+- Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, task continuity, and window evidence.
+- Added deterministic and isolated live validation contracts without pinning Claude Code, Nori, DeepSeek, provider, or context-window versions.
 
 ## What changed in v0.11.1
 

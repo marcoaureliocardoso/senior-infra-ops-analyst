@@ -31,7 +31,7 @@ Use these official references when updating or validating this skillset. Prefer 
 
 - Linux man-pages project: https://www.kernel.org/doc/man-pages/
 - iproute2 documentation: https://wiki.linuxfoundation.org/networking/iproute2
-- systemd systemctl manual: https://www.freedesktop.org/software/systemd/man/systemctl.html
+- systemd systemctl manual source: https://github.com/systemd/systemd/blob/main/man/systemctl.xml
 - journalctl manual (man7 mirror): https://man7.org/linux/man-pages/man1/journalctl.1.html
 - OpenSSH manual pages: https://www.openssh.com/manual.html
 - tcpdump manual (man7 mirror): https://man7.org/linux/man-pages/man8/tcpdump.8.html

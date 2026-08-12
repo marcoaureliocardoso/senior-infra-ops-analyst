@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 from command_guard_install_policy import CANONICAL_HOOK_BLOCK, EXECUTOR_AGENTS
+from context_continuity_install_policy import AGENTS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,7 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         shutil.copytree(ROOT / "subagents", self.installed)
         shutil.copytree(ROOT / "skills", self.skills)
         installed_skills = self.skills.as_posix()
-        for agent_id in EXECUTOR_AGENTS:
+        for agent_id in AGENTS:
             path = self.installed / f"{agent_id}.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
@@ -168,6 +169,45 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("installed command guard artifact differs", result.stdout + result.stderr)
+
+    def test_changed_installed_continuity_hook_fails(self) -> None:
+        path = self.installed / "change-manager.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "context-continuity/scripts/compact-hook-launcher.sh",
+                "context-continuity/scripts/other.sh",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "installed continuity hook differs", result.stdout + result.stderr
+        )
+
+    def test_changed_installed_continuity_script_fails(self) -> None:
+        path = self.skills / "context-continuity" / "scripts" / "settings.mjs"
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "installed continuity artifact differs", result.stdout + result.stderr
+        )
+
+    def test_unresolved_analytical_continuity_path_fails(self) -> None:
+        path = self.installed / "change-manager.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                self.skills.as_posix(), "{{skills_dir}}", 1
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "installed continuity hook differs", result.stdout + result.stderr
+        )
 
     def test_analytical_agent_cannot_gain_installed_hook(self) -> None:
         path = self.installed / "change-manager.md"

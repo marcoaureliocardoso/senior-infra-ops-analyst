@@ -1,0 +1,6 @@
+{
+  "name": "context-continuity",
+  "version": "1.0.0",
+  "type": "skill",
+  "description": "Use for long Claude Code work, context pressure, compaction recovery, native task continuity, local preventive-compaction configuration, or context-cost measurement."
+}

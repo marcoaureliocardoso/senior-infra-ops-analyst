@@ -144,3 +144,200 @@ These identifiers document that run only and do not constrain future versions.
 The observed hook envelope included `prompt_id` and `effort`; the contract has
 regression coverage for a bounded prompt identifier and the documented effort
 levels without relaxing unknown top-level or `tool_input` fields.
+
+## Context continuity and preventive compaction validation
+
+The deterministic P0-04A parser and safety checks do not use a model or provider:
+
+```bash
+node --test tests/context-continuity/inventory.test.mjs
+python3 tests/test-live-context-continuity-safety.py
+bash -n tests/live-context-continuity-smoke.sh
+bash tests/live-context-continuity-smoke.sh --self-test
+```
+
+The self-test proves native `TaskCreate`/`TaskUpdate` and `TodoWrite` family
+normalization, task-identifier survival across one synthetic compaction,
+available/unavailable/not-observed tool-search reason codes, consistent and
+divergent window metadata, and rejection of deliberately unsafe retained
+evidence. The retained schema contains only numeric values, booleans, bounded
+identifiers, and closed reason codes; prompts, responses, summaries,
+transcripts, commands, tool payloads, headers, and credentials are forbidden.
+
+The opt-in real-provider run requires a Linux or WSL environment with non-root
+Bubblewrap, Node.js, Python, the `timeout` utility, Claude Code, Nori, network
+access, and an operator-configured
+DeepSeek route. It requires this exact temporary acknowledgment:
+
+```bash
+P0_04A_LIVE_NORMAL_CREDENTIALS_ACK=I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK \
+  bash tests/live-context-continuity-smoke.sh --run-live
+```
+
+Exit `0` means every requested deterministic or live invariant passed. Exit
+`1` means a safety or behavioral invariant failed. Exit `2` means a
+prerequisite or runtime capability is unavailable and must never be reported as
+a pass. The harness creates a generated HOME and `CLAUDE_CONFIG_DIR`, installs
+the current worktree through discovered Nori, validates the approved Claude
+transport allowlist through a NUL-delimited FIFO, and passes those values to
+Claude Code through a clean `execve` environment rather than process arguments.
+It deletes content-bearing JSONL, PTY, transcript, and request captures. Explicit
+`--keep-artifacts` retains them only inside the verified temporary directory
+and prints a warning that they contain model content.
+
+Production configuration remains percentage-based with default `72` and
+preserves an operator value from 70 through 75. The automatic-compaction probe
+uses process-scoped `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5` solely to make the test
+bounded; it does not change installed settings. It detects and explicitly uses
+native `--autocompact auto` when the runtime exposes that option. The real
+DeepSeek route always runs first with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` unset.
+The normal real route never derives or applies an absolute fallback. A separate
+loopback mock enforces an observed numeric boundary, proves acceptance and
+rejection around it, records `WINDOW_REPORTING_DIVERGENCE`, and only then uses
+a process-scoped absolute override in the mock scenario. The operator may also
+select `--confirmed-window-diagnostic <tokens>` for a disposable real-route
+investigation. That form blocks unless the positive integer exactly equals the
+single consistent capacity obtained from Claude Code's documented native
+status-line `context_window.context_window_size` field and injects it only into
+the automatic child; it never writes the value to installed settings. A generic
+model or footer label in the PTY capture cannot satisfy the gate. The mock proves the
+behavioral threshold change by observing automatic `PreCompact` only after the
+override; it does not synthesize a completed compaction. The real runtime and
+current official DeepSeek documentation both report a 1,000,000-token window,
+so the divergence prerequisite is absent while the distinct exact-match gate
+can still be used after explicit operator approval.
+
+The interactive probe uses the standard-library PTY controller in
+`tests/claude-pty-driver.py`. It sends terminal carriage-return keys and waits
+for bounded evidence of task creation, `/context`, manual `/compact`, and the
+post-compaction task list before advancing. This avoids treating a batch of
+input piped into an event-driven TUI as completed interaction.
+
+On 2026-08-09 the latest opt-in run reached every scenario except completed real
+automatic compaction. It installed 25 skills and 12 subagents, preserved the
+Nori status line and operator settings, measured `/context` for the main session
+and all roles, invoked the continuity skill twice, exercised a bounded large
+response, connected and listed the one-tool MCP fixture, and ran the explicit
+ToolSearch probe. It observed two ordered real manual `PreCompact/PostCompact`
+pairs, retained native tasks, invalidated the actual session's credential
+binding, completed `/resume`, selected a real `/rewind`, verified post-rewind
+tasks and context, proved the binding was not restored, and completed isolated
+`/clear`.
+
+The real automatic probe used 70,000 bounded synthetic units, reached a native
+`/context` reading of 8% with the isolated threshold set to 5%, and still did
+not produce a completed ordered automatic `PreCompact/PostCompact` cycle before
+the ten-minute limit. The run therefore exited blocked, emitted no passing final
+report, applied no absolute override to the DeepSeek route, and deleted all
+content-bearing artifacts. A real-route absolute diagnostic is not eligible on
+the current evidence because the reported 1,000,000-token window agrees with
+the provider's official current model documentation.
+
+On 2026-08-10 a second opt-in run used a dedicated temporary provider key and
+again completed isolated Nori installation and preservation. It stopped before
+the automatic scenario when the structural observer recorded the second manual
+compaction as `PreCompact` without `PostCompact`. A deterministic delayed-hook
+fixture reproduced that the PTY driver could accept terminal text and exit
+before the late structural event. The repaired driver now requires the exact
+ordered manual sequence, rejects orphaned or duplicated phases, and fails
+immediately when the manual evidence path is omitted; a missing event otherwise
+waits only within the configured bound. Focused tests and the complete
+deterministic gate pass after the repair. That run did not reach the automatic
+scenario, so it did not close the automatic live gate.
+
+On 2026-08-12 the post-repair opt-in run completed every prerequisite and
+reached the real automatic stage with the exact manual pair checks enabled.
+The automatic probe again reached 8% native context usage under the isolated
+5% threshold but emitted no completed ordered automatic `PreCompact`/
+`PostCompact` pair before its bound. The harness exited `BLOCKED`, emitted no
+passing report, applied no absolute real-route override, and deleted its
+content-bearing captures. This confirms the PTY race repair without satisfying
+the mandatory automatic live gate.
+
+Later on 2026-08-12, three operator-approved confirmed-window runs supplied
+`1000000`. The initial implementation matched a generic native `[1m]` footer
+label before the exceptional automatic child began. Independent review later
+showed that label was insufficient structural capacity evidence. The first
+observed 3% and exposed that
+pressure sizing reused the percentage of a different manual session. The
+second also observed 3% and exposed that one large PTY write could be partial.
+Deterministic regressions now size every new automatic session independently
+and retry bounded PTY writes until every byte is accepted; all 13 PTY tests pass
+on POSIX. The final run, with 420,000 bytes delivered completely, still observed
+3% and no completed ordered automatic `PreCompact`/`PostCompact` pair before
+the ten-minute automatic bound. All three runs removed content-bearing captures
+and used a dedicated temporary provider key through process environment only.
+The repaired design rejects generic PTY labels and permits the technique only
+after the disposable runtime emits one consistent capacity through the
+documented native status-line `context_window.context_window_size` field and
+the operator separately approves it. That stricter route has not been used to
+claim live acceptance; the historical evidence remains inconclusive and does
+not close the live automatic acceptance gate.
+
+A fourth operator-approved run on 2026-08-12 exercised that repaired stricter
+route with Claude Code 2.1.228 and Nori 0.27.0. The disposable runtime emitted
+one consistent native capacity of `1000000`, exactly matching the confirmed
+operator value, so the harness injected `CLAUDE_CODE_AUTO_COMPACT_WINDOW` only
+into the automatic child. That child selected native `--autocompact auto`,
+reached 10% native context usage under the isolated 5% threshold, and then
+waited 600 seconds without completing the required ordered
+`PreCompact(auto)`/`PostCompact(auto)` pair. The harness exited `BLOCKED` after
+approximately 855 seconds overall and deleted the temporary directory and all
+content-bearing captures. Because cleanup also removes the content-free hook
+event file, the terminal evidence proves `complete_pair=false` but cannot
+honestly distinguish `pre_only` from `no_pre`. This classification limitation
+does not weaken the acceptance criterion or close the automatic live gate.
+
+### Remaining P0-04A acceptance and merge gates
+
+1. **Real automatic acceptance remains open.** The fourth run confirmed native
+   capacity `1000000`, reached 10% under the isolated 5% threshold, selected
+   `--autocompact auto`, and waited 600 seconds, approximately 855 seconds
+   overall, before exiting `BLOCKED`. It did not prove the required ordered
+   `PreCompact(auto)`/`PostCompact(auto)` pair.
+2. **Sanitized structural classification remains a diagnostic improvement.**
+   Cleanup removed the content-free event file with the temporary directory.
+   The retained terminal evidence proves only `complete_pair=false`, not
+   `pre_only` or `no_pre`. A future run may preserve only one closed
+   classification while still deleting every content-bearing artifact; that
+   classification cannot replace the required real pair.
+3. **Alternative acceptance remains conditional.** If direct observation stays
+   infeasible, a revised criterion requires a new explicit operator decision.
+4. **The exact final head still needs final gates.** Any subsequent change must
+   receive independent review without release-blocking findings and green CI
+   and Security results on that exact commit.
+5. **Merge and roadmap completion remain pending.** PR #32 stays draft until the
+   prior gates are satisfied. P0-04A remains pending until the approved final
+   head is merged into `main`.
+
+### Operator-approved release decision and future validation
+
+On 2026-08-12 the operator explicitly authorized merging PR #32 with the real
+ordered `PreCompact(auto)`/`PostCompact(auto)` observation deferred to a future
+non-blocking validation attempt. This satisfies the conditional alternative
+acceptance path without converting `complete_pair=false` into `pre_only`,
+`no_pre`, or a passing automatic-compaction result.
+
+The future attempt remains recorded as an open follow-up: obtain one real
+ordered pair and retain only the sanitized closed structural classification
+`complete_pair`, `pre_only`, or `no_pre` after cleanup. It must retain no
+transcript, prompt, summary, raw hook input, provider content, credential, or
+secret. Final independent review, CI/Security on the exact head, and merge into
+`main` remain required before the definitive roadmap can mark P0-04A complete.
+
+Deterministic evidence includes strict settings merge and rollback, inherited
+status-line refusal, compact-hook concurrency and failure paths, authorization
+invalidation, 100% critical command-guard coverage, 82 security mutations,
+canonical source/installed hook validation for 12 subagents, inventory tests for
+25 skills and 12 subagents, and content-free parser self-tests.
+
+The 2026-08-12 status-line fallback extension adds deterministic coverage for
+equality without warning, unrounded fractional comparison, every effective
+threshold from 70 through 75, fallback to 72 for missing or invalid values,
+remaining-only input without warning, the real executable's exact two-line
+output, malformed and oversized neutral input, empty stderr, and absence of
+local artifacts. The warning is advisory and does not submit `/compact` or
+disable native automatic compaction. This deterministic result does not prove
+that automatic compaction fired or failed and does not change the `BLOCKED` /
+inconclusive status of the required real ordered automatic
+`PreCompact(auto)`/`PostCompact(auto)` acceptance gate.

@@ -6,9 +6,41 @@ Path: `senior-infra-ops-analyst/`
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
-24 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface: Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, and audit evidence.
+25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
+Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.11.1 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.12.0 | Author: Marco Aurelio Cardoso | License: MIT
+
+## Context continuity
+
+Claude Code auto-compaction remains enabled with a package default of `72`
+percent. Existing operator thresholds from `70` through `75` are preserved.
+Settings are local and operator-owned; inspect, apply, opt in to the status line,
+or roll back only owned values with:
+
+```bash
+node skills/context-continuity/scripts/configure-context-continuity.mjs --check --scope project
+node skills/context-continuity/scripts/configure-context-continuity.mjs --apply --scope project
+node skills/context-continuity/scripts/configure-context-continuity.mjs --apply --scope project --status-line
+node skills/context-continuity/scripts/configure-context-continuity.mjs --remove-owned --scope project
+```
+
+Native task lists and Compact Instructions preserve the operational ledger.
+Canonical `PreCompact` and `PostCompact` hooks on all 12 roles are non-blocking,
+content-free, and invalidate credential reuse so missing proof requires fresh
+authorization. The status line is opt-in and cannot replace another owner.
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` is never the default; it is allowed only after
+numeric divergence evidence and separate approval for a disposable diagnostic.
+
+The context inventory measures skills, subagents, MCPs, tool search, context
+percentages, and task/window capabilities using counts, bytes, booleans, bounded
+identifiers, and reason codes only. Deterministic validation is available via
+`bash tests/live-context-continuity-smoke.sh --self-test`; real DeepSeek
+validation is isolated, opt-in, and reports unsupported capabilities honestly.
+The live gate detects native auto-compaction options at runtime and allows a
+derived absolute diagnostic only after structural evidence proves divergent
+window reporting.
+P0-04B browser automation is not included.
 
 ## Native executor command authorization
 
@@ -68,7 +100,7 @@ senior-infra-ops-analyst/
 ├── ROADMAP.md                 # Planned improvements
 ├── docs/architecture/         # Indexed architecture decision records
 ├── docs/reviews/              # Indexed independent review verdicts
-├── skills/                    # 24 operational skills
+├── skills/                    # 25 operational and continuity skills
 │   └── <skill>/
 │       ├── SKILL.md           # Skill definition
 │       ├── nori.json          # Per-skill metadata

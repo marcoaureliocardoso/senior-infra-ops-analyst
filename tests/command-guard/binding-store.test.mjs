@@ -10,6 +10,8 @@ import {
   activatePendingBinding,
   bindingFromResult,
   hasActiveBinding,
+  invalidateAllBindings,
+  invalidateSessionBindings,
   resolveBindingStateDirectory,
   writePendingBinding,
 } from '../../skills/command-driven-operations/scripts/command-guard/binding-store.mjs';
@@ -41,9 +43,125 @@ test('pending binding activates only after a matching successful post event', as
   await withState(async (env) => {
     assert.equal(writePendingBinding(binding, env, NOW), true);
     assert.equal(hasActiveBinding(binding, env, NOW), false);
-    assert.equal(activatePendingBinding(binding, env, NOW + 1), true);
+    let afterReadCount = 0;
+    assert.equal(activatePendingBinding(binding, env, NOW + 1, {
+      afterRead() { afterReadCount += 1; },
+    }), true);
+    assert.equal(afterReadCount, 1);
     assert.equal(hasActiveBinding(binding, env, NOW + 2), true);
     assert.equal(activatePendingBinding(binding, env, NOW + 3), false);
+  });
+});
+
+test('compaction invalidates pending and active reuse for only that session', async () => {
+  await withState(async (env) => {
+    const other = {
+      ...binding,
+      sessionId: 'other-session',
+      toolUseId: 'other-tool',
+      identity: 'other-operator',
+    };
+    writePendingBinding(binding, env, NOW);
+    activatePendingBinding(binding, env, NOW + 1);
+    writePendingBinding(other, env, NOW);
+    activatePendingBinding(other, env, NOW + 1);
+    assert.equal(invalidateSessionBindings(binding.sessionId, env), true);
+    assert.equal(hasActiveBinding(binding, env, NOW + 2), false);
+    assert.equal(hasActiveBinding(other, env, NOW + 2), true);
+  });
+});
+
+test('unverifiable compaction invalidates every bounded binding file', async () => {
+  await withState(async (env) => {
+    const other = {
+      ...binding,
+      sessionId: 'other-session',
+      toolUseId: 'other-tool',
+      identity: 'other-operator',
+    };
+    for (const item of [binding, other]) {
+      writePendingBinding(item, env, NOW);
+      activatePendingBinding(item, env, NOW + 1);
+    }
+    const unrelated = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'operator.json');
+    await writeFile(unrelated, '{"keep":true}\n', 'utf8');
+    assert.equal(invalidateAllBindings(env), 2);
+    assert.equal(hasActiveBinding(binding, env, NOW + 2), false);
+    assert.equal(hasActiveBinding(other, env, NOW + 2), false);
+    assert.equal(await readFile(unrelated, 'utf8'), '{"keep":true}\n');
+  });
+});
+
+test('global invalidation safely handles absent invalid and non-file state targets', async () => {
+  const parent = await mkdtemp(path.join(os.tmpdir(), 'ops-binding-invalidation-'));
+  try {
+    const absent = path.join(parent, 'absent');
+    assert.equal(invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: absent }), 0);
+
+    const createdOnDemand = path.join(parent, 'created-on-demand');
+    assert.equal(writePendingBinding(binding, { OPS_COMMAND_GUARD_STATE_DIR: createdOnDemand }, NOW), true);
+    assert.equal((await readdir(createdOnDemand)).length, 1);
+
+    const notDirectory = path.join(parent, 'not-directory');
+    await writeFile(notDirectory, 'operator-owned\n', 'utf8');
+    assert.throws(
+      () => invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: notDirectory }),
+      /unsafe binding state directory/u,
+    );
+    assert.throws(
+      () => writePendingBinding(binding, { OPS_COMMAND_GUARD_STATE_DIR: notDirectory }, NOW),
+      /unsafe binding state directory/u,
+    );
+
+    const directory = path.join(parent, 'state');
+    await mkdir(directory);
+    await mkdir(path.join(directory, `${'a'.repeat(64)}.json`));
+    await writeFile(path.join(directory, 'operator.json'), '{"keep":true}\n', 'utf8');
+    assert.equal(invalidateAllBindings({ OPS_COMMAND_GUARD_STATE_DIR: directory }), 0);
+    assert.equal(await readFile(path.join(directory, 'operator.json'), 'utf8'), '{"keep":true}\n');
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test('literal credential requires fresh native approval after compaction', async () => {
+  await withState(async (env) => {
+    const auditPath = path.join(env.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl');
+    const command = 'OPS_CREDENTIAL_IDENTITY=deployment-operator curl -q -H "Authorization: Bearer SYNTH_SECRET_compaction_a" https://api.example.invalid/health';
+    const first = validEvent({
+      tool_use_id: 'tool-compact-first',
+      permission_mode: 'bypassPermissions',
+      tool_input: { command },
+    });
+    assert.equal(
+      evaluateHook(JSON.stringify(first), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath }).hookSpecificOutput.permissionDecision,
+      'ask',
+    );
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: first.session_id,
+      tool_use_id: first.tool_use_id,
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+    }), env), true);
+    const reused = validEvent({
+      tool_use_id: 'tool-compact-reused',
+      permission_mode: 'bypassPermissions',
+      tool_input: { command: command.replace('compaction_a', 'compaction_b') },
+    });
+    assert.equal(
+      evaluateHook(JSON.stringify(reused), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath }).hookSpecificOutput.permissionDecision,
+      'allow',
+    );
+    invalidateSessionBindings(first.session_id, env);
+    const after = validEvent({
+      tool_use_id: 'tool-compact-after',
+      permission_mode: 'bypassPermissions',
+      tool_input: { command: command.replace('compaction_a', 'compaction_c') },
+    });
+    assert.equal(
+      evaluateHook(JSON.stringify(after), { ...env, OPS_COMMAND_GUARD_AUDIT_PATH: auditPath }).hookSpecificOutput.permissionDecision,
+      'ask',
+    );
   });
 });
 
@@ -424,6 +542,20 @@ test('binding store bounds pending and active entries', async () => {
     }
     assert.equal(hasActiveBinding({ ...binding, toolUseId: 'new', identity: 'identity-0' }, env, NOW + 100), false);
     assert.equal(hasActiveBinding({ ...binding, toolUseId: 'new', identity: 'identity-16' }, env, NOW + 100), true);
+  });
+});
+
+test('binding mutation waits for a contended lock and fails closed at its bound', async () => {
+  await withState(async (env) => {
+    writePendingBinding(binding, env, NOW);
+    const [stateName] = (await readdir(env.OPS_COMMAND_GUARD_STATE_DIR))
+      .filter((name) => name.endsWith('.json'));
+    await mkdir(path.join(env.OPS_COMMAND_GUARD_STATE_DIR, `${stateName}.lock`));
+    assert.equal(hasActiveBinding(binding, env, NOW + 1), false);
+    assert.throws(
+      () => writePendingBinding({ ...binding, toolUseId: 'contended' }, env, NOW + 1),
+      /binding state lock unavailable/u,
+    );
   });
 });
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.0 - 2026-08-08
+
+- Added native task-list and Compact Instructions for continuity across long Claude Code sessions.
+- Added operator-owned preventive auto-compaction settings with default 72%, preservation of existing 70–75% values, conflict detection, atomic apply, and owned-only rollback.
+- Added an opt-in stateless context status line and canonical non-blocking `PreCompact`/`PostCompact` hooks to all 12 subagents.
+- Extended the opt-in status line with the exact continuity-preserving `/compact` suggestion when native used context is strictly above the effective 70-75% threshold, while leaving native automatic compaction enabled.
+- Invalidated pending and active credential reuse at compaction, including conservative all-binding invalidation when the session identity cannot be proved.
+- Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
+- Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.
+- Added runtime detection for native auto-compaction and a structural-only live hook observer; the real route blocks rather than deriving an automatic absolute fallback.
+- Hardened the live PTY driver to wait for delayed `PostCompact` within its bound and reject missing, orphaned, duplicated, or incorrectly ordered manual hook sequences.
+- Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence or an exact operator-approved match with the native runtime capacity.
+- Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
+- Left P0-04B browser automation out of scope.
+
 ## 0.11.1 - 2026-08-08
 
 - Updated every external GitHub Action to its stable release and immutable full commit SHA, including checkout v7.0.1, setup-python v7.0.0, CodeQL v4, upload-artifact v7.0.1, action-gh-release v3.0.2, markdownlint-cli2-action v24.2.0, and cspell-action v8.4.0.
