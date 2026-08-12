@@ -34,6 +34,14 @@ node skills/context-continuity/scripts/configure-context-continuity.mjs --remove
 ```
 
 `--status-line` is opt-in and refuses to replace an existing status line.
+When this package owns that status line, it keeps the normal `ctx N%` line. If
+native `context_window.used_percentage` is strictly greater than the effective
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` threshold, it adds a second line suggesting
+the continuity-preserving `/compact` command. This is an advisory fallback
+only: native automatic compaction stays enabled, and the package never submits
+the command. An inherited operator or Nori status line remains untouched and
+therefore does not receive this package-owned warning.
+
 `--remove-owned` removes only values that remain package-owned and preserves
 later operator changes. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is not normal
 configuration. A disposable diagnostic may use it after either measured window

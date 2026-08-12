@@ -18,7 +18,7 @@
 - Preserve the 64 KiB input bound, zero exit status, neutral `ctx --` fallback, and absence of files, network calls, notifications, transcript content, and deduplication state.
 - Keep status-line installation opt-in and preserve inherited operator or Nori status lines.
 - Do not pin Claude Code, Nori, DeepSeek, provider, runtime, model, or context-window versions.
-- Keep package version `0.11.0`; this is an extension of the still-unreleased P0-04A change in PR #32.
+- Keep package version `0.12.0`; this is an extension of the still-unreleased P0-04A change in PR #32.
 
 ---
 
@@ -311,7 +311,7 @@ git commit -m "test(context): verify status warning boundaries"
 - Modify: `README.md`
 - Modify: `CHANGELOG.md`
 - Modify: `docs/architecture/ADR-005-context-continuity-and-preventive-compaction.md`
-- Modify: `docs/validation/p0-04a-context-continuity-validation-notes.md`
+- Modify: `tests/validation-notes.md`
 - Test: `tests/test-architecture-docs.py`
 - Test: `tests/validate-content.py`
 
@@ -350,7 +350,7 @@ native automatic path.
 
 - [ ] **Step 3: Update release and validation notes without overstating acceptance**
 
-Add to the existing `0.11.0` CHANGELOG entry that the opt-in status line now
+Add to the existing `0.12.0` CHANGELOG entry that the opt-in status line now
 shows the exact operator suggestion above the effective threshold while native
 auto-compaction remains enabled. In the validation notes, record deterministic
 coverage of equality, fractional comparison, thresholds 70–75, invalid-value
@@ -373,7 +373,7 @@ Expected: both commands exit zero and retain the indexed ADR, unpinned runtime p
 - [ ] **Step 5: Commit the documentation update**
 
 ```bash
-git add README.md CHANGELOG.md docs/architecture/ADR-005-context-continuity-and-preventive-compaction.md docs/validation/p0-04a-context-continuity-validation-notes.md
+git add README.md CHANGELOG.md docs/architecture/ADR-005-context-continuity-and-preventive-compaction.md tests/validation-notes.md
 git commit -m "docs(context): explain threshold warning"
 ```
 
@@ -381,7 +381,7 @@ git commit -m "docs(context): explain threshold warning"
 
 **Files:**
 - Verify: all files changed since `origin/agent/p0-04a-context-continuity`
-- Update only if evidence requires correction: `docs/validation/p0-04a-context-continuity-validation-notes.md`
+- Update only if evidence requires correction: `tests/validation-notes.md`
 
 **Interfaces:**
 - Consumes: committed implementation and documentation from Tasks 1–3.
@@ -406,7 +406,7 @@ Run:
 ```bash
 git status --short
 git diff --stat origin/agent/p0-04a-context-continuity...HEAD
-git diff origin/agent/p0-04a-context-continuity...HEAD -- skills/context-continuity/scripts/context-statusline.mjs tests/context-continuity/statusline.test.mjs README.md CHANGELOG.md docs/architecture/ADR-005-context-continuity-and-preventive-compaction.md docs/validation/p0-04a-context-continuity-validation-notes.md
+git diff origin/agent/p0-04a-context-continuity...HEAD -- skills/context-continuity/scripts/context-statusline.mjs tests/context-continuity/statusline.test.mjs README.md CHANGELOG.md docs/architecture/ADR-005-context-continuity-and-preventive-compaction.md tests/validation-notes.md
 ```
 
 Expected: no generated evidence, credentials, transcript data, persisted warning state, automatic `/compact` submission, auto-compaction disablement, unrelated changes, or new version pins.
@@ -435,4 +435,3 @@ gh pr checks 32 --watch
 ```
 
 Expected: the pushed head matches local `HEAD`; every required CI/Security check is green. Leave PR #32 as draft unless the operator separately approves readiness, do not merge it, and leave the definitive unversioned TODO incomplete until the real acceptance gate, CI/Security, review, and merge in `main` are all satisfied.
-

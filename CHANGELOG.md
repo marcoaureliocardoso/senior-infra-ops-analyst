@@ -5,6 +5,7 @@
 - Added native task-list and Compact Instructions for continuity across long Claude Code sessions.
 - Added operator-owned preventive auto-compaction settings with default 72%, preservation of existing 70–75% values, conflict detection, atomic apply, and owned-only rollback.
 - Added an opt-in stateless context status line and canonical non-blocking `PreCompact`/`PostCompact` hooks to all 12 subagents.
+- Extended the opt-in status line with the exact continuity-preserving `/compact` suggestion when native used context is strictly above the effective 70-75% threshold, while leaving native automatic compaction enabled.
 - Invalidated pending and active credential reuse at compaction, including conservative all-binding invalidation when the session identity cannot be proved.
 - Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
 - Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.

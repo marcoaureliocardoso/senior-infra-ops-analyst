@@ -50,6 +50,16 @@ and changes made by the operator after the initial application. It rejects
 disablement, an out-of-range percentage, a pre-existing status line when opt-in
 was requested, unsafe files, duplicate JSON keys, and conflicting owned values.
 
+The package-owned status line reads the same child environment configured for
+native auto-compaction. Only ASCII integer thresholds from 70 through 75 are
+accepted; missing or invalid values fall back to 72. It compares the unrounded
+native `used_percentage`, warns only when usage is strictly greater, and does
+not infer the warning from `remaining_percentage`. The conditional second line
+is a deliberate exception to the compact one-line presentation. It is
+stateless, performs no command submission, and does not disable or replace the
+native automatic path. Because status-line installation is opt-in, an inherited
+operator or Nori renderer remains unchanged and does not receive this warning.
+
 ## Enforcement points
 
 - `AGENTS.md` preserves objective and next action through native tasks and
@@ -88,7 +98,9 @@ must first run without it.
 ## Validation evidence
 
 Deterministic evidence includes strict settings merge/rollback tests, status-line
-null handling, compact-hook and launcher failure paths, authorization
+null handling, strict unrounded threshold comparison, all preserved 70-75%
+thresholds, invalid-threshold fallback, executable output and no-artifact
+behavior, compact-hook and launcher failure paths, authorization
 invalidation, 100% critical command-guard coverage, security mutations,
 canonical source/installed hook validation for 12 subagents, inventory tests for
 25 skills and 12 subagents, and a content-free parser self-test covering task,

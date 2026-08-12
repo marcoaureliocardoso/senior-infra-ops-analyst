@@ -279,3 +279,14 @@ status-line refusal, compact-hook concurrency and failure paths, authorization
 invalidation, 100% critical command-guard coverage, 82 security mutations,
 canonical source/installed hook validation for 12 subagents, inventory tests for
 25 skills and 12 subagents, and content-free parser self-tests.
+
+The 2026-08-12 status-line fallback extension adds deterministic coverage for
+equality without warning, unrounded fractional comparison, every effective
+threshold from 70 through 75, fallback to 72 for missing or invalid values,
+remaining-only input without warning, the real executable's exact two-line
+output, malformed and oversized neutral input, empty stderr, and absence of
+local artifacts. The warning is advisory and does not submit `/compact` or
+disable native automatic compaction. This deterministic result does not prove
+that automatic compaction fired or failed and does not change the `BLOCKED` /
+inconclusive status of the required real ordered automatic
+`PreCompact(auto)`/`PostCompact(auto)` acceptance gate.
