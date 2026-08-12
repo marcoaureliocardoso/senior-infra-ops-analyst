@@ -1,5 +1,7 @@
 # P0-04A Pending Acceptance and Merge Gates Implementation Plan
 
+<!-- cspell:words Pendências atuais aceite PENDENTE -->
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publish one consistent, evidence-backed list of the remaining P0-04A acceptance and merge gates.
