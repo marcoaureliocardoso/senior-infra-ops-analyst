@@ -245,7 +245,7 @@ npx --no-install markdownlint-cli2 README.md CHANGELOG.md \
 npx --no-install cspell README.md CHANGELOG.md \
   docs/superpowers/specs/2026-08-12-readme-release-history-consolidation-design.md \
   docs/superpowers/plans/2026-08-12-readme-release-history-consolidation.md \
-  tests/test-release-history.py tests/validate-content.py
+  tests/test-release-history.py
 ```
 
 Expected: four release-history tests pass, content validation passes, and both
