@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-"""Require an operator-confirmed capacity to equal the native PTY label."""
+"""Require an operator-confirmed capacity to equal structural /context evidence."""
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 
 POSITIVE_INTEGER = re.compile(r"^[1-9][0-9]*$")
-WINDOW_LABEL = re.compile(r"\[(\d+(?:\.\d+)?)([kKmM])\]")
-MULTIPLIER = {"k": 1_000, "m": 1_000_000}
-
-
 def fail(message: str) -> int:
     print(f"BLOCKED: {message}", file=sys.stderr)
     return 2
@@ -21,27 +17,30 @@ def fail(message: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--capture", required=True)
+    parser.add_argument("--events", required=True)
     parser.add_argument("--confirmed", required=True)
     args = parser.parse_args()
 
     if not POSITIVE_INTEGER.fullmatch(args.confirmed):
         return fail("confirmed capacity requires a positive integer")
     try:
-        text = Path(args.capture).read_text(encoding="utf-8", errors="replace")
-    except OSError:
+        path = Path(args.events)
+        if not path.is_file() or path.stat().st_size > 64 * 1024:
+            return fail("native context capacity unavailable")
+        events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return fail("native context capacity unavailable")
-    labels = WINDOW_LABEL.findall(text)
-    if not labels:
+    matches = [
+        event.get("windowTokens") for event in events
+        if isinstance(event, dict)
+        and event.get("kind") == "status-context"
+        and type(event.get("percent")) is int
+        and 0 <= event["percent"] <= 100
+    ]
+    if (not matches or any(type(value) is not int or not 0 < value <= 10_000_000 for value in matches)
+            or len(set(matches)) != 1):
         return fail("native context capacity unavailable")
-    amount, unit = labels[-1]
-    try:
-        native_decimal = Decimal(amount) * MULTIPLIER[unit.lower()]
-    except (InvalidOperation, KeyError):
-        return fail("native context capacity unavailable")
-    if native_decimal <= 0 or native_decimal != native_decimal.to_integral_value():
-        return fail("native context capacity unavailable")
-    native = int(native_decimal)
+    native = matches[-1]
     confirmed = int(args.confirmed)
     if confirmed != native:
         return fail("confirmed capacity does not equal native context capacity")

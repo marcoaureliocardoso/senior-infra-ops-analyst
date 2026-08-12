@@ -293,7 +293,7 @@ PY
     failed "forbidden-content scanner accepted an unsafe retained fixture"
   fi
   rm -f -- "$PROBES/unsafe-evidence.json" "$PROBES/unavailable-evidence.json" "$consistent_report"
-  printf '%s' 'runtime-model[1m] ctx 3%' >"$PROBES/manual.pty"
+  printf '%s\n' '{"kind":"status-context","percent":3,"windowTokens":1000000}' >"$PROBES/live-context-window-events.jsonl"
   build_automatic_filler
   python3 - "$PROBES/automatic.prompt" <<'PY'
 import sys
@@ -302,7 +302,7 @@ p = Path(sys.argv[1])
 assert p.stat().st_size == 420_000
 assert p.read_text(encoding="utf-8").startswith(" probe probe")
 PY
-  printf '%s' 'runtime-model[1m] ctx 8%' >"$PROBES/manual.pty"
+  printf '%s\n' '{"kind":"status-context","percent":8,"windowTokens":1000000}' >"$PROBES/live-context-window-events.jsonl"
   build_automatic_filler
   python3 - "$PROBES/automatic.prompt" <<'PY'
 import sys
@@ -420,6 +420,24 @@ observer = {
 
 for event in ("PreCompact", "PostCompact"):
     settings.setdefault("hooks", {}).setdefault(event, []).append(observer)
+settings_path.write_text(json.dumps(settings) + "\n", encoding="utf-8")
+PY
+}
+
+install_live_context_window_observer() {
+  local recorder="$WORK/project/.claude/live-context-window-recorder.py"
+  local destination="$PROBES/live-context-window-events.jsonl"
+  cp "$ROOT/tests/live-context-window-recorder.py" "$recorder"
+  chmod 0500 "$recorder"
+  python3 - "$WORK/project/.claude/settings.local.json" "$recorder" "$destination" <<'PY'
+import json, shlex, sys
+from pathlib import Path
+settings_path, recorder_path, destination_path = map(Path, sys.argv[1:4])
+settings = json.loads(settings_path.read_text(encoding="utf-8"))
+settings["statusLine"] = {
+    "type": "command",
+    "command": shlex.join(["/usr/bin/python3", str(recorder_path.resolve()), str(destination_path.resolve())]),
+}
 settings_path.write_text(json.dumps(settings) + "\n", encoding="utf-8")
 PY
 }
@@ -933,16 +951,22 @@ PY
 }
 
 build_automatic_filler() {
-  python3 - "$PROBES/manual.pty" "$PROBES/automatic.prompt" <<'PY'
-import math, re, sys
+  python3 - "$PROBES/live-context-window-events.jsonl" "$PROBES/automatic.prompt" <<'PY'
+import json, math, sys
 from pathlib import Path
 manual_path, output_path = map(Path, sys.argv[1:3])
-manual = manual_path.read_text(encoding="utf-8", errors="replace")
-windows = re.findall(r"\[(\d+(?:\.\d+)?)([kKmM])\]", manual)
-if not windows:
-    raise SystemExit("runtime context window label unavailable")
-amount, unit = windows[-1]
-window_tokens = int(float(amount) * ({"k": 1_000, "m": 1_000_000}[unit.lower()]))
+events = [json.loads(line) for line in manual_path.read_text(encoding="utf-8").splitlines() if line]
+matches = [
+    event.get("windowTokens") for event in events
+    if isinstance(event, dict)
+    and event.get("kind") == "status-context"
+    and type(event.get("percent")) is int
+    and 0 <= event["percent"] <= 100
+]
+if (not matches or any(type(value) is not int or not 0 < value <= 10_000_000 for value in matches)
+        or len(set(matches)) != 1):
+    raise SystemExit("structural runtime context capacity unavailable")
+window_tokens = matches[-1]
 target_percent = 5
 margin_percent = 2
 required_percent = target_percent + margin_percent
@@ -989,6 +1013,7 @@ run_live() {
     --installed-skills-dir "$INSTALLED_SKILLS_DIR"
   configure_and_verify_preservation
   install_live_compact_observer
+  install_live_context_window_observer
   run_installed_credential_compaction_probe
   observed_claude_version="$("$CLAUDE_BIN" --version | awk 'NR == 1 {print $1}')"
   [[ "$observed_claude_version" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || blocked "Claude Code version label is unsafe"
@@ -1053,6 +1078,7 @@ run_live() {
   DRIVER_TIMEOUT=$((MANUAL_TIMEOUT - 5))
   SESSION_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
   activate_actual_session_credential_binding "$SESSION_ID"
+  : >"$PROBES/live-context-window-events.jsonl"
 
   set +e
   timeout "$MANUAL_TIMEOUT" "${PROVIDER_EXEC[@]}" \
@@ -1105,7 +1131,7 @@ run_live() {
   CONFIRMED_AUTOMATIC_ENV=()
   if [[ -n "$CONFIRMED_WINDOW_DIAGNOSTIC" ]]; then
     confirmed_native_window="$(python3 "$ROOT/tests/confirmed-window-diagnostic.py" \
-      --capture "$PROBES/manual.pty" --confirmed "$CONFIRMED_WINDOW_DIAGNOSTIC")" || \
+      --events "$PROBES/live-context-window-events.jsonl" --confirmed "$CONFIRMED_WINDOW_DIAGNOSTIC")" || \
       blocked "confirmed-window diagnostic did not match native context capacity"
     [[ "$confirmed_native_window" == "$CONFIRMED_WINDOW_DIAGNOSTIC" ]] || \
       failed "confirmed-window diagnostic returned an inconsistent capacity"

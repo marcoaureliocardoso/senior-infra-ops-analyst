@@ -4,7 +4,7 @@
 
 **Goal:** Add and execute an operator-approved diagnostic that makes the already detected DeepSeek context capacity explicit only for the real automatic-compaction child process.
 
-**Architecture:** The live harness accepts one opt-in numeric argument, derives the runtime capacity from the existing `/context` capture, and blocks unless the two values are identical. Only the automatic child receives the confirmed value; installed and operator settings remain percentage-only.
+**Architecture:** The live harness accepts one opt-in numeric argument, observes the documented native status-line `context_window.context_window_size` field in the disposable runtime, and blocks unless all observations are consistent and equal the supplied value. Only the automatic child receives the confirmed value; installed and operator settings remain percentage-only.
 
 **Tech Stack:** Bash, Python 3 standard library, Claude Code PTY harness, Node.js package validation.
 
@@ -26,7 +26,7 @@
 - Modify: `tests/test-live-context-continuity-safety.py`
 
 **Interfaces:**
-- Consumes: `--run-live`, the existing manual `/context` PTY capture, and a positive integer supplied through `--confirmed-window-diagnostic`.
+- Consumes: `--run-live`, content-free numeric events derived from the native status-line `context_window.context_window_size` field, and a positive integer supplied through `--confirmed-window-diagnostic`.
 - Produces: `CONFIRMED_WINDOW_DIAGNOSTIC`, either empty or the exact native capacity allowed only for the automatic child.
 
 - [ ] **Step 1: Write failing static and behavioral tests**
@@ -44,8 +44,9 @@ Expected: failures because the option and equality gate do not exist.
 - [ ] **Step 3: Implement the minimal option parser and equality gate**
 
 Parse the option without `eval`, validate `^[1-9][0-9]*$`, derive the runtime
-window from the final native `[Nk]` or `[Nm]` label in `manual.pty`, and call
-`blocked` unless the values match exactly.
+window only from consistent numeric status-line `context_window_size` events,
+and call `blocked` unless the values match exactly. Generic PTY model/footer
+labels are not evidence.
 
 - [ ] **Step 4: Inject the value into only the automatic child**
 

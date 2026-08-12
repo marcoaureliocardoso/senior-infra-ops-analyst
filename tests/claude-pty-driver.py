@@ -266,8 +266,9 @@ def drive(
                     lambda data: b"%" in data[context_offset:],
                     "native context inspection",
                 )
+                context_output = bytes(retained[context_offset:])
                 percentages = [
-                    int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", bytes(retained[context_offset:]))
+                    int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", context_output)
                     if 0 <= int(value) <= 100
                 ]
                 if not percentages:
@@ -494,7 +495,14 @@ def drive(
                 lambda data: b"%" in data[context_offset:],
                 "context inspection",
             )
-            record(current_stage, "passed")
+            context_output = bytes(retained[context_offset:])
+            percentages = [
+                int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", context_output)
+                if 0 <= int(value) <= 100
+            ]
+            if not percentages:
+                raise RuntimeError("context percentage unavailable")
+            record(current_stage, "passed", percentages[-1])
 
             current_stage = "manual_compaction"
             compact_offset = len(retained)

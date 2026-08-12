@@ -17,11 +17,14 @@ observed capacity explicit without lowering or persisting it.
 
 Extend only the opt-in live harness with
 `--confirmed-window-diagnostic <tokens>`. The option is valid only with
-`--run-live`. Before the automatic scenario, the harness must derive the native
-window label from the existing `/context` capture and require exact equality
-with the operator-provided integer. A mismatch, missing label, duplicate option,
-invalid integer, or use in self-test mode exits `BLOCKED` before the provider
-diagnostic.
+`--run-live`. Before the automatic scenario, a disposable status-line observer
+must read Claude Code's documented native
+`context_window.context_window_size` JSON field and retain only numeric capacity
+and percentage events. The harness requires one consistent observed capacity
+and exact equality with the operator-provided integer. A mismatch, missing or
+conflicting native capacity, duplicate option, invalid integer, or use in
+self-test mode exits `BLOCKED` before the provider diagnostic. A generic model
+or footer label in the PTY capture is not capacity evidence.
 
 For the automatic child process only, pass both:
 

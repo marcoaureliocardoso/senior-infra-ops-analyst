@@ -23,6 +23,8 @@ python3 tests/test-mock-anthropic-gateway.py
 python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
 python3 tests/test-live-context-continuity-safety.py
+python3 tests/test-confirmed-window-diagnostic.py
+python3 tests/test-live-context-window-recorder.py
 python3 tests/test-live-compact-event-recorder.py
 python3 tests/test-claude-pty-driver.py
 python3 tests/test-smoke-command-guard.py

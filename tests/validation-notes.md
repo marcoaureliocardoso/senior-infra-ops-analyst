@@ -197,8 +197,10 @@ rejection around it, records `WINDOW_REPORTING_DIVERGENCE`, and only then uses
 a process-scoped absolute override in the mock scenario. The operator may also
 select `--confirmed-window-diagnostic <tokens>` for a disposable real-route
 investigation. That form blocks unless the positive integer exactly equals the
-native `/context` capacity and injects it only into the automatic child; it
-never writes the value to installed settings. The mock proves the
+single consistent capacity obtained from Claude Code's documented native
+status-line `context_window.context_window_size` field and injects it only into
+the automatic child; it never writes the value to installed settings. A generic
+model or footer label in the PTY capture cannot satisfy the gate. The mock proves the
 behavioral threshold change by observing automatic `PreCompact` only after the
 override; it does not synthesize a completed compaction. The real runtime and
 current official DeepSeek documentation both report a 1,000,000-token window,
@@ -253,8 +255,10 @@ content-bearing captures. This confirms the PTY race repair without satisfying
 the mandatory automatic live gate.
 
 Later on 2026-08-12, three operator-approved confirmed-window runs supplied
-`1000000`. Each proved an exact match with the native `[1m]` label before the
-exceptional automatic child began. The first observed 3% and exposed that
+`1000000`. The initial implementation matched a generic native `[1m]` footer
+label before the exceptional automatic child began. Independent review later
+showed that label was insufficient structural capacity evidence. The first
+observed 3% and exposed that
 pressure sizing reused the percentage of a different manual session. The
 second also observed 3% and exposed that one large PTY write could be partial.
 Deterministic regressions now size every new automatic session independently
@@ -263,9 +267,12 @@ on POSIX. The final run, with 420,000 bytes delivered completely, still observed
 3% and no completed ordered automatic `PreCompact`/`PostCompact` pair before
 the ten-minute automatic bound. All three runs removed content-bearing captures
 and used a dedicated temporary provider key through process environment only.
-The exact-match technique is therefore implemented as an operator-authorized
-diagnostic, but this evidence remains inconclusive and does not close the live
-automatic acceptance gate.
+The repaired design rejects generic PTY labels and permits the technique only
+after the disposable runtime emits one consistent capacity through the
+documented native status-line `context_window.context_window_size` field and
+the operator separately approves it. That stricter route has not been used to
+claim live acceptance; the historical evidence remains inconclusive and does
+not close the live automatic acceptance gate.
 
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization

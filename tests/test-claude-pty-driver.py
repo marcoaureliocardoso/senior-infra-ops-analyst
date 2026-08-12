@@ -152,7 +152,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 os.write(sys.stdout.fileno(), first.encode())
                 os.write(sys.stdout.fileno(), b"P004A_TASK_A P004A_TASK_B P004A_TASKS_CREATED")
                 assert line() == "/context"
-                os.write(sys.stdout.fileno(), b"context usage 42%")
+                os.write(sys.stdout.fileno(), b"deepseek-v4-pro[1m] context usage 42%")
                 assert line().startswith("/compact ")
                 compact("PreCompact")
                 compact("PostCompact")
@@ -220,7 +220,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         if character == b"\r": return value.decode()
                         value.extend(character)
                 assert line() == "/context"
-                os.write(sys.stdout.fileno(), b"native context usage 7%")
+                os.write(sys.stdout.fileno(), b"deepseek-v4-pro[1m] native context usage 7%")
                 assert line() == "/exit"
             '''), encoding="utf-8")
             result = driver.drive(
@@ -231,6 +231,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
             event_text = events.read_text(encoding="utf-8")
             self.assertIn('"stage": "context_inspected"', event_text)
             self.assertIn('"percent": 7', event_text)
+            self.assertNotIn('"windowTokens"', event_text)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_resume_dialogue_exercises_rewind_and_preserves_tasks(self) -> None:
