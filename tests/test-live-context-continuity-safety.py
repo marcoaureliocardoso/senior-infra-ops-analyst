@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import os
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -86,6 +88,49 @@ class LiveContextContinuitySafetyTests(unittest.TestCase):
         self.assertNotIn("--uid 0", self.script)
         self.assertNotIn("--gid 0", self.script)
         self.assertIn("/usr/bin/id -u", self.script)
+
+    def test_confirmed_window_option_is_live_only_and_requires_one_value(self) -> None:
+        bash = os.environ.get("GIT_BASH", r"C:\Program Files\Git\bin\bash.exe")
+        if not Path(bash).is_file():
+            self.skipTest("Git Bash is unavailable")
+
+        cases = (
+            (["--self-test", "--confirmed-window-diagnostic"], "requires a positive integer"),
+            (["--self-test", "--confirmed-window-diagnostic", "1000000"], "valid only with --run-live"),
+            (["--run-live", "--confirmed-window-diagnostic", "invalid"], "requires a positive integer"),
+            (
+                [
+                    "--run-live", "--confirmed-window-diagnostic", "1000000",
+                    "--confirmed-window-diagnostic", "1000000",
+                ],
+                "at most once",
+            ),
+        )
+        environment = os.environ.copy()
+        environment["P0_04A_LIVE_NORMAL_CREDENTIALS_ACK"] = (
+            "I_ACCEPT_PROVIDER_CREDENTIAL_EGRESS_RISK"
+        )
+        for arguments, marker in cases:
+            with self.subTest(arguments=arguments):
+                result = subprocess.run(
+                    [bash, str(HARNESS), *arguments],
+                    cwd=ROOT,
+                    env=environment,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(marker, result.stderr)
+
+    def test_confirmed_window_value_is_injected_only_into_automatic_child(self) -> None:
+        assignment = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW="$CONFIRMED_WINDOW_DIAGNOSTIC"'
+        self.assertEqual(self.script.count(assignment), 1)
+        automatic = self.script.index('--dialogue automatic')
+        assignment_position = self.script.index(assignment)
+        self.assertLess(assignment_position, automatic)
+        self.assertLess(automatic - assignment_position, 800)
 
     def test_network_targets_are_loopback_only_and_no_production_target_is_embedded(self) -> None:
         self.assertIn("127.0.0.1", self.script)

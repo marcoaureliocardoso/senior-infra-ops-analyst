@@ -50,17 +50,35 @@ PY
 
 MODE=""
 KEEP_ARTIFACTS=0
-for option in "$@"; do
-  case "$option" in
+CONFIRMED_WINDOW_DIAGNOSTIC=""
+while (($# > 0)); do
+  case "$1" in
     --self-test|--run-live)
       [[ -z "$MODE" ]] || blocked "select exactly one execution mode"
-      MODE="$option"
+      MODE="$1"
+      shift
       ;;
-    --keep-artifacts) KEEP_ARTIFACTS=1 ;;
-    *) blocked "usage: $0 --self-test|--run-live [--keep-artifacts]" ;;
+    --keep-artifacts)
+      KEEP_ARTIFACTS=1
+      shift
+      ;;
+    --confirmed-window-diagnostic)
+      [[ -z "$CONFIRMED_WINDOW_DIAGNOSTIC" ]] || \
+        blocked "--confirmed-window-diagnostic may be supplied at most once"
+      shift
+      (($# > 0)) || blocked "--confirmed-window-diagnostic requires a positive integer"
+      [[ "$1" =~ ^[1-9][0-9]*$ ]] || \
+        blocked "--confirmed-window-diagnostic requires a positive integer"
+      CONFIRMED_WINDOW_DIAGNOSTIC="$1"
+      shift
+      ;;
+    *) blocked "usage: $0 --self-test|--run-live [--keep-artifacts] [--confirmed-window-diagnostic tokens]" ;;
   esac
 done
 [[ -n "$MODE" ]] || MODE="--self-test"
+if [[ -n "$CONFIRMED_WINDOW_DIAGNOSTIC" && "$MODE" != "--run-live" ]]; then
+  blocked "--confirmed-window-diagnostic is valid only with --run-live"
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 SOURCE_CLAUDE_SETTINGS="${CLAUDE_SETTINGS_SOURCE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
@@ -1085,9 +1103,23 @@ run_live() {
 
   # The automatic probe lowers only the disposable project's percentage and restores it.
   build_automatic_filler
+  CONFIRMED_AUTOMATIC_ENV=()
+  if [[ -n "$CONFIRMED_WINDOW_DIAGNOSTIC" ]]; then
+    confirmed_native_window="$(python3 "$ROOT/tests/confirmed-window-diagnostic.py" \
+      --capture "$PROBES/manual.pty" --confirmed "$CONFIRMED_WINDOW_DIAGNOSTIC")" || \
+      blocked "confirmed-window diagnostic did not match native context capacity"
+    [[ "$confirmed_native_window" == "$CONFIRMED_WINDOW_DIAGNOSTIC" ]] || \
+      failed "confirmed-window diagnostic returned an inconsistent capacity"
+    CONFIRMED_AUTOMATIC_ENV=(
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW="$CONFIRMED_WINDOW_DIAGNOSTIC"
+    )
+    printf 'Confirmed-window diagnostic selected for native capacity %s tokens.\n' \
+      "$CONFIRMED_WINDOW_DIAGNOSTIC" >&2
+  fi
   set_isolated_diagnostic_threshold 5
   set +e
-  CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5 CLAUDE_CODE_EFFORT_LEVEL=low \
+  env "${CONFIRMED_AUTOMATIC_ENV[@]}" \
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=5 CLAUDE_CODE_EFFORT_LEVEL=low \
     timeout "$AUTOMATIC_TIMEOUT" "${PROVIDER_EXEC[@]}" \
     python3 "$ROOT/tests/claude-pty-driver.py" \
     --capture "$PROBES/automatic.pty" --events "$PROBES/automatic-driver.jsonl" \
