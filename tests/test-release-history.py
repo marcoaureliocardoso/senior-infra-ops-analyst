@@ -240,6 +240,46 @@ class ReleaseHistoryTests(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_unclosed_fence_cannot_hide_canonical_taxonomy(self) -> None:
+        self.changelog.write_text(
+            "```markdown\n" + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("changelog fence drift", result.stdout)
+
+    def test_required_taxonomy_and_version_in_fence_are_rejected(self) -> None:
+        self.replace_changelog(
+            UNRELEASED_HEADING + "\n\n" + CURRENT_UNRELEASED,
+            "```markdown\n"
+            + UNRELEASED_HEADING
+            + "\n\n"
+            + CURRENT_UNRELEASED
+            + "\n```",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unpublished-ledger drift", result.stdout)
+
+    def test_noncanonical_atx_version_heading_is_rejected(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING + "\n\n### 0.3.3 (draft)",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("noncanonical version heading", result.stdout)
+
+    def test_setext_version_heading_is_rejected(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING + "\n\n0.3.3 - 2026-07-08\n---",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("setext version heading", result.stdout)
+
     def test_legacy_version_heading_is_rejected(self) -> None:
         mutated = self.original_readme.replace(
             README_HEADING,

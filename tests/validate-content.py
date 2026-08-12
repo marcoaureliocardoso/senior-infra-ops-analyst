@@ -643,21 +643,12 @@ tagged_ledger = [
     ('0.2.1', '2026-07-08'),
 ]
 changelog_text = read('CHANGELOG.md')
-unreleased_taxonomies = list(re.finditer(
-    r'^## Unreleased package states$', changelog_text, re.MULTILINE
-))
-tagged_taxonomies = list(re.finditer(
-    r'^## Tagged versions$', changelog_text, re.MULTILINE
-))
-if len(unreleased_taxonomies) != 1:
-    err('unpublished-ledger drift: expected one Unreleased package states taxonomy')
-if len(tagged_taxonomies) != 1:
-    err('tagged-ledger drift: expected one Tagged versions taxonomy')
-
-def markdown_version_headings(text):
+def markdown_heading_inventory(text):
+    headings = []
     fence = None
     offset = 0
-    for raw_line in text.splitlines(keepends=True):
+    lines = text.splitlines(keepends=True)
+    for index, raw_line in enumerate(lines):
         line = raw_line.rstrip('\r\n')
         if fence:
             fence_char, fence_length = fence
@@ -676,88 +667,144 @@ def markdown_version_headings(text):
                 fence = (marker[0], len(marker))
             else:
                 heading = re.match(
-                    r'^( {0,3})(#{1,6})[ \t]+(\d+\.\d+\.\d+)(?:[ \t]|$)',
+                    r'^( {0,3})(#{1,6})(?:[ \t]+(.*))?$',
                     line,
                 )
                 if heading:
-                    yield (
-                        len(heading.group(1)),
-                        len(heading.group(2)),
-                        heading.group(3),
-                        offset,
+                    headings.append({
+                        'kind': 'atx',
+                        'indentation': len(heading.group(1)),
+                        'level': len(heading.group(2)),
+                        'content': (heading.group(3) or '').strip(),
+                        'position': offset,
+                    })
+                else:
+                    setext = re.match(
+                        r'^( {0,3})(\d+\.\d+\.\d+(?:[ \t].*)?)$', line
                     )
+                    underline = (
+                        re.match(
+                            r'^ {0,3}(=+|-+)[ \t]*$',
+                            lines[index + 1].rstrip('\r\n'),
+                        )
+                        if index + 1 < len(lines)
+                        else None
+                    )
+                    if setext and underline:
+                        headings.append({
+                            'kind': 'setext',
+                            'indentation': len(setext.group(1)),
+                            'level': 1 if underline.group(1)[0] == '=' else 2,
+                            'content': setext.group(2),
+                            'position': offset,
+                        })
         offset += len(raw_line)
+    return headings, fence is not None
 
-version_headings = list(markdown_version_headings(changelog_text))
+
+heading_inventory, unclosed_fence = markdown_heading_inventory(changelog_text)
+if unclosed_fence:
+    err('changelog fence drift: unclosed fenced code block')
+
+def taxonomy_headings(name):
+    return [
+        heading for heading in heading_inventory
+        if (
+            heading['kind'] == 'atx'
+            and heading['indentation'] == 0
+            and heading['level'] == 2
+            and heading['content'] == name
+        )
+    ]
+
+unreleased_taxonomies = taxonomy_headings('Unreleased package states')
+tagged_taxonomies = taxonomy_headings('Tagged versions')
+if len(unreleased_taxonomies) != 1:
+    err('unpublished-ledger drift: expected one Unreleased package states taxonomy')
+if len(tagged_taxonomies) != 1:
+    err('tagged-ledger drift: expected one Tagged versions taxonomy')
+
 taxonomy_ranges = []
 if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
     tagged_taxonomy = tagged_taxonomies[0]
-    if unreleased_taxonomy.start() < tagged_taxonomy.start():
+    if unreleased_taxonomy['position'] < tagged_taxonomy['position']:
         taxonomy_ranges = [
-            (unreleased_taxonomy.end(), tagged_taxonomy.start()),
-            (tagged_taxonomy.end(), len(changelog_text)),
+            ('unpublished', unreleased_taxonomy['position'], tagged_taxonomy['position']),
+            ('tagged', tagged_taxonomy['position'], len(changelog_text)),
         ]
-for indentation, level, version, position in version_headings:
-    if indentation:
-        err(f'version heading must be unindented: {version}')
-    if level != 3:
-        err(f'version heading must be level three: {version}')
-    if not any(start <= position < end for start, end in taxonomy_ranges):
-        err(f'version heading outside taxonomy: {version}')
 
 parsed_unpublished = []
 parsed_tagged = []
 if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
     tagged_taxonomy = tagged_taxonomies[0]
-    if unreleased_taxonomy.start() > tagged_taxonomy.start():
+    if unreleased_taxonomy['position'] > tagged_taxonomy['position']:
         err('unpublished-ledger drift: taxonomy order must precede Tagged versions')
         err('tagged-ledger drift: taxonomy order must follow Unreleased package states')
-    else:
-        unpublished_section = changelog_text[
-            unreleased_taxonomy.end():tagged_taxonomy.start()
-        ]
-        tagged_section = changelog_text[tagged_taxonomy.end():]
-        parsed_unpublished = [
-            (match.group(1), match.group(2), match.group(3))
-            for match in re.finditer(
-                r'^### (\d+\.\d+\.\d+) \(unreleased\) - declared '
-                r'(\d{4}-\d{2}-\d{2})(?:; updated through '
-                r'(\d{4}-\d{2}-\d{2}))?$',
-                unpublished_section,
-                re.MULTILINE,
-            )
-        ]
-        parsed_tagged = [
-            (match.group(1), match.group(2))
-            for match in re.finditer(
-                r'^### (\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})$',
-                tagged_section,
-                re.MULTILINE,
-            )
-        ]
-        if parsed_unpublished != unpublished_ledger:
-            err(
-                'unpublished-ledger drift: '
-                f'expected {unpublished_ledger}, got {parsed_unpublished}'
-            )
-        if parsed_tagged != tagged_ledger:
-            err(
-                'tagged-ledger drift: '
-                f'expected {tagged_ledger}, got {parsed_tagged}'
-            )
 
-        tagged_versions = [version for version, _ in parsed_tagged]
-        semantic_versions = [tuple(map(int, version.split('.'))) for version in tagged_versions]
-        if (
-            len(tagged_versions) != len(set(tagged_versions))
-            or any(
-                earlier <= later
-                for earlier, later in zip(semantic_versions, semantic_versions[1:])
-            )
-        ):
-            err('semantic-order drift: tagged versions must be unique and strictly descending')
+for heading in heading_inventory:
+    if not re.match(r'^\d+\.\d+\.\d+(?:[ \t]|$)', heading['content']):
+        continue
+    if heading['kind'] == 'setext':
+        err(f'setext version heading is not allowed: {heading["content"]}')
+        continue
+    if heading['indentation']:
+        err(f'version heading must be unindented: {heading["content"]}')
+    if heading['level'] != 3:
+        err(f'version heading must be level three: {heading["content"]}')
+    taxonomy = next(
+        (
+            name for name, start, end in taxonomy_ranges
+            if start < heading['position'] < end
+        ),
+        None,
+    )
+    if taxonomy is None:
+        err(f'version heading outside taxonomy: {heading["content"]}')
+        continue
+    if taxonomy == 'unpublished':
+        parsed = re.fullmatch(
+            r'(\d+\.\d+\.\d+) \(unreleased\) - declared '
+            r'(\d{4}-\d{2}-\d{2})(?:; updated through '
+            r'(\d{4}-\d{2}-\d{2}))?',
+            heading['content'],
+        )
+        if parsed:
+            parsed_unpublished.append(parsed.groups())
+        else:
+            err(f'noncanonical version heading: {heading["content"]}')
+    else:
+        parsed = re.fullmatch(
+            r'(\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})',
+            heading['content'],
+        )
+        if parsed:
+            parsed_tagged.append(parsed.groups())
+        else:
+            err(f'noncanonical version heading: {heading["content"]}')
+
+if parsed_unpublished != unpublished_ledger:
+    err(
+        'unpublished-ledger drift: '
+        f'expected {unpublished_ledger}, got {parsed_unpublished}'
+    )
+if parsed_tagged != tagged_ledger:
+    err(
+        'tagged-ledger drift: '
+        f'expected {tagged_ledger}, got {parsed_tagged}'
+    )
+
+tagged_versions = [version for version, _ in parsed_tagged]
+semantic_versions = [tuple(map(int, version.split('.'))) for version in tagged_versions]
+if (
+    len(tagged_versions) != len(set(tagged_versions))
+    or any(
+        earlier <= later
+        for earlier, later in zip(semantic_versions, semantic_versions[1:])
+    )
+):
+    err('semantic-order drift: tagged versions must be unique and strictly descending')
 
 manifest_version = manifest.get('version')
 first_unpublished_version = parsed_unpublished[0][0] if parsed_unpublished else None

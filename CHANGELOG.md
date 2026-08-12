@@ -1,5 +1,8 @@
 # Changelog
 
+Unpublished package states were declared in package metadata but have no Git
+tag. Tagged versions correspond to repository tags.
+
 ## Unreleased package states
 
 ### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-12
