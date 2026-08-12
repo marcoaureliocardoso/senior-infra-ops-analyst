@@ -274,6 +274,20 @@ the operator separately approves it. That stricter route has not been used to
 claim live acceptance; the historical evidence remains inconclusive and does
 not close the live automatic acceptance gate.
 
+A fourth operator-approved run on 2026-08-12 exercised that repaired stricter
+route with Claude Code 2.1.228 and Nori 0.27.0. The disposable runtime emitted
+one consistent native capacity of `1000000`, exactly matching the confirmed
+operator value, so the harness injected `CLAUDE_CODE_AUTO_COMPACT_WINDOW` only
+into the automatic child. That child selected native `--autocompact auto`,
+reached 10% native context usage under the isolated 5% threshold, and then
+waited 600 seconds without completing the required ordered
+`PreCompact(auto)`/`PostCompact(auto)` pair. The harness exited `BLOCKED` after
+approximately 855 seconds overall and deleted the temporary directory and all
+content-bearing captures. Because cleanup also removes the content-free hook
+event file, the terminal evidence proves `complete_pair=false` but cannot
+honestly distinguish `pre_only` from `no_pre`. This classification limitation
+does not weaken the acceptance criterion or close the automatic live gate.
+
 Deterministic evidence includes strict settings merge and rollback, inherited
 status-line refusal, compact-hook concurrency and failure paths, authorization
 invalidation, 100% critical command-guard coverage, 82 security mutations,

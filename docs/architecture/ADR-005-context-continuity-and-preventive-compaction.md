@@ -146,6 +146,18 @@ stricter native-field gate passes. Its historical result is inconclusive, the
 stricter route has not been used to claim acceptance, and the automatic live
 acceptance criterion remains unmet.
 
+A fourth operator-approved diagnostic on 2026-08-12 exercised the repaired
+native-field gate with Claude Code 2.1.228 and Nori 0.27.0. The runtime emitted
+one consistent `context_window.context_window_size` value of `1000000`, exactly
+matching the confirmed operator value, so the absolute value was passed only
+to the automatic child. With native `--autocompact auto`, that child reached
+10% context usage under the isolated 5% threshold but did not complete the
+ordered automatic pair within 600 seconds. The harness exited `BLOCKED` after
+approximately 855 seconds overall and removed its temporary artifacts. Since
+cleanup also removes the content-free hook event file, the terminal record can
+prove only that no complete pair occurred; it cannot distinguish a lone
+`PreCompact` from no automatic hook. The acceptance criterion remains unmet.
+
 ## Consequences and limitations
 
 Local configuration requires an explicit operator action. The default `72`
