@@ -181,6 +181,46 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("version heading must be level three", result.stdout)
 
+    def test_indented_out_of_taxonomy_version_heading_is_rejected(self) -> None:
+        self.changelog.write_text(
+            "  ### 9.9.9 - 2026-08-12\n\n" + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading outside taxonomy", result.stdout)
+
+    def test_indented_wrong_level_version_heading_is_rejected(self) -> None:
+        self.changelog.write_text(
+            " #### 9.9.9 - 2026-08-12\n\n" + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading must be level three", result.stdout)
+
+    def test_indented_version_heading_inside_taxonomy_is_rejected(self) -> None:
+        self.changelog.write_text(
+            self.original_changelog.replace(
+                TAGGED_HEADING,
+                TAGGED_HEADING + "\n\n  ### 9.9.9 - 2026-08-12",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version heading must be unindented", result.stdout)
+
+    def test_fenced_code_version_example_is_ignored(self) -> None:
+        self.changelog.write_text(
+            "```markdown\n### 9.9.9 - 2026-08-12\n```\n\n"
+            + self.original_changelog,
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_legacy_version_heading_is_rejected(self) -> None:
         mutated = self.original_readme.replace(
             README_HEADING,

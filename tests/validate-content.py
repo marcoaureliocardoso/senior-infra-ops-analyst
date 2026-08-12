@@ -654,11 +654,38 @@ if len(unreleased_taxonomies) != 1:
 if len(tagged_taxonomies) != 1:
     err('tagged-ledger drift: expected one Tagged versions taxonomy')
 
-version_headings = list(re.finditer(
-    r'^(#{1,6})\s+(\d+\.\d+\.\d+)(?:\s|$)',
-    changelog_text,
-    re.MULTILINE,
-))
+def markdown_version_headings(text):
+    fence = None
+    offset = 0
+    for raw_line in text.splitlines(keepends=True):
+        line = raw_line.rstrip('\r\n')
+        if fence:
+            fence_char, fence_length = fence
+            if re.match(
+                rf'^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*$',
+                line,
+            ):
+                fence = None
+        else:
+            fence_opening = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
+            if fence_opening:
+                marker = fence_opening.group(1)
+                fence = (marker[0], len(marker))
+            else:
+                heading = re.match(
+                    r'^( {0,3})(#{1,6})[ \t]+(\d+\.\d+\.\d+)(?:[ \t]|$)',
+                    line,
+                )
+                if heading:
+                    yield (
+                        len(heading.group(1)),
+                        len(heading.group(2)),
+                        heading.group(3),
+                        offset,
+                    )
+        offset += len(raw_line)
+
+version_headings = list(markdown_version_headings(changelog_text))
 taxonomy_ranges = []
 if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
@@ -668,12 +695,12 @@ if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
             (unreleased_taxonomy.end(), tagged_taxonomy.start()),
             (tagged_taxonomy.end(), len(changelog_text)),
         ]
-for match in version_headings:
-    level = len(match.group(1))
-    version = match.group(2)
+for indentation, level, version, position in version_headings:
+    if indentation:
+        err(f'version heading must be unindented: {version}')
     if level != 3:
         err(f'version heading must be level three: {version}')
-    if not any(start <= match.start() < end for start, end in taxonomy_ranges):
+    if not any(start <= position < end for start, end in taxonomy_ranges):
         err(f'version heading outside taxonomy: {version}')
 
 parsed_unpublished = []
