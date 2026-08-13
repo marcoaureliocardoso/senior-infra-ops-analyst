@@ -343,12 +343,16 @@ before copying. Copy into a temporary sibling, validate every relative path,
 size, and SHA-256, then rename it into place.
 
 Without `--replace`, an existing destination is an error. With `--replace`,
-first resolve both paths and validate that the existing destination contains
-only the managed package boundary. Refuse any unexpected entry rather than
-deleting it. Never accept `/`, a drive root, home, workspace root, repository
-root, or an ancestor of the source as destination.
+preserve the unresolved caller path and require complete path/size/SHA-256
+identity with the current canonical source. Atomically move the directory
+aside, revalidate that moved object, install the new tree, and restore the old
+tree if validation or installation fails. This closes the scan-to-delete race
+and refuses stale, partial, special, linked, or unexpected content. Never
+accept `/`, a drive root, home, workspace root, repository root, or an ancestor
+of the source as destination.
 
-`--check` is read-only and compares an existing destination with the source.
+`--check-source` is a read-only validation of the actual source projection and
+is part of the package gate. `--check` is read-only and compares an existing destination with the source.
 `--json` prints the sorted inventory to stdout. The inventory is not written
 inside staging.
 
@@ -389,6 +393,8 @@ git commit -m "feat: build reproducible Nori upload staging"
 ### Task 4: Package and CI entrypoint integration
 
 **Files:**
+- Create: `scripts/build_nori_archive.py`
+- Create: `tests/test-nori-archive.py`
 - Modify: `Makefile:1-11`
 - Modify: `tests/validate-package.sh:1-67`
 - Modify: `tests/test-ci-workflows.py`
@@ -407,6 +413,8 @@ invoke, in order:
 python3 tests/test-nori-package-contract.py
 python3 tests/test-content-discovery.py
 python3 tests/test-nori-staging.py
+python3 tests/test-nori-archive.py
+python3 scripts/build_nori_staging.py --source . --check-source
 python3 tests/validate-schema.py
 ```
 
@@ -439,7 +447,7 @@ stage: validate-local
 	python3 scripts/build_nori_staging.py --source . --destination "$(STAGING_DIR)" --replace
 
 package: stage
-	cd "$(STAGING_DIR)" && zip -r "$(abspath $(PACKAGE_ZIP))" .
+	python3 scripts/build_nori_archive.py --source . --staging "$(STAGING_DIR)" --output "$(abspath $(PACKAGE_ZIP))"
 ```
 
 Update `.PHONY` and `clean` without making `clean` delete an arbitrary
@@ -651,8 +659,9 @@ python3 scripts/build_nori_staging.py \
 ```
 
 Explain that staging is disposable, root `CLAUDE.md` is not a source artifact,
-`--replace` refuses unexpected content, and upload commands are not run by the
-builder.
+`--replace` requires exact current inventory and recoverable move-aside
+replacement, fresh archives cannot retain stale entries, and upload commands
+are not run by the builder.
 
 Update `docs.md` so `nori.json` is described as registry identity/search/
 dependency metadata, while skills, references, commands, and subagents are
@@ -705,6 +714,7 @@ git commit -m "docs: define the canonical Nori package boundary"
 python3 tests/test-nori-package-contract.py
 python3 tests/test-content-discovery.py
 python3 tests/test-nori-staging.py
+python3 tests/test-nori-archive.py
 python3 tests/test-live-nori-package-safety.py
 python3 tests/test-schema-validation.py
 python3 tests/test-architecture-docs.py
@@ -729,10 +739,11 @@ Expected final line: `package validation passed`.
 
 - [ ] **Step 3: Rebuild the named external staging directory**
 
-After resolving and confirming the exact target
-`C:\projects\ops-analyst-upload`, run the builder with `--replace`. If the
-existing directory contains any unexpected entry, stop and report it instead
-of deleting anything.
+After preserving and confirming the exact unresolved target
+`C:\projects\ops-analyst-upload`, run the builder with `--replace` only if its
+complete current inventory matches the canonical source. If it is stale,
+partial, linked, special, or unexpected, stop and report it instead of deleting
+anything.
 
 Then run `--check --json` and retain the sanitized inventory in the validation
 report, not inside staging.

@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -302,6 +303,8 @@ def _inventory_entry(root: Path, path: Path) -> InventoryEntry:
 
 
 def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
+    if _is_link_or_reparse(root):
+        return ["source root is a symlink or reparse point"], ()
     errors = [*validate_manifest(root), *validate_repository_inventory(root)]
     files: list[Path] = []
 
@@ -363,11 +366,31 @@ def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
     return errors, unique_files
 
 
+def validate_source(
+    source: Path,
+) -> tuple[list[str], tuple[InventoryEntry, ...]]:
+    """Validate and inventory the current source package without staging it."""
+    source = Path(os.path.abspath(source))
+    errors, source_files = _source_files(source)
+    if errors:
+        return errors, ()
+    return errors, tuple(_inventory_entry(source, path) for path in source_files)
+
+
 def validate_destination(source: Path, destination: Path) -> list[str]:
     """Reject destinations that could erase source, home, or a broad root."""
     errors: list[str] = []
     source_resolved = source.resolve()
-    destination_resolved = destination.resolve(strict=False)
+    destination_absolute = Path(os.path.abspath(destination))
+    if _is_link_or_reparse(destination_absolute):
+        errors.append("destination is a symlink or reparse point")
+    for ancestor in destination_absolute.parents:
+        if ancestor == Path(destination_absolute.anchor):
+            break
+        if ancestor.exists() and _is_link_or_reparse(ancestor):
+            errors.append("destination ancestor is a symlink or reparse point")
+            break
+    destination_resolved = destination_absolute.resolve(strict=False)
     home_resolved = Path.home().resolve()
     drive_root = Path(destination_resolved.anchor).resolve()
 
@@ -412,6 +435,8 @@ def _destination_paths(destination: Path) -> tuple[set[str], list[str]]:
                 errors.append(
                     f"symlink or reparse point is not allowed: {relative}"
                 )
+            elif not path.is_file():
+                errors.append(f"non-regular destination entry: {relative}")
             paths.add(relative)
     return paths, errors
 
@@ -436,6 +461,8 @@ def validate_staging(
     errors = validate_destination(source, destination)
     source_errors, source_files = _source_files(source)
     errors.extend(source_errors)
+    if _is_link_or_reparse(destination):
+        return errors, ()
     if not destination.is_dir():
         errors.append("staging destination does not exist")
         return errors, ()
@@ -474,8 +501,8 @@ def build_staging(
     source: Path, destination: Path, replace: bool = False
 ) -> tuple[InventoryEntry, ...]:
     """Atomically build a validated staging tree from the canonical allowlist."""
-    source = source.resolve()
-    destination = destination.resolve(strict=False)
+    source = Path(os.path.abspath(source))
+    destination = Path(os.path.abspath(destination))
     errors = validate_destination(source, destination)
     source_errors, source_files = _source_files(source)
     errors.extend(source_errors)
@@ -485,12 +512,7 @@ def build_staging(
     if destination.exists():
         if not replace:
             raise ValueError("destination already exists; use --replace")
-        actual_paths, destination_errors = _destination_paths(destination)
-        allowed_paths = _allowed_destination_paths(source, source_files)
-        for relative in sorted(actual_paths - allowed_paths):
-            destination_errors.append(
-                f"unexpected destination entry: {relative.rstrip('/')}"
-            )
+        destination_errors, _ = validate_staging(source, destination)
         if destination_errors:
             raise ValueError("\n".join(destination_errors))
 
@@ -512,8 +534,24 @@ def build_staging(
             raise ValueError("\n".join(staged_errors))
 
         if destination.exists():
-            shutil.rmtree(destination)
-        temporary.replace(destination)
+            backup = destination.with_name(
+                f".{destination.name}.backup-{uuid.uuid4().hex}"
+            )
+            destination.replace(backup)
+            try:
+                destination_errors, _ = validate_staging(source, backup)
+                if destination_errors:
+                    backup.replace(destination)
+                    raise ValueError("\n".join(destination_errors))
+                temporary.replace(destination)
+            except BaseException:
+                if backup.exists() and not destination.exists():
+                    backup.replace(destination)
+                raise
+            if backup.exists():
+                shutil.rmtree(backup)
+        else:
+            temporary.replace(destination)
         return inventory
     finally:
         if temporary.exists():

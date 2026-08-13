@@ -351,8 +351,11 @@ profile paths; selected `claude-code` explicitly; ran non-interactively; and
 performed no login, download, upload, or registry mutation.
 
 The observed result was `canonicalContent=true`, `managedBlockCount=1`,
-`skillsSectionCount=1`, and `unmanagedSentinel=true`. Cleanup also reported
-`passed`. The bare name accepted by `link --name` resolved to a temporary
+`skillsSectionCount=1`, `unmanagedSentinel=true`, all 25 packaged skills
+present among 26 installed skills, exact 12-subagent and 20-command identity,
+and no unexpected skill outside the declared dependency or Nori-owned helper
+boundary. Cleanup also reported `passed`. The bare name accepted by
+`link --name` resolved to a temporary
 `personal/` identity, as detected from the current CLI contract rather than a
 version pin. The sentinel was placed outside an existing empty Nori-managed
 block, which exercises the CLI's supported preservation boundary; a wholly

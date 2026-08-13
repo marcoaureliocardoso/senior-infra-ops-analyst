@@ -37,8 +37,11 @@ The upload staging root contains only `AGENTS.md`, `LICENSE`, `nori.json`,
 `skills.json`, `references/`, `skills/`, `slashcommands/`, and `subagents/`.
 The builder copies these sources into an atomic sibling temporary directory,
 computes a deterministic path/size/SHA-256 inventory, and then installs the
-completed tree. `--replace` refuses a destination containing unexpected
-entries. The staging directory is disposable output, never an editable source.
+completed tree. `--replace` requires the existing tree to match the complete
+current canonical inventory. It preserves the unresolved caller path, rejects
+linked or reparse ancestors, atomically moves the directory aside, revalidates
+the moved object, and restores it if content arrived during the scan/copy
+window. The staging directory is disposable output, never an editable source.
 
 ### Symlinks and reparse points
 
@@ -53,13 +56,18 @@ version. It uses temporary home, XDG, install, staging, and local profile paths;
 links with a bare local name; switches the resulting `personal/` identity for
 `claude-code`; and verifies exactly one managed instruction block, canonical
 content, one generated skills section, preserved unmanaged content, and
-cleanup. No operator profile or preference is selected or modified.
+cleanup. It also proves all 25 packaged skill identities, all 12 subagents, and
+all 20 slash commands, while allowing only declared skill dependencies and the
+runtime-owned `nori-info` helper beyond the packaged skill set. No operator
+profile or preference is selected or modified.
 
 ## Enforcement points
 
 - `scripts/nori_package.py` owns manifest validation, filesystem discovery,
   staging allowlisting, path safety, and deterministic inventories.
 - `scripts/build_nori_staging.py` exposes build and check-only operations.
+- `scripts/build_nori_archive.py` creates a fresh deterministic archive,
+  verifies every archived digest, and atomically installs the completed ZIP.
 - `tests/validate-schema.py` and `tests/validate-content.py` consume the shared
   contract rather than maintaining parallel inventories.
 - `make stage` validates first; `make package` archives only the staged tree.
@@ -96,8 +104,9 @@ successful cleanup with the runtime-detected CLI.
 
 New package assets must live under an allowlisted source root and satisfy its
 filesystem contract. Root build and documentation files remain outside upload
-staging. `--replace` is intentionally conservative, so an unknown destination
-must be inspected and cleared by an explicitly authorized workflow.
+staging. `--replace` is intentionally conservative: a stale or unknown
+destination is never deleted. Use another destination or explicitly preserve
+and remove the old tree outside the builder before regeneration.
 
 The live smoke proves local link/switch normalization, not registry acceptance
 or remote publication. Those remain separately authorized operations.
@@ -106,6 +115,6 @@ or remote publication. Those remain separately authorized operations.
 
 Revert the implementation commits and regenerate staging from the restored
 repository contract. Existing staging is disposable and can be replaced only
-after the builder confirms that every current entry belongs to its known
-allowlist. Do not restore root `CLAUDE.md` or manifest inventory arrays without
+after the builder confirms complete byte identity with the current canonical
+source. Do not restore root `CLAUDE.md` or manifest inventory arrays without
 a superseding ADR and corresponding regression changes.

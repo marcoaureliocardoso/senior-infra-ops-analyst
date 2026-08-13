@@ -11,18 +11,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.nori_package import build_staging, validate_staging  # noqa: E402
+from scripts.nori_package import (  # noqa: E402
+    build_staging,
+    validate_source,
+    validate_staging,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
-    parser.add_argument("--destination", required=True, type=Path)
+    parser.add_argument("--destination", type=Path)
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--check-source", action="store_true")
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
-    if args.check and args.replace:
+    if args.check_source:
+        if args.destination is not None or args.check or args.replace:
+            parser.error("--check-source cannot be combined with destination operations")
+    elif args.destination is None:
+        parser.error("--destination is required unless --check-source is used")
+    elif args.check and args.replace:
         parser.error("--check and --replace cannot be combined")
     return args
 
@@ -30,7 +40,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        if args.check:
+        if args.check_source:
+            errors, inventory = validate_source(args.source)
+            if errors:
+                raise ValueError("\n".join(errors))
+        elif args.check:
             errors, inventory = validate_staging(args.source, args.destination)
             if errors:
                 raise ValueError("\n".join(errors))

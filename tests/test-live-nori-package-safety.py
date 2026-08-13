@@ -97,6 +97,14 @@ class LiveNoriPackageSafetyTests(unittest.TestCase):
             "managedBlockCount",
             "canonicalContent",
             "unmanagedSentinel",
+            "sourceSkillCount",
+            "installedSkillCount",
+            "packagedSkillsComplete",
+            "unexpectedSkillsAbsent",
+            "subagentCount",
+            "subagentsExact",
+            "commandCount",
+            "commandsExact",
         ):
             self.assertIn(marker, self.script)
 

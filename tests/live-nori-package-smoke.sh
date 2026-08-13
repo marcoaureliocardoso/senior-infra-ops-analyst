@@ -157,6 +157,14 @@ case "${positionals[0]:-}" in
     source_path="$(readlink -f "$HOME/.nori/profiles/$profile_name")"
     destination="$install_dir/.claude/CLAUDE.md"
     mkdir -p "$(dirname "$destination")"
+    mkdir -p "$install_dir/.claude/skills" "$install_dir/.claude/agents" \
+      "$install_dir/.claude/commands"
+    cp -R "$source_path/skills/." "$install_dir/.claude/skills/"
+    mkdir -p "$install_dir/.claude/skills/read-the-damn-docs"
+    printf '%s\n' '---' 'description: Test dependency' '---' \
+      >"$install_dir/.claude/skills/read-the-damn-docs/SKILL.md"
+    cp "$source_path"/subagents/*.md "$install_dir/.claude/agents/"
+    cp "$source_path"/slashcommands/*.md "$install_dir/.claude/commands/"
     existing=''
     if [[ -f "$destination" ]]; then
       existing="$(sed '/# BEGIN NORI-AI MANAGED BLOCK/,/# END NORI-AI MANAGED BLOCK/d' "$destination")"
@@ -252,14 +260,16 @@ if ((${#installed_files[@]} != 1)); then
 fi
 
 verification="$("$PYTHON_BIN" - \
-  "$STAGING/AGENTS.md" "${installed_files[0]}" <<'PY'
+  "$STAGING" "${installed_files[0]}" "$INSTALL_ROOT" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-source = Path(sys.argv[1]).read_text(encoding="utf-8").replace("\r\n", "\n")
+staging = Path(sys.argv[1])
+source = (staging / "AGENTS.md").read_text(encoding="utf-8").replace("\r\n", "\n")
 installed = Path(sys.argv[2]).read_text(encoding="utf-8").replace("\r\n", "\n")
+install_root = Path(sys.argv[3]) / ".claude"
 pattern = re.compile(
     r"# BEGIN NORI-AI MANAGED BLOCK\n([\s\S]*?)\n"
     r"# END NORI-AI MANAGED BLOCK\n?"
@@ -267,11 +277,36 @@ pattern = re.compile(
 matches = list(pattern.finditer(installed))
 managed = matches[0].group(1) if len(matches) == 1 else ""
 outside = pattern.sub("", installed)
+source_skills = sorted(
+    path.name for path in (staging / "skills").iterdir()
+    if path.is_dir() and (path / "SKILL.md").is_file()
+)
+manifest = json.loads((staging / "nori.json").read_text(encoding="utf-8"))
+dependency_skills = sorted(manifest["dependencies"]["skills"])
+installed_skills = sorted(
+    path.name for path in (install_root / "skills").iterdir()
+    if path.is_dir() and (path / "SKILL.md").is_file()
+)
+source_subagents = sorted(path.stem for path in (staging / "subagents").glob("*.md"))
+installed_subagents = sorted(path.stem for path in (install_root / "agents").glob("*.md"))
+source_commands = sorted(path.stem for path in (staging / "slashcommands").glob("*.md"))
+installed_commands = sorted(path.stem for path in (install_root / "commands").glob("*.md"))
 evidence = {
     "managedBlockCount": len(matches),
     "canonicalContent": managed.startswith(source),
     "skillsSectionCount": managed.count("# Nori Skills System"),
     "unmanagedSentinel": "operator-content-sentinel" in outside,
+    "sourceSkillCount": len(source_skills),
+    "installedSkillCount": len(installed_skills),
+    "packagedSkillsComplete": set(source_skills).issubset(installed_skills),
+    "unexpectedSkillsAbsent": not (
+        set(installed_skills) - set(source_skills)
+        - set(dependency_skills) - {"nori-info"}
+    ),
+    "subagentCount": len(installed_subagents),
+    "subagentsExact": installed_subagents == source_subagents,
+    "commandCount": len(installed_commands),
+    "commandsExact": installed_commands == source_commands,
 }
 print(json.dumps(evidence, separators=(",", ":"), sort_keys=True))
 if evidence != {
@@ -279,6 +314,14 @@ if evidence != {
     "canonicalContent": True,
     "skillsSectionCount": 1,
     "unmanagedSentinel": True,
+    "sourceSkillCount": 25,
+    "installedSkillCount": 26,
+    "packagedSkillsComplete": True,
+    "unexpectedSkillsAbsent": True,
+    "subagentCount": 12,
+    "subagentsExact": True,
+    "commandCount": 20,
+    "commandsExact": True,
 }:
     raise SystemExit(1)
 PY

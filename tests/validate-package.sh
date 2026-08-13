@@ -12,6 +12,8 @@ python3 -m json.tool nori.json >/dev/null
 python3 tests/test-nori-package-contract.py
 python3 tests/test-content-discovery.py
 python3 tests/test-nori-staging.py
+python3 tests/test-nori-archive.py
+python3 scripts/build_nori_staging.py --source . --check-source
 python3 tests/validate-content.py
 python3 tests/test-release-history.py
 python3 tests/test-risk-taxonomy.py

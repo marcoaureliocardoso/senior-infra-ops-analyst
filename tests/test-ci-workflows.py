@@ -554,6 +554,8 @@ class WorkflowToolchainTests(unittest.TestCase):
             "python3 tests/test-nori-package-contract.py",
             "python3 tests/test-content-discovery.py",
             "python3 tests/test-nori-staging.py",
+            "python3 tests/test-nori-archive.py",
+            "python3 scripts/build_nori_staging.py --source . --check-source",
             "python3 tests/validate-schema.py",
         )
         positions = []
@@ -569,8 +571,9 @@ class WorkflowToolchainTests(unittest.TestCase):
         self.assertIn("stage: validate-local", source)
         self.assertIn("scripts/build_nori_staging.py", source)
         self.assertIn("package: stage", source)
-        self.assertIn('cd "$(STAGING_DIR)" && zip -r', source)
-        self.assertNotIn("zip -r senior-infra-ops-analyst-skillset", source)
+        self.assertIn("scripts/build_nori_archive.py", source)
+        self.assertIn('--staging "$(STAGING_DIR)"', source)
+        self.assertNotIn("zip -r", source)
 
 
 if __name__ == "__main__":

@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILDER = ROOT / "scripts" / "build_nori_staging.py"
 ROOT_FILES = {"AGENTS.md", "LICENSE", "nori.json", "skills.json"}
 ROOT_DIRS = {"references", "skills", "slashcommands", "subagents"}
+sys.path.insert(0, str(ROOT))
+
+from scripts.nori_package import build_staging, validate_staging  # noqa: E402
 
 
 class NoriStagingTests(unittest.TestCase):
@@ -58,6 +63,21 @@ class NoriStagingTests(unittest.TestCase):
         result = self.run_builder(*extra)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result
+
+    def run_source_check(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(BUILDER),
+                "--source",
+                str(self.source),
+                "--check-source",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     @staticmethod
     def file_hash(path: Path) -> str:
@@ -132,6 +152,17 @@ class NoriStagingTests(unittest.TestCase):
         self.assertIn("unexpected destination entry", result.stderr)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve me\n")
 
+    def test_replace_refuses_allowed_names_with_unrecognized_bytes(self) -> None:
+        self.destination.mkdir()
+        sentinel = self.destination / "AGENTS.md"
+        sentinel.write_text("operator instructions\n", encoding="utf-8")
+        result = self.run_builder("--replace")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("content differs from source: AGENTS.md", result.stderr)
+        self.assertEqual(
+            sentinel.read_text(encoding="utf-8"), "operator instructions\n"
+        )
+
     def test_replace_accepts_only_a_previous_managed_staging_tree(self) -> None:
         self.build()
         old_hash = self.file_hash(self.destination / "AGENTS.md")
@@ -147,6 +178,81 @@ class NoriStagingTests(unittest.TestCase):
                 self.assertIn("unsafe staging destination", result.stderr)
                 self.assertTrue((self.source / "AGENTS.md").is_file())
 
+    def test_destination_symlink_is_rejected_without_touching_target(self) -> None:
+        operator_target = self.temp_root / "operator-target"
+        operator_target.mkdir()
+        sentinel = operator_target / "AGENTS.md"
+        sentinel.write_text("operator instructions\n", encoding="utf-8")
+        try:
+            self.destination.symlink_to(operator_target, target_is_directory=True)
+        except OSError:
+            self.skipTest("directory symlink creation is unavailable")
+        result = self.run_builder("--replace")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("destination is a symlink or reparse point", result.stderr)
+        self.assertTrue(self.destination.is_symlink())
+        self.assertEqual(
+            sentinel.read_text(encoding="utf-8"), "operator instructions\n"
+        )
+
+    def test_source_root_symlink_is_rejected(self) -> None:
+        linked_source = self.temp_root / "linked-source"
+        try:
+            linked_source.symlink_to(self.source, target_is_directory=True)
+        except OSError:
+            self.skipTest("directory symlink creation is unavailable")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(BUILDER),
+                "--source",
+                str(linked_source),
+                "--destination",
+                str(self.destination),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source root is a symlink or reparse point", result.stderr)
+        self.assertFalse(self.destination.exists())
+
+    def test_replace_restores_destination_when_content_arrives_during_copy(self) -> None:
+        self.build()
+        sentinel = self.destination / "operator-late-file.txt"
+        original_copy = shutil.copyfile
+        injected = False
+
+        def copy_and_inject(*args: object, **kwargs: object) -> object:
+            nonlocal injected
+            result = original_copy(*args, **kwargs)
+            if not injected:
+                sentinel.write_text("preserve me\n", encoding="utf-8")
+                injected = True
+            return result
+
+        with mock.patch(
+            "scripts.nori_package.shutil.copyfile", side_effect=copy_and_inject
+        ):
+            with self.assertRaisesRegex(ValueError, "unexpected destination entry"):
+                build_staging(self.source, self.destination, replace=True)
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve me\n")
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO creation is unavailable")
+    def test_check_rejects_special_destination_file(self) -> None:
+        self.build()
+        agents = self.destination / "AGENTS.md"
+        agents.unlink()
+        try:
+            os.mkfifo(agents)
+        except OSError:
+            self.skipTest("FIFO creation is unavailable")
+        errors, inventory = validate_staging(self.source, self.destination)
+        self.assertIn("non-regular destination entry: AGENTS.md", errors)
+        self.assertEqual(len(inventory), 198)
+
     def test_symlink_inside_allowed_tree_is_rejected(self) -> None:
         outside = self.temp_root / "outside.txt"
         outside.write_text("not packaged\n", encoding="utf-8")
@@ -159,6 +265,10 @@ class NoriStagingTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("symlink or reparse point", result.stderr)
         self.assertNotIn("not packaged", result.stdout + result.stderr)
+
+        source_result = self.run_source_check()
+        self.assertNotEqual(source_result.returncode, 0)
+        self.assertIn("symlink or reparse point", source_result.stderr)
 
 if __name__ == "__main__":
     unittest.main()

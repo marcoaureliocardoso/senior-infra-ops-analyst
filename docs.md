@@ -238,7 +238,10 @@ Create or verify disposable upload staging with
 `scripts/build_nori_staging.py --source . --destination /absolute/path/to/staging`
 and its `--check` mode. The builder uses a strict allowlist, refuses symlinks,
 reparse points, sensitive paths, and unsafe replacement targets, and performs
-no login or upload.
+no login or upload. Replacement requires a complete byte-identical current
+staging inventory and uses move-aside/revalidate/restore semantics to close the
+scan-to-delete race. Packaging creates a fresh verified ZIP rather than
+updating an existing archive.
 
 ### Architecture decisions
 
