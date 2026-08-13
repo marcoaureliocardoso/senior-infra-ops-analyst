@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -84,17 +84,15 @@ export async function collectStaticInventory(root) {
   const resolved = path.resolve(root);
   const rootInfo = await lstat(resolved);
   if (!rootInfo.isDirectory()) throw new Error('inventory root must be a directory');
-  const manifestText = await safeText(path.join(resolved, 'nori.json'), 'manifest');
-  const manifest = parseStrictObject(manifestText, 'nori.json');
-  if (!Array.isArray(manifest.skills) || !Array.isArray(manifest.subagents)) {
-    throw new Error('manifest registrations missing');
-  }
 
   const rootText = await safeText(path.join(resolved, 'AGENTS.md'), 'root instructions');
   const skillItems = [];
   const skillBodies = new Map();
-  for (const rawId of manifest.skills) {
-    const id = boundedPackageId(rawId, 'skill');
+  const skillEntries = await readdir(path.join(resolved, 'skills'), { withFileTypes: true });
+  for (const entry of skillEntries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (entry.isSymbolicLink()) throw new Error('linked skill entry is not allowed');
+    if (!entry.isDirectory()) continue;
+    const id = boundedPackageId(entry.name, 'skill');
     const text = await safeText(path.join(resolved, 'skills', id, 'SKILL.md'), `skill ${id}`);
     const bodyBytes = bytes(text);
     const descriptionBytes = bytes(frontmatterDescription(text));
@@ -103,8 +101,11 @@ export async function collectStaticInventory(root) {
   }
 
   const subagentItems = [];
-  for (const registration of manifest.subagents) {
-    const id = boundedPackageId(registration?.id, 'subagent');
+  const subagentEntries = await readdir(path.join(resolved, 'subagents'), { withFileTypes: true });
+  for (const entry of subagentEntries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (entry.isSymbolicLink()) throw new Error('linked subagent entry is not allowed');
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    const id = boundedPackageId(entry.name.slice(0, -3), 'subagent');
     const text = await safeText(path.join(resolved, 'subagents', `${id}.md`), `subagent ${id}`);
     const preloadBytes = frontmatterSkills(text).reduce((total, skillId) => {
       if (!skillBodies.has(skillId)) throw new Error(`unregistered preloaded skill: ${skillId}`);
@@ -113,8 +114,6 @@ export async function collectStaticInventory(root) {
     subagentItems.push(Object.freeze({ id, definitionBytes: bytes(text), preloadBytes }));
   }
 
-  const packageServerCount = manifest.mcpServers && typeof manifest.mcpServers === 'object' && !Array.isArray(manifest.mcpServers)
-    ? Object.keys(manifest.mcpServers).length : 0;
   return Object.freeze({
     schemaVersion: 1,
     rootInstructions: Object.freeze({ bytes: bytes(rootText), lines: rootText.split(/\r?\n/u).length }),
@@ -129,7 +128,7 @@ export async function collectStaticInventory(root) {
       totalDefinitionBytes: subagentItems.reduce((total, item) => total + item.definitionBytes, 0),
       items: Object.freeze(subagentItems),
     }),
-    mcp: Object.freeze({ packageServerCount }),
+    mcp: Object.freeze({ packageServerCount: 0 }),
   });
 }
 
