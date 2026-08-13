@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import re
+import shutil
+import tempfile
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +28,35 @@ CANONICAL_MANIFEST_FIELDS = frozenset(
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 PACKAGE_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 REQUIRED_SKILL_DEPENDENCIES = {"read-the-damn-docs": "latest"}
+STAGING_ROOT_FILES = ("AGENTS.md", "LICENSE", "nori.json", "skills.json")
+STAGING_ROOT_DIRS = ("references", "skills", "slashcommands", "subagents")
+REPARSE_POINT_FLAG = 0x400
+SENSITIVE_SUFFIXES = (
+    ".pem",
+    ".key",
+    ".crt",
+    ".p12",
+    ".pfx",
+    ".kubeconfig",
+    ".token",
+    ".ovpn",
+    ".pgpass",
+)
+SENSITIVE_NAMES = frozenset(
+    {".env", ".netrc", ".my.cnf", "credentials", "credentials.json"}
+)
+
+
+@dataclass(frozen=True, order=True)
+class InventoryEntry:
+    """One deterministic staged-file inventory record."""
+
+    path: str
+    size: int
+    sha256: str
+
+    def to_dict(self) -> dict[str, str | int]:
+        return asdict(self)
 
 
 def load_json(path: Path) -> object:
@@ -229,3 +263,258 @@ def validate_repository_inventory(root: Path) -> list[str]:
         errors.append("no packaged subagents discovered")
 
     return errors
+
+
+def _is_link_or_reparse(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    try:
+        attributes = getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & REPARSE_POINT_FLAG)
+
+
+def _is_sensitive_path(relative: Path) -> bool:
+    for part in relative.parts:
+        lowered = part.lower()
+        if lowered in SENSITIVE_NAMES or lowered.startswith(".env."):
+            return True
+        if lowered.endswith(SENSITIVE_SUFFIXES):
+            return True
+        if "service-account" in lowered:
+            return True
+    return False
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _inventory_entry(root: Path, path: Path) -> InventoryEntry:
+    relative = path.relative_to(root).as_posix()
+    stat_result = path.stat(follow_symlinks=False)
+    return InventoryEntry(relative, stat_result.st_size, _sha256(path))
+
+
+def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
+    errors = [*validate_manifest(root), *validate_repository_inventory(root)]
+    files: list[Path] = []
+
+    for name in STAGING_ROOT_FILES:
+        path = root / name
+        if not path.is_file():
+            errors.append(f"required staging file is missing: {name}")
+        elif _is_link_or_reparse(path):
+            errors.append(f"symlink or reparse point is not allowed: {name}")
+        else:
+            files.append(path)
+
+    for name in STAGING_ROOT_DIRS:
+        directory = root / name
+        if not directory.is_dir():
+            errors.append(f"required staging directory is missing: {name}")
+            continue
+        if _is_link_or_reparse(directory):
+            errors.append(f"symlink or reparse point is not allowed: {name}")
+            continue
+        for current, directories, filenames in os.walk(
+            directory, topdown=True, followlinks=False
+        ):
+            current_path = Path(current)
+            for child_name in list(directories):
+                child = current_path / child_name
+                relative = child.relative_to(root)
+                if _is_link_or_reparse(child):
+                    errors.append(
+                        "symlink or reparse point is not allowed: "
+                        f"{relative.as_posix()}"
+                    )
+                    directories.remove(child_name)
+                elif _is_sensitive_path(relative):
+                    errors.append(
+                        f"sensitive path is not allowed: {relative.as_posix()}"
+                    )
+                    directories.remove(child_name)
+            for filename in filenames:
+                path = current_path / filename
+                relative = path.relative_to(root)
+                if _is_link_or_reparse(path):
+                    errors.append(
+                        "symlink or reparse point is not allowed: "
+                        f"{relative.as_posix()}"
+                    )
+                elif _is_sensitive_path(relative):
+                    errors.append(
+                        f"sensitive path is not allowed: {relative.as_posix()}"
+                    )
+                elif not path.is_file():
+                    errors.append(
+                        f"non-regular package entry is not allowed: {relative.as_posix()}"
+                    )
+                else:
+                    files.append(path)
+
+    unique_files = tuple(sorted(set(files), key=lambda path: path.relative_to(root).as_posix()))
+    return errors, unique_files
+
+
+def validate_destination(source: Path, destination: Path) -> list[str]:
+    """Reject destinations that could erase source, home, or a broad root."""
+    errors: list[str] = []
+    source_resolved = source.resolve()
+    destination_resolved = destination.resolve(strict=False)
+    home_resolved = Path.home().resolve()
+    drive_root = Path(destination_resolved.anchor).resolve()
+
+    overlaps_source = (
+        destination_resolved == source_resolved
+        or destination_resolved in source_resolved.parents
+        or source_resolved in destination_resolved.parents
+    )
+    if overlaps_source:
+        errors.append("unsafe staging destination overlaps the source")
+    if destination_resolved in {home_resolved, drive_root}:
+        errors.append("unsafe staging destination is a protected root")
+    if destination_resolved.name in {"", ".", ".."}:
+        errors.append("unsafe staging destination is not a named directory")
+    return errors
+
+
+def _destination_paths(destination: Path) -> tuple[set[str], list[str]]:
+    paths: set[str] = set()
+    errors: list[str] = []
+    if not destination.exists():
+        return paths, errors
+    if not destination.is_dir() or _is_link_or_reparse(destination):
+        return paths, ["destination is not a regular directory"]
+    for current, directories, filenames in os.walk(
+        destination, topdown=True, followlinks=False
+    ):
+        current_path = Path(current)
+        for child_name in list(directories):
+            child = current_path / child_name
+            relative = child.relative_to(destination).as_posix()
+            if _is_link_or_reparse(child):
+                errors.append(
+                    f"symlink or reparse point is not allowed: {relative}"
+                )
+                directories.remove(child_name)
+            paths.add(relative + "/")
+        for filename in filenames:
+            path = current_path / filename
+            relative = path.relative_to(destination).as_posix()
+            if _is_link_or_reparse(path):
+                errors.append(
+                    f"symlink or reparse point is not allowed: {relative}"
+                )
+            paths.add(relative)
+    return paths, errors
+
+
+def _allowed_destination_paths(source: Path, source_files: tuple[Path, ...]) -> set[str]:
+    allowed = set(STAGING_ROOT_DIRS)
+    allowed.update(name + "/" for name in STAGING_ROOT_DIRS)
+    allowed.update(STAGING_ROOT_FILES)
+    for path in source_files:
+        relative = path.relative_to(source)
+        for parent in relative.parents:
+            if parent != Path("."):
+                allowed.add(parent.as_posix() + "/")
+        allowed.add(relative.as_posix())
+    return allowed
+
+
+def validate_staging(
+    source: Path, destination: Path
+) -> tuple[list[str], tuple[InventoryEntry, ...]]:
+    """Compare an existing staging tree with its canonical source."""
+    errors = validate_destination(source, destination)
+    source_errors, source_files = _source_files(source)
+    errors.extend(source_errors)
+    if not destination.is_dir():
+        errors.append("staging destination does not exist")
+        return errors, ()
+
+    actual_paths, destination_errors = _destination_paths(destination)
+    errors.extend(destination_errors)
+    allowed_paths = _allowed_destination_paths(source, source_files)
+    for relative in sorted(actual_paths - allowed_paths):
+        errors.append(f"unexpected destination entry: {relative.rstrip('/')}")
+
+    inventory: list[InventoryEntry] = []
+    expected_relative = {
+        path.relative_to(source).as_posix(): path for path in source_files
+    }
+    actual_files = {
+        value for value in actual_paths if not value.endswith("/")
+    }
+    for relative in sorted(set(expected_relative) - actual_files):
+        errors.append(f"staging file is missing: {relative}")
+    for relative, source_path in sorted(expected_relative.items()):
+        staged_path = destination / relative
+        if not staged_path.is_file() or _is_link_or_reparse(staged_path):
+            continue
+        staged_entry = _inventory_entry(destination, staged_path)
+        inventory.append(staged_entry)
+        source_entry = _inventory_entry(source, source_path)
+        if (
+            staged_entry.size != source_entry.size
+            or staged_entry.sha256 != source_entry.sha256
+        ):
+            errors.append(f"content differs from source: {relative}")
+    return errors, tuple(inventory)
+
+
+def build_staging(
+    source: Path, destination: Path, replace: bool = False
+) -> tuple[InventoryEntry, ...]:
+    """Atomically build a validated staging tree from the canonical allowlist."""
+    source = source.resolve()
+    destination = destination.resolve(strict=False)
+    errors = validate_destination(source, destination)
+    source_errors, source_files = _source_files(source)
+    errors.extend(source_errors)
+    if errors:
+        raise ValueError("\n".join(errors))
+
+    if destination.exists():
+        if not replace:
+            raise ValueError("destination already exists; use --replace")
+        actual_paths, destination_errors = _destination_paths(destination)
+        allowed_paths = _allowed_destination_paths(source, source_files)
+        for relative in sorted(actual_paths - allowed_paths):
+            destination_errors.append(
+                f"unexpected destination entry: {relative.rstrip('/')}"
+            )
+        if destination_errors:
+            raise ValueError("\n".join(destination_errors))
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(
+        tempfile.mkdtemp(
+            prefix=f".{destination.name}.tmp-", dir=str(destination.parent)
+        )
+    )
+    try:
+        for source_path in source_files:
+            relative = source_path.relative_to(source)
+            staged_path = temporary / relative
+            staged_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_path, staged_path, follow_symlinks=False)
+
+        staged_errors, inventory = validate_staging(source, temporary)
+        if staged_errors:
+            raise ValueError("\n".join(staged_errors))
+
+        if destination.exists():
+            shutil.rmtree(destination)
+        temporary.replace(destination)
+        return inventory
+    finally:
+        if temporary.exists():
+            shutil.rmtree(temporary)
