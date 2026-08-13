@@ -703,6 +703,7 @@ def markdown_heading_inventory(text):
                         'level': len(heading.group(1)),
                         'content': (heading.group(2) or '').strip(),
                         'position': offset,
+                        'raw': line,
                     })
                 meaningful_content = first_meaningful_changelog_content(line)
                 if version_bearing_pattern.match(meaningful_content):
@@ -727,8 +728,17 @@ def taxonomy_headings(name):
         if (
             heading['level'] == 2
             and heading['content'] == name
+            and heading['raw'] == f'## {name}'
         )
     ]
+
+canonical_taxonomy_lines = {
+    '## Unreleased package states',
+    '## Tagged versions',
+}
+for heading in heading_inventory:
+    if heading['level'] == 2 and heading['raw'] not in canonical_taxonomy_lines:
+        err(f'unexpected changelog taxonomy heading: {heading["raw"]}')
 
 unreleased_taxonomies = taxonomy_headings('Unreleased package states')
 tagged_taxonomies = taxonomy_headings('Tagged versions')
@@ -742,9 +752,30 @@ if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
     tagged_taxonomy = tagged_taxonomies[0]
     if unreleased_taxonomy['position'] < tagged_taxonomy['position']:
+        root_h2_positions = sorted(
+            heading['position']
+            for heading in heading_inventory
+            if heading['level'] == 2
+        )
+        def next_root_h2_position(position):
+            return next(
+                (
+                    candidate for candidate in root_h2_positions
+                    if candidate > position
+                ),
+                len(changelog_text),
+            )
         taxonomy_ranges = [
-            ('unpublished', unreleased_taxonomy['position'], tagged_taxonomy['position']),
-            ('tagged', tagged_taxonomy['position'], len(changelog_text)),
+            (
+                'unpublished',
+                unreleased_taxonomy['position'],
+                next_root_h2_position(unreleased_taxonomy['position']),
+            ),
+            (
+                'tagged',
+                tagged_taxonomy['position'],
+                next_root_h2_position(tagged_taxonomy['position']),
+            ),
         ]
 
 parsed_unpublished = []
@@ -757,6 +788,23 @@ consumed_ledger_entries = {
 expected_ledger_entries = {
     'unpublished': set(unpublished_ledger),
     'tagged': set(tagged_ledger),
+}
+canonical_ledger_lines = {
+    'unpublished': {
+        entry: (
+            f'### {entry[0]} (unreleased) - declared {entry[1]}'
+            + (
+                f'; updated through {entry[2]}'
+                if entry[2] is not None
+                else ''
+            )
+        )
+        for entry in unpublished_ledger
+    },
+    'tagged': {
+        entry: f'### {entry[0]} - {entry[1]}'
+        for entry in tagged_ledger
+    },
 }
 if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
     unreleased_taxonomy = unreleased_taxonomies[0]
@@ -789,7 +837,6 @@ for heading in heading_inventory:
         )
         if parsed:
             ledger_entry = parsed.groups()
-            parsed_unpublished.append(ledger_entry)
         else:
             err(f'noncanonical version heading: {heading["content"]}')
             continue
@@ -801,10 +848,15 @@ for heading in heading_inventory:
         )
         if parsed:
             ledger_entry = parsed.groups()
-            parsed_tagged.append(ledger_entry)
         else:
             err(f'noncanonical version heading: {heading["content"]}')
             continue
+    if heading['raw'] != canonical_ledger_lines[taxonomy].get(ledger_entry):
+        continue
+    if taxonomy == 'unpublished':
+        parsed_unpublished.append(ledger_entry)
+    else:
+        parsed_tagged.append(ledger_entry)
     if (
         heading['level'] == 3
         and ledger_entry in expected_ledger_entries[taxonomy]

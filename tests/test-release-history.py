@@ -119,7 +119,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("tagged-ledger drift", result.stdout)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
 
     def test_missing_021_tagged_heading_is_rejected(self) -> None:
         self.replace_changelog("### 0.2.1 - 2026-07-08", "")
@@ -135,6 +135,35 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("tagged-ledger drift", result.stdout)
 
+    def test_normalized_version_heading_spelling_is_rejected(self) -> None:
+        canonical = "### 0.10.0 - 2026-07-27"
+        mutations = (
+            "###  0.10.0 - 2026-07-27",
+            "###\t0.10.0 - 2026-07-27",
+            "### 0.10.0 - 2026-07-27 ",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self.replace_changelog(canonical, mutation)
+                result = self.run_validator()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(VERSION_LINE_ERROR, result.stdout)
+
+    def test_normalized_taxonomy_spelling_is_rejected(self) -> None:
+        self.replace_changelog(TAGGED_HEADING, "##  Tagged versions")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("tagged-ledger drift", result.stdout)
+
+    def test_required_version_moved_under_unexpected_h2_is_rejected(self) -> None:
+        self.replace_changelog(
+            "### 0.3.4 - 2026-07-08",
+            "## Appendix\n\n### 0.3.4 - 2026-07-08",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected changelog taxonomy heading", result.stdout)
+
     def test_manifest_version_must_match_first_unpublished_state(self) -> None:
         self.assertIn('"version": "0.12.0"', self.original_manifest)
         self.manifest.write_text(
@@ -149,10 +178,10 @@ class ReleaseHistoryTests(unittest.TestCase):
 
     def test_tagged_versions_must_be_strict_reverse_semver_order(self) -> None:
         swapped = self.original_changelog.replace(
-            "### 0.10.0 - 2026-07-27", "### TEMP - 2026-07-27", 1
+            "### 0.10.0 - 2026-07-27", "### TEMP", 1
         ).replace(
-            "### 0.7.0 - 2026-07-20", "### 0.10.0 - 2026-07-20", 1
-        ).replace("### TEMP - 2026-07-27", "### 0.7.0 - 2026-07-27", 1)
+            "### 0.7.0 - 2026-07-20", "### 0.10.0 - 2026-07-27", 1
+        ).replace("### TEMP", "### 0.7.0 - 2026-07-20", 1)
         self.changelog.write_text(swapped, encoding="utf-8")
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
