@@ -11,8 +11,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENT_REL = Path("subagents/diagnostic-operator.md")
-CHANGE_MANAGER_REL = Path("subagents/change-manager.md")
+AGENT_REL = Path("subagents/diagnostic-operator/SUBAGENT.md")
+CHANGE_MANAGER_REL = Path("subagents/change-manager/SUBAGENT.md")
 RUNTIME_PRECEDENCE_HEADING = "## Runtime control precedence"
 
 

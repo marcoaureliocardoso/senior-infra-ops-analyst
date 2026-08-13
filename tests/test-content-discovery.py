@@ -49,7 +49,7 @@ class ContentDiscoveryTests(unittest.TestCase):
 
     def test_unknown_preloaded_skill_is_rejected_from_filesystem_catalog(self) -> None:
         self.replace_once(
-            "subagents/diagnostic-operator.md",
+            "subagents/diagnostic-operator/SUBAGENT.md",
             "  - command-driven-operations",
             "  - absent-skill",
         )
@@ -82,7 +82,12 @@ class ContentDiscoveryTests(unittest.TestCase):
         )
 
     def test_deleted_subagent_is_rejected_by_command_routing(self) -> None:
-        (self.sandbox / "subagents" / "diagnostic-operator.md").unlink()
+        (
+            self.sandbox
+            / "subagents"
+            / "diagnostic-operator"
+            / "SUBAGENT.md"
+        ).unlink()
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
@@ -91,7 +96,7 @@ class ContentDiscoveryTests(unittest.TestCase):
 
     def test_duplicate_subagent_frontmatter_name_is_rejected(self) -> None:
         self.replace_once(
-            "subagents/change-manager.md",
+            "subagents/change-manager/SUBAGENT.md",
             "name: change-manager",
             "name: diagnostic-operator",
         )

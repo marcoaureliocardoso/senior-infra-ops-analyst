@@ -97,6 +97,23 @@ class NoriStagingTests(unittest.TestCase):
             self.assertTrue(source.is_file(), relative.as_posix())
             self.assertEqual(self.file_hash(staged), self.file_hash(source))
 
+    def test_build_contains_all_first_class_subagent_packages(self) -> None:
+        self.build()
+        subagents = self.destination / "subagents"
+        directories = sorted(path for path in subagents.iterdir() if path.is_dir())
+        self.assertEqual(len(directories), 12)
+        self.assertEqual(list(subagents.glob("*.md")), [])
+        for directory in directories:
+            with self.subTest(subagent=directory.name):
+                self.assertTrue((directory / "SUBAGENT.md").is_file())
+                manifest = json.loads(
+                    (directory / "nori.json").read_text(encoding="utf-8")
+                )
+                self.assertEqual(set(manifest), {"name", "version", "type", "description"})
+                self.assertEqual(manifest["name"], directory.name)
+                self.assertEqual(manifest["version"], "1.0.0")
+                self.assertEqual(manifest["type"], "subagent")
+
     def test_json_inventory_is_sorted_and_does_not_enter_staging(self) -> None:
         result = self.build("--json")
         inventory = json.loads(result.stdout)
@@ -243,6 +260,9 @@ class NoriStagingTests(unittest.TestCase):
     @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO creation is unavailable")
     def test_check_rejects_special_destination_file(self) -> None:
         self.build()
+        expected_regular_files = sum(
+            1 for path in self.destination.rglob("*") if path.is_file()
+        ) - 1
         agents = self.destination / "AGENTS.md"
         agents.unlink()
         try:
@@ -251,7 +271,7 @@ class NoriStagingTests(unittest.TestCase):
             self.skipTest("FIFO creation is unavailable")
         errors, inventory = validate_staging(self.source, self.destination)
         self.assertIn("non-regular destination entry: AGENTS.md", errors)
-        self.assertEqual(len(inventory), 198)
+        self.assertEqual(len(inventory), expected_regular_files)
 
     def test_symlink_inside_allowed_tree_is_rejected(self) -> None:
         outside = self.temp_root / "outside.txt"

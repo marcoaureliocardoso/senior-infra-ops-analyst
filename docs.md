@@ -107,7 +107,10 @@ senior-infra-ops-analyst/
 │       ├── nori.json          # Per-skill metadata
 │       ├── examples/          # Realistic evidence examples
 │       └── templates/         # Reusable artifacts
-├── subagents/                 # 12 role-focused subagents with primary-skill preload
+├── subagents/                 # 12 first-class role-focused subagent packages
+│   └── <subagent>/
+│       ├── SUBAGENT.md        # Canonical Claude Code definition
+│       └── nori.json          # Independent Nori component metadata
 ├── slashcommands/             # 20 operator slash commands
 ├── references/                # 33 domain reference documents
 └── tests/                     # Validators and CI scripts
@@ -226,6 +229,7 @@ Assign exactly one risk tier based on the highest plausible impact, then add all
 ### Integration
 
 This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`.
+The repository stores each subagent as `subagents/<name>/SUBAGENT.md` plus an independently versioned `nori.json` of type `subagent`; Nori installs the definition as the flat Claude Code file `~/.claude/agents/<name>.md`.
 Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
 
 Root `nori.json` contains registry identity, search keywords, and dependency

@@ -14,8 +14,8 @@ from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "tests" / "command_guard_install_policy.py"
-EXECUTOR = ROOT / "subagents" / "diagnostic-operator.md"
-ANALYST = ROOT / "subagents" / "change-manager.md"
+EXECUTOR = ROOT / "subagents" / "diagnostic-operator" / "SUBAGENT.md"
+ANALYST = ROOT / "subagents" / "change-manager" / "SUBAGENT.md"
 
 
 def load_policy() -> ModuleType:
@@ -127,7 +127,12 @@ class CommandGuardInstallPolicyTests(unittest.TestCase):
                     ".git", ".worktrees", ".tmp", "__pycache__"
                 ),
             )
-            agent = sandbox / "subagents" / "diagnostic-operator.md"
+            agent = (
+                sandbox
+                / "subagents"
+                / "diagnostic-operator"
+                / "SUBAGENT.md"
+            )
             agent.write_text(
                 self.policy.remove_command_guard_hook(
                     agent.read_text(encoding="utf-8")

@@ -29,6 +29,9 @@ CANONICAL_MANIFEST_FIELDS = frozenset(
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 PACKAGE_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 REQUIRED_SKILL_DEPENDENCIES = {"read-the-damn-docs": "latest"}
+SUBAGENT_MANIFEST_FIELDS = frozenset(
+    {"name", "version", "type", "description"}
+)
 STAGING_ROOT_FILES = ("AGENTS.md", "LICENSE", "nori.json", "skills.json")
 STAGING_ROOT_DIRS = ("references", "skills", "slashcommands", "subagents")
 REPARSE_POINT_FLAG = 0x400
@@ -95,13 +98,40 @@ def discover_reference_paths(root: Path) -> tuple[str, ...]:
 
 
 def discover_subagent_ids(root: Path) -> tuple[str, ...]:
-    """Return sorted flat Markdown subagent IDs."""
+    """Return sorted directory-based subagent IDs."""
     subagents_dir = root / "subagents"
     if not subagents_dir.is_dir():
         return ()
     return tuple(
-        sorted(path.stem for path in subagents_dir.glob("*.md") if path.is_file())
+        sorted(
+            entry.name
+            for entry in subagents_dir.iterdir()
+            if not is_link_or_reparse(entry)
+            and entry.is_dir()
+            and (entry / "SUBAGENT.md").is_file()
+            and (entry / "nori.json").is_file()
+        )
     )
+
+
+def subagent_definition_path(root: Path, subagent_id: str) -> Path:
+    """Return the canonical source definition for one subagent ID."""
+    return root / "subagents" / subagent_id / "SUBAGENT.md"
+
+
+def _frontmatter_scalar(text: str, field: str) -> str | None:
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return None
+    end = normalized.find("\n---\n", 4)
+    if end < 0:
+        return None
+    match = re.search(
+        rf"^{re.escape(field)}:[ \t]*(.+?)[ \t]*$",
+        normalized[4:end],
+        re.MULTILINE,
+    )
+    return match.group(1) if match else None
 
 
 def _read_object(path: Path, label: str, errors: list[str]) -> dict[str, Any] | None:
@@ -175,7 +205,28 @@ def validate_manifest(root: Path) -> list[str]:
                 "nori.json read-the-damn-docs dependency must be 'latest' "
                 "and the only skill dependency"
             )
-        unexpected_dependency_groups = set(dependencies) - {"skills"}
+        if "subagents" in dependencies:
+            subagent_dependencies = dependencies.get("subagents")
+            if not isinstance(subagent_dependencies, dict):
+                errors.append("nori.json dependencies.subagents must be an object")
+            else:
+                for subagent_id, dependency_version in sorted(
+                    subagent_dependencies.items()
+                ):
+                    if not isinstance(subagent_id, str) or not PACKAGE_ID_PATTERN.fullmatch(
+                        subagent_id
+                    ):
+                        errors.append(
+                            "nori.json dependencies.subagents contains an invalid id"
+                        )
+                    if not isinstance(
+                        dependency_version, str
+                    ) or not SEMVER_PATTERN.fullmatch(dependency_version):
+                        errors.append(
+                            "nori.json dependencies.subagents version for "
+                            f"'{subagent_id}' must be semver (X.Y.Z)"
+                        )
+        unexpected_dependency_groups = set(dependencies) - {"skills", "subagents"}
         for group in sorted(unexpected_dependency_groups):
             errors.append(f"nori.json unexpected dependency group: {group}")
 
@@ -260,8 +311,123 @@ def validate_repository_inventory(root: Path) -> list[str]:
 
     if not discover_reference_paths(root):
         errors.append("no packaged references discovered")
+
+    subagent_versions: dict[str, str] = {}
+    subagents_dir = root / "subagents"
+    if not subagents_dir.is_dir():
+        errors.append("subagents directory not found")
+    else:
+        for entry in sorted(subagents_dir.iterdir(), key=lambda path: path.name):
+            relative = entry.relative_to(root).as_posix()
+            if is_link_or_reparse(entry):
+                errors.append(
+                    f"symlink or reparse point is not allowed: {relative}"
+                )
+                continue
+            if entry.is_file():
+                if entry.suffix.lower() == ".md":
+                    errors.append(
+                        "legacy flat subagent definition is not allowed: "
+                        f"{relative}"
+                    )
+                else:
+                    errors.append(f"unexpected subagent root file: {relative}")
+                continue
+            if not entry.is_dir():
+                errors.append(f"unexpected subagent entry: {relative}")
+                continue
+
+            subagent_id = entry.name
+            if not PACKAGE_ID_PATTERN.fullmatch(subagent_id):
+                errors.append(
+                    f"packaged subagent id is invalid: '{subagent_id}'"
+                )
+
+            definition_path = subagent_definition_path(root, subagent_id)
+            definition_text: str | None = None
+            if is_link_or_reparse(definition_path):
+                errors.append(
+                    "symlink or reparse point is not allowed: "
+                    f"subagents/{subagent_id}/SUBAGENT.md"
+                )
+            elif not definition_path.is_file():
+                errors.append(
+                    f"subagents/{subagent_id}/SUBAGENT.md not found"
+                )
+            else:
+                try:
+                    definition_text = definition_path.read_text(encoding="utf-8")
+                except OSError as exc:
+                    errors.append(
+                        f"subagents/{subagent_id}/SUBAGENT.md could not be read: {exc}"
+                    )
+
+            manifest_label = f"subagents/{subagent_id}/nori.json"
+            manifest_path = entry / "nori.json"
+            if is_link_or_reparse(manifest_path):
+                errors.append(
+                    f"symlink or reparse point is not allowed: {manifest_label}"
+                )
+                continue
+            metadata = _read_object(manifest_path, manifest_label, errors)
+            if metadata is None:
+                continue
+
+            for field in sorted(SUBAGENT_MANIFEST_FIELDS - set(metadata)):
+                errors.append(f"{manifest_label} missing required field: {field}")
+            for field in sorted(set(metadata) - SUBAGENT_MANIFEST_FIELDS):
+                errors.append(f"{manifest_label} unexpected field: {field}")
+
+            if metadata.get("name") != subagent_id:
+                errors.append(f"{manifest_label} name must match directory id")
+            if metadata.get("type") != "subagent":
+                errors.append(
+                    f"{manifest_label} type must be 'subagent', "
+                    f"got '{metadata.get('type')}'"
+                )
+            version = metadata.get("version")
+            if not isinstance(version, str) or not SEMVER_PATTERN.fullmatch(version):
+                errors.append(
+                    f"{manifest_label} version '{version}' is not valid semver "
+                    "(X.Y.Z)"
+                )
+            elif metadata.get("name") == subagent_id:
+                subagent_versions[subagent_id] = version
+
+            description = metadata.get("description")
+            if not isinstance(description, str) or not description.strip():
+                errors.append(f"{manifest_label} description must be a non-empty string")
+            if definition_text is not None:
+                frontmatter_name = _frontmatter_scalar(definition_text, "name")
+                if frontmatter_name != subagent_id:
+                    errors.append(
+                        f"subagents/{subagent_id}/SUBAGENT.md frontmatter name "
+                        "must match directory id"
+                    )
+                frontmatter_description = _frontmatter_scalar(
+                    definition_text, "description"
+                )
+                if description != frontmatter_description:
+                    errors.append(
+                        f"{manifest_label} description must match "
+                        "SUBAGENT.md frontmatter"
+                    )
+
     if not discover_subagent_ids(root):
         errors.append("no packaged subagents discovered")
+
+    try:
+        root_manifest = load_json(root / "nori.json")
+    except (OSError, json.JSONDecodeError):
+        root_manifest = None
+    if isinstance(root_manifest, dict):
+        dependencies = root_manifest.get("dependencies")
+        if isinstance(dependencies, dict) and "subagents" in dependencies:
+            if dependencies.get("subagents") != subagent_versions:
+                errors.append(
+                    "nori.json dependencies.subagents must match first-class "
+                    "local component versions"
+                )
 
     return errors
 

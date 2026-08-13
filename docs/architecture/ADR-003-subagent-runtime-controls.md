@@ -16,7 +16,7 @@ Roles reserve their final two turns for closure or a structured incomplete-work 
 
 ## Implemented architecture
 
-- `subagents/*.md` enforce the approved role matrix in Claude Code frontmatter.
+- `subagents/*/SUBAGENT.md` enforce the approved role matrix in Claude Code frontmatter; ADR-007 defines their source-package and installed-artifact boundary.
 - Each `## Runtime controls` section justifies every allowed tool, states the cooperative budget, restricts sensitive web queries, and defines eight handoff fields.
 - Each agent ends with `## Runtime control precedence`, which explicitly overrides its normal output at budget exhaustion and repeats the eight handoff fields for model-recency reliability.
 - `tests/subagent_runtime_policy.py` centralizes exact role policy, known tools, parsing, and validation.

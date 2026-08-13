@@ -1,0 +1,6 @@
+{
+  "name": "security-operations-reviewer",
+  "version": "1.0.0",
+  "type": "subagent",
+  "description": "Use when reviewing operational actions for security risk, credential exposure, sensitive output, privilege boundaries, firewall/IAM/identity changes, audit evidence, or possible compromise indicators."
+}

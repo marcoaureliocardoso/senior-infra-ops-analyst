@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -43,6 +44,72 @@ test('inventory measures every filesystem-discovered skill and subagent', async 
   );
   assert.equal('tokens' in report, false);
   assert.deepEqual(findForbiddenKeys(report), []);
+});
+
+
+test('inventory discovers a directory-based first-class subagent', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'context-inventory-subagent-'));
+  try {
+    await mkdir(path.join(root, 'skills', 'example-skill'), { recursive: true });
+    await mkdir(path.join(root, 'subagents', 'example-operator'), { recursive: true });
+    await writeFile(path.join(root, 'AGENTS.md'), '# Test instructions\n', 'utf8');
+    await writeFile(
+      path.join(root, 'skills', 'example-skill', 'SKILL.md'),
+      '---\ndescription: Example skill\n---\n# Example\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(root, 'subagents', 'example-operator', 'SUBAGENT.md'),
+      '---\nname: example-operator\ndescription: Example operator\nskills:\n  - example-skill\n---\n# Example\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(root, 'subagents', 'example-operator', 'nori.json'),
+      '{"name":"example-operator","version":"1.0.0","type":"subagent","description":"Example operator"}\n',
+      'utf8',
+    );
+    const report = await collectStaticInventory(root);
+    assert.deepEqual(report.subagents.items, [{
+      id: 'example-operator',
+      definitionBytes: 97,
+      preloadBytes: 45,
+    }]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('inventory rejects incomplete or drifted first-class subagent manifests', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'context-inventory-manifest-'));
+  try {
+    await mkdir(path.join(root, 'skills', 'example-skill'), { recursive: true });
+    await mkdir(path.join(root, 'subagents', 'example-operator'), { recursive: true });
+    await writeFile(path.join(root, 'AGENTS.md'), '# Test instructions\n', 'utf8');
+    await writeFile(
+      path.join(root, 'skills', 'example-skill', 'SKILL.md'),
+      '---\ndescription: Example skill\n---\n# Example\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(root, 'subagents', 'example-operator', 'SUBAGENT.md'),
+      '---\nname: example-operator\ndescription: Example operator\nskills:\n  - example-skill\n---\n# Example\n',
+      'utf8',
+    );
+    const manifestPath = path.join(root, 'subagents', 'example-operator', 'nori.json');
+    const invalidManifests = [
+      { name: 'example-operator', type: 'subagent', description: 'Example operator' },
+      { name: 'example-operator', version: '2.0.0', type: 'subagent', description: 'Example operator' },
+      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Drifted' },
+      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Example operator', scripts: [] },
+    ];
+    for (const manifest of invalidManifests) {
+      await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, 'utf8');
+      await assert.rejects(collectStaticInventory(root), /invalid subagent manifest/u);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 

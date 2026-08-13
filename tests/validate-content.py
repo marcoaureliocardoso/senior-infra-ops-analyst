@@ -10,6 +10,7 @@ from scripts.nori_package import (  # noqa: E402
     discover_reference_paths,
     discover_skill_ids,
     discover_subagent_ids,
+    subagent_definition_path,
 )
 errors = []
 
@@ -418,7 +419,7 @@ for cmd in ['ssh-triage.md','lb-triage.md','monitoring-stack-triage.md','web-gat
         err(f'missing slash command: {cmd}')
 
 # Detect broken internal references to non-existent reference or skill files.
-for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/SKILL.md')) + list((root/'slashcommands').glob('*.md')) + list((root/'subagents').glob('*.md')):
+for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/SKILL.md')) + list((root/'slashcommands').glob('*.md')) + list((root/'subagents').glob('*/SUBAGENT.md')):
     txt = p2.read_text(encoding='utf-8')
     for m in re.findall(r'`(references/[^`]+?\.md|skills/[^`]+?\.md)`', txt):
         if not (root/m).exists():
@@ -453,7 +454,7 @@ unconditional_executor_approval_fragments = (
 
 subagent_names = {}
 for sa_id in sorted(subagent_ids):
-    sa_file = root / 'subagents' / f'{sa_id}.md'
+    sa_file = subagent_definition_path(root, sa_id)
     if not sa_file.exists():
         err(f'subagent file missing: {sa_file.relative_to(root)}')
         continue

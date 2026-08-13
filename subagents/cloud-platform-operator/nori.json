@@ -1,0 +1,6 @@
+{
+  "name": "cloud-platform-operator",
+  "version": "1.0.0",
+  "type": "subagent",
+  "description": "Use for AWS, Azure, or GCP read-only diagnostics, resource inspection, cost anomaly detection, IAM/security group audit, cloud networking troubleshooting, and cloud resource lifecycle operations."
+}
