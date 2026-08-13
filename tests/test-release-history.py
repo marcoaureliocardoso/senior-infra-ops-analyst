@@ -20,11 +20,9 @@ README_LINK = (
 UNRELEASED_HEADING = "## Unreleased package states"
 TAGGED_HEADING = "## Tagged versions"
 VERSION_LINE_ERROR = "noncanonical version-bearing line"
-CURRENT_UNRELEASED = (
-    "### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-13"
-)
+CURRENT_RELEASE = "### 0.12.0 - 2026-08-13"
+CURRENT_RELEASE_BULLET_COUNT = 18
 UNPUBLISHED_LEDGER = [
-    ("0.12.0", "2026-08-08", "2026-08-13"),
     ("0.11.1", "2026-08-08", None),
     ("0.11.0", "2026-07-26", None),
     ("0.9.1", "2026-07-23", None),
@@ -32,6 +30,7 @@ UNPUBLISHED_LEDGER = [
     ("0.8.0", "2026-07-23", None),
 ]
 TAGGED_LEDGER = [
+    ("0.12.0", "2026-08-13"),
     ("0.10.0", "2026-07-27"),
     ("0.7.0", "2026-07-20"),
     ("0.6.1", "2026-07-20"),
@@ -100,17 +99,59 @@ class ReleaseHistoryTests(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_0120_misclassified_as_tagged_is_rejected(self) -> None:
-        mutated = self.original_changelog.replace(CURRENT_UNRELEASED, "", 1)
+    def test_0120_misclassified_as_unpublished_is_rejected(self) -> None:
+        mutated = self.original_changelog.replace(CURRENT_RELEASE, "", 1)
         mutated = mutated.replace(
-            TAGGED_HEADING,
-            TAGGED_HEADING + "\n\n### 0.12.0 - 2026-08-08",
+            UNRELEASED_HEADING,
+            UNRELEASED_HEADING
+            + "\n\n### 0.12.0 (unreleased) - declared 2026-08-08; "
+            "updated through 2026-08-13",
             1,
         )
         self.changelog.write_text(mutated, encoding="utf-8")
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("unpublished-ledger drift", result.stdout)
+        self.assertIn("tagged-ledger drift", result.stdout)
+
+    def test_0120_duplicated_across_taxonomies_is_rejected(self) -> None:
+        self.changelog.write_text(
+            self.original_changelog.replace(
+                UNRELEASED_HEADING,
+                UNRELEASED_HEADING
+                + "\n\n### 0.12.0 (unreleased) - declared 2026-08-08; "
+                "updated through 2026-08-13",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("noncanonical version-bearing line", result.stdout)
+
+    def test_0120_wrong_release_date_is_rejected(self) -> None:
+        self.assertIn(CURRENT_RELEASE, self.original_changelog)
+        self.replace_changelog(CURRENT_RELEASE, "### 0.12.0 - 2026-08-12")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("tagged-ledger drift", result.stdout)
+
+    def test_0120_release_bullet_loss_is_rejected(self) -> None:
+        self.assertIn(CURRENT_RELEASE, self.original_changelog)
+        start = self.original_changelog.index(CURRENT_RELEASE)
+        end = self.original_changelog.index("\n### 0.10.0", start)
+        release_block = self.original_changelog[start:end]
+        self.assertEqual(
+            release_block.count("\n- "), CURRENT_RELEASE_BULLET_COUNT
+        )
+        self.changelog.write_text(
+            self.original_changelog.replace(
+                "\n- Left P0-04B browser automation out of scope.", "", 1
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("current-release bullet-count drift", result.stdout)
 
     def test_fictional_033_tagged_heading_is_rejected(self) -> None:
         self.replace_changelog(
@@ -164,7 +205,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unexpected changelog taxonomy heading", result.stdout)
 
-    def test_manifest_version_must_match_first_unpublished_state(self) -> None:
+    def test_manifest_version_must_match_highest_recorded_state(self) -> None:
         self.assertIn('"version": "0.12.0"', self.original_manifest)
         self.manifest.write_text(
             self.original_manifest.replace(
@@ -175,6 +216,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("current-version mismatch", result.stdout)
+        self.assertIn("highest recorded package state", result.stdout)
 
     def test_tagged_versions_must_be_strict_reverse_semver_order(self) -> None:
         swapped = self.original_changelog.replace(
@@ -283,16 +325,16 @@ class ReleaseHistoryTests(unittest.TestCase):
 
     def test_required_taxonomy_and_version_in_fence_are_rejected(self) -> None:
         self.replace_changelog(
-            UNRELEASED_HEADING + "\n\n" + CURRENT_UNRELEASED,
+            TAGGED_HEADING + "\n\n" + CURRENT_RELEASE,
             "```markdown\n"
-            + UNRELEASED_HEADING
+            + TAGGED_HEADING
             + "\n\n"
-            + CURRENT_UNRELEASED
+            + CURRENT_RELEASE
             + "\n```",
         )
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("unpublished-ledger drift", result.stdout)
+        self.assertIn("tagged-ledger drift", result.stdout)
 
     def test_noncanonical_atx_version_heading_is_rejected(self) -> None:
         self.replace_changelog(
