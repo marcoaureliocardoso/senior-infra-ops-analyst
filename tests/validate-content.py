@@ -5,6 +5,12 @@ from command_guard_install_policy import EXECUTOR_AGENTS, source_hook_errors
 from context_continuity_install_policy import source_continuity_hook_errors
 from subagent_runtime_policy import runtime_control_errors
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root))
+from scripts.nori_package import (  # noqa: E402
+    discover_reference_paths,
+    discover_skill_ids,
+    discover_subagent_ids,
+)
 errors = []
 
 def err(msg): errors.append(msg)
@@ -53,8 +59,8 @@ def parse_frontmatter_list(frontmatter, field, label):
     return values
 
 manifest = json.loads(read('nori.json'))
-skills = manifest.get('skills', [])
-refs = manifest.get('references', [])
+skills = discover_skill_ids(root)
+refs = discover_reference_paths(root)
 
 canonical_risk_levels = {
     'SAFE_READ_ONLY',
@@ -352,7 +358,7 @@ roadmap_skills = [
  'audit-compliance-evidence', 'kubernetes-operations'
 ]
 for skill in roadmap_skills:
-    if skill not in skills: err(f'roadmap skill not listed in manifest: {skill}')
+    if skill not in skills: err(f'roadmap skill absent from packaged skills: {skill}')
     if not (root/'skills'/skill/'examples').exists(): err(f'roadmap skill lacks examples directory: {skill}')
     elif not list((root/'skills'/skill/'examples').glob('*.md')): err(f'roadmap skill lacks markdown example: {skill}')
 
@@ -420,11 +426,9 @@ for p2 in list((root/'references').glob('*.md')) + list((root/'skills').glob('*/
 
 
 # Subagents validation
-subagents_from_manifest = manifest.get('subagents', [])
-if not subagents_from_manifest:
-    err('nori.json missing subagents array or subagents array is empty')
-
-subagent_ids = {s['id'] for s in subagents_from_manifest if s.get('id')}
+subagent_ids = set(discover_subagent_ids(root))
+if not subagent_ids:
+    err('no packaged subagents discovered')
 valid_tools = {'Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'LS', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'Skill'}
 native_guard_clauses = (
     "## Native command guard",
@@ -447,11 +451,8 @@ unconditional_executor_approval_fragments = (
     "Never trigger a build, deployment, or pipeline re-run without explicit approval.",
 )
 
-for sa in subagents_from_manifest:
-    sa_id = sa.get('id', '')
-    if not sa_id:
-        err(f'subagent entry missing id field: {sa}')
-        continue
+subagent_names = {}
+for sa_id in sorted(subagent_ids):
     sa_file = root / 'subagents' / f'{sa_id}.md'
     if not sa_file.exists():
         err(f'subagent file missing: {sa_file.relative_to(root)}')
@@ -478,6 +479,21 @@ for sa in subagents_from_manifest:
     for field in ['name:', 'description:', 'tools:', 'model:', 'skills:']:
         if not re.search(r'^' + re.escape(field), fm, re.MULTILINE):
             err(f'subagent lacks frontmatter field {field}: {sa_id}')
+    name_match = re.search(r'^name:\s*(\S+)\s*$', fm, re.MULTILINE)
+    if name_match:
+        subagent_name = name_match.group(1)
+        if subagent_name in subagent_names:
+            err(
+                'duplicate subagent frontmatter name: '
+                f'{subagent_name} ({subagent_names[subagent_name]}, {sa_id})'
+            )
+        else:
+            subagent_names[subagent_name] = sa_id
+        if subagent_name != sa_id:
+            err(
+                f'subagent frontmatter name must match file id: '
+                f'{sa_id} != {subagent_name}'
+            )
     # Minimum content threshold (anti-stub)
     nonempty = [ln for ln in t.splitlines() if ln.strip()]
     if len(nonempty) < 60:
@@ -503,7 +519,7 @@ for sa in subagents_from_manifest:
             err(f'subagent has duplicate preloaded skills: {sa_id}')
         unknown_skills = set(preloaded_skills) - set(skills)
         if unknown_skills:
-            err(f'subagent preloads skills absent from nori.json: {sorted(unknown_skills)} — {sa_id}')
+            err(f'subagent preloads skills absent from packaged skills: {sorted(unknown_skills)} — {sa_id}')
 
         primary_section = re.search(
             r'^## Primary skills\s*\n(.*?)(?=^## |\Z)',
