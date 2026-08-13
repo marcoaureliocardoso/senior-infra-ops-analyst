@@ -361,3 +361,13 @@ version pin. The sentinel was placed outside an existing empty Nori-managed
 block, which exercises the CLI's supported preservation boundary; a wholly
 unmanaged initial `CLAUDE.md` is an import/capture scenario, not the switching
 scenario covered by this package smoke.
+
+## Canonical external staging (2026-08-13)
+
+The exact operator-approved destination `C:\projects\ops-analyst-upload` was
+first confirmed as a regular directory and then replaced through the hardened
+move-aside/revalidate/restore path. The final read-only check reported 199
+files, 638325 logical bytes, eight allowlisted root entries, `AGENTS.md`
+present, and zero sibling recovery or temporary artifacts. No inventory file
+was written into staging. This evidence describes local package construction;
+it is not a registry dry-run or upload result.
