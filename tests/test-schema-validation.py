@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mutation tests for Nori manifest schema validation."""
+"""Mutation tests for repository packaging metadata validation."""
 from __future__ import annotations
 
 import json
@@ -65,10 +65,7 @@ class SchemaValidationTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def test_skillset_manifest_type_is_accepted(self) -> None:
-        manifest = json.loads(self.original_manifest)
-        manifest["type"] = "skillset"
-        self.write_manifest(manifest)
+    def test_canonical_manifest_is_accepted(self) -> None:
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -78,21 +75,21 @@ class SchemaValidationTests(unittest.TestCase):
         self.assertEqual(manifest["version"], "0.12.0")
         self.assertEqual(metadata["version"], "0.12.0")
 
-    def test_missing_manifest_type_is_rejected(self) -> None:
+    def test_legacy_manifest_type_is_rejected(self) -> None:
         manifest = json.loads(self.original_manifest)
-        manifest.pop("type", None)
+        manifest["type"] = "skillset"
         self.write_manifest(manifest)
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("type must be 'skillset'", result.stdout + result.stderr)
+        self.assertIn("unexpected field: type", result.stdout)
 
-    def test_non_skillset_manifest_type_is_rejected(self) -> None:
+    def test_removed_reference_inventory_is_rejected(self) -> None:
         manifest = json.loads(self.original_manifest)
-        manifest["type"] = "skill"
+        manifest["references"] = ["references/risk-levels.md"]
         self.write_manifest(manifest)
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("type must be 'skillset'", result.stdout + result.stderr)
+        self.assertIn("unexpected field: references", result.stdout)
 
     def test_nori_version_must_match_manifest(self) -> None:
         metadata = json.loads(self.original_nori_version)
@@ -107,17 +104,18 @@ class SchemaValidationTests(unittest.TestCase):
             result.stdout + result.stderr,
         )
 
-    def test_context_continuity_skill_is_registered_in_both_manifests(self) -> None:
-        manifest = json.loads(self.original_manifest)
+    def test_context_continuity_is_discovered_and_catalogued(self) -> None:
         skills = json.loads(self.original_skills_json)
-        self.assertIn("context-continuity", manifest["skills"])
+        self.assertTrue(
+            (self.sandbox / "skills" / "context-continuity" / "SKILL.md").is_file()
+        )
         self.assertEqual(skills["context-continuity"], "*")
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_missing_context_continuity_tier_is_rejected(self) -> None:
+    def test_missing_context_continuity_catalog_entry_is_rejected(self) -> None:
         skills = json.loads(self.original_skills_json)
-        skills.pop("context-continuity", None)
+        skills.pop("context-continuity")
         self.skills_json_path.write_text(
             json.dumps(skills, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -125,7 +123,7 @@ class SchemaValidationTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
-            "skill 'context-continuity' in nori.json not found in skills.json",
+            "packaged skill 'context-continuity' not found in skills.json",
             result.stdout + result.stderr,
         )
 

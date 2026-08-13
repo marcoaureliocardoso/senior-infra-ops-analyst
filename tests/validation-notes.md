@@ -341,3 +341,59 @@ disable native automatic compaction. This deterministic result does not prove
 that automatic compaction fired or failed and does not change the `BLOCKED` /
 inconclusive status of the required real ordered automatic
 `PreCompact(auto)`/`PostCompact(auto)` acceptance gate.
+
+## Isolated Nori package installation (2026-08-13)
+
+The canonical package staging was linked and switched with the locally
+detected Nori Skillsets CLI 0.31.0 in a disposable Debian WSL environment. The
+smoke used temporary `HOME`, XDG configuration, install, staging, and local
+profile paths; selected `claude-code` explicitly; ran non-interactively; and
+performed no login, download, upload, or registry mutation.
+
+The observed result was `canonicalContent=true`, `managedBlockCount=1`,
+`skillsSectionCount=1`, `unmanagedSentinel=true`, all 25 packaged skills
+present among 26 installed skills, exact 12-subagent and 20-command identity,
+and no unexpected skill outside the declared dependency or Nori-owned helper
+boundary. Cleanup also reported `passed`. The bare name accepted by
+`link --name` resolved to a temporary
+`personal/` identity, as detected from the current CLI contract rather than a
+version pin. The sentinel was placed outside an existing empty Nori-managed
+block, which exercises the CLI's supported preservation boundary; a wholly
+unmanaged initial `CLAUDE.md` is an import/capture scenario, not the switching
+scenario covered by this package smoke.
+
+## Canonical external staging (2026-08-13)
+
+The exact operator-approved destination `C:\projects\ops-analyst-upload` was
+first confirmed as a regular directory and then replaced through the hardened
+move-aside/revalidate/restore path. The final read-only check reported 199
+files, 638325 logical bytes, eight allowlisted root entries, `AGENTS.md`
+present, and zero sibling recovery or temporary artifacts. No inventory file
+was written into staging. This evidence describes local package construction;
+it is not a registry dry-run or upload result.
+
+## Authenticated public-registry dry-run (2026-08-13)
+
+The locally detected Nori Skillsets CLI 0.31.0 accepted an operator-provided
+public API token through process-only `NORI_API_TOKEN`. The token was entered
+through a no-echo prompt, was never placed in argv or a file, and was unset
+when the process exited. Raw CLI output lived only in an owner-only temporary
+directory that cleanup removed.
+
+The authenticated public version query completed with exit 0 and returned no
+published versions for `senior-infra-ops-analyst`; therefore `0.12.0` was not
+present. An initial dry-run using the plan's namespaced temporary identity
+returned exit 1 because the detected CLI interprets `personal/...` as a
+registry namespace. That attempt left the staging hash, active profile, and
+development link unchanged and removed its temporary link.
+
+The successful route used a disposable `HOME` and XDG configuration, linked
+the final staging under the real bare package name only inside that isolated
+home, and selected the public registry explicitly. The dry-run completed with
+exit 0 for package `senior-infra-ops-analyst`, version `0.12.0`, and public
+registry class. The sorted staging-inventory SHA-256 was
+`b0641ed282c0851d12314d6f48f7d9dee41d84f318e939c88298e9d0fb05fc6b`
+both before and after. The real active profile and development link were
+unchanged, the isolated link was removed, and cleanup retained no token, raw
+response, configuration content, header, or credential. `--dry-run` performed
+no registry upload; a real publication remains separately gated.

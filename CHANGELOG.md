@@ -5,7 +5,7 @@ tag. Tagged versions correspond to repository tags.
 
 ## Unreleased package states
 
-### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-12
+### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-13
 
 - Added native task-list and Compact Instructions for continuity across long Claude Code sessions.
 - Added operator-owned preventive auto-compaction settings with default 72%, preservation of existing 70–75% values, conflict detection, atomic apply, and owned-only rollback.
@@ -20,6 +20,9 @@ tag. Tagged versions correspond to repository tags.
 - Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
 - Standardized delivered agent and roadmap guidance in English, removing the Portuguese-default response rule.
 - Consolidated version history in `CHANGELOG.md` and replaced duplicated README release sections with a canonical link.
+- Aligned the canonical Nori manifest, made root `AGENTS.md` mandatory, added reproducible allowlisted staging, and proved isolated Nori installation with operator content preserved outside one managed block.
+- Hardened staging replacement with exact inventory identity, unresolved-path link/reparse rejection, atomic move-aside recovery, special-file checks, current-source CI validation, complete installed asset evidence, and fresh verified ZIP creation.
+- Prevented archive output from overlapping source or staging and from traversing symlink, junction, or reparse-point paths.
 - Left P0-04B browser automation out of scope.
 
 ### 0.11.1 (unreleased) - declared 2026-08-08

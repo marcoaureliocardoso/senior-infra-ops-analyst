@@ -22,7 +22,10 @@ async function jsonl(name) {
 }
 
 
-test('inventory measures every registered skill and subagent', async () => {
+test('inventory measures every filesystem-discovered skill and subagent', async () => {
+  const manifest = JSON.parse(await readFile(path.join(ROOT, 'nori.json'), 'utf8'));
+  assert.equal('skills' in manifest, false);
+  assert.equal('subagents' in manifest, false);
   const report = await collectStaticInventory(ROOT);
   assert.equal(report.schemaVersion, 1);
   assert.equal(report.skills.count, 25);

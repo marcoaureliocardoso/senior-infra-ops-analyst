@@ -9,6 +9,11 @@ node --test tests/context-continuity/inventory.test.mjs
 python3 tests/test-command-guard-install-policy.py
 python3 tests/test-context-continuity-install-policy.py
 python3 -m json.tool nori.json >/dev/null
+python3 tests/test-nori-package-contract.py
+python3 tests/test-content-discovery.py
+python3 tests/test-nori-staging.py
+python3 tests/test-nori-archive.py
+python3 scripts/build_nori_staging.py --source . --check-source
 python3 tests/validate-content.py
 python3 tests/test-release-history.py
 python3 tests/test-risk-taxonomy.py
@@ -24,6 +29,7 @@ python3 tests/test-mock-anthropic-gateway.py
 python3 tests/test-loopback-http-fixture.py
 python3 tests/test-live-command-guard-safety.py
 python3 tests/test-live-context-continuity-safety.py
+python3 tests/test-live-nori-package-safety.py
 python3 tests/test-confirmed-window-diagnostic.py
 python3 tests/test-live-context-window-recorder.py
 python3 tests/test-live-compact-event-recorder.py
@@ -36,10 +42,12 @@ bash -n skills/context-continuity/scripts/compact-hook-launcher.sh
 bash -n tests/live-subagent-runtime-smoke.sh
 bash -n tests/live-command-guard-smoke.sh
 bash -n tests/live-context-continuity-smoke.sh
+bash -n tests/live-nori-package-smoke.sh
 bash -n tests/validate-package.sh
 bash tests/live-subagent-runtime-smoke.sh --self-test
 bash tests/live-command-guard-smoke.sh --self-test
 bash tests/live-context-continuity-smoke.sh --self-test
+bash tests/live-nori-package-smoke.sh --self-test
 skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev/null
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then

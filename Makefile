@@ -1,4 +1,7 @@
-.PHONY: validate validate-local validate-links package clean
+.PHONY: validate validate-local validate-links stage package clean
+
+STAGING_DIR ?= ../senior-infra-ops-analyst-nori-staging
+PACKAGE_ZIP ?= ../senior-infra-ops-analyst-skillset-v$(shell python3 -c 'import json; print(json.load(open("nori.json"))["version"])').zip
 
 validate: validate-local
 
@@ -8,8 +11,11 @@ validate-local:
 validate-links:
 	bash tests/validate-links.sh
 
-package: validate-local
-	cd .. && zip -r senior-infra-ops-analyst-skillset-v$(shell python3 -c 'import json; print(json.load(open("senior-infra-ops-analyst/nori.json"))["version"])').zip senior-infra-ops-analyst
+stage: validate-local
+	python3 scripts/build_nori_staging.py --source . --destination "$(STAGING_DIR)" --replace
+
+package: stage
+	python3 scripts/build_nori_archive.py --source . --staging "$(STAGING_DIR)" --output "$(abspath $(PACKAGE_ZIP))"
 
 clean:
 	rm -rf ../senior-infra-ops-analyst-skillset-v*.zip .tmp .tmp-* validation-output build dist coverage .cache

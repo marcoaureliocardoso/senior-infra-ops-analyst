@@ -546,6 +546,35 @@ class WorkflowToolchainTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("ShellCheck 0.11.0 provisioning", result.stdout + result.stderr)
 
+    def test_package_gate_runs_nori_contract_suites_before_schema(self) -> None:
+        source = (ROOT / "tests" / "validate-package.sh").read_text(
+            encoding="utf-8"
+        )
+        commands = (
+            "python3 tests/test-nori-package-contract.py",
+            "python3 tests/test-content-discovery.py",
+            "python3 tests/test-nori-staging.py",
+            "python3 tests/test-nori-archive.py",
+            "python3 scripts/build_nori_staging.py --source . --check-source",
+            "python3 tests/validate-schema.py",
+        )
+        positions = []
+        for command in commands:
+            self.assertEqual(
+                source.count(command), 1, f"package gate must run once: {command}"
+            )
+            positions.append(source.index(command))
+        self.assertEqual(positions, sorted(positions))
+
+    def test_make_package_archives_only_generated_staging(self) -> None:
+        source = (ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertIn("stage: validate-local", source)
+        self.assertIn("scripts/build_nori_staging.py", source)
+        self.assertIn("package: stage", source)
+        self.assertIn("scripts/build_nori_archive.py", source)
+        self.assertIn('--staging "$(STAGING_DIR)"', source)
+        self.assertNotIn("zip -r", source)
+
 
 if __name__ == "__main__":
     unittest.main()

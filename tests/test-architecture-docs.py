@@ -22,6 +22,16 @@ REQUIRED_ADR_005 = (
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
     "Validation evidence",
 )
+REQUIRED_ADR_006 = (
+    "AGENTS.md",
+    "Canonical manifest",
+    "Filesystem discovery",
+    "Staging allowlist",
+    "Symlinks and reparse points",
+    "Isolated Nori validation",
+    "External side effects",
+    "Rollback",
+)
 
 
 class ArchitectureDocumentationTests(unittest.TestCase):
@@ -112,6 +122,15 @@ class ArchitectureDocumentationTests(unittest.TestCase):
             "## Forward compatibility",
         ):
             self.assertIn(heading, text)
+
+    def test_adr006_documents_canonical_nori_package_contract(self) -> None:
+        path = self.index_path.parent / "ADR-006-canonical-nori-package.md"
+        self.assertTrue(path.is_file(), "ADR-006 record is missing")
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("ADR-006-canonical-nori-package.md", self.original_index)
+        for fragment in REQUIRED_ADR_006:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, text)
 
     def test_operator_docs_expose_owned_configuration_and_rollback(self) -> None:
         for name in ("README.md", "docs.md"):
