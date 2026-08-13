@@ -404,8 +404,8 @@ All 12 subagents now use the canonical source layout
 `subagents/<id>/SUBAGENT.md` plus an adjacent `nori.json` with component
 version `1.0.0` and type `subagent`. Focused contract tests exercised missing,
 malformed, mismatched, legacy-flat, and linked/reparse component cases. The
-final Debian WSL contract run passed 23 tests, including rejection of a linked
-subagent directory.
+final Debian WSL contract run passed 24 tests, including rejection of linked
+subagent directories and required definition/manifest files before reading.
 
 A fresh temporary staging build from this source contained 211 regular files
 and 642409 logical bytes: 12 `SUBAGENT.md` definitions, 12 adjacent component

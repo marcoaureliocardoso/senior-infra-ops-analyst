@@ -10,6 +10,7 @@ import { parseStrictObject } from './settings.mjs';
 const IDENTIFIER = /^[A-Za-z0-9._-]{1,128}$/u;
 const PACKAGE_ID = /^[a-z0-9-]{1,128}$/u;
 const MAX_COUNT = 1_000_000;
+const SUBAGENT_MANIFEST_FIELDS = ['description', 'name', 'type', 'version'];
 const FORBIDDEN_KEYS = new Set([
   'content', 'prompt', 'response', 'summary', 'transcript', 'tool_input',
   'tool_result', 'command', 'header', 'credential', 'secret', 'token',
@@ -110,10 +111,16 @@ export async function collectStaticInventory(root) {
     const metadata = parseStrictObject(
       await safeText(path.join(directory, 'nori.json'), `subagent manifest ${id}`),
     );
-    if (metadata.name !== id || metadata.type !== 'subagent') {
+    const text = await safeText(path.join(directory, 'SUBAGENT.md'), `subagent ${id}`);
+    if (
+      JSON.stringify(Object.keys(metadata).sort()) !== JSON.stringify(SUBAGENT_MANIFEST_FIELDS)
+      || metadata.name !== id
+      || metadata.version !== '1.0.0'
+      || metadata.type !== 'subagent'
+      || metadata.description !== frontmatterDescription(text)
+    ) {
       throw new Error(`invalid subagent manifest: ${id}`);
     }
-    const text = await safeText(path.join(directory, 'SUBAGENT.md'), `subagent ${id}`);
     const preloadBytes = frontmatterSkills(text).reduce((total, skillId) => {
       if (!skillBodies.has(skillId)) throw new Error(`unregistered preloaded skill: ${skillId}`);
       return total + skillBodies.get(skillId);

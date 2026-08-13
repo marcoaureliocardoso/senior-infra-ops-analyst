@@ -345,7 +345,12 @@ def validate_repository_inventory(root: Path) -> list[str]:
 
             definition_path = subagent_definition_path(root, subagent_id)
             definition_text: str | None = None
-            if not definition_path.is_file():
+            if is_link_or_reparse(definition_path):
+                errors.append(
+                    "symlink or reparse point is not allowed: "
+                    f"subagents/{subagent_id}/SUBAGENT.md"
+                )
+            elif not definition_path.is_file():
                 errors.append(
                     f"subagents/{subagent_id}/SUBAGENT.md not found"
                 )
@@ -358,7 +363,13 @@ def validate_repository_inventory(root: Path) -> list[str]:
                     )
 
             manifest_label = f"subagents/{subagent_id}/nori.json"
-            metadata = _read_object(entry / "nori.json", manifest_label, errors)
+            manifest_path = entry / "nori.json"
+            if is_link_or_reparse(manifest_path):
+                errors.append(
+                    f"symlink or reparse point is not allowed: {manifest_label}"
+                )
+                continue
+            metadata = _read_object(manifest_path, manifest_label, errors)
             if metadata is None:
                 continue
 

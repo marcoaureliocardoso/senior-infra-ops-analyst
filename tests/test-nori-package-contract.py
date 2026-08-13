@@ -378,6 +378,28 @@ class NoriPackageContractTests(unittest.TestCase):
             self.repository_errors(),
         )
 
+    def test_linked_subagent_required_files_are_rejected_before_read(self) -> None:
+        component = self.sandbox / "subagents" / "diagnostic-operator"
+        for filename in ("SUBAGENT.md", "nori.json"):
+            with self.subTest(filename=filename):
+                required = component / filename
+                external = self.sandbox.parent / f"external-{filename}"
+                required.replace(external)
+                try:
+                    required.symlink_to(external)
+                except OSError:
+                    external.replace(required)
+                    self.skipTest("file symlink creation is unavailable")
+                try:
+                    self.assertIn(
+                        "symlink or reparse point is not allowed: "
+                        f"subagents/diagnostic-operator/{filename}",
+                        self.repository_errors(),
+                    )
+                finally:
+                    required.unlink(missing_ok=True)
+                    external.replace(required)
+
 
 if __name__ == "__main__":
     unittest.main()

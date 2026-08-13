@@ -80,6 +80,39 @@ test('inventory discovers a directory-based first-class subagent', async () => {
 });
 
 
+test('inventory rejects incomplete or drifted first-class subagent manifests', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'context-inventory-manifest-'));
+  try {
+    await mkdir(path.join(root, 'skills', 'example-skill'), { recursive: true });
+    await mkdir(path.join(root, 'subagents', 'example-operator'), { recursive: true });
+    await writeFile(path.join(root, 'AGENTS.md'), '# Test instructions\n', 'utf8');
+    await writeFile(
+      path.join(root, 'skills', 'example-skill', 'SKILL.md'),
+      '---\ndescription: Example skill\n---\n# Example\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(root, 'subagents', 'example-operator', 'SUBAGENT.md'),
+      '---\nname: example-operator\ndescription: Example operator\nskills:\n  - example-skill\n---\n# Example\n',
+      'utf8',
+    );
+    const manifestPath = path.join(root, 'subagents', 'example-operator', 'nori.json');
+    const invalidManifests = [
+      { name: 'example-operator', type: 'subagent', description: 'Example operator' },
+      { name: 'example-operator', version: '2.0.0', type: 'subagent', description: 'Example operator' },
+      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Drifted' },
+      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Example operator', scripts: [] },
+    ];
+    for (const manifest of invalidManifests) {
+      await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, 'utf8');
+      await assert.rejects(collectStaticInventory(root), /invalid subagent manifest/u);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
 test('retained runtime schema cannot carry content', () => {
   const events = [
     { kind: 'context', stage: 'before', percent: 73, prompt: 'synthetic prompt SYNTH_SECRET' },
