@@ -566,6 +566,7 @@ required_adrs = [
     'ADR-003-subagent-runtime-controls.md',
     'ADR-004-native-command-guard.md',
     'ADR-005-context-continuity-and-preventive-compaction.md',
+    'ADR-006-canonical-nori-package.md',
 ]
 adr004_headings = (
     '## Context', '## Decision', '## Implemented architecture',
@@ -583,6 +584,14 @@ adr005_fragments = (
     'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', '72', 'PreCompact', 'PostCompact',
     'credential reuse', 'numeric-only', 'DeepSeek',
     'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+)
+adr006_headings = (
+    '## Context', '## Decision', '### Canonical manifest',
+    '### Filesystem discovery', '### Staging allowlist',
+    '### Symlinks and reparse points', '### Isolated Nori validation',
+    '## Enforcement points', '## External side effects',
+    '## Alternatives rejected', '## Validation evidence',
+    '## Consequences and limitations', '## Rollback',
 )
 if not architecture_index.exists():
     err('missing architecture decision index')
@@ -608,6 +617,12 @@ else:
         for fragment in adr005_fragments:
             if fragment not in adr005_text:
                 err(f'ADR-005 missing required fragment: {fragment}')
+    adr006_path = architecture_index.parent / 'ADR-006-canonical-nori-package.md'
+    if adr006_path.exists():
+        adr006_text = adr006_path.read_text(encoding='utf-8')
+        for heading in adr006_headings:
+            if heading not in adr006_text:
+                err(f'ADR-006 missing required heading: {heading}')
 
 for operator_doc in ('README.md', 'docs.md'):
     operator_text = read(operator_doc)
@@ -634,7 +649,7 @@ if version_history_link not in readme_text:
     err('README failure: missing canonical changelog link')
 
 unpublished_ledger = [
-    ('0.12.0', '2026-08-08', '2026-08-12'),
+    ('0.12.0', '2026-08-08', '2026-08-13'),
     ('0.11.1', '2026-08-08', None),
     ('0.11.0', '2026-07-26', None),
     ('0.9.1', '2026-07-23', None),

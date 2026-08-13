@@ -20,6 +20,13 @@ The project has a multi-layer validation pipeline:
 | CI | `bash tests/validate-ci-workflows.sh` | Workflow permissions, concurrency, pinned versions, hash-pinned actions |
 | Links | `bash tests/validate-links.sh` | External URL reachability across all markdown files |
 | Links JSON | `bash tests/validate-links.sh --json` | Machine-readable link report for CI automation |
+| Package contract | `python3 tests/test-nori-package-contract.py` | Canonical root manifest and filesystem inventory |
+| Staging | `python3 tests/test-nori-staging.py` | Allowlist, reproducibility, link rejection, and safe replacement |
+
+Before packaging, use `make stage` or
+`python3 scripts/build_nori_staging.py --source . --destination ABSOLUTE_PATH`.
+Treat staging as disposable output and never edit it as a source. The builder
+does not authorize or perform registry upload.
 
 CI runs all validators on every PR and push to main. See `.github/workflows/ci.yml`.
 

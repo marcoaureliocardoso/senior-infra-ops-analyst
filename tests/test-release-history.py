@@ -21,10 +21,10 @@ UNRELEASED_HEADING = "## Unreleased package states"
 TAGGED_HEADING = "## Tagged versions"
 VERSION_LINE_ERROR = "noncanonical version-bearing line"
 CURRENT_UNRELEASED = (
-    "### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-12"
+    "### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-13"
 )
 UNPUBLISHED_LEDGER = [
-    ("0.12.0", "2026-08-08", "2026-08-12"),
+    ("0.12.0", "2026-08-08", "2026-08-13"),
     ("0.11.1", "2026-08-08", None),
     ("0.11.0", "2026-07-26", None),
     ("0.9.1", "2026-07-23", None),

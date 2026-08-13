@@ -90,7 +90,7 @@ pins.
 ```text
 senior-infra-ops-analyst/
 ├── AGENTS.md                  # Main agent instructions
-├── nori.json                  # Skillset manifest (skills, references, subagents)
+├── nori.json                  # Registry identity, search, and dependency metadata
 ├── profile.json               # Nori profile metadata
 ├── skills.json                # Skill tier map
 ├── .nori-version               # Version and registry tracking
@@ -100,6 +100,7 @@ senior-infra-ops-analyst/
 ├── ROADMAP.md                 # Planned improvements
 ├── docs/architecture/         # Indexed architecture decision records
 ├── docs/reviews/              # Indexed independent review verdicts
+├── scripts/                   # Canonical package discovery and staging tools
 ├── skills/                    # 25 operational and continuity skills
 │   └── <skill>/
 │       ├── SKILL.md           # Skill definition
@@ -226,6 +227,18 @@ Assign exactly one risk tier based on the highest plausible impact, then add all
 
 This skillset is designed for the Nori agent ecosystem. When installed, skills are loaded into `~/.claude/skills/`, subagents into `~/.claude/agents/`, and slash commands into `~/.claude/commands/`.
 Each subagent uses native `skills` frontmatter to preload its role-specific instructions. The `AGENTS.md` file provides the main workflow instructions — dual-mode operation (copilot and full-send) with structured checkpoints for safe infrastructure operations.
+
+Root `nori.json` contains registry identity, search keywords, and dependency
+metadata only. Package inventory is discovered from `skills/`, `references/`,
+`slashcommands/`, and `subagents/`; the manifest does not duplicate those
+lists. `AGENTS.md` is the canonical root instruction source, while Nori renders
+the agent-specific managed `CLAUDE.md` during installation.
+
+Create or verify disposable upload staging with
+`scripts/build_nori_staging.py --source . --destination /absolute/path/to/staging`
+and its `--check` mode. The builder uses a strict allowlist, refuses symlinks,
+reparse points, sensitive paths, and unsafe replacement targets, and performs
+no login or upload.
 
 ### Architecture decisions
 
