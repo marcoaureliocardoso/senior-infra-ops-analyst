@@ -605,16 +605,303 @@ for operator_doc in ('README.md', 'docs.md'):
         err(f'{operator_doc} claims absolute context window is the default')
 
 readme_text = read('README.md')
-release_history_heading = '## Release history'
-release_history_link = (
-    'See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.'
+version_history_heading = '## Version history'
+version_history_link = (
+    'See [CHANGELOG.md](CHANGELOG.md) for unpublished package states, tagged\n'
+    'versions, and release notes.'
 )
-if re.search(r'^## What changed in v', readme_text, re.MULTILINE):
-    err('README.md duplicates release history; use CHANGELOG.md')
-if not re.search(r'^## Release history$', readme_text, re.MULTILINE):
-    err('README.md missing release history heading')
-if release_history_link not in readme_text:
-    err('README.md missing canonical changelog link')
+if re.search(r'^## (?:What changed in v[^\n]*|Release history)$', readme_text, re.MULTILINE):
+    err('README failure: duplicates release history')
+if len(re.findall(r'^## Version history$', readme_text, re.MULTILINE)) != 1:
+    err('README failure: missing version history heading')
+if version_history_link not in readme_text:
+    err('README failure: missing canonical changelog link')
+
+unpublished_ledger = [
+    ('0.12.0', '2026-08-08', '2026-08-12'),
+    ('0.11.1', '2026-08-08', None),
+    ('0.11.0', '2026-07-26', None),
+    ('0.9.1', '2026-07-23', None),
+    ('0.9.0', '2026-07-23', None),
+    ('0.8.0', '2026-07-23', None),
+]
+tagged_ledger = [
+    ('0.10.0', '2026-07-27'),
+    ('0.7.0', '2026-07-20'),
+    ('0.6.1', '2026-07-20'),
+    ('0.6.0', '2026-07-11'),
+    ('0.5.1', '2026-07-09'),
+    ('0.5.0', '2026-07-09'),
+    ('0.4.4', '2026-07-08'),
+    ('0.4.3', '2026-07-08'),
+    ('0.4.2', '2026-07-08'),
+    ('0.4.1', '2026-07-08'),
+    ('0.4.0', '2026-07-08'),
+    ('0.3.4', '2026-07-08'),
+    ('0.3.2', '2026-07-08'),
+    ('0.3.1', '2026-07-08'),
+    ('0.2.1', '2026-07-08'),
+]
+changelog_text = read('CHANGELOG.md')
+semver_core_identifier = r'(?:0|[1-9][0-9]*)'
+semver_prerelease_identifier = (
+    r'(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+)
+semver_pattern = (
+    rf'{semver_core_identifier}\.{semver_core_identifier}\.'
+    rf'{semver_core_identifier}'
+    rf'(?:-{semver_prerelease_identifier}'
+    rf'(?:\.{semver_prerelease_identifier})*)?'
+    r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+)
+version_bearing_pattern = re.compile(
+    rf'^(?:#{{1,6}}[ \t]+)?{semver_pattern}(?=[ \t]|$)'
+)
+container_prefix_pattern = re.compile(
+    r'^(?:>[ \t]?|[-+*][ \t]+|[0-9]+[.)][ \t]+)'
+)
+
+def first_meaningful_changelog_content(line):
+    content = re.sub(r'^ {0,3}', '', line, count=1)
+    while True:
+        container = container_prefix_pattern.match(content)
+        if not container:
+            return content
+        content = content[container.end():]
+        content = re.sub(r'^ {0,3}', '', content, count=1)
+
+def markdown_heading_inventory(text):
+    headings = []
+    version_lines = []
+    fence = None
+    offset = 0
+    lines = text.splitlines(keepends=True)
+    for raw_line in lines:
+        line = raw_line.rstrip('\r\n')
+        if fence:
+            fence_char, fence_length = fence
+            if re.match(
+                rf'^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*$',
+                line,
+            ):
+                fence = None
+        else:
+            fence_opening = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+            if fence_opening and not (
+                fence_opening.group(1)[0] == '`'
+                and '`' in fence_opening.group(2)
+            ):
+                marker = fence_opening.group(1)
+                fence = (marker[0], len(marker))
+            else:
+                heading = re.match(
+                    r'^(#{1,6})(?:[ \t]+(.*))?$',
+                    line,
+                )
+                if heading:
+                    headings.append({
+                        'level': len(heading.group(1)),
+                        'content': (heading.group(2) or '').strip(),
+                        'position': offset,
+                        'raw': line,
+                    })
+                meaningful_content = first_meaningful_changelog_content(line)
+                if version_bearing_pattern.match(meaningful_content):
+                    version_lines.append({
+                        'content': meaningful_content,
+                        'position': offset,
+                        'raw': line,
+                    })
+        offset += len(raw_line)
+    return headings, version_lines, fence is not None
+
+
+heading_inventory, version_lines, unclosed_fence = markdown_heading_inventory(
+    changelog_text
+)
+if unclosed_fence:
+    err('changelog fence drift: unclosed fenced code block')
+
+def taxonomy_headings(name):
+    return [
+        heading for heading in heading_inventory
+        if (
+            heading['level'] == 2
+            and heading['content'] == name
+            and heading['raw'] == f'## {name}'
+        )
+    ]
+
+canonical_taxonomy_lines = {
+    '## Unreleased package states',
+    '## Tagged versions',
+}
+for heading in heading_inventory:
+    if heading['level'] == 2 and heading['raw'] not in canonical_taxonomy_lines:
+        err(f'unexpected changelog taxonomy heading: {heading["raw"]}')
+
+unreleased_taxonomies = taxonomy_headings('Unreleased package states')
+tagged_taxonomies = taxonomy_headings('Tagged versions')
+if len(unreleased_taxonomies) != 1:
+    err('unpublished-ledger drift: expected one Unreleased package states taxonomy')
+if len(tagged_taxonomies) != 1:
+    err('tagged-ledger drift: expected one Tagged versions taxonomy')
+
+taxonomy_ranges = []
+if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
+    unreleased_taxonomy = unreleased_taxonomies[0]
+    tagged_taxonomy = tagged_taxonomies[0]
+    if unreleased_taxonomy['position'] < tagged_taxonomy['position']:
+        root_h2_positions = sorted(
+            heading['position']
+            for heading in heading_inventory
+            if heading['level'] == 2
+        )
+        def next_root_h2_position(position):
+            return next(
+                (
+                    candidate for candidate in root_h2_positions
+                    if candidate > position
+                ),
+                len(changelog_text),
+            )
+        taxonomy_ranges = [
+            (
+                'unpublished',
+                unreleased_taxonomy['position'],
+                next_root_h2_position(unreleased_taxonomy['position']),
+            ),
+            (
+                'tagged',
+                tagged_taxonomy['position'],
+                next_root_h2_position(tagged_taxonomy['position']),
+            ),
+        ]
+
+parsed_unpublished = []
+parsed_tagged = []
+consumed_version_positions = set()
+consumed_ledger_entries = {
+    'unpublished': set(),
+    'tagged': set(),
+}
+expected_ledger_entries = {
+    'unpublished': set(unpublished_ledger),
+    'tagged': set(tagged_ledger),
+}
+canonical_ledger_lines = {
+    'unpublished': {
+        entry: (
+            f'### {entry[0]} (unreleased) - declared {entry[1]}'
+            + (
+                f'; updated through {entry[2]}'
+                if entry[2] is not None
+                else ''
+            )
+        )
+        for entry in unpublished_ledger
+    },
+    'tagged': {
+        entry: f'### {entry[0]} - {entry[1]}'
+        for entry in tagged_ledger
+    },
+}
+if len(unreleased_taxonomies) == 1 and len(tagged_taxonomies) == 1:
+    unreleased_taxonomy = unreleased_taxonomies[0]
+    tagged_taxonomy = tagged_taxonomies[0]
+    if unreleased_taxonomy['position'] > tagged_taxonomy['position']:
+        err('unpublished-ledger drift: taxonomy order must precede Tagged versions')
+        err('tagged-ledger drift: taxonomy order must follow Unreleased package states')
+
+for heading in heading_inventory:
+    if not re.match(rf'^{semver_pattern}(?=[ \t]|$)', heading['content']):
+        continue
+    if heading['level'] != 3:
+        err(f'version heading must be level three: {heading["content"]}')
+    taxonomy = next(
+        (
+            name for name, start, end in taxonomy_ranges
+            if start < heading['position'] < end
+        ),
+        None,
+    )
+    if taxonomy is None:
+        err(f'version heading outside taxonomy: {heading["content"]}')
+        continue
+    if taxonomy == 'unpublished':
+        parsed = re.fullmatch(
+            r'([0-9]+\.[0-9]+\.[0-9]+) \(unreleased\) - declared '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2})(?:; updated through '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2}))?',
+            heading['content'],
+        )
+        if parsed:
+            ledger_entry = parsed.groups()
+        else:
+            err(f'noncanonical version heading: {heading["content"]}')
+            continue
+    else:
+        parsed = re.fullmatch(
+            r'([0-9]+\.[0-9]+\.[0-9]+) - '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2})',
+            heading['content'],
+        )
+        if parsed:
+            ledger_entry = parsed.groups()
+        else:
+            err(f'noncanonical version heading: {heading["content"]}')
+            continue
+    if heading['raw'] != canonical_ledger_lines[taxonomy].get(ledger_entry):
+        continue
+    if taxonomy == 'unpublished':
+        parsed_unpublished.append(ledger_entry)
+    else:
+        parsed_tagged.append(ledger_entry)
+    if (
+        heading['level'] == 3
+        and ledger_entry in expected_ledger_entries[taxonomy]
+        and ledger_entry not in consumed_ledger_entries[taxonomy]
+    ):
+        consumed_ledger_entries[taxonomy].add(ledger_entry)
+        consumed_version_positions.add(heading['position'])
+
+for version_line in version_lines:
+    if version_line['position'] not in consumed_version_positions:
+        err(
+            'noncanonical version-bearing line: '
+            f'{version_line["raw"].strip()}'
+        )
+
+if parsed_unpublished != unpublished_ledger:
+    err(
+        'unpublished-ledger drift: '
+        f'expected {unpublished_ledger}, got {parsed_unpublished}'
+    )
+if parsed_tagged != tagged_ledger:
+    err(
+        'tagged-ledger drift: '
+        f'expected {tagged_ledger}, got {parsed_tagged}'
+    )
+
+tagged_versions = [version for version, _ in parsed_tagged]
+semantic_versions = [tuple(map(int, version.split('.'))) for version in tagged_versions]
+if (
+    len(tagged_versions) != len(set(tagged_versions))
+    or any(
+        earlier <= later
+        for earlier, later in zip(semantic_versions, semantic_versions[1:])
+    )
+):
+    err('semantic-order drift: tagged versions must be unique and strictly descending')
+
+manifest_version = manifest.get('version')
+first_unpublished_version = parsed_unpublished[0][0] if parsed_unpublished else None
+if manifest_version != first_unpublished_version:
+    err(
+        'current-version mismatch: '
+        f'nori.json has {manifest_version!r}; first unpublished state is '
+        f'{first_unpublished_version!r}'
+    )
 
 if errors:
     print('Validation failed:')
