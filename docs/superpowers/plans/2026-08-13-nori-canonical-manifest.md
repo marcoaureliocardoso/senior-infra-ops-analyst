@@ -490,7 +490,9 @@ Require the live runner to:
 - reject relative or missing `--nori-bin` paths;
 - require `--run-live` before executing the real CLI;
 - create and export disposable `HOME`, `XDG_CONFIG_HOME`, and install roots;
-- use only `personal/senior-infra-ops-analyst-package-smoke` as the linked name;
+- pass only the bare name `senior-infra-ops-analyst-package-smoke` to `link
+  --name`, then address the resulting temporary profile by its canonical
+  `personal/senior-infra-ops-analyst-package-smoke` identity;
 - reject `login`, `logout`, `upload`, `upload-skill`, `--force`, and the active
   profile name as standalone command arguments;
 - install for `claude-code` only inside the disposable home;

@@ -341,3 +341,20 @@ disable native automatic compaction. This deterministic result does not prove
 that automatic compaction fired or failed and does not change the `BLOCKED` /
 inconclusive status of the required real ordered automatic
 `PreCompact(auto)`/`PostCompact(auto)` acceptance gate.
+
+## Isolated Nori package installation (2026-08-13)
+
+The canonical package staging was linked and switched with the locally
+detected Nori Skillsets CLI 0.31.0 in a disposable Debian WSL environment. The
+smoke used temporary `HOME`, XDG configuration, install, staging, and local
+profile paths; selected `claude-code` explicitly; ran non-interactively; and
+performed no login, download, upload, or registry mutation.
+
+The observed result was `canonicalContent=true`, `managedBlockCount=1`,
+`skillsSectionCount=1`, and `unmanagedSentinel=true`. Cleanup also reported
+`passed`. The bare name accepted by `link --name` resolved to a temporary
+`personal/` identity, as detected from the current CLI contract rather than a
+version pin. The sentinel was placed outside an existing empty Nori-managed
+block, which exercises the CLI's supported preservation boundary; a wholly
+unmanaged initial `CLAUDE.md` is an import/capture scenario, not the switching
+scenario covered by this package smoke.
