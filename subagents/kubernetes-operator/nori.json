@@ -1,0 +1,6 @@
+{
+  "name": "kubernetes-operator",
+  "version": "1.0.0",
+  "type": "subagent",
+  "description": "Use for Kubernetes workload, node, namespace, service, ingress, storage, scheduling, RBAC, event, admission webhook, CNI, CSI, and cluster operations, including K3s when relevant."
+}

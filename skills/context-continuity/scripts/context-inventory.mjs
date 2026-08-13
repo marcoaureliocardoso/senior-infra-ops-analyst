@@ -104,9 +104,16 @@ export async function collectStaticInventory(root) {
   const subagentEntries = await readdir(path.join(resolved, 'subagents'), { withFileTypes: true });
   for (const entry of subagentEntries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (entry.isSymbolicLink()) throw new Error('linked subagent entry is not allowed');
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-    const id = boundedPackageId(entry.name.slice(0, -3), 'subagent');
-    const text = await safeText(path.join(resolved, 'subagents', `${id}.md`), `subagent ${id}`);
+    if (!entry.isDirectory()) continue;
+    const id = boundedPackageId(entry.name, 'subagent');
+    const directory = path.join(resolved, 'subagents', id);
+    const metadata = parseStrictObject(
+      await safeText(path.join(directory, 'nori.json'), `subagent manifest ${id}`),
+    );
+    if (metadata.name !== id || metadata.type !== 'subagent') {
+      throw new Error(`invalid subagent manifest: ${id}`);
+    }
+    const text = await safeText(path.join(directory, 'SUBAGENT.md'), `subagent ${id}`);
     const preloadBytes = frontmatterSkills(text).reduce((total, skillId) => {
       if (!skillBodies.has(skillId)) throw new Error(`unregistered preloaded skill: ${skillId}`);
       return total + skillBodies.get(skillId);

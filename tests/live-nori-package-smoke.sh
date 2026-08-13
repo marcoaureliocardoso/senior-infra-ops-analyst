@@ -163,7 +163,10 @@ case "${positionals[0]:-}" in
     mkdir -p "$install_dir/.claude/skills/read-the-damn-docs"
     printf '%s\n' '---' 'description: Test dependency' '---' \
       >"$install_dir/.claude/skills/read-the-damn-docs/SKILL.md"
-    cp "$source_path"/subagents/*.md "$install_dir/.claude/agents/"
+    for source in "$source_path"/subagents/*/SUBAGENT.md; do
+      agent_id="$(basename "$(dirname "$source")")"
+      cp "$source" "$install_dir/.claude/agents/$agent_id.md"
+    done
     cp "$source_path"/slashcommands/*.md "$install_dir/.claude/commands/"
     existing=''
     if [[ -f "$destination" ]]; then
@@ -288,8 +291,51 @@ installed_skills = sorted(
     path.name for path in (install_root / "skills").iterdir()
     if path.is_dir() and (path / "SKILL.md").is_file()
 )
-source_subagents = sorted(path.stem for path in (staging / "subagents").glob("*.md"))
+source_subagent_dirs = sorted(
+    path for path in (staging / "subagents").iterdir() if path.is_dir()
+)
+source_subagents = [path.name for path in source_subagent_dirs]
 installed_subagents = sorted(path.stem for path in (install_root / "agents").glob("*.md"))
+legacy_subagents = sorted((staging / "subagents").glob("*.md"))
+
+def frontmatter_value(text, field):
+    if not text.startswith("---\n") or "\n---\n" not in text[4:]:
+        return None
+    frontmatter = text[4:text.index("\n---\n", 4)]
+    prefix = field + ":"
+    for line in frontmatter.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):].strip()
+    return None
+
+subagent_manifests_valid = True
+subagent_semantic_exact = True
+for directory in source_subagent_dirs:
+    definition_path = directory / "SUBAGENT.md"
+    manifest_path = directory / "nori.json"
+    if not definition_path.is_file() or not manifest_path.is_file():
+        subagent_manifests_valid = False
+        subagent_semantic_exact = False
+        continue
+    definition = definition_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if (
+        set(manifest) != {"name", "version", "type", "description"}
+        or manifest.get("name") != directory.name
+        or manifest.get("version") != "1.0.0"
+        or manifest.get("type") != "subagent"
+        or manifest.get("description") != frontmatter_value(definition, "description")
+    ):
+        subagent_manifests_valid = False
+    installed_path = install_root / "agents" / f"{directory.name}.md"
+    if not installed_path.is_file():
+        subagent_semantic_exact = False
+        continue
+    installed_definition = installed_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    if installed_definition.replace(
+        (install_root / "skills").as_posix(), "{{skills_dir}}"
+    ) != definition:
+        subagent_semantic_exact = False
 source_commands = sorted(path.stem for path in (staging / "slashcommands").glob("*.md"))
 installed_commands = sorted(path.stem for path in (install_root / "commands").glob("*.md"))
 evidence = {
@@ -306,6 +352,9 @@ evidence = {
     ),
     "subagentCount": len(installed_subagents),
     "subagentsExact": installed_subagents == source_subagents,
+    "subagentManifestsValid": subagent_manifests_valid,
+    "subagentSemanticExact": subagent_semantic_exact,
+    "legacySubagentsAbsent": not legacy_subagents,
     "commandCount": len(installed_commands),
     "commandsExact": installed_commands == source_commands,
 }
@@ -321,6 +370,9 @@ if evidence != {
     "unexpectedSkillsAbsent": True,
     "subagentCount": 12,
     "subagentsExact": True,
+    "subagentManifestsValid": True,
+    "subagentSemanticExact": True,
+    "legacySubagentsAbsent": True,
     "commandCount": 20,
     "commandsExact": True,
 }:

@@ -60,7 +60,10 @@ REPORT_PATH="$WORK/probes/report.txt"
 SECRET="SYNTH_SECRET_$$_p004"
 
 install_source_fixture() {
-  cp "$ROOT"/subagents/*.md "$INSTALLED_AGENTS_DIR/"
+  for source in "$ROOT"/subagents/*/SUBAGENT.md; do
+    agent_id="$(basename "$(dirname "$source")")"
+    cp "$source" "$INSTALLED_AGENTS_DIR/$agent_id.md"
+  done
   cp -R "$ROOT"/skills/. "$INSTALLED_SKILLS_DIR/"
   python3 - "$INSTALLED_AGENTS_DIR" "$INSTALLED_SKILLS_DIR" <<'PY'
 import sys

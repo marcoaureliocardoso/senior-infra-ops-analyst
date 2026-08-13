@@ -14,7 +14,10 @@ from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "tests" / "context_continuity_install_policy.py"
-AGENTS = tuple(path.stem for path in sorted((ROOT / "subagents").glob("*.md")))
+AGENTS = tuple(
+    path.parent.name
+    for path in sorted((ROOT / "subagents").glob("*/SUBAGENT.md"))
+)
 
 
 def load_policy() -> ModuleType:
@@ -37,9 +40,12 @@ class ContextContinuityInstallPolicyTests(unittest.TestCase):
                 return
             self.skipTest("policy module not available for behavior cases")
         self.policy = load_policy()
-        self.executor = (ROOT / "subagents" / "diagnostic-operator.md").read_text(
-            encoding="utf-8"
-        )
+        self.executor = (
+            ROOT
+            / "subagents"
+            / "diagnostic-operator"
+            / "SUBAGENT.md"
+        ).read_text(encoding="utf-8")
 
     def test_policy_module_exists(self) -> None:
         self.assertTrue(POLICY_PATH.is_file(), "install policy must exist")
@@ -48,9 +54,9 @@ class ContextContinuityInstallPolicyTests(unittest.TestCase):
         self.assertEqual(len(AGENTS), 12)
         for agent_id in AGENTS:
             with self.subTest(agent_id=agent_id):
-                text = (ROOT / "subagents" / f"{agent_id}.md").read_text(
-                    encoding="utf-8"
-                )
+                text = (
+                    ROOT / "subagents" / agent_id / "SUBAGENT.md"
+                ).read_text(encoding="utf-8")
                 self.assertEqual(
                     self.policy.source_continuity_hook_errors(agent_id, text), []
                 )
@@ -127,7 +133,12 @@ class ContextContinuityInstallPolicyTests(unittest.TestCase):
                     ".git", ".worktrees", ".tmp", "__pycache__"
                 ),
             )
-            agent = sandbox / "subagents" / "diagnostic-operator.md"
+            agent = (
+                sandbox
+                / "subagents"
+                / "diagnostic-operator"
+                / "SUBAGENT.md"
+            )
             text = agent.read_text(encoding="utf-8")
             post = self.policy.CANONICAL_CONTINUITY_HOOKS[
                 self.policy.CANONICAL_CONTINUITY_HOOKS.index("  PostCompact:") :

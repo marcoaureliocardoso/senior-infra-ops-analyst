@@ -103,6 +103,9 @@ class LiveNoriPackageSafetyTests(unittest.TestCase):
             "unexpectedSkillsAbsent",
             "subagentCount",
             "subagentsExact",
+            "subagentManifestsValid",
+            "subagentSemanticExact",
+            "legacySubagentsAbsent",
             "commandCount",
             "commandsExact",
         ):

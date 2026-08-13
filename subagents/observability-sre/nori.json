@@ -1,0 +1,6 @@
+{
+  "name": "observability-sre",
+  "version": "1.0.0",
+  "type": "subagent",
+  "description": "Use when analyzing service-level objectives, error budgets, alert rules, dashboard design, monitoring coverage gaps, burn rate alerts, SLI definitions, or observability stack health."
+}

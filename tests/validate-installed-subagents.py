@@ -6,6 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 from subagent_runtime_policy import (
     ROLE_POLICY,
     frontmatter_fields,
@@ -13,6 +16,7 @@ from subagent_runtime_policy import (
     runtime_precedence_section,
     runtime_section,
 )
+from scripts.nori_package import subagent_definition_path
 from command_guard_install_policy import (
     installed_artifact_errors,
     installed_corpus_errors,
@@ -23,8 +27,6 @@ from context_continuity_install_policy import (
     installed_continuity_hook_errors,
 )
 
-
-ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ("maxTurns", "tools", "disallowedTools", "model")
 
 
@@ -42,7 +44,7 @@ def installed_subagent_errors(
         errors.extend(installed_corpus_errors(installed_skills_dir))
 
     for agent_id in sorted(ROLE_POLICY):
-        source_path = ROOT / "subagents" / f"{agent_id}.md"
+        source_path = subagent_definition_path(ROOT, agent_id)
         installed_path = installed_dir / f"{agent_id}.md"
         if not installed_path.exists():
             errors.append(f"missing installed subagent: {agent_id}")

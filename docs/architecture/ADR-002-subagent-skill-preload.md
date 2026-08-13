@@ -14,7 +14,7 @@ Each subagent declares its documented primary skills through native Claude Code 
 
 ## Implemented architecture
 
-- `subagents/*.md` contain 37 role-to-skill preload links, with two to four primary skills per role.
+- `subagents/*/SUBAGENT.md` contain 37 role-to-skill preload links, with two to four primary skills per role; ADR-007 defines their first-class package boundary.
 - `nori.json` remains the canonical catalog of available package skills.
 - `tests/validate-content.py` extracts the complete frontmatter list, validates syntax and registration, rejects duplicates, and compares it with documented primary skills.
 - `tests/test-subagent-frontmatter.py` mutates installed-format source definitions to prove malformed input fails closed.

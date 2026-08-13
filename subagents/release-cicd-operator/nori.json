@@ -1,0 +1,6 @@
+{
+  "name": "release-cicd-operator",
+  "version": "1.0.0",
+  "type": "subagent",
+  "description": "Use for CI/CD pipeline diagnostics, runner/agent health, artifact integrity, deployment gate failures, build performance, pipeline configuration audit, and deployment rollback assessment."
+}

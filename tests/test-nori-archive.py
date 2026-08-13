@@ -67,7 +67,34 @@ class NoriArchiveTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as archive:
             self.assertEqual(archive.namelist(), expected)
             self.assertNotIn("operator-stale.txt", archive.namelist())
-        self.assertEqual(len(expected), 199)
+            self.assertEqual(
+                len(
+                    [
+                        name for name in archive.namelist()
+                        if name.startswith("subagents/")
+                        and name.endswith("/nori.json")
+                    ]
+                ),
+                12,
+            )
+            self.assertEqual(
+                len(
+                    [
+                        name for name in archive.namelist()
+                        if name.startswith("subagents/")
+                        and name.endswith("/SUBAGENT.md")
+                    ]
+                ),
+                12,
+            )
+            self.assertEqual(
+                [
+                    name for name in archive.namelist()
+                    if name.startswith("subagents/") and name.count("/") == 1
+                ],
+                [],
+            )
+        self.assertEqual(len(expected), 211)
 
     def test_drifted_staging_is_rejected_without_replacing_archive(self) -> None:
         self.output.write_bytes(b"operator archive")

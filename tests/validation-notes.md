@@ -397,3 +397,33 @@ both before and after. The real active profile and development link were
 unchanged, the isolated link was removed, and cleanup retained no token, raw
 response, configuration content, header, or credential. `--dry-run` performed
 no registry upload; a real publication remains separately gated.
+
+## First-class subagent package validation (2026-08-13)
+
+All 12 subagents now use the canonical source layout
+`subagents/<id>/SUBAGENT.md` plus an adjacent `nori.json` with component
+version `1.0.0` and type `subagent`. Focused contract tests exercised missing,
+malformed, mismatched, legacy-flat, and linked/reparse component cases. The
+final Debian WSL contract run passed 23 tests, including rejection of a linked
+subagent directory.
+
+A fresh temporary staging build from this source contained 211 regular files
+and 642409 logical bytes: 12 `SUBAGENT.md` definitions, 12 adjacent component
+manifests, and zero legacy flat definitions. The builder's independent check
+accepted the same inventory, and the temporary staging was removed after the
+read-only count.
+
+An isolated Nori Skillsets CLI 0.31.0 installation under Node.js 24.18 proved
+that all 12 directory components install as the expected flat Claude Code
+agent files. The installed definitions were semantically identical after
+normalizing Nori's documented `{{skills_dir}}` resolution. The isolated test
+used disposable home, configuration, link, profile, staging, and installation
+paths; it performed no login, dry-run, upload, or registry mutation, and its
+cleanup passed.
+
+The earlier external staging and authenticated dry-run sections above describe
+the prior 199-file flat-subagent package. That staging is stale for this source
+head and must not be uploaded or reused as publication evidence. A final
+external staging must be regenerated from the reviewed commit before any
+operator-authorized registry upload. No subagent component or root dependency
+was published by this validation.

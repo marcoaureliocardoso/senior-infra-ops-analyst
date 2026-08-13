@@ -23,7 +23,12 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.installed = Path(self.tempdir.name) / "agents"
         self.skills = Path(self.tempdir.name) / "skills"
-        shutil.copytree(ROOT / "subagents", self.installed)
+        self.installed.mkdir()
+        for agent_id in AGENTS:
+            shutil.copyfile(
+                ROOT / "subagents" / agent_id / "SUBAGENT.md",
+                self.installed / f"{agent_id}.md",
+            )
         shutil.copytree(ROOT / "skills", self.skills)
         installed_skills = self.skills.as_posix()
         for agent_id in AGENTS:

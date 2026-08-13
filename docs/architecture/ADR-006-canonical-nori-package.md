@@ -27,9 +27,12 @@ form at installation time.
 ### Filesystem discovery
 
 Skills are discovered from `skills/*/SKILL.md`, references from
-`references/*.md`, and subagents from `subagents/*.md`. `skills.json` remains
+`references/*.md`, and subagents from `subagents/*/SUBAGENT.md`. `skills.json` remains
 the tier/version catalogue and must match the discovered skill directories.
-Subagent frontmatter names must match their filenames.
+Each subagent directory contains a first-class `nori.json`; its name and
+description must match the directory and `SUBAGENT.md` frontmatter. ADR-007
+defines this component boundary and supersedes ADR-006's original flat-file
+subagent representation.
 
 ### Staging allowlist
 
@@ -56,7 +59,9 @@ version. It uses temporary home, XDG, install, staging, and local profile paths;
 links with a bare local name; switches the resulting `personal/` identity for
 `claude-code`; and verifies exactly one managed instruction block, canonical
 content, one generated skills section, preserved unmanaged content, and
-cleanup. It also proves all 25 packaged skill identities, all 12 subagents, and
+cleanup. It also proves all 25 packaged skill identities, all 12 first-class
+subagent manifests and definitions, their semantically equivalent installed
+flat files after Nori resolves `{{skills_dir}}`, and
 all 20 slash commands, while allowing only declared skill dependencies and the
 runtime-owned `nori-info` helper beyond the packaged skill set. No operator
 profile or preference is selected or modified.
