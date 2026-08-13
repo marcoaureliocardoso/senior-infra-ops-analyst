@@ -1,5 +1,7 @@
 # Canonical Nori Manifest Implementation Plan
 
+<!-- cspell:words abspath adequacao dataclass frozenset noriskillset pgpass precreate unrouted -->
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the repository the single upload-ready Nori skillset source and generate a safe, reproducible staging directory that always includes canonical `AGENTS.md`.
@@ -439,6 +441,8 @@ Add the three new Python suites before `validate-schema.py` in
 
 Replace the Makefile package flow with:
 
+<!-- markdownlint-disable MD010 -->
+
 ```make
 STAGING_DIR ?= ../senior-infra-ops-analyst-nori-staging
 PACKAGE_ZIP ?= ../senior-infra-ops-analyst-skillset-v$(shell python3 -c 'import json; print(json.load(open("nori.json"))["version"])').zip
@@ -449,6 +453,8 @@ stage: validate-local
 package: stage
 	python3 scripts/build_nori_archive.py --source . --staging "$(STAGING_DIR)" --output "$(abspath $(PACKAGE_ZIP))"
 ```
+
+<!-- markdownlint-enable MD010 -->
 
 Update `.PHONY` and `clean` without making `clean` delete an arbitrary
 operator-supplied `STAGING_DIR`. Generated staging cleanup remains an explicit,

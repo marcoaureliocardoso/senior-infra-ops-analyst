@@ -192,7 +192,8 @@ if ((SELF_TEST)); then
 else
   NORI_BIN="$(readlink -f "$NORI_BIN")"
 fi
-export PATH="$(dirname "$NORI_BIN"):$PATH"
+nori_bin_dir="$(dirname "$NORI_BIN")"
+export PATH="$nori_bin_dir:$PATH"
 
 version_output="$("$NORI_BIN" --version 2>/dev/null)" || {
   printf 'error: Nori version detection failed\n' >&2
