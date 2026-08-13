@@ -1,6 +1,6 @@
 # Changelog Lexical Version Contract Plan
 
-<!-- cspell:words blockquote CommonMark prerelease -->
+<!-- cspell:words blockquote blockquotes CommonMark prerelease Setext -->
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use systematic debugging and
 > test-driven development. Preserve red and green evidence in the task report.
