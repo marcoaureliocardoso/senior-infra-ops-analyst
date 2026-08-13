@@ -266,7 +266,7 @@ def validate_repository_inventory(root: Path) -> list[str]:
     return errors
 
 
-def _is_link_or_reparse(path: Path) -> bool:
+def is_link_or_reparse(path: Path) -> bool:
     if path.is_symlink():
         return True
     try:
@@ -303,7 +303,7 @@ def _inventory_entry(root: Path, path: Path) -> InventoryEntry:
 
 
 def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
-    if _is_link_or_reparse(root):
+    if is_link_or_reparse(root):
         return ["source root is a symlink or reparse point"], ()
     errors = [*validate_manifest(root), *validate_repository_inventory(root)]
     files: list[Path] = []
@@ -312,7 +312,7 @@ def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
         path = root / name
         if not path.is_file():
             errors.append(f"required staging file is missing: {name}")
-        elif _is_link_or_reparse(path):
+        elif is_link_or_reparse(path):
             errors.append(f"symlink or reparse point is not allowed: {name}")
         else:
             files.append(path)
@@ -322,7 +322,7 @@ def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
         if not directory.is_dir():
             errors.append(f"required staging directory is missing: {name}")
             continue
-        if _is_link_or_reparse(directory):
+        if is_link_or_reparse(directory):
             errors.append(f"symlink or reparse point is not allowed: {name}")
             continue
         for current, directories, filenames in os.walk(
@@ -332,7 +332,7 @@ def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
             for child_name in list(directories):
                 child = current_path / child_name
                 relative = child.relative_to(root)
-                if _is_link_or_reparse(child):
+                if is_link_or_reparse(child):
                     errors.append(
                         "symlink or reparse point is not allowed: "
                         f"{relative.as_posix()}"
@@ -346,7 +346,7 @@ def _source_files(root: Path) -> tuple[list[str], tuple[Path, ...]]:
             for filename in filenames:
                 path = current_path / filename
                 relative = path.relative_to(root)
-                if _is_link_or_reparse(path):
+                if is_link_or_reparse(path):
                     errors.append(
                         "symlink or reparse point is not allowed: "
                         f"{relative.as_posix()}"
@@ -382,12 +382,12 @@ def validate_destination(source: Path, destination: Path) -> list[str]:
     errors: list[str] = []
     source_resolved = source.resolve()
     destination_absolute = Path(os.path.abspath(destination))
-    if _is_link_or_reparse(destination_absolute):
+    if is_link_or_reparse(destination_absolute):
         errors.append("destination is a symlink or reparse point")
     for ancestor in destination_absolute.parents:
         if ancestor == Path(destination_absolute.anchor):
             break
-        if ancestor.exists() and _is_link_or_reparse(ancestor):
+        if ancestor.exists() and is_link_or_reparse(ancestor):
             errors.append("destination ancestor is a symlink or reparse point")
             break
     destination_resolved = destination_absolute.resolve(strict=False)
@@ -413,7 +413,7 @@ def _destination_paths(destination: Path) -> tuple[set[str], list[str]]:
     errors: list[str] = []
     if not destination.exists():
         return paths, errors
-    if not destination.is_dir() or _is_link_or_reparse(destination):
+    if not destination.is_dir() or is_link_or_reparse(destination):
         return paths, ["destination is not a regular directory"]
     for current, directories, filenames in os.walk(
         destination, topdown=True, followlinks=False
@@ -422,7 +422,7 @@ def _destination_paths(destination: Path) -> tuple[set[str], list[str]]:
         for child_name in list(directories):
             child = current_path / child_name
             relative = child.relative_to(destination).as_posix()
-            if _is_link_or_reparse(child):
+            if is_link_or_reparse(child):
                 errors.append(
                     f"symlink or reparse point is not allowed: {relative}"
                 )
@@ -431,7 +431,7 @@ def _destination_paths(destination: Path) -> tuple[set[str], list[str]]:
         for filename in filenames:
             path = current_path / filename
             relative = path.relative_to(destination).as_posix()
-            if _is_link_or_reparse(path):
+            if is_link_or_reparse(path):
                 errors.append(
                     f"symlink or reparse point is not allowed: {relative}"
                 )
@@ -461,7 +461,7 @@ def validate_staging(
     errors = validate_destination(source, destination)
     source_errors, source_files = _source_files(source)
     errors.extend(source_errors)
-    if _is_link_or_reparse(destination):
+    if is_link_or_reparse(destination):
         return errors, ()
     if not destination.is_dir():
         errors.append("staging destination does not exist")
@@ -484,7 +484,7 @@ def validate_staging(
         errors.append(f"staging file is missing: {relative}")
     for relative, source_path in sorted(expected_relative.items()):
         staged_path = destination / relative
-        if not staged_path.is_file() or _is_link_or_reparse(staged_path):
+        if not staged_path.is_file() or is_link_or_reparse(staged_path):
             continue
         staged_entry = _inventory_entry(destination, staged_path)
         inventory.append(staged_entry)

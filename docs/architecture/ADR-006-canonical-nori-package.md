@@ -67,7 +67,8 @@ profile or preference is selected or modified.
   staging allowlisting, path safety, and deterministic inventories.
 - `scripts/build_nori_staging.py` exposes build and check-only operations.
 - `scripts/build_nori_archive.py` creates a fresh deterministic archive,
-  verifies every archived digest, and atomically installs the completed ZIP.
+  verifies every archived digest, rejects source/staging overlap and linked or
+  reparse output paths, and atomically installs the completed ZIP.
 - `tests/validate-schema.py` and `tests/validate-content.py` consume the shared
   contract rather than maintaining parallel inventories.
 - `make stage` validates first; `make package` archives only the staged tree.

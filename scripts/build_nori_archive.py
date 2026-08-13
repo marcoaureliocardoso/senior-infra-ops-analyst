@@ -16,7 +16,11 @@ import sys
 
 sys.path.insert(0, str(ROOT))
 
-from scripts.nori_package import InventoryEntry, validate_staging  # noqa: E402
+from scripts.nori_package import (  # noqa: E402
+    InventoryEntry,
+    is_link_or_reparse,
+    validate_staging,
+)
 
 
 def build_archive(
@@ -25,7 +29,17 @@ def build_archive(
     source = Path(os.path.abspath(source))
     staging = Path(os.path.abspath(staging))
     output = Path(os.path.abspath(output))
+    if is_link_or_reparse(output):
+        raise ValueError("archive output is a symlink or reparse point")
+    for ancestor in output.parents:
+        if ancestor == Path(output.anchor):
+            break
+        if ancestor.exists() and is_link_or_reparse(ancestor):
+            raise ValueError("archive output ancestor is a symlink or reparse point")
     output_resolved = output.resolve(strict=False)
+    source_resolved = source.resolve()
+    if output_resolved == source_resolved or source_resolved in output_resolved.parents:
+        raise ValueError("archive output must be outside source")
     if output_resolved == staging or staging in output_resolved.parents:
         raise ValueError("archive output must be outside staging")
 

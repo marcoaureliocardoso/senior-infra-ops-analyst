@@ -379,7 +379,8 @@ revalidates it, restores it on any race or failure, and refuses drift,
 unexpected content, links, reparse points, and special files. The builder does
 not log in, upload, publish, or change the active Nori profile. `make package`
 creates and verifies a fresh archive, so entries from an older ZIP cannot
-survive.
+survive. Archive output must also remain outside source and staging and cannot
+use a symlink, junction, reparse point, or linked ancestor.
 
 ## Validation
 

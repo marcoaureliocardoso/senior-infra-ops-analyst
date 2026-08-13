@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,9 +23,17 @@ class NoriArchiveTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.temp_root = Path(self.tempdir.name)
+        self.source = self.temp_root / "source"
+        shutil.copytree(
+            ROOT,
+            self.source,
+            ignore=shutil.ignore_patterns(
+                ".git", ".worktrees", ".tmp", "__pycache__"
+            ),
+        )
         self.staging = self.temp_root / "staging"
         self.output = self.temp_root / "package.zip"
-        build_staging(ROOT, self.staging)
+        build_staging(self.source, self.staging)
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
@@ -35,7 +44,7 @@ class NoriArchiveTests(unittest.TestCase):
                 sys.executable,
                 str(ARCHIVER),
                 "--source",
-                str(ROOT),
+                str(self.source),
                 "--staging",
                 str(self.staging),
                 "--output",
@@ -86,6 +95,44 @@ class NoriArchiveTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("destination is a symlink or reparse point", result.stderr)
         self.assertFalse(self.output.exists())
+
+    def test_output_inside_source_is_rejected_without_changing_source(self) -> None:
+        manifest = self.source / "nori.json"
+        before = manifest.read_bytes()
+        self.output = manifest
+        result = self.run_archiver()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("archive output must be outside source", result.stderr)
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_output_symlink_is_rejected_without_changing_target(self) -> None:
+        target = self.temp_root / "operator.zip"
+        target.write_bytes(b"operator archive")
+        try:
+            self.output.symlink_to(target)
+        except OSError:
+            self.skipTest("file symlink creation is unavailable")
+        result = self.run_archiver()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("archive output is a symlink or reparse point", result.stderr)
+        self.assertTrue(self.output.is_symlink())
+        self.assertEqual(target.read_bytes(), b"operator archive")
+
+    def test_linked_output_ancestor_is_rejected_without_changing_victim(self) -> None:
+        target_dir = self.temp_root / "operator-dir"
+        target_dir.mkdir()
+        victim = target_dir / "package.zip"
+        victim.write_bytes(b"operator archive")
+        linked_parent = self.temp_root / "linked-output"
+        try:
+            linked_parent.symlink_to(target_dir, target_is_directory=True)
+        except OSError:
+            self.skipTest("directory symlink creation is unavailable")
+        self.output = linked_parent / "package.zip"
+        result = self.run_archiver()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("archive output ancestor is a symlink or reparse point", result.stderr)
+        self.assertEqual(victim.read_bytes(), b"operator archive")
 
 
 if __name__ == "__main__":

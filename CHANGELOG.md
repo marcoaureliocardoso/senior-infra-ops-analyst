@@ -22,6 +22,7 @@ tag. Tagged versions correspond to repository tags.
 - Consolidated version history in `CHANGELOG.md` and replaced duplicated README release sections with a canonical link.
 - Aligned the canonical Nori manifest, made root `AGENTS.md` mandatory, added reproducible allowlisted staging, and proved isolated Nori installation with operator content preserved outside one managed block.
 - Hardened staging replacement with exact inventory identity, unresolved-path link/reparse rejection, atomic move-aside recovery, special-file checks, current-source CI validation, complete installed asset evidence, and fresh verified ZIP creation.
+- Prevented archive output from overlapping source or staging and from traversing symlink, junction, or reparse-point paths.
 - Left P0-04B browser automation out of scope.
 
 ### 0.11.1 (unreleased) - declared 2026-08-08
