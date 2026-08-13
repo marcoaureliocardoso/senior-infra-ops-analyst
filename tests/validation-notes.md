@@ -371,3 +371,29 @@ files, 638325 logical bytes, eight allowlisted root entries, `AGENTS.md`
 present, and zero sibling recovery or temporary artifacts. No inventory file
 was written into staging. This evidence describes local package construction;
 it is not a registry dry-run or upload result.
+
+## Authenticated public-registry dry-run (2026-08-13)
+
+The locally detected Nori Skillsets CLI 0.31.0 accepted an operator-provided
+public API token through process-only `NORI_API_TOKEN`. The token was entered
+through a no-echo prompt, was never placed in argv or a file, and was unset
+when the process exited. Raw CLI output lived only in an owner-only temporary
+directory that cleanup removed.
+
+The authenticated public version query completed with exit 0 and returned no
+published versions for `senior-infra-ops-analyst`; therefore `0.12.0` was not
+present. An initial dry-run using the plan's namespaced temporary identity
+returned exit 1 because the detected CLI interprets `personal/...` as a
+registry namespace. That attempt left the staging hash, active profile, and
+development link unchanged and removed its temporary link.
+
+The successful route used a disposable `HOME` and XDG configuration, linked
+the final staging under the real bare package name only inside that isolated
+home, and selected the public registry explicitly. The dry-run completed with
+exit 0 for package `senior-infra-ops-analyst`, version `0.12.0`, and public
+registry class. The sorted staging-inventory SHA-256 was
+`b0641ed282c0851d12314d6f48f7d9dee41d84f318e939c88298e9d0fb05fc6b`
+both before and after. The real active profile and development link were
+unchanged, the isolated link was removed, and cleanup retained no token, raw
+response, configuration content, header, or credential. `--dry-run` performed
+no registry upload; a real publication remains separately gated.
