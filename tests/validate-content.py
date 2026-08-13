@@ -650,7 +650,6 @@ if version_history_link not in readme_text:
     err('README failure: missing canonical changelog link')
 
 unpublished_ledger = [
-    ('0.12.0', '2026-08-08', '2026-08-13'),
     ('0.11.1', '2026-08-08', None),
     ('0.11.0', '2026-07-26', None),
     ('0.9.1', '2026-07-23', None),
@@ -658,6 +657,7 @@ unpublished_ledger = [
     ('0.8.0', '2026-07-23', None),
 ]
 tagged_ledger = [
+    ('0.12.0', '2026-08-13'),
     ('0.10.0', '2026-07-27'),
     ('0.7.0', '2026-07-20'),
     ('0.6.1', '2026-07-20'),
@@ -915,6 +915,33 @@ if parsed_tagged != tagged_ledger:
         f'expected {tagged_ledger}, got {parsed_tagged}'
     )
 
+current_release_headings = [
+    heading for heading in heading_inventory
+    if heading['raw'] == '### 0.12.0 - 2026-08-13'
+]
+current_release_bullet_count = 0
+if len(current_release_headings) == 1:
+    current_release_start = current_release_headings[0]['position']
+    current_release_end = next(
+        (
+            heading['position'] for heading in heading_inventory
+            if heading['position'] > current_release_start
+            and heading['level'] <= 3
+        ),
+        len(changelog_text),
+    )
+    current_release_block = changelog_text[
+        current_release_start:current_release_end
+    ]
+    current_release_bullet_count = len(
+        re.findall(r'^- ', current_release_block, re.MULTILINE)
+    )
+if current_release_bullet_count != 18:
+    err(
+        'current-release bullet-count drift: '
+        f'expected 18, got {current_release_bullet_count}'
+    )
+
 tagged_versions = [version for version, _ in parsed_tagged]
 semantic_versions = [tuple(map(int, version.split('.'))) for version in tagged_versions]
 if (
@@ -927,12 +954,19 @@ if (
     err('semantic-order drift: tagged versions must be unique and strictly descending')
 
 manifest_version = manifest.get('version')
-first_unpublished_version = parsed_unpublished[0][0] if parsed_unpublished else None
-if manifest_version != first_unpublished_version:
+recorded_versions = [
+    version for version, *_ in [*parsed_unpublished, *parsed_tagged]
+]
+highest_recorded_version = (
+    max(recorded_versions, key=lambda value: tuple(map(int, value.split('.'))))
+    if recorded_versions
+    else None
+)
+if manifest_version != highest_recorded_version:
     err(
         'current-version mismatch: '
-        f'nori.json has {manifest_version!r}; first unpublished state is '
-        f'{first_unpublished_version!r}'
+        f'nori.json has {manifest_version!r}; highest recorded package state is '
+        f'{highest_recorded_version!r}'
     )
 
 if errors:

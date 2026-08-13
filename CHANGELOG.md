@@ -5,27 +5,6 @@ tag. Tagged versions correspond to repository tags.
 
 ## Unreleased package states
 
-### 0.12.0 (unreleased) - declared 2026-08-08; updated through 2026-08-13
-
-- Added native task-list and Compact Instructions for continuity across long Claude Code sessions.
-- Added operator-owned preventive auto-compaction settings with default 72%, preservation of existing 70–75% values, conflict detection, atomic apply, and owned-only rollback.
-- Added an opt-in stateless context status line and canonical non-blocking `PreCompact`/`PostCompact` hooks to all 12 subagents.
-- Extended the opt-in status line with the exact continuity-preserving `/compact` suggestion when native used context is strictly above the effective 70-75% threshold, while leaving native automatic compaction enabled.
-- Invalidated pending and active credential reuse at compaction, including conservative all-binding invalidation when the session identity cannot be proved.
-- Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
-- Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.
-- Added runtime detection for native auto-compaction and a structural-only live hook observer; the real route blocks rather than deriving an automatic absolute fallback.
-- Hardened the live PTY driver to wait for delayed `PostCompact` within its bound and reject missing, orphaned, duplicated, or incorrectly ordered manual hook sequences.
-- Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence or an exact operator-approved match with the native runtime capacity.
-- Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
-- Standardized delivered agent and roadmap guidance in English, removing the Portuguese-default response rule.
-- Consolidated version history in `CHANGELOG.md` and replaced duplicated README release sections with a canonical link.
-- Aligned the canonical Nori manifest, made root `AGENTS.md` mandatory, added reproducible allowlisted staging, and proved isolated Nori installation with operator content preserved outside one managed block.
-- Hardened staging replacement with exact inventory identity, unresolved-path link/reparse rejection, atomic move-aside recovery, special-file checks, current-source CI validation, complete installed asset evidence, and fresh verified ZIP creation.
-- Prevented archive output from overlapping source or staging and from traversing symlink, junction, or reparse-point paths.
-- Promoted all 12 subagents to first-class Nori components with independent `1.0.0` manifests, canonical `SUBAGENT.md` sources, strict cross-reference validation, and verified flattening into Claude Code's installed agent format.
-- Left P0-04B browser automation out of scope.
-
 ### 0.11.1 (unreleased) - declared 2026-08-08
 
 - Updated every external GitHub Action to its stable release and immutable full commit SHA, including checkout v7.0.1, setup-python v7.0.0, CodeQL v4, upload-artifact v7.0.1, action-gh-release v3.0.2, markdownlint-cli2-action v24.2.0, and cspell-action v8.4.0.
@@ -112,6 +91,27 @@ tag. Tagged versions correspond to repository tags.
 - Extended `validate-content.py` to require the canonical levels/modifiers in core policy artifacts and reject deprecated or invented risk-level tokens.
 
 ## Tagged versions
+
+### 0.12.0 - 2026-08-13
+
+- Added native task-list and Compact Instructions for continuity across long Claude Code sessions.
+- Added operator-owned preventive auto-compaction settings with default 72%, preservation of existing 70–75% values, conflict detection, atomic apply, and owned-only rollback.
+- Added an opt-in stateless context status line and canonical non-blocking `PreCompact`/`PostCompact` hooks to all 12 subagents.
+- Extended the opt-in status line with the exact continuity-preserving `/compact` suggestion when native used context is strictly above the effective 70-75% threshold, while leaving native automatic compaction enabled.
+- Invalidated pending and active credential reuse at compaction, including conservative all-binding invalidation when the session identity cannot be proved.
+- Added content-free measurement for 25 skills, 12 subagents, MCPs, tool search, context percentages, native task continuity, and provider-window evidence.
+- Added deterministic safety, installed-artifact, parser, launcher, and isolated live DeepSeek validation contracts without pinning runtime versions or an absolute context window.
+- Added runtime detection for native auto-compaction and a structural-only live hook observer; the real route blocks rather than deriving an automatic absolute fallback.
+- Hardened the live PTY driver to wait for delayed `PostCompact` within its bound and reject missing, orphaned, duplicated, or incorrectly ordered manual hook sequences.
+- Kept `CLAUDE_CODE_AUTO_COMPACT_WINDOW` outside normal configuration and gated its diagnostic use on observed window-reporting divergence or an exact operator-approved match with the native runtime capacity.
+- Added a fail-closed confirmed-window live diagnostic, fixed fresh-session pressure sizing, and made the PTY controller retry partial writes until every bounded prompt byte is delivered.
+- Standardized delivered agent and roadmap guidance in English, removing the Portuguese-default response rule.
+- Consolidated version history in `CHANGELOG.md` and replaced duplicated README release sections with a canonical link.
+- Aligned the canonical Nori manifest, made root `AGENTS.md` mandatory, added reproducible allowlisted staging, and proved isolated Nori installation with operator content preserved outside one managed block.
+- Hardened staging replacement with exact inventory identity, unresolved-path link/reparse rejection, atomic move-aside recovery, special-file checks, current-source CI validation, complete installed asset evidence, and fresh verified ZIP creation.
+- Prevented archive output from overlapping source or staging and from traversing symlink, junction, or reparse-point paths.
+- Promoted all 12 subagents to first-class Nori components with independent `1.0.0` manifests, canonical `SUBAGENT.md` sources, strict cross-reference validation, and verified flattening into Claude Code's installed agent format.
+- Left P0-04B browser automation out of scope.
 
 ### 0.10.0 - 2026-07-27
 
