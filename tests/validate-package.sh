@@ -9,6 +9,9 @@ node --test tests/context-continuity/inventory.test.mjs
 python3 tests/test-command-guard-install-policy.py
 python3 tests/test-context-continuity-install-policy.py
 python3 -m json.tool nori.json >/dev/null
+python3 tests/test-nori-package-contract.py
+python3 tests/test-content-discovery.py
+python3 tests/test-nori-staging.py
 python3 tests/validate-content.py
 python3 tests/test-release-history.py
 python3 tests/test-risk-taxonomy.py
