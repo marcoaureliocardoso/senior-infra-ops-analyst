@@ -1,224 +1,88 @@
 #!/usr/bin/env python3
-"""Validate nori.json schema beyond JSON parse — structural and semantic checks."""
+"""Validate canonical Nori and repository packaging metadata."""
 from __future__ import annotations
-import json, re, sys
+
+import json
+import re
+import sys
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST_PATH = ROOT / "nori.json"
-errors = []
+sys.path.insert(0, str(ROOT))
+
+from scripts.nori_package import (  # noqa: E402
+    load_json,
+    validate_manifest,
+    validate_repository_inventory,
+)
 
 
-def err(msg: str) -> None:
-    errors.append(msg)
+errors: list[str] = []
 
 
-def main() -> None:
-    if not MANIFEST_PATH.exists():
-        err("nori.json not found")
-        _report()
-
-    with open(MANIFEST_PATH, encoding="utf-8") as fh:
-        manifest = json.load(fh)
-
-    # Required top-level fields
-    for field in ["name", "version", "type", "description", "author", "license", "skills", "references"]:
-        if field not in manifest:
-            err(f"nori.json missing required field: {field}")
-
-    if manifest.get("type") != "skillset":
-        err(f"nori.json type must be 'skillset', got '{manifest.get('type')}'")
-
-    # Version must be valid semver
-    version = manifest.get("version", "")
-    if not re.match(r"^\d+\.\d+\.\d+$", str(version)):
-        err(f"nori.json version '{version}' is not valid semver (X.Y.Z)")
-
-    # Repository/homepage/bugs should not be TBD placeholders
-    for field in ["repository", "homepage"]:
-        value = manifest.get(field, "")
-        if isinstance(value, str) and value.startswith("TBD"):
-            err(f"nori.json {field} is still a TBD placeholder: '{value}'")
-
-    bugs = manifest.get("bugs", {})
-    if isinstance(bugs, dict):
-        bugs_url = bugs.get("url", "")
-        if isinstance(bugs_url, str) and bugs_url.startswith("TBD"):
-            err(f"nori.json bugs.url is still a TBD placeholder: '{bugs_url}'")
-
-    # Skills must be unique
-    skills = manifest.get("skills", [])
-    if len(skills) != len(set(skills)):
-        seen: dict[str, int] = {}
-        for s in skills:
-            seen[s] = seen.get(s, 0) + 1
-        dups = [f"{s} (x{c})" for s, c in seen.items() if c > 1]
-        err(f"nori.json skills contains duplicates: {dups}")
-
-    # References must be unique
-    refs = manifest.get("references", [])
-    if len(refs) != len(set(refs)):
-        seen_refs: dict[str, int] = {}
-        for r in refs:
-            seen_refs[r] = seen_refs.get(r, 0) + 1
-        dups = [f"{r} (x{c})" for r, c in seen_refs.items() if c > 1]
-        err(f"nori.json references contains duplicates: {dups}")
-
-    # Every skill must have a directory
-    for skill in skills:
-        skill_dir = ROOT / "skills" / skill
-        if not skill_dir.is_dir():
-            err(f"skill '{skill}' listed in nori.json but directory missing: {skill_dir}")
-            continue
-        skill_md = skill_dir / "SKILL.md"
-        if not skill_md.exists():
-            err(f"skill '{skill}' missing SKILL.md: {skill_md}")
-
-    # Every reference must exist on disk
-    for ref in refs:
-        ref_path = ROOT / ref
-        if not ref_path.exists():
-            err(f"reference '{ref}' listed in nori.json but file missing: {ref_path}")
-
-    # Tags should be unique
-    tags = manifest.get("tags", [])
-    if len(tags) != len(set(tags)):
-        seen_tags: dict[str, int] = {}
-        for t in tags:
-            seen_tags[t] = seen_tags.get(t, 0) + 1
-        dups = [f"{t} (x{c})" for t, c in seen_tags.items() if c > 1]
-        err(f"nori.json tags contains duplicates: {dups}")
-
-    # Subagents validation
-    subagents = manifest.get("subagents", [])
-    if not subagents:
-        err("nori.json missing subagents array or subagents array is empty")
-
-    subagent_ids: list[str] = []
-    subagent_names: list[str] = []
-    for idx, sa in enumerate(subagents):
-        entry_label = sa.get("id") or sa.get("name") or f"subagents[{idx}]"
-        for field in ["id", "name", "description"]:
-            if field not in sa:
-                err(f"subagent entry missing required field: {field} — entry: {entry_label}")
-        sa_id = sa.get("id", "")
-        if sa_id:
-            subagent_ids.append(sa_id)
-            sa_file = ROOT / "subagents" / f"{sa_id}.md"
-            if not sa_file.exists():
-                err(f"subagent '{sa_id}' listed in nori.json but file missing: {sa_file}")
-        sa_name = sa.get("name", "")
-        if sa_name:
-            subagent_names.append(sa_name)
-
-    if len(subagent_ids) != len(set(subagent_ids)):
-        seen_ids: dict[str, int] = {}
-        for i in subagent_ids:
-            seen_ids[i] = seen_ids.get(i, 0) + 1
-        dups = [f"{i} (x{c})" for i, c in seen_ids.items() if c > 1]
-        err(f"nori.json subagents contains duplicate ids: {dups}")
-
-    if len(subagent_names) != len(set(subagent_names)):
-        seen_names: dict[str, int] = {}
-        for n in subagent_names:
-            seen_names[n] = seen_names.get(n, 0) + 1
-        dups = [f"{n} (x{c})" for n, c in seen_names.items() if c > 1]
-        err(f"nori.json subagents contains duplicate names: {dups}")
-
-    # Every subagent file on disk should be registered in the manifest
-    if (ROOT / "subagents").is_dir():
-        for sa_file in sorted((ROOT / "subagents").glob("*.md")):
-            sa_id = sa_file.stem
-            if sa_id not in subagent_ids:
-                err(f"subagent file '{sa_file.relative_to(ROOT)}' not registered in nori.json subagents array")
-
-    # errors collected — reporting deferred to __main__ so
-    # validate_packaging_metadata() also runs before the final _report().
+def err(message: str) -> None:
+    errors.append(message)
 
 
-def _report() -> None:
-    if errors:
-        print("Schema validation failed:")
-        for e in errors:
-            print(f"  - {e}")
-        sys.exit(1)
-    print("schema validation passed")
+def read_object(path: Path, label: str) -> dict[str, object] | None:
+    try:
+        value = load_json(path)
+    except FileNotFoundError:
+        err(f"{label} not found")
+        return None
+    except (OSError, json.JSONDecodeError) as exc:
+        err(f"{label} is not valid JSON: {exc}")
+        return None
+    if not isinstance(value, dict):
+        err(f"{label} must be a JSON object")
+        return None
+    return value
 
 
-def validate_packaging_metadata() -> None:
-    """Validate Nori packaging metadata files exist and are well-formed."""
-    # --- .nori-version ---
-    nori_version_path = ROOT / ".nori-version"
-    if not nori_version_path.exists():
-        err(".nori-version not found")
-    else:
-        with open(nori_version_path, encoding="utf-8") as fh:
-            nv = json.load(fh)
-        for field in ["version", "registryUrl"]:
-            if field not in nv:
+def validate_release_metadata() -> None:
+    manifest = read_object(ROOT / "nori.json", "nori.json")
+    nori_version = read_object(ROOT / ".nori-version", ".nori-version")
+    if nori_version is not None:
+        for field in ("version", "registryUrl"):
+            if field not in nori_version:
                 err(f".nori-version missing required field: {field}")
-        nv_ver = nv.get("version", "")
-        if not re.match(r"^\d+\.\d+\.\d+$", str(nv_ver)):
-            err(f".nori-version version '{nv_ver}' is not valid semver (X.Y.Z)")
-        with open(MANIFEST_PATH, encoding="utf-8") as fh:
-            manifest_version = json.load(fh).get("version", "")
-        if nv_ver != manifest_version:
+        metadata_version = nori_version.get("version")
+        if not isinstance(metadata_version, str) or not re.fullmatch(
+            r"\d+\.\d+\.\d+", metadata_version
+        ):
+            err(
+                ".nori-version version "
+                f"'{metadata_version}' is not valid semver (X.Y.Z)"
+            )
+        if manifest is not None and metadata_version != manifest.get("version"):
             err(
                 ".nori-version version must match nori.json: "
-                f"'{nv_ver}' != '{manifest_version}'"
+                f"'{metadata_version}' != '{manifest.get('version')}'"
             )
 
-    # --- profile.json ---
-    profile_path = ROOT / "profile.json"
-    if not profile_path.exists():
-        err("profile.json not found")
-    else:
-        with open(profile_path, encoding="utf-8") as fh:
-            profile = json.load(fh)
-        for field in ["name", "description"]:
+    profile = read_object(ROOT / "profile.json", "profile.json")
+    if profile is not None:
+        for field in ("name", "description"):
             if field not in profile:
                 err(f"profile.json missing required field: {field}")
 
-    # --- skills.json ---
-    skills_json_path = ROOT / "skills.json"
-    if not skills_json_path.exists():
-        err("skills.json not found")
-    else:
-        with open(skills_json_path, encoding="utf-8") as fh:
-            skills_tiers = json.load(fh)
-        if not isinstance(skills_tiers, dict):
-            err("skills.json must be a JSON object mapping skill names to tiers")
-        else:
-            with open(MANIFEST_PATH, encoding="utf-8") as fh:
-                manifest_skills = json.load(fh).get("skills", [])
-            for skill in manifest_skills:
-                if skill not in skills_tiers:
-                    err(f"skill '{skill}' in nori.json not found in skills.json")
-            for skill in skills_tiers:
-                if skill not in manifest_skills:
-                    err(f"skill '{skill}' in skills.json not found in nori.json")
 
-    # --- skills/<skill>/nori.json ---
-    with open(MANIFEST_PATH, encoding="utf-8") as fh:
-        manifest_skills = json.load(fh).get("skills", [])
-    for skill in manifest_skills:
-        skill_nori = ROOT / "skills" / skill / "nori.json"
-        if not skill_nori.exists():
-            err(f"skills/{skill}/nori.json not found")
-            continue
-        with open(skill_nori, encoding="utf-8") as fh:
-            sn = json.load(fh)
-        for field in ["name", "version", "type", "description"]:
-            if field not in sn:
-                err(f"skills/{skill}/nori.json missing required field: {field}")
-        if sn.get("type") != "skill":
-            err(f"skills/{skill}/nori.json type must be 'skill', got '{sn.get('type')}'")
-        sn_ver = sn.get("version", "")
-        if not re.match(r"^\d+\.\d+\.\d+$", str(sn_ver)):
-            err(f"skills/{skill}/nori.json version '{sn_ver}' is not valid semver (X.Y.Z)")
+def report() -> None:
+    if errors:
+        print("Schema validation failed:")
+        for message in errors:
+            print(f"  - {message}")
+        raise SystemExit(1)
+    print("schema validation passed")
+
+
+def main() -> None:
+    errors.extend(validate_manifest(ROOT))
+    errors.extend(validate_repository_inventory(ROOT))
+    validate_release_metadata()
+    report()
 
 
 if __name__ == "__main__":
     main()
-    validate_packaging_metadata()
-    _report()
