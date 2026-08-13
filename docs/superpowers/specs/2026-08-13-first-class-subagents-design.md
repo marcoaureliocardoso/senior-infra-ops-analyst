@@ -43,9 +43,10 @@ remains flat: Nori installs each canonical `SUBAGENT.md` as
 with its canonical source by meaning and must not require a directory inside
 `.claude/agents/`.
 
-The root manifest does not predeclare the 12 local packages in
-`dependencies.subagents`. Current Nori upload synchronization adds extracted or
-linked subagent versions to that map only after a successful registry upload.
+The root manifest does not declare the 12 local packages in
+`dependencies.subagents` before publication. Current Nori upload synchronization
+adds extracted or linked subagent versions to that map only after a successful
+registry upload.
 This prevents the source manifest from claiming registry dependencies that do
 not yet exist.
 
