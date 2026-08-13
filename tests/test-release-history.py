@@ -2,6 +2,7 @@
 """Mutation tests for the curated changelog release-history contract."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -83,6 +84,7 @@ class ReleaseHistoryTests(unittest.TestCase):
             cwd=self.sandbox,
             capture_output=True,
             text=True,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             check=False,
         )
 
@@ -276,7 +278,6 @@ class ReleaseHistoryTests(unittest.TestCase):
         witnesses = (
             "> ### 0.3.3 - 2026-07-08",
             "- ### 0.3.3 - 2026-07-08",
-            "1. 0.3.3 - 2026-07-08",
             "> - ### 0.3.3 - 2026-07-08",
             "### 0.3.3-rc.1 - 2026-07-08",
             "### 0.3.3+build.7 - 2026-07-08",
@@ -290,6 +291,33 @@ class ReleaseHistoryTests(unittest.TestCase):
                 result = self.run_validator()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(VERSION_LINE_ERROR, result.stdout)
+
+    def test_ascii_ordered_list_version_is_rejected(self) -> None:
+        self.replace_changelog(
+            TAGGED_HEADING,
+            TAGGED_HEADING + "\n\n1. 0.3.3 - 2026-07-08",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(VERSION_LINE_ERROR, result.stdout)
+
+    def test_unicode_decimal_digits_do_not_form_version_syntax(self) -> None:
+        witnesses = (
+            "### 1.2.3\u0664 note",
+            "\u0661. 0.3.3 - 2026-07-08",
+        )
+        for witness in witnesses:
+            with self.subTest(witness=witness):
+                self.replace_changelog(
+                    TAGGED_HEADING,
+                    TAGGED_HEADING + "\n\n" + witness,
+                )
+                result = self.run_validator()
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    result.stdout + result.stderr,
+                )
 
     def test_direct_version_leading_line_is_rejected(self) -> None:
         self.replace_changelog(

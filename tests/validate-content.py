@@ -643,9 +643,9 @@ tagged_ledger = [
     ('0.2.1', '2026-07-08'),
 ]
 changelog_text = read('CHANGELOG.md')
-semver_core_identifier = r'(?:0|[1-9]\d*)'
+semver_core_identifier = r'(?:0|[1-9][0-9]*)'
 semver_prerelease_identifier = (
-    r'(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)'
+    r'(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
 )
 semver_pattern = (
     rf'{semver_core_identifier}\.{semver_core_identifier}\.'
@@ -658,7 +658,7 @@ version_bearing_pattern = re.compile(
     rf'^(?:#{{1,6}}[ \t]+)?{semver_pattern}(?=[ \t]|$)'
 )
 container_prefix_pattern = re.compile(
-    r'^(?:>[ \t]?|[-+*][ \t]+|\d+[.)][ \t]+)'
+    r'^(?:>[ \t]?|[-+*][ \t]+|[0-9]+[.)][ \t]+)'
 )
 
 def first_meaningful_changelog_content(line):
@@ -782,9 +782,9 @@ for heading in heading_inventory:
         continue
     if taxonomy == 'unpublished':
         parsed = re.fullmatch(
-            r'(\d+\.\d+\.\d+) \(unreleased\) - declared '
-            r'(\d{4}-\d{2}-\d{2})(?:; updated through '
-            r'(\d{4}-\d{2}-\d{2}))?',
+            r'([0-9]+\.[0-9]+\.[0-9]+) \(unreleased\) - declared '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2})(?:; updated through '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2}))?',
             heading['content'],
         )
         if parsed:
@@ -795,7 +795,8 @@ for heading in heading_inventory:
             continue
     else:
         parsed = re.fullmatch(
-            r'(\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})',
+            r'([0-9]+\.[0-9]+\.[0-9]+) - '
+            r'([0-9]{4}-[0-9]{2}-[0-9]{2})',
             heading['content'],
         )
         if parsed:
