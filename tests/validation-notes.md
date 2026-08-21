@@ -427,3 +427,29 @@ head and must not be uploaded or reused as publication evidence. A final
 external staging must be regenerated from the reviewed commit before any
 operator-authorized registry upload. No subagent component or root dependency
 was published by this validation.
+
+## Native execution boundary live-routing self-test (2026-08-21)
+
+The P0-05 deterministic self-test completed in Debian WSL without a provider
+call. It used generated Nori and Claude Code test doubles, a disposable home,
+project, local settings scope, synthetic target, audit directory, and three
+separate PTY processes. The observed exact sequence was
+`main-default:PreToolUse:deny`, `main-bypass:PreToolUse:deny`, then
+`executor-fallback:PreToolUse:deny`; all three records carried
+`DENY_UNKNOWN_COMMAND`, matched their expected current-session actor and mode,
+and the final bounded report contained three observations in exact order.
+
+The driver ignores all terminal text, retains only its bounded byte count, and
+accepts exactly one fresh audit record in a nonce-specific file for each stage.
+Deterministic tests reject missing, repeated, orphaned, reordered, echoed-only,
+stale-session, malformed, oversized, and timed-out evidence. The main hooks were
+applied only to the disposable project and removed before the installed
+`diagnostic-operator` fallback was exercised. Cleanup removed the generated
+home, settings, audit events, stage results, synthetic target, and fake tools.
+
+This self-test proves harness structure, not provider-backed Claude Code hook
+behavior, and therefore does not establish `ACTIVE` or complete P0-05. The real
+`--run-live` route remains unexecuted. It requires the explicit
+`P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` acknowledgement; a
+missing record, invalid exact sequence, output bound, or timeout is reported as
+`INCONCLUSIVE` and cannot satisfy acceptance.

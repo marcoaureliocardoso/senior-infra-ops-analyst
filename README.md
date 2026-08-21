@@ -121,6 +121,26 @@ guard denial for `printf P005_GUARD_PROBE`; the probe proves coverage only and
 does not authorize a later command. Otherwise delegate to a protected executor
 or perform no execution. See `references/native-execution-boundary.md`.
 
+The deterministic live-routing self-test uses disposable Nori and Claude Code
+test doubles and makes no provider call:
+
+```bash
+bash tests/live-native-execution-boundary-smoke.sh --self-test
+```
+
+Real validation is separately opt-in, bounded to three harmless denied probes,
+and imports only the allowlisted provider settings needed to start Claude Code:
+
+```bash
+P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE \
+  bash tests/live-native-execution-boundary-smoke.sh --run-live
+```
+
+The real route creates a disposable home and project, observes only fresh
+content-free hook audit records, never retains terminal output, and removes the
+main-session hooks before exercising the protected executor fallback. A timeout
+or incomplete sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
+
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,
 operator, redirect, and data-flow graph, and validates every stage against a
 finite operational catalogue. Pipes are therefore analyzed rather than
