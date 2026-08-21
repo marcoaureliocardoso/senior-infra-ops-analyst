@@ -473,9 +473,11 @@ threat model.
 The first operator-authorized `--run-live` attempt stopped before Claude Code
 or any provider request because the detected Nori Skillsets CLI 0.27.0 linked
 the disposable package with a bare identity while the harness still assumed
-the newer `personal/` namespace. Cleanup removed the disposable tree. The
-harness now discovers exactly one identity through Nori's runtime `list`
-capability and accepts only the exact requested bare identity or its exact
-`personal/` form; missing, ambiguous, or unrelated identities fail closed.
-This aborted attempt is not provider-backed evidence and consumed none of the
-three authorized requests.
+the newer `personal/` namespace. A second authorized attempt also stopped
+before Claude Code or the provider because that CLI decorates linked entries
+from `list` with the literal ` (linked)` suffix. Cleanup removed both
+disposable trees. The harness now removes only that exact structural suffix,
+requires exactly one identity, and accepts only the requested bare identity or
+its exact `personal/` form; missing, ambiguous, or unrelated identities fail
+closed. Neither aborted attempt is provider-backed evidence, and together they
+consumed none of the three authorized requests.

@@ -102,7 +102,7 @@ case "${positionals[0]:-}" in
     ;;
   list)
     cat "$HOME/.p005-profile"
-    printf '\n'
+    printf ' (linked)\n'
     ;;
   switch)
     source_path="$(<"$HOME/.p005-source")"
@@ -174,6 +174,9 @@ install_package() {
   list_output="$("$NORI_BIN" --install-dir "$HOME" --agent claude-code list)" || \
     blocked 'Nori linked-profile discovery failed'
   while IFS= read -r profile; do
+    case "$profile" in
+      *' (linked)') profile="${profile% (linked)}" ;;
+    esac
     [[ -n "$profile" ]] && profiles+=("$profile")
   done <<<"$list_output"
   [[ ${#profiles[@]} -eq 1 ]] || blocked 'Nori linked-profile discovery was ambiguous'
