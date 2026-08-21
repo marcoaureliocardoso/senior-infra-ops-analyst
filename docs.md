@@ -9,7 +9,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
 Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.12.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.13.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Context continuity
 
@@ -75,6 +75,12 @@ requires the current session's structured guard denial for
 `printf P005_GUARD_PROBE`; this proves hook coverage but authorizes no later
 command. Otherwise use a proven executor or no execution. The canonical matrix
 is `references/native-execution-boundary.md`.
+
+Run `bash tests/live-native-execution-boundary-smoke.sh --self-test` for the
+no-provider structural gate. The real provider-backed route requires
+`P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` and
+`--run-live`; missing or timed-out structural evidence is `INCONCLUSIVE` and
+never establishes `ACTIVE`.
 
 Operator-supplied literal credentials are treated as already visible to the
 model/provider/transcript. First literal use always asks. Only matching
