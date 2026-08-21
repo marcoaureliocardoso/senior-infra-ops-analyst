@@ -61,6 +61,11 @@ command -v "$PYTHON_BIN" >/dev/null 2>&1 || {
   printf 'error: python3 is required\n' >&2
   exit 1
 }
+NODE_BIN="${NODE_BIN:-node}"
+command -v "$NODE_BIN" >/dev/null 2>&1 || {
+  printf 'error: node is required\n' >&2
+  exit 1
+}
 
 TEMP_ROOT_REAL="$(readlink -f "${TMPDIR:-/tmp}")"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/nori-package-smoke.XXXXXX")"
@@ -255,6 +260,22 @@ grep -q -- '--agent' <<<"$switch_help" || {
     exit 1
   }
 
+P005_PROJECT="$WORK/p005-project"
+P005_SETTINGS="$P005_PROJECT/.claude/settings.local.json"
+P005_CONFIGURATOR="$INSTALL_ROOT/.claude/skills/command-driven-operations/scripts/configure-native-execution-boundary.mjs"
+mkdir -p "$P005_PROJECT/.claude"
+printf '%s\n' '{"model":"operator-model","env":{"OPERATOR_SENTINEL":"SYNTH_SECRET_not_reported"},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/operator/stop"}]}]}}' >"$P005_SETTINGS"
+set +e
+"$NODE_BIN" "$P005_CONFIGURATOR" --apply --root "$P005_PROJECT" >"$WORK/p005-apply.json" 2>"$WORK/p005-apply.err"
+p005_apply_status=$?
+"$NODE_BIN" "$P005_CONFIGURATOR" --apply --root "$P005_PROJECT" >"$WORK/p005-second.json" 2>"$WORK/p005-second.err"
+p005_second_status=$?
+set -e
+if [[ "$p005_apply_status" -ne 2 || "$p005_second_status" -ne 2 ]]; then
+  printf 'error: installed P0-05 configurator failed\n' >&2
+  exit 1
+fi
+
 mapfile -d '' installed_files < <(
   find "$INSTALL_ROOT" -type f -name CLAUDE.md -print0
 )
@@ -264,7 +285,7 @@ if ((${#installed_files[@]} != 1)); then
 fi
 
 verification="$("$PYTHON_BIN" - \
-  "$STAGING" "${installed_files[0]}" "$INSTALL_ROOT" <<'PY'
+  "$STAGING" "${installed_files[0]}" "$INSTALL_ROOT" "$P005_PROJECT" "$WORK" <<'PY'
 import json
 import re
 import sys
@@ -274,6 +295,8 @@ staging = Path(sys.argv[1])
 source = (staging / "AGENTS.md").read_text(encoding="utf-8").replace("\r\n", "\n")
 installed = Path(sys.argv[2]).read_text(encoding="utf-8").replace("\r\n", "\n")
 install_root = Path(sys.argv[3]) / ".claude"
+p005_project = Path(sys.argv[4])
+work = Path(sys.argv[5])
 pattern = re.compile(
     r"# BEGIN NORI-AI MANAGED BLOCK\n([\s\S]*?)\n"
     r"# END NORI-AI MANAGED BLOCK\n?"
@@ -338,6 +361,16 @@ for directory in source_subagent_dirs:
         subagent_semantic_exact = False
 source_commands = sorted(path.stem for path in (staging / "slashcommands").glob("*.md"))
 installed_commands = sorted(path.stem for path in (install_root / "commands").glob("*.md"))
+p005_skill = install_root / "skills" / "command-driven-operations"
+p005_settings = json.loads(
+    (p005_project / ".claude" / "settings.local.json").read_text(encoding="utf-8")
+)
+p005_first = json.loads((work / "p005-apply.json").read_text(encoding="utf-8"))
+p005_second = json.loads((work / "p005-second.json").read_text(encoding="utf-8"))
+p005_hook_commands = [
+    p005_settings["hooks"][event][-1]["hooks"][0]["command"]
+    for event in ("PreToolUse", "PostToolUse")
+]
 evidence = {
     "managedBlockCount": len(matches),
     "canonicalContent": managed.startswith(source),
@@ -357,6 +390,24 @@ evidence = {
     "legacySubagentsAbsent": not legacy_subagents,
     "commandCount": len(installed_commands),
     "commandsExact": installed_commands == source_commands,
+    "p005ConfiguratorPresent": (p005_skill / "scripts" / "configure-native-execution-boundary.mjs").is_file(),
+    "p005SettingsModulePresent": (p005_skill / "scripts" / "main-session-settings.mjs").is_file(),
+    "p005ConfiguredUnproven": p005_first.get("state") == "CONFIGURED_UNPROVEN",
+    "p005SecondApplyUnchanged": p005_second.get("changed") is False,
+    "p005OperatorSettingsPreserved": (
+        p005_settings.get("model") == "operator-model"
+        and p005_settings.get("env", {}).get("OPERATOR_SENTINEL") == "SYNTH_SECRET_not_reported"
+        and len(p005_settings.get("hooks", {}).get("Stop", [])) == 1
+    ),
+    "p005InstalledPathsExact": all(
+        command == (p005_skill / "scripts" / "command-guard-launcher.sh").as_posix()
+        for command in p005_hook_commands
+    ),
+    "p005SourcePathsAbsent": str(staging) not in json.dumps(p005_settings),
+    "p005ReportSecretAbsent": "SYNTH_SECRET" not in (
+        (work / "p005-apply.json").read_text(encoding="utf-8")
+        + (work / "p005-apply.err").read_text(encoding="utf-8")
+    ),
 }
 print(json.dumps(evidence, separators=(",", ":"), sort_keys=True))
 if evidence != {
@@ -375,6 +426,14 @@ if evidence != {
     "legacySubagentsAbsent": True,
     "commandCount": 20,
     "commandsExact": True,
+    "p005ConfiguratorPresent": True,
+    "p005SettingsModulePresent": True,
+    "p005ConfiguredUnproven": True,
+    "p005SecondApplyUnchanged": True,
+    "p005OperatorSettingsPreserved": True,
+    "p005InstalledPathsExact": True,
+    "p005SourcePathsAbsent": True,
+    "p005ReportSecretAbsent": True,
 }:
     raise SystemExit(1)
 PY
@@ -383,6 +442,29 @@ PY
   printf '%s\n' "$verification" >&2
   exit 1
 }
+
+set +e
+"$NODE_BIN" "$P005_CONFIGURATOR" --remove-owned --root "$P005_PROJECT" >"$WORK/p005-remove.json" 2>"$WORK/p005-remove.err"
+p005_remove_status=$?
+set -e
+if [[ "$p005_remove_status" -ne 0 ]]; then
+  printf 'error: installed P0-05 owned removal failed\n' >&2
+  exit 1
+fi
+"$PYTHON_BIN" - "$P005_SETTINGS" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+expected = {
+    "model": "operator-model",
+    "env": {"OPERATOR_SENTINEL": "SYNTH_SECRET_not_reported"},
+    "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/operator/stop"}]}]},
+}
+if settings != expected:
+    raise SystemExit(1)
+PY
 
 version_line="$(printf '%s\n' "$version_output" | head -n 1 | tr -cd 'A-Za-z0-9._ -')"
 version_line="${version_line:0:80}"

@@ -104,6 +104,23 @@ Node.js validator and approval recorder from the Nori-installed
 crashes, malformed output, and unexpected stdout block the call. The four
 analytical roles remain shell-free.
 
+Direct main-session Bash protection is an explicit project-local opt-in. Nori
+installation alone does not modify operator settings. From the installed
+`command-driven-operations` skill, inspect, add, or remove only package-owned
+hooks with:
+
+```bash
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --check
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --apply
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
+```
+
+Exact settings produce `CONFIGURED_UNPROVEN`, not runtime proof. Before direct
+operational Bash, the current session must observe the expected structured
+guard denial for `printf P005_GUARD_PROBE`; the probe proves coverage only and
+does not authorize a later command. Otherwise delegate to a protected executor
+or perform no execution. See `references/native-execution-boundary.md`.
+
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,
 operator, redirect, and data-flow graph, and validates every stage against a
 finite operational catalogue. Pipes are therefore analyzed rather than

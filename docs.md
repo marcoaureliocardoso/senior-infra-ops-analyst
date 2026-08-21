@@ -60,6 +60,22 @@ operations without another confirmation; destructive operations still ask,
 and unknown or inconclusive operations deny. Pipes remain usable when every
 stage and edge is understood.
 
+Main-session protection is separately opt-in and project-local. Nori
+installation does not activate it or overwrite operator preferences. Run the
+installed component's configurator:
+
+```bash
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --check
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --apply
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
+```
+
+`CONFIGURED_UNPROVEN` confirms exact settings only. Direct operational Bash
+requires the current session's structured guard denial for
+`printf P005_GUARD_PROBE`; this proves hook coverage but authorizes no later
+command. Otherwise use a proven executor or no execution. The canonical matrix
+is `references/native-execution-boundary.md`.
+
 Operator-supplied literal credentials are treated as already visible to the
 model/provider/transcript. First literal use always asks. Only matching
 successful `PostToolUse` evidence activates same-session, same-domain,
