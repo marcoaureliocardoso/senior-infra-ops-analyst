@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -61,6 +62,7 @@ test('current native PreToolUse Bash payload accepts documented common fields', 
 test('ordinary main-session payload is identified by absent optional agent fields', () => {
   const payload = validEvent({ permission_mode: 'default' });
   delete payload.agent_type;
+  delete payload.agent_id;
   const event = parseHookEvent(JSON.stringify(payload));
   assert.equal(event.agentType, null);
   assert.equal(event.permissionMode, 'default');
@@ -74,13 +76,60 @@ test('partial synthetic and unknown agent identities fail closed', () => {
   delete mainWithAgentId.agent_type;
   assert.throws(
     () => parseHookEvent(JSON.stringify(mainWithAgentId)),
-    /agent identity fields must both be absent|agent_type/,
+    /agent identity fields must both be present or both be absent/,
   );
+  for (const agentType of EXECUTOR_AGENTS) {
+    const executorWithoutAgentId = validEvent({ agent_type: agentType });
+    delete executorWithoutAgentId.agent_id;
+    assert.throws(
+      () => parseHookEvent(JSON.stringify(executorWithoutAgentId)),
+      /agent identity fields must both be present or both be absent/,
+    );
+  }
   for (const agentType of ['main-session', 'ordinary-main-session', 'unknown-executor']) {
     assert.throws(
       () => parseHookEvent(JSON.stringify(validEvent({ agent_type: agentType }))),
       /agent is not an executor/,
     );
+  }
+});
+
+test('live-stage audit nonce is exact, bounded, and content-free', async () => {
+  const temporary = await temporaryAudit();
+  try {
+    appendAudit(
+      {
+        policyId: null, risk: null, modifiers: [], target: null,
+        environment: null, scope: null, credential: null,
+        decision: 'deny', reasonCode: 'DENY_UNKNOWN_COMMAND', stage: 1, findings: [],
+      },
+      { sessionId: 'session', agentType: null, permissionMode: 'default' },
+      {
+        OPS_COMMAND_GUARD_AUDIT_PATH: temporary.auditPath,
+        P005_LIVE_STAGE_NONCE: '0123456789abcdef0123456789abcdef',
+      },
+    );
+    const record = JSON.parse(await readFile(temporary.auditPath, 'utf8'));
+    assert.equal(record.probeNonce, '0123456789abcdef0123456789abcdef');
+    for (const invalid of ['', 'A'.repeat(32), 'a'.repeat(31), 'a'.repeat(33), 'not-a-nonce']) {
+      assert.throws(
+        () => appendAudit(
+          {
+            policyId: null, risk: null, modifiers: [], target: null,
+            environment: null, scope: null, credential: null,
+            decision: 'deny', reasonCode: 'DENY_UNKNOWN_COMMAND', stage: 1, findings: [],
+          },
+          { sessionId: 'session', agentType: null, permissionMode: 'default' },
+          {
+            OPS_COMMAND_GUARD_AUDIT_PATH: temporary.auditPath,
+            P005_LIVE_STAGE_NONCE: invalid,
+          },
+        ),
+        /invalid live stage nonce/,
+      );
+    }
+  } finally {
+    await temporary.cleanup();
   }
 });
 

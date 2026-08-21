@@ -200,7 +200,11 @@ ownership model.
 Both Bash lifecycle hooks are required. `PreToolUse` authorizes the actual
 call. `PostToolUse` records only successful non-secret authorization state used
 by the existing credential-reuse contract. Installing only one phase is an
-incomplete and unusable configuration.
+incomplete and unusable configuration. The deliberately denied coverage probe
+cannot invoke `PostToolUse`; its live proof is the exact `PreToolUse` denial.
+Any later credential reuse still requires matching successful `PostToolUse`
+evidence for that independently authorized call, so missing Post evidence fails
+closed without activating reuse.
 ## Coverage State
 The package exposes these states without claiming more than the evidence:
 - `ACTIVE`: exact effective hooks are owned and a live synthetic call proves
@@ -251,9 +255,14 @@ edit local preferences. Apply and removal must be idempotent and preserve:
 - managed settings precedence;
 - changes made after package activation.
 
-The configurator must refuse malformed, duplicate-key, linked, replaced,
-unbounded, or concurrently changed targets. Recovery may complete or roll back
-only package-owned values; it must never restore a whole stale settings backup.
+The configurator must refuse malformed, duplicate-key, linked, unbounded, or
+concurrently changed targets observed before replacement. Its byte recheck and
+lock prevent accidental or cooperative races, not a malicious same-principal
+local actor that can exchange an ancestor or target between filesystem syscalls
+or edit settings after completion. When that actor is in scope, activation must
+use managed settings or an operator-reviewed manual change protected by
+operating-system access controls. Recovery may complete or roll back only
+package-owned values; it must never restore a whole stale settings backup.
 ## Instructions and Delegation
 Root instructions and the command-driven operations skill will state:
 - diagnosis, proposal, execution, validation, and rollback are distinct phases;

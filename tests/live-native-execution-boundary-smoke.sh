@@ -142,6 +142,7 @@ record = {
     'environment': None, 'scope': None, 'credential': None,
     'actionId': 'a' * 64, 'decision': 'deny',
     'reason': 'DENY_UNKNOWN_COMMAND', 'stage': 1, 'findings': [],
+    'probeNonce': os.environ['P005_LIVE_STAGE_NONCE'],
 }
 with open(os.environ['OPS_COMMAND_GUARD_AUDIT_PATH'], 'w', encoding='utf-8') as stream:
     stream.write(json.dumps(record) + '\n')

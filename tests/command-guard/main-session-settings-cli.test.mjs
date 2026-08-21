@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 
@@ -31,6 +31,14 @@ function runCli(args, env = {}) {
 
 function report(result) {
   return JSON.parse(result.stdout);
+}
+
+async function waitForPath(target, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(target) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(existsSync(target), true, `timed out waiting for ${path.basename(target)}`);
 }
 
 test('help is side-effect free and invalid invocations return 64', async () => {
@@ -139,6 +147,34 @@ test('an interrupted settings-first commit recovers without whole-file restorati
     assert.equal(settings.hooks.PreToolUse.length, 1);
     assert.equal(settings.hooks.PostToolUse.length, 1);
     assert.equal(existsSync(path.join(claude, '.p0-05-native-execution.transaction.json')), false);
+  });
+});
+
+test('a target changed before the guarded recheck is refused and preserved', async () => {
+  await fixture(async ({ root, claude }) => {
+    await mkdir(claude, { recursive: true });
+    const settingsPath = path.join(claude, 'settings.local.json');
+    const transactionPath = path.join(claude, '.p0-05-native-execution.transaction.json');
+    await writeFile(settingsPath, '{"model":"initial"}\n', 'utf8');
+    const child = spawn(process.execPath, [cli, '--apply', '--root', root], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        P005_TEST_PAUSE_BEFORE_RECHECK_MS: '500',
+      },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    await waitForPath(transactionPath);
+    const operatorChange = '{"model":"operator-concurrent-change"}\n';
+    await writeFile(settingsPath, operatorChange, 'utf8');
+    const status = await new Promise((resolve) => child.once('close', resolve));
+    assert.equal(status, 3, stdout + stderr);
+    assert.equal(await readFile(settingsPath, 'utf8'), operatorChange);
   });
 });
 

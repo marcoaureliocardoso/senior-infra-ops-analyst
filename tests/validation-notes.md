@@ -453,3 +453,19 @@ behavior, and therefore does not establish `ACTIVE` or complete P0-05. The real
 `P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` acknowledgement; a
 missing record, invalid exact sequence, output bound, or timeout is reported as
 `INCONCLUSIVE` and cannot satisfy acceptance.
+
+Independent-review remediation now requires every accepted audit record to
+carry the exact 32-character random stage nonce supplied only to that launched
+child process. Missing, malformed, or mismatched nonce evidence is rejected.
+The main-session event contract also rejects either partial identity shape:
+`agent_type` without `agent_id` and `agent_id` without `agent_type`.
+
+The denied coverage probe ends at `PreToolUse` by design and therefore cannot
+exercise `PostToolUse`. Both phases must still be exact in installed settings;
+successful authorization reuse remains unavailable unless its real call later
+produces matching successful Post evidence. The settings configurator detects
+and preserves a target changed before its guarded raw-byte recheck. Its
+cross-platform path operations are not represented as protection against a
+malicious same-principal local actor swapping paths between syscalls; managed
+settings or an operating-system-protected manual change is required for that
+threat model.

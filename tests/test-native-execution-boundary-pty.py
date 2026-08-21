@@ -34,7 +34,8 @@ def load_driver():
 
 
 def audit_record(*, session="session-current", agent=None, mode="default",
-                 decision="deny", reason="DENY_UNKNOWN_COMMAND", timestamp=None):
+                 decision="deny", reason="DENY_UNKNOWN_COMMAND", timestamp=None,
+                 probe_nonce="0123456789abcdef0123456789abcdef"):
     return {
         "timestamp": timestamp or "2026-08-21T12:00:01.000Z",
         "sessionId": session,
@@ -52,6 +53,7 @@ def audit_record(*, session="session-current", agent=None, mode="default",
         "reason": reason,
         "stage": 1,
         "findings": [],
+        "probeNonce": probe_nonce,
     }
 
 
@@ -82,6 +84,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
                 expected_mode="default",
                 expected_agent=None,
                 started_at=1787313600.0,
+                expected_nonce="0123456789abcdef0123456789abcdef",
             )
             self.assertEqual(result.marker, EXPECTED[0])
             self.assertEqual(result.reason_code, "DENY_UNKNOWN_COMMAND")
@@ -96,6 +99,8 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
             [audit_record(mode="bypassPermissions")],
             [audit_record(decision="allow")],
             [audit_record(reason="ALLOW_NARROW_READ")],
+            [audit_record(probe_nonce="fedcba9876543210fedcba9876543210")],
+            [{key: value for key, value in audit_record().items() if key != "probeNonce"}],
             [{**audit_record(), "stage": None}],
             [audit_record(), audit_record(session="second-session")],
         ]
@@ -113,6 +118,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
                         expected_mode="default",
                         expected_agent=None,
                         started_at=1787313600.0,
+                        expected_nonce="0123456789abcdef0123456789abcdef",
                     )
 
     def test_audit_parser_rejects_malformed_oversized_and_unknown_fields(self) -> None:
@@ -132,6 +138,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
                         expected_mode="default",
                         expected_agent=None,
                         started_at=1787313600.0,
+                        expected_nonce="0123456789abcdef0123456789abcdef",
                     )
 
     def test_prompt_or_terminal_echo_cannot_create_evidence(self) -> None:
@@ -147,6 +154,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
                     expected_mode="default",
                     expected_agent=None,
                     started_at=time.time(),
+                    expected_nonce="0123456789abcdef0123456789abcdef",
                 )
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
@@ -155,7 +163,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fake = root / "fake-claude.py"
-            audit = root / "audit-nonce.jsonl"
+            audit = root / "audit-0123456789abcdef0123456789abcdef.jsonl"
             fake.write_text(textwrap.dedent(r'''
                 import json, os, sys, time
                 from datetime import datetime, timezone
@@ -168,6 +176,7 @@ class NativeExecutionBoundaryPtyTests(unittest.TestCase):
                     "environment": None, "scope": None, "credential": None,
                     "actionId": "a" * 64, "decision": "deny",
                     "reason": "DENY_UNKNOWN_COMMAND", "stage": 1, "findings": [],
+                    "probeNonce": os.environ["P005_LIVE_STAGE_NONCE"],
                 }
                 with open(audit, "w", encoding="utf-8") as stream:
                     stream.write(json.dumps(record) + "\n")

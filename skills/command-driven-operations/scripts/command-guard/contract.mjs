@@ -72,8 +72,8 @@ export function parseHookEvent(raw) {
   const sessionId = requiredString(value.session_id, 'session_id');
   const hasAgentType = Object.hasOwn(value, 'agent_type');
   const hasAgentId = Object.hasOwn(value, 'agent_id');
-  if (!hasAgentType && hasAgentId) {
-    throw new Error('agent identity fields must both be absent for the main session');
+  if (hasAgentType !== hasAgentId) {
+    throw new Error('agent identity fields must both be present or both be absent');
   }
   const agentType = hasAgentType ? requiredString(value.agent_type, 'agent_type') : null;
   if (agentType !== null && !EXECUTOR_AGENTS.includes(agentType)) {

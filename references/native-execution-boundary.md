@@ -32,6 +32,11 @@ that the current tool boundary is covered; it does not authorize a later command
 A missing hook result leaves the session unproven and requires
 delegation or no execution.
 
+Both effective hook phases must be exact. The denied probe can observe only
+`PreToolUse`; it cannot execute and therefore cannot invoke `PostToolUse`.
+Credential reuse remains unavailable until an independently authorized,
+successful real call produces its matching Post evidence.
+
 ## Routing matrix
 
 | Operation | Phase | Route | Minimum condition |

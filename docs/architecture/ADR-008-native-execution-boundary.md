@@ -53,6 +53,15 @@ bounded lock and settings-first transaction, recovers interrupted writes, and
 never restores or replaces the whole operator file. Conflicting or drifted
 entries fail closed.
 
+The lock and raw-byte recheck reject cooperative races and any changed target
+observed before replacement. Node's cross-platform filesystem API does not
+offer a handle-anchored compare-and-swap rename, so this configurator is not a
+security boundary against a malicious same-principal local actor that can
+replace a checked ancestor or target between syscalls. Such an actor can also
+edit the settings immediately after the operation. Where that actor is in the
+threat model, do not run `--apply`; use managed settings or an operator-reviewed
+manual change protected by operating-system access controls.
+
 No prompt, transcript, raw command, credential, provider value, or terminal
 capture is stored by the configurator or public evidence document.
 
@@ -65,9 +74,18 @@ mode change, runtime replacement, settings drift, hook drift, or loss of
 identity requires revalidation.
 
 The bounded PTY observer ignores terminal text and accepts exactly one fresh
-content-free audit record in a nonce-specific path for each stage. Echoed text,
+content-free audit record in a nonce-specific path for each stage. The expected
+nonce value emitted by the guard must exactly match the random value carried
+only in the launched child environment. Echoed text,
 suffix matches, stale sessions, missing, repeated, orphaned, reordered,
 malformed, oversized, and timed-out evidence cannot establish `ACTIVE`.
+
+Both hook phases must be exact in effective settings, but the deliberately
+denied probe cannot invoke `PostToolUse`. Its observed `PreToolUse` denial proves
+the authorization boundary needed before direct Bash. A later successful call
+must independently reach the configured `PostToolUse` hook before credential
+reuse can activate; missing Post evidence remains a silent no-op and grants no
+reuse.
 
 ## Alternatives rejected
 

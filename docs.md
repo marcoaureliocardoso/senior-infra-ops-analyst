@@ -70,6 +70,12 @@ node "<installed-command-driven-operations>/scripts/configure-native-execution-b
 node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
 ```
 
+The configurator rejects linked paths and target drift observed before
+replacement. A malicious local process running as the same account can still
+race cross-platform path syscalls or edit settings afterwards; use managed
+settings or an operating-system-protected manual change when that actor is in
+scope.
+
 `CONFIGURED_UNPROVEN` confirms exact settings only. Direct operational Bash
 requires the current session's structured guard denial for
 `printf P005_GUARD_PROBE`; this proves hook coverage but authorizes no later

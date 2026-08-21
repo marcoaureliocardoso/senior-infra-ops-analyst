@@ -115,6 +115,11 @@ node "<installed-command-driven-operations>/scripts/configure-native-execution-b
 node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
 ```
 
+The configurator rejects linked paths and target drift it observes before
+replacement. It is not a security boundary against a malicious local process
+running as the same account and racing filesystem syscalls; use managed
+settings or an operating-system-protected manual change for that threat model.
+
 Exact settings produce `CONFIGURED_UNPROVEN`, not runtime proof. Before direct
 operational Bash, the current session must observe the expected structured
 guard denial for `printf P005_GUARD_PROBE`; the probe proves coverage only and
@@ -137,7 +142,8 @@ P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE \
 ```
 
 The real route creates a disposable home and project, observes only fresh
-content-free hook audit records, never retains terminal output, and removes the
+content-free hook audit records bound to an exact random child nonce, never
+retains terminal output, and removes the
 main-session hooks before exercising the protected executor fallback. A timeout
 or incomplete sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
 

@@ -41,7 +41,7 @@ STAGES = {
 AUDIT_KEYS = {
     "timestamp", "sessionId", "agent", "mode", "risk", "modifiers",
     "policyId", "target", "environment", "scope", "credential",
-    "actionId", "decision", "reason", "stage", "findings",
+    "actionId", "decision", "reason", "stage", "findings", "probeNonce",
 }
 
 
@@ -93,6 +93,7 @@ def observe_audit(
     expected_mode: str,
     expected_agent: str | None,
     started_at: float,
+    expected_nonce: str,
 ) -> StageResult:
     """Validate exactly one fresh, content-free PreToolUse audit record."""
     if stage not in STAGES or STAGES[stage] != (expected_mode, expected_agent):
@@ -115,6 +116,9 @@ def observe_audit(
     if timestamp + 0.001 < started_at or timestamp > time.time() + 5:
         raise EvidenceError("stale or future audit record")
     _bounded_string(record["sessionId"], "session")
+    if (not re.fullmatch(r"[a-f0-9]{32}", expected_nonce) or
+            record["probeNonce"] != expected_nonce):
+        raise EvidenceError("audit nonce mismatch")
     if record["agent"] != expected_agent or record["mode"] != expected_mode:
         raise EvidenceError("audit actor or mode mismatch")
     if record["decision"] != "deny" or record["reason"] != "DENY_UNKNOWN_COMMAND":
@@ -175,6 +179,9 @@ def drive_stage(
         return StageResult("INCONCLUSIVE", None, None, False, False, 0)
     if STAGES[stage] != (expected_mode, expected_agent) or not 1 <= timeout_seconds <= 300:
         return StageResult("INCONCLUSIVE", None, None, False, False, 0)
+    expected_nonce = audit_path.stem.rsplit("-", 1)[-1]
+    if not re.fullmatch(r"[a-f0-9]{32}", expected_nonce):
+        return StageResult("INCONCLUSIVE", None, "INVALID_STAGE_NONCE", False, False, 0)
     try:
         audit_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if audit_path.exists():
@@ -231,6 +238,7 @@ def drive_stage(
                         expected_mode=expected_mode,
                         expected_agent=expected_agent,
                         started_at=started_at,
+                        expected_nonce=expected_nonce,
                     )
                 except EvidenceError:
                     if audit_path.stat().st_size > MAX_AUDIT_BYTES:
@@ -246,6 +254,7 @@ def drive_stage(
                             expected_mode=expected_mode,
                             expected_agent=expected_agent,
                             started_at=started_at,
+                            expected_nonce=expected_nonce,
                         )
                     except EvidenceError:
                         return StageResult(

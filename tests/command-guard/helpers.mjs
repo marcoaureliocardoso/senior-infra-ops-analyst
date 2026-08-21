@@ -6,6 +6,7 @@ export function validEvent(overrides = {}) {
   const base = {
     session_id: 'session-synthetic-001',
     hook_event_name: 'PreToolUse',
+    agent_id: 'agent-synthetic-001',
     agent_type: 'diagnostic-operator',
     permission_mode: 'default',
     tool_name: 'Bash',

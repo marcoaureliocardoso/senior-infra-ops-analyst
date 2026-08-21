@@ -31,6 +31,14 @@ const NAMES = Object.freeze({
 });
 
 
+async function boundedTestPauseBeforeRecheck(env = process.env) {
+  const raw = env.P005_TEST_PAUSE_BEFORE_RECHECK_MS;
+  if (raw === undefined) return;
+  if (!/^[1-9][0-9]{0,2}$|^1000$/u.test(raw)) throw new Error('INVALID_TEST_PAUSE');
+  await new Promise((resolve) => setTimeout(resolve, Number(raw)));
+}
+
+
 function usage() {
   return 'Usage: configure-native-execution-boundary.mjs --check | --apply | --remove-owned [--root PATH]\n';
 }
@@ -269,6 +277,7 @@ async function commitPair(paths, operation, settingsSnapshot, ownershipSnapshot,
       phase: 'PREPARED',
       ownershipTemporary: path.basename(ownershipTemporary),
     });
+    await boundedTestPauseBeforeRecheck();
     await recheckRaw(paths.settings, settingsSnapshot);
     await recheckRaw(paths.ownership, ownershipSnapshot);
     await atomicReplace(paths.settings, next.settings);
