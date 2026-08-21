@@ -118,9 +118,13 @@ removal before fallback, bounded PTY output, nonce-specific audits, exact
 sequence comparison, filesystem cleanup, Bubblewrap requirements for the real
 route, and an allowlisted child environment whose values do not enter argv.
 
-Provider-backed Claude Code validation has not been run for this head because
-it requires a separate explicit operator acknowledgement. The deterministic
-self-test is not represented as direct live main-session or executor proof.
+The explicitly authorized provider-backed route ran on 2026-08-21 with Claude
+Code 2.1.236, Nori 0.27.0, and the operator-configured
+`deepseek-v4-pro[1m]` model. Exact nonce-bound `PreToolUse` denials were
+observed for `main-default` and `main-bypass`; `executor-fallback` produced no
+auditable record and was reported as `TIMEOUT_OR_NO_AUDIT`. The three-stage
+result is therefore `INCONCLUSIVE`, not `ACTIVE`. The deterministic self-test
+is not represented as direct live executor proof.
 
 ## Consequences and residual risks
 
@@ -143,5 +147,5 @@ evidence.
 P0-04B remains responsible for browser automation and its context impact.
 P3-16 remains responsible for any broader catalog of typed-tool execution
 boundaries. Neither follow-up weakens this fail-closed Bash routing decision.
-A provider-backed run and independent final-head review remain acceptance gates
-before P0-05 can be marked complete.
+Complete provider-backed evidence for all three stages and an independent
+final-head review remain acceptance gates before P0-05 can be marked complete.

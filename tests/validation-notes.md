@@ -448,8 +448,9 @@ applied only to the disposable project and removed before the installed
 home, settings, audit events, stage results, synthetic target, and fake tools.
 
 This self-test proves harness structure, not provider-backed Claude Code hook
-behavior, and therefore does not establish `ACTIVE` or complete P0-05. The real
-provider stage remains unexecuted. The `--run-live` route requires the explicit
+behavior, and therefore does not establish `ACTIVE` or complete P0-05. The
+later provider-backed result below also remained inconclusive. The `--run-live`
+route requires the explicit
 `P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` acknowledgement; a
 missing record, invalid exact sequence, output bound, or timeout is reported as
 `INCONCLUSIVE` and cannot satisfy acceptance.
@@ -481,3 +482,19 @@ requires exactly one identity, and accepts only the requested bare identity or
 its exact `personal/` form; missing, ambiguous, or unrelated identities fail
 closed. Neither aborted attempt is provider-backed evidence, and together they
 consumed none of the three authorized requests.
+
+After the strict Nori-output repair passed the complete package gate and an
+independent review, the authorized provider route ran with Claude Code 2.1.236,
+Nori 0.27.0, and the configured `deepseek-v4-pro[1m]` model. The bounded public
+report observed exact nonce-bound `PreToolUse` denials with
+`DENY_UNKNOWN_COMMAND` for `main-default` and `main-bypass`.
+`executor-fallback` produced no auditable record and returned
+`TIMEOUT_OR_NO_AUDIT`, so the exact three-stage sequence was incomplete and the
+overall result was `INCONCLUSIVE`. It does not establish `ACTIVE` or satisfy
+P0-05 acceptance.
+
+All three bounded Claude stages were launched, so the operator authorization
+budget is treated as exhausted even though the content-free evidence cannot
+prove whether the third process reached the provider. No additional provider
+request was made. The harness retained no prompt, transcript, terminal text,
+or credential value, and cleanup removed the disposable tree.
