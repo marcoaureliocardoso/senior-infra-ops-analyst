@@ -106,6 +106,7 @@ import sys
 print(json.dumps({
     "session_id": "p0-04-live-synthetic-session",
     "hook_event_name": "PreToolUse",
+    "agent_id": "p0-04-live-diagnostic-operator",
     "agent_type": "diagnostic-operator",
     "permission_mode": sys.argv[1],
     "tool_name": "Bash",
