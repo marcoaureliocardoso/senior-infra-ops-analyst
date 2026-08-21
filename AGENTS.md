@@ -67,6 +67,18 @@ destructive operation still asks. Reprompt after mode, session, or model
 context loss. Never reconstruct, persist, echo, hash, compare, or search the
 transcript for a credential.
 
+## Native execution routing
+
+Direct main-session operational Bash requires `ACTIVE` command-guard coverage.
+Exact settings alone are `CONFIGURED_UNPROVEN`. Only the current session's
+expected structured guard denial for `printf P005_GUARD_PROBE` establishes
+ephemeral coverage, and that probe does not authorize a later command. Without
+that result, delegate to a matching installed executor with proven Pre/Post
+Bash hooks. If neither route is proven, do not execute; return the observed
+limitation, unexecuted proposal, required operator action, and validation
+steps. Use `references/native-execution-boundary.md` for the canonical routing
+matrix and typed-tool boundary.
+
 ## Context continuity and compaction
 
 <required>
@@ -92,6 +104,7 @@ When executing or preparing commands, consult:
 
 - `references/incident-severity.md`
 - `references/command-execution-protocol.md`
+- `references/native-execution-boundary.md`
 - `references/risk-levels.md`
 - `references/linux-diagnostics.md`
 - `references/windows-server-diagnostics.md`

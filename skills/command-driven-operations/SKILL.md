@@ -46,6 +46,18 @@ are permitted, but credential reuse is not command approval. Reprompt after
 mode, session, or model-context loss. Never reconstruct, persist, echo, log,
 hash, compare, or search the transcript for the credential.
 
+## Native execution routing
+
+Direct main-session operational Bash requires `ACTIVE` command-guard coverage.
+Exact settings alone are `CONFIGURED_UNPROVEN`. Only the current session's
+expected structured guard denial for `printf P005_GUARD_PROBE` establishes
+ephemeral coverage, and that probe does not authorize a later command. Without
+that result, delegate to a matching installed executor with proven Pre/Post
+Bash hooks. If neither route is proven, do not execute; return the observed
+limitation, unexecuted proposal, required operator action, and validation
+steps. Use `references/native-execution-boundary.md` for the canonical routing
+matrix and typed-tool boundary.
+
 ## Execution loop
 
 Use this loop repeatedly:
@@ -111,6 +123,7 @@ Available helpers:
 - `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
+- `references/native-execution-boundary.md`
 
 ## Output
 

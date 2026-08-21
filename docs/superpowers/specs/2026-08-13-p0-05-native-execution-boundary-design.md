@@ -1,4 +1,7 @@
 # P0-05 Native Execution Boundary Design
+
+Last updated: 2026-08-21.
+
 ## Goal
 Define an unambiguous, enforceable boundary between protected native shell
 execution and operational tools that require additional typed guarantees.
@@ -43,6 +46,10 @@ Current official Claude Code documentation establishes these contracts:
   hooks are active only while that component is active.
 - A custom subagent's frontmatter hooks run when it is spawned and when that
   agent is selected as the main session through `--agent` or the agent setting.
+- Ordinary main-session hook input omits the optional `agent_type` and
+  `agent_id` fields. Those fields identify `--agent` and subagent execution;
+  their absence is therefore the native ordinary-main-session shape, not a new
+  executor identity.
 - MCP tools use the `mcp__<server>__<tool>` naming convention and require
   permission. Exact tool grants are narrower than granting all tools through a
   broad permission mode.
@@ -89,14 +96,19 @@ The remaining gap is execution scope. ADR-004 records that a direct Bash call
 from the ordinary main session may be outside the executor-frontmatter guard.
 The same operational command can therefore have different enforcement based
 only on whether the model delegated it. Instructions alone cannot close that
-tool boundary deterministically.
+tool boundary deterministically. The existing input contract also rejects an
+ordinary main-session event because it currently requires `agent_type`, so
+installing the hook without extending that exact native shape would fail closed
+but could never protect a direct call.
 ## Decision
 Use one existing classifier and three enforcement routes:
 1. **Protected main-session Bash.** An explicit configurator installs exact
    project-local `PreToolUse` and `PostToolUse` Bash hooks that invoke the
    existing command guard. This route is available only when exact ownership,
    effective settings, runtime capability, and live hook behavior are
-   confirmed.
+   confirmed. The guard recognizes an ordinary main session only when both
+   optional agent identity fields are absent; it does not add a synthetic
+   main-session name to the executor catalogue.
 2. **Protected executor delegation.** If main-session coverage is absent or
    inconclusive, route operational shell work to one of the eight executor
    subagents whose installed frontmatter carries the same hooks. If installed
@@ -192,7 +204,7 @@ incomplete and unusable configuration.
 ## Coverage State
 The package exposes these states without claiming more than the evidence:
 - `ACTIVE`: exact effective hooks are owned and a live synthetic call proves
-  that the current runtime invokes the main-session guard;
+  that the current session invokes the main-session guard;
 - `CONFIGURED_UNPROVEN`: exact settings are present but live runtime behavior
   was not exercised in the current validation context;
 - `ABSENT`: the package-owned hooks are not effective;
@@ -205,8 +217,30 @@ Only `ACTIVE` supports a claim that direct main-session operational Bash is
 protected. `CONFIGURED_UNPROVEN`, `ABSENT`, `CONFLICT`, and `UNSUPPORTED` route
 shell execution to a proven executor subagent or result in no execution.
 Runtime proof is evidence, not a durable authorization. It is invalidated by a
-changed runtime, settings scope, hook artifact, installed path, session mode,
-or relevant managed policy.
+new or resumed session, `/clear`, compaction, a changed permission mode,
+runtime, settings scope, hook artifact, installed path, policy, or relevant
+managed policy.
+## Session Proof Protocol
+Exact installed settings establish `CONFIGURED_UNPROVEN`, never `ACTIVE` by
+themselves. Before the first direct main-session operational Bash call in a
+session, issue exactly this stdout-only probe through the native Bash tool:
+
+```bash
+printf P005_GUARD_PROBE
+```
+
+The command guard deliberately treats this uncatalogued command as a denial.
+The session becomes ephemerally `ACTIVE` only when that same tool call returns
+the expected structured command-guard `deny` decision and reason. If the hook
+does not run, the only effect is bounded synthetic text on stdout; the session
+remains `CONFIGURED_UNPROVEN` and must delegate to a proven executor or perform
+no execution. A timeout, prompt echo, prose response, settings inspection,
+separate process, or result from another tool call is not proof.
+
+The probe proves hook coverage, not authorization for later work. Every actual
+command is independently classified and must obey its own native decision.
+Proof is held only in the current agent state; it is not written to settings,
+ownership, audit, continuity, transcript-derived, or other package evidence.
 ## Operator Ownership
 Activation is opt-in because Claude Code settings belong to the operator. The
 package may recommend activation, but Nori installation alone must not silently
@@ -224,6 +258,8 @@ only package-owned values; it must never restore a whole stale settings backup.
 Root instructions and the command-driven operations skill will state:
 - diagnosis, proposal, execution, validation, and rollback are distinct phases;
 - operational Bash in the main session requires `ACTIVE` coverage;
+- settings presence alone is `CONFIGURED_UNPROVEN`; an exact harmless probe in
+  the current session must receive the expected structured guard denial;
 - absent or inconclusive coverage requires delegation to a matching protected
   executor;
 - analytical subagents without Bash never acquire execution capability;
@@ -248,12 +284,15 @@ Deterministic validation must include:
 6. installed Nori artifact inspection with exact hook path resolution and
    preservation of unrelated operator settings;
 7. a static safety contract for the opt-in live harness;
-8. a real Claude Code main-session synthetic probe in normal and
+8. main-session input tests proving that both optional agent identity fields
+   absent select the ordinary main-session route, while partial, synthetic, or
+   unknown identities fail closed and executor identities remain exact;
+9. a real Claude Code main-session synthetic probe in normal and
    `bypassPermissions` modes, with no production target and no persisted
    prompt, transcript, raw command, or credential;
-9. an executor fallback probe proving the same guard decision when direct
-   coverage is unavailable;
-10. the complete package, schema, content, CI, security, and mutation gates.
+10. an executor fallback probe proving the same guard decision when direct
+    coverage is unavailable;
+11. the complete package, schema, content, CI, security, and mutation gates.
 
 The live harness must distinguish configured settings from observed hook
 execution. A settings file alone cannot produce `ACTIVE`. If current runtime

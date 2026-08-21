@@ -2,6 +2,8 @@
 
 <!-- cspell:words autouse configured_unproven precondition reparse -->
 
+Last updated: 2026-08-21.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the direct-main-session Bash enforcement gap and publish a tested decision boundary between protected shell, executor delegation, typed operational tools, and refusal.
@@ -12,7 +14,8 @@ configurator installs the existing Pre/Post Bash hooks into project-local
 Claude Code settings, while a canonical policy document and tests define when
 the main session must delegate or require a typed tool. Source, installed Nori,
 and opt-in live Claude Code probes distinguish configured settings from
-observed enforcement.
+observed enforcement. A harmless session-scoped denial probe establishes live
+coverage without authorizing any subsequent command.
 
 **Tech Stack:** Node.js ECMAScript modules and test runner, Python 3.12-compatible standard library tests, Bash, Markdown, JSON, Claude Code native hooks, Nori installed-artifact validation, Debian WSL package gate.
 
@@ -20,6 +23,8 @@ observed enforcement.
 
 - Reuse the ADR-004 command guard; do not create a second parser, classifier, risk taxonomy, or JSON envelope around Bash.
 - Direct main-session operational Bash is protected only in the `ACTIVE` state; every other state delegates to a proven executor or performs no execution.
+- Exact settings establish only `CONFIGURED_UNPROVEN`; `ACTIVE` requires the current session's exact `printf P005_GUARD_PROBE` call to receive the expected structured command-guard denial.
+- Session proof is ephemeral, authorizes no later command, and is invalidated by session resume, clear, compaction, permission-mode, runtime, settings, hook, path, or policy changes.
 - Keep settings activation explicit, project-local, reversible, and limited to exact package-owned values.
 - Preserve every unrelated operator, project, Nori, P0-04A, and managed setting.
 - Require both `PreToolUse` and `PostToolUse` Bash hooks; a single phase is invalid.
@@ -47,6 +52,7 @@ observed enforcement.
 - Produces: five lifecycle phases `DIAGNOSE`, `PROPOSE`, `EXECUTE`, `VALIDATE`, and `ROLLBACK`.
 - Produces: four execution routes `PROTECTED_BASH`, `PROTECTED_EXECUTOR`, `TYPED_TOOL`, and `NO_EXECUTION`.
 - Produces: five coverage states `ACTIVE`, `CONFIGURED_UNPROVEN`, `ABSENT`, `CONFLICT`, and `UNSUPPORTED`.
+- Produces: one exact session proof command, `printf P005_GUARD_PROBE`, whose expected structured denial proves coverage but grants no operational authorization.
 - Consumes: the canonical risk levels and modifiers from `references/risk-levels.md`.
 
 - [ ] **Step 1: Write failing policy mutation tests**
@@ -59,6 +65,10 @@ REQUIRED_CASES = {
     "diagnosis_requires_complete_bounded_read": "bounded read route is missing",
     "proposal_cannot_claim_execution": "proposal/execution separation is missing",
     "main_bash_requires_active_coverage": "ACTIVE main-session gate is missing",
+    "settings_are_configured_unproven": "settings-only state is missing",
+    "session_probe_is_exact_and_harmless": "session probe contract is missing",
+    "session_probe_does_not_authorize_work": "probe authorization boundary is missing",
+    "missing_hook_result_stops_or_delegates": "missing-hook disposition is missing",
     "unproven_main_delegates_or_stops": "unproven fallback is missing",
     "destructive_always_asks": "destructive exact-decision rule is missing",
     "deny_cannot_be_upgraded_by_prose": "deny reformulation rule is missing",
@@ -106,6 +116,9 @@ Add only concise routing instructions to `AGENTS.md` and the command skill:
 
 ```markdown
 Direct main-session operational Bash requires ACTIVE command-guard coverage.
+Exact settings alone are CONFIGURED_UNPROVEN. In the current session, only an
+expected structured guard denial for `printf P005_GUARD_PROBE` establishes
+ephemeral ACTIVE coverage; the probe authorizes no subsequent command.
 Otherwise delegate to a matching installed executor with proven Pre/Post Bash
 hooks. If neither route is proven, do not execute: return the observed
 limitation, plan, proposed operation, required approval, and validation steps.
@@ -144,14 +157,19 @@ git add AGENTS.md references/native-execution-boundary.md skills/command-driven-
 git commit -m "docs: define native execution boundary"
 ```
 
-### Task 2: Pure project-local settings ownership
+### Task 2: Native main-session event contract and pure settings ownership
 
 **Files:**
+- Modify: `skills/command-driven-operations/scripts/command-guard/contract.mjs`
+- Modify: `tests/command-guard/contract.test.mjs`
 - Create: `skills/command-driven-operations/scripts/main-session-settings.mjs`
 - Create: `tests/command-guard/main-session-settings.test.mjs`
 - Modify: `tests/run-command-guard-tests.mjs`
 
 **Interfaces:**
+- Extends: `parseHookEvent(raw)` recognizes the documented ordinary
+  main-session shape only when both optional agent identity fields are absent;
+  executor identities remain constrained to the existing eight roles.
 - Produces: `parseStrictSettings(text: string) -> object`.
 - Produces: `desiredMainSessionHooks({ skillRoot, nodeBin, platform }) -> DesiredHooks`.
 - Produces: `inspectMainSessionGuard({ scopes, desired, ownership, capabilities }) -> Inspection`.
@@ -159,7 +177,33 @@ git commit -m "docs: define native execution boundary"
 - Produces: `removeOwnedMainSessionHooks({ current, ownership }) -> RemoveResult`.
 - Consumes: existing launcher, `validate-ops-command.mjs`, and `record-command-approval.mjs` paths from the command skill.
 
-- [ ] **Step 1: Add failing strict-settings and desired-hook tests**
+- [ ] **Step 1: Add failing ordinary-main-session event tests**
+
+Require a current native `PreToolUse` Bash payload with both `agent_type` and
+`agent_id` absent to normalize to a distinct ordinary-main-session scope.
+Reject a payload with only one agent identity field, a synthetic
+`main-session` agent type, or an unknown executor. Preserve exact acceptance of
+all eight existing executor identities and prove that permission mode does not
+change identity classification.
+
+- [ ] **Step 2: Run the event contract suite and verify RED**
+
+```bash
+node --test tests/command-guard/contract.test.mjs
+```
+
+Expected: the ordinary main-session witness fails because `agent_type` is
+currently required.
+
+- [ ] **Step 3: Implement the minimal native event extension**
+
+Represent the ordinary main session with a canonical internal scope only when
+both optional agent identity fields are absent. Do not add that scope to
+`EXECUTOR_AGENTS`. Preserve rejection of partial, synthetic, malformed, and
+unknown identities. The same command parser, catalogue, classifier, response,
+audit minimization, and risk matrix apply to both scopes.
+
+- [ ] **Step 4: Add failing strict-settings and desired-hook tests**
 
 Cover valid object roots, invalid JSON, duplicate keys at every depth, scalar
 roots, oversized input, Windows and POSIX command quoting, installed paths with
@@ -176,7 +220,7 @@ assert.equal(desired.hooks[1].command.includes('record-command-approval.mjs'), t
 
 Reject a desired configuration that has only Pre or only Post.
 
-- [ ] **Step 2: Run the settings suite and verify RED**
+- [ ] **Step 5: Run the settings suite and verify RED**
 
 Run:
 
@@ -186,7 +230,7 @@ node --test tests/command-guard/main-session-settings.test.mjs
 
 Expected: module-not-found failure for `main-session-settings.mjs`.
 
-- [ ] **Step 3: Implement strict parsing and desired hooks**
+- [ ] **Step 6: Implement strict parsing and desired hooks**
 
 Reuse the P0-04A duplicate-key scanner behavior without importing an installed
 sibling skill. Keep the module pure and bounded. Build the hook entries using
@@ -209,7 +253,7 @@ The returned inspection object contains only:
 Do not return settings content, hook commands, paths outside the installed skill
 root, environment values, or operator hook data.
 
-- [ ] **Step 4: Add failing merge/removal/inspection tests**
+- [ ] **Step 7: Add failing merge/removal/inspection tests**
 
 Test preservation and exact ownership with these cases:
 - empty settings;
@@ -222,10 +266,11 @@ Test preservation and exact ownership with these cases:
 - missing Pre or Post;
 - managed-hook restriction;
 - configured-but-unproven state;
-- live proof matching the exact effective hook identity;
+- ephemeral live proof matching the exact effective hook identity and current
+  session probe result;
 - changed runtime/path/settings invalidating live proof.
 
-- [ ] **Step 5: Implement merge, removal, and inspection**
+- [ ] **Step 8: Implement merge, removal, and inspection**
 
 Append only exact entries absent from the target event/matcher. Store ownership
 as a schema-versioned list of exact package-owned entries plus a non-secret
@@ -233,7 +278,7 @@ configuration identity derived from canonical non-secret structure. Never hash
 or fingerprint settings content that might contain secrets. Removal compares
 the complete owned entry and reports drift instead of deleting a changed value.
 
-- [ ] **Step 6: Run focused and existing command-guard tests**
+- [ ] **Step 9: Run focused and existing command-guard tests**
 
 Run:
 
@@ -244,10 +289,10 @@ node tests/run-command-guard-tests.mjs
 
 Expected: new tests green; existing 267 tests and 82/82 mutations remain green.
 
-- [ ] **Step 7: Commit the pure settings layer**
+- [ ] **Step 10: Commit the native event and pure settings layer**
 
 ```bash
-git add skills/command-driven-operations/scripts/main-session-settings.mjs tests/command-guard/main-session-settings.test.mjs tests/run-command-guard-tests.mjs
+git add skills/command-driven-operations/scripts/command-guard/contract.mjs skills/command-driven-operations/scripts/main-session-settings.mjs tests/command-guard/contract.test.mjs tests/command-guard/main-session-settings.test.mjs tests/run-command-guard-tests.mjs
 git commit -m "feat: model main session guard settings"
 ```
 
@@ -484,7 +529,8 @@ The driver must:
 The harness must use a disposable project, home, settings file, audit directory,
 and synthetic target. It applies the exact main hooks, invokes the detected
 Claude Code in normal and `bypassPermissions` modes, and requests an unknown
-harmless fixture call that the guard deterministically denies before execution.
+harmless fixture call, exactly `printf P005_GUARD_PROBE`, that the guard
+deterministically denies before execution.
 It then removes main hooks and proves the executor fallback produces the same
 guard family and denial reason.
 

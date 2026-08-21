@@ -70,8 +70,15 @@ export function parseHookEvent(raw) {
   if (value.hook_event_name !== 'PreToolUse') throw new Error('hook event must be PreToolUse');
   if (value.tool_name !== 'Bash') throw new Error('tool name must be Bash');
   const sessionId = requiredString(value.session_id, 'session_id');
-  const agentType = requiredString(value.agent_type, 'agent_type');
-  if (!EXECUTOR_AGENTS.includes(agentType)) throw new Error('agent is not an executor');
+  const hasAgentType = Object.hasOwn(value, 'agent_type');
+  const hasAgentId = Object.hasOwn(value, 'agent_id');
+  if (!hasAgentType && hasAgentId) {
+    throw new Error('agent identity fields must both be absent for the main session');
+  }
+  const agentType = hasAgentType ? requiredString(value.agent_type, 'agent_type') : null;
+  if (agentType !== null && !EXECUTOR_AGENTS.includes(agentType)) {
+    throw new Error('agent is not an executor');
+  }
   const permissionMode = requiredString(value.permission_mode, 'permission_mode');
   for (const key of ['transcript_path', 'cwd', 'agent_id', 'tool_use_id']) {
     if (value[key] !== undefined) requiredString(value[key], key, LIMITS.commandChars);
