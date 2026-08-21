@@ -171,7 +171,7 @@ git commit -m "docs: define native execution boundary"
   main-session shape only when both optional agent identity fields are absent;
   executor identities remain constrained to the existing eight roles.
 - Produces: `parseStrictSettings(text: string) -> object`.
-- Produces: `desiredMainSessionHooks({ skillRoot, nodeBin, platform }) -> DesiredHooks`.
+- Produces: `desiredMainSessionHooks({ skillRoot, platform, runtimeIdentity }) -> DesiredHooks`.
 - Produces: `inspectMainSessionGuard({ scopes, desired, ownership, capabilities }) -> Inspection`.
 - Produces: `applyOwnedMainSessionHooks({ current, desired, ownership }) -> ApplyResult`.
 - Produces: `removeOwnedMainSessionHooks({ current, ownership }) -> RemoveResult`.
@@ -214,8 +214,8 @@ assert.deepEqual(desired.hooks.map(({ event, matcher }) => [event, matcher]), [
   ['PreToolUse', 'Bash'],
   ['PostToolUse', 'Bash'],
 ]);
-assert.equal(desired.hooks[0].command.includes('validate-ops-command.mjs'), true);
-assert.equal(desired.hooks[1].command.includes('record-command-approval.mjs'), true);
+assert.equal(desired.hooks[0].group.hooks[0].command.includes('command-guard-launcher.sh'), true);
+assert.deepEqual(desired.hooks.map(({ group }) => group.hooks[0].args), [['pre'], ['post']]);
 ```
 
 Reject a desired configuration that has only Pre or only Post.
