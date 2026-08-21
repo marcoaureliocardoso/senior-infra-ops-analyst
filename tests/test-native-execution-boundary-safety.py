@@ -165,6 +165,13 @@ class NativeExecutionBoundarySafetyTests(unittest.TestCase):
             self.package_gate,
         )
 
+    def test_nori_profile_identity_is_detected_and_strictly_bounded(self) -> None:
+        self.assertIn('list_output="$("$NORI_BIN"', self.live)
+        self.assertIn('"$link_name"|"personal/$link_name"', self.live)
+        self.assertIn("linked-profile discovery was ambiguous", self.live)
+        self.assertIn("linked-profile identity was unexpected", self.live)
+        self.assertNotIn("switch personal/senior-infra-ops-analyst-p005", self.live)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -449,7 +449,7 @@ home, settings, audit events, stage results, synthetic target, and fake tools.
 
 This self-test proves harness structure, not provider-backed Claude Code hook
 behavior, and therefore does not establish `ACTIVE` or complete P0-05. The real
-`--run-live` route remains unexecuted. It requires the explicit
+provider stage remains unexecuted. The `--run-live` route requires the explicit
 `P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` acknowledgement; a
 missing record, invalid exact sequence, output bound, or timeout is reported as
 `INCONCLUSIVE` and cannot satisfy acceptance.
@@ -469,3 +469,13 @@ cross-platform path operations are not represented as protection against a
 malicious same-principal local actor swapping paths between syscalls; managed
 settings or an operating-system-protected manual change is required for that
 threat model.
+
+The first operator-authorized `--run-live` attempt stopped before Claude Code
+or any provider request because the detected Nori Skillsets CLI 0.27.0 linked
+the disposable package with a bare identity while the harness still assumed
+the newer `personal/` namespace. Cleanup removed the disposable tree. The
+harness now discovers exactly one identity through Nori's runtime `list`
+capability and accepts only the exact requested bare identity or its exact
+`personal/` form; missing, ambiguous, or unrelated identities fail closed.
+This aborted attempt is not provider-backed evidence and consumed none of the
+three authorized requests.

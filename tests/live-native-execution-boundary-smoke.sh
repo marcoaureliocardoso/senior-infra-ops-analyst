@@ -92,9 +92,21 @@ done
 case "${positionals[0]:-}" in
   link)
     printf '%s' "${positionals[1]}" >"$HOME/.p005-source"
+    [[ "${positionals[2]:-}" == '--name' ]]
+    case "${P005_TEST_NORI_PROFILE_PREFIX:-}" in
+      ''|'personal/') ;;
+      *) exit 64 ;;
+    esac
+    printf '%s%s' "${P005_TEST_NORI_PROFILE_PREFIX:-}" "${positionals[3]}" \
+      >"$HOME/.p005-profile"
+    ;;
+  list)
+    cat "$HOME/.p005-profile"
+    printf '\n'
     ;;
   switch)
     source_path="$(<"$HOME/.p005-source")"
+    [[ "${positionals[1]:-}" == "$(<"$HOME/.p005-profile")" ]]
     [[ "$agent" == 'claude-code' ]]
     mkdir -p "$install_dir/.claude/skills" "$install_dir/.claude/agents"
     cp -R "$source_path/skills/." "$install_dir/.claude/skills/"
@@ -155,10 +167,23 @@ PY
 }
 
 install_package() {
+  local link_name='senior-infra-ops-analyst-p005' list_output profile
+  local -a profiles=()
   "$NORI_BIN" --install-dir "$HOME" --agent claude-code \
-    link "$ROOT" --name senior-infra-ops-analyst-p005
+    link "$ROOT" --name "$link_name"
+  list_output="$("$NORI_BIN" --install-dir "$HOME" --agent claude-code list)" || \
+    blocked 'Nori linked-profile discovery failed'
+  while IFS= read -r profile; do
+    [[ -n "$profile" ]] && profiles+=("$profile")
+  done <<<"$list_output"
+  [[ ${#profiles[@]} -eq 1 ]] || blocked 'Nori linked-profile discovery was ambiguous'
+  profile="${profiles[0]}"
+  case "$profile" in
+    "$link_name"|"personal/$link_name") ;;
+    *) blocked 'Nori linked-profile identity was unexpected' ;;
+  esac
   "$NORI_BIN" --install-dir "$HOME" --agent claude-code \
-    switch personal/senior-infra-ops-analyst-p005 --agent claude-code
+    switch "$profile" --agent claude-code
   INSTALLED_SKILL="$CLAUDE_CONFIG_DIR/skills/command-driven-operations"
   CONFIGURATOR="$INSTALLED_SKILL/scripts/configure-native-execution-boundary.mjs"
   [[ -f "$CONFIGURATOR" ]] || blocked 'installed main-session configurator not found'
