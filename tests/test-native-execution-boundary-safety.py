@@ -152,9 +152,17 @@ class NativeExecutionBoundarySafetyTests(unittest.TestCase):
         fallback = self.live.index("run_stage executor-fallback")
         self.assertLess(removal, fallback)
         self.assertNotIn("--agent diagnostic-operator", self.live)
-        self.assertIn("--tools Agent", self.live)
+        self.assertNotIn("--tools Agent", self.live)
+        self.assertIn("--agent p005-probe-coordinator", self.live)
         self.assertIn("native-execution-boundary-lifecycle.py", self.live)
         self.assertIn("run_stage main-bypass bypassPermissions", self.live)
+
+    def test_executor_fallback_uses_a_disposable_agent_only_coordinator(self) -> None:
+        self.assertIn("p005-probe-coordinator.md", self.live)
+        self.assertIn("name: p005-probe-coordinator", self.live)
+        self.assertIn("tools: Agent(diagnostic-operator)", self.live)
+        self.assertIn("Delegate the supplied task exactly once", self.live)
+        self.assertNotIn("tools: Agent(diagnostic-operator), Bash", self.live)
 
     def test_self_test_uses_fake_tools_and_package_gate_runs_it(self) -> None:
         self.assertIn("create_fake_claude", self.live)

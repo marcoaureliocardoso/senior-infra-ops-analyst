@@ -155,8 +155,14 @@ mode = args[args.index('--permission-mode') + 1]
 executor = 'executor-fallback' in os.environ['OPS_COMMAND_GUARD_AUDIT_PATH']
 agent = 'diagnostic-operator' if executor else None
 if executor:
-    if ('--agent' in args or args[args.index('--tools') + 1] != 'Agent'
+    if ('--tools' in args or args[args.index('--agent') + 1] != 'p005-probe-coordinator'
             or 'delegate' not in prompt.lower()):
+        raise SystemExit(64)
+    coordinator = (
+        Path.cwd() / '.claude' / 'agents' / 'p005-probe-coordinator.md'
+    ).read_text(encoding='utf-8')
+    if ('tools: Agent(diagnostic-operator)' not in coordinator
+            or 'Delegate the supplied task exactly once' not in coordinator):
         raise SystemExit(64)
     settings = json.loads(
         (Path.cwd() / '.claude' / 'settings.local.json').read_text(encoding='utf-8')
@@ -350,15 +356,18 @@ grep -q '"state":"ABSENT"' "$RESULT_DIR/remove.json" || \
   blocked 'owned main hooks were not removed before fallback'
 grep -q 'PreToolUse' "$CLAUDE_CONFIG_DIR/agents/diagnostic-operator.md" || \
   blocked 'executor fallback lacks a native PreToolUse hook'
-python3 - "$PROJECT/.claude/settings.local.json" "$LIFECYCLE_RECORDER" <<'PY'
+python3 - "$PROJECT/.claude/settings.local.json" "$LIFECYCLE_RECORDER" \
+  "$PROJECT/.claude/agents/p005-probe-coordinator.md" <<'PY'
 import json
 import os
 import shlex
+import stat
 import sys
 from pathlib import Path
 
 settings_path = Path(sys.argv[1])
 recorder = Path(sys.argv[2])
+coordinator = Path(sys.argv[3])
 payload = json.loads(settings_path.read_text(encoding="utf-8"))
 hooks = payload.setdefault("hooks", {})
 if "SubagentStart" in hooks:
@@ -375,8 +384,35 @@ temporary = settings_path.with_suffix(".p005-lifecycle.tmp")
 temporary.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
 os.chmod(temporary, 0o600)
 os.replace(temporary, settings_path)
+
+coordinator.parent.mkdir(mode=0o700)
+content = b"""---
+name: p005-probe-coordinator
+description: Coordinate only the bounded P0-05 delegated executor probe.
+tools: Agent(diagnostic-operator)
+maxTurns: 3
+model: inherit
+---
+
+Delegate the supplied task exactly once to diagnostic-operator. Do not perform
+the task yourself. Stop after returning the delegated result.
+"""
+flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+descriptor = os.open(coordinator, flags, 0o600)
+try:
+    if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+        raise SystemExit("coordinator target is not regular")
+    offset = 0
+    while offset < len(content):
+        written = os.write(descriptor, content[offset:])
+        if written <= 0:
+            raise OSError("short coordinator write")
+        offset += written
+    os.fsync(descriptor)
+finally:
+    os.close(descriptor)
 PY
-run_stage executor-fallback default --tools Agent
+run_stage executor-fallback default --agent p005-probe-coordinator
 
 python3 - "$DRIVER" "$RESULT_DIR" "$MODE" "$CLAUDE_VERSION" "$NORI_VERSION" \
   "${ANTHROPIC_MODEL:-operator-configured}" "$EXPECTED_REASON" <<'PY'

@@ -538,9 +538,12 @@ harmless fixture call, exactly `printf P005_GUARD_PROBE`, that the guard
 deterministically denies before execution.
 It then removes main hooks and proves the executor fallback produces the same
 guard family and denial reason. The fallback must use a real native `Agent`
-delegation. Do not substitute `--agent`: that main-session shape has
-`agent_type` without the subagent-only `agent_id` and is intentionally rejected
-by the guard.
+delegation. Never run `diagnostic-operator` itself through `--agent`: that
+main-session shape has `agent_type` without the subagent-only `agent_id` and is
+intentionally rejected by the guard. A disposable coordinator may run through
+`--agent` only when its agent-local tool allowlist is exactly
+`Agent(diagnostic-operator)` and the protected executor is still spawned by the
+native `Agent` tool.
 
 Gate provider access behind explicit opt-in and acknowledgement. Import only
 the minimum existing Claude/provider configuration required to start the
@@ -575,6 +578,12 @@ The corrected authorized run on 2026-08-22 observed both main-session denials
 and the native executor delegation, but no executor `PreToolUse` audit. Its
 bounded classification is `EXECUTOR_GUARD_NOT_OBSERVED`; acceptance remains
 unmet and the authorization budget is exhausted.
+
+Official tool-availability semantics make the run's global `--tools Agent`
+restriction a confounding factor because delegated agents inherit the available
+tool pool. The operator approved replacing it with a disposable coordinator
+whose only agent-local tool is `Agent(diagnostic-operator)`. The no-provider
+self-test must pass before any separately authorized live rerun.
 
 - [ ] **Step 7: Commit the live contract and honest evidence**
 

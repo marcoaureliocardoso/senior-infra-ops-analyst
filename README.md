@@ -145,10 +145,14 @@ The real route creates a disposable home and project, observes only fresh
 content-free hook audit records bound to an exact random child nonce, never
 retains terminal output, and removes the
 main-session hooks before exercising the protected executor fallback through a
-real `Agent` delegation. A content-free `SubagentStart` marker distinguishes a
-missing delegation from a delegated executor that never reaches its Bash guard;
-that marker is diagnostic only and cannot satisfy acceptance. A timeout or
-incomplete sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
+real `Agent` delegation. The fallback starts a disposable coordinator whose
+only tool is `Agent(diagnostic-operator)`; it does not use the global `--tools`
+availability restriction, so the protected executor can resolve Bash only from
+its own definition. This structure is deterministically tested but is not yet
+provider-proven. A content-free `SubagentStart` marker distinguishes a missing
+delegation from a delegated executor that never reaches its Bash guard; that
+marker is diagnostic only and cannot satisfy acceptance. A timeout or incomplete
+sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
 
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,
 operator, redirect, and data-flow graph, and validates every stage against a

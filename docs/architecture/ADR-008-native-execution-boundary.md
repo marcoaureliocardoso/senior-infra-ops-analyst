@@ -117,9 +117,11 @@ as one `PreToolUse` denial with `DENY_UNKNOWN_COMMAND`. It also proves hook
 removal before fallback, bounded PTY output, nonce-specific audits, exact
 sequence comparison, filesystem cleanup, Bubblewrap requirements for the real
 route, and an allowlisted child environment whose values do not enter argv. The
-fallback now uses the native `Agent` tool rather than `--agent`, and a separate
-nonce-bound `SubagentStart` marker classifies delegation failure without
-becoming acceptance evidence.
+fallback never runs the protected executor itself through `--agent`. It starts
+a disposable main-session coordinator through `--agent`; that coordinator's
+only tool is `Agent(diagnostic-operator)`, which creates the real delegated
+executor. A separate nonce-bound `SubagentStart` marker classifies delegation
+failure without becoming acceptance evidence.
 
 The explicitly authorized provider-backed route ran on 2026-08-21 with Claude
 Code 2.1.236, Nori 0.27.0, and the operator-configured
@@ -142,6 +144,17 @@ nonce-bound `DENY_UNKNOWN_COMMAND` records for `main-default` and
 `PreToolUse` audit appeared; the bounded result was
 `EXECUTOR_GUARD_NOT_OBSERVED`. The complete three-stage result therefore
 remains `INCONCLUSIVE`, and the authorization budget for that run is exhausted.
+
+The current official tool contract makes `--tools` an availability restriction
+and describes subagents as inheriting the main conversation's available tool
+pool. The missing executor audit is therefore consistent with the corrected
+run's global `--tools Agent` restriction having removed Bash before the
+subagent's own allowlist was resolved. The retained content-free evidence cannot
+prove that internal cause. The operator approved a no-provider harness revision:
+remove the global restriction, run a disposable coordinator whose agent-local
+allowlist contains only `Agent(diagnostic-operator)`, and leave Bash available
+only through the protected executor's own definition. The deterministic
+self-test covers this structure, but no provider run has exercised it.
 
 ## Consequences and residual risks
 

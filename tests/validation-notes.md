@@ -508,10 +508,9 @@ real subagent call. The command guard intentionally rejects either partial
 identity shape, so the old `--agent diagnostic-operator` harness could not
 represent a protected delegated executor.
 
-The corrected no-provider harness leaves the guard unchanged and instead
-restricts the parent to the native `Agent` tool, delegates the exact synthetic
-probe to `diagnostic-operator`, and observes the executor's existing
-nonce-bound audit. A disposable `SubagentStart` hook records only fixed
+The corrected no-provider harness leaves the guard unchanged, delegates the
+exact synthetic probe to `diagnostic-operator`, and observes the executor's
+existing nonce-bound audit. A disposable `SubagentStart` hook records only fixed
 booleans, event type, schema version, and nonce. It distinguishes
 `DELEGATION_NOT_OBSERVED`, `EXECUTOR_GUARD_NOT_OBSERVED`, and malformed
 lifecycle evidence, but cannot establish acceptance by itself. Focused tests
@@ -537,3 +536,22 @@ is exhausted and no retry was made. The harness retained no prompt, transcript,
 terminal text, identifier, or credential value. Its exit trap removed the
 disposable home, project, settings, lifecycle marker, audits, results, and
 synthetic target after the bounded report was emitted.
+
+Read-only follow-up against the current official Claude Code contract identified
+a remaining harness confounder. `--tools` restricts built-in tool availability,
+while delegated agents inherit the main conversation's available tool pool.
+The live fallback's global `--tools Agent` could therefore allow delegation but
+remove Bash before `diagnostic-operator` resolved its own tool list. This is the
+leading explanation for `EXECUTOR_GUARD_NOT_OBSERVED`, but the deliberately
+content-free evidence cannot prove it.
+
+The operator approved a no-provider revision that removes the global
+availability restriction. The fallback now creates a fixed disposable
+`p005-probe-coordinator` whose sole agent-local tool is
+`Agent(diagnostic-operator)` and starts only that coordinator through `--agent`.
+The protected executor is still a real delegated subagent, retains its own Bash
+allowlist and hooks by configuration, and remains subject to the same
+lifecycle-plus-audit acceptance gate. The deterministic test-double reads and
+validates the generated coordinator before invoking the configured lifecycle
+hook. The focused no-provider safety suite passed 16 tests and the exact
+three-stage self-test passed. No additional provider request was made.
