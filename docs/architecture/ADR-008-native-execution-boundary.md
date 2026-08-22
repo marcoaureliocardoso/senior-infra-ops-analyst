@@ -131,8 +131,17 @@ is not represented as direct live executor proof. Post-run investigation found
 that the earlier harness used `--agent`, whose documented main-session hook
 shape carries `agent_type` without the subagent-only `agent_id`; the strict
 guard correctly rejects that shape. The corrected harness preserves that
-rejection and uses an actual delegated executor, but it has not made another
-provider request.
+rejection and uses an actual delegated executor, but it made no additional
+provider request in that run.
+
+A separately authorized corrected run on 2026-08-22 used the same Claude Code,
+Nori, provider model, and exact synthetic probe. It again observed exact
+nonce-bound `DENY_UNKNOWN_COMMAND` records for `main-default` and
+`main-bypass`. The content-free lifecycle marker proved that the native
+`diagnostic-operator` delegation started, but no matching executor
+`PreToolUse` audit appeared; the bounded result was
+`EXECUTOR_GUARD_NOT_OBSERVED`. The complete three-stage result therefore
+remains `INCONCLUSIVE`, and the authorization budget for that run is exhausted.
 
 ## Consequences and residual risks
 

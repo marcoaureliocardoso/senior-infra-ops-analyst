@@ -517,5 +517,23 @@ booleans, event type, schema version, and nonce. It distinguishes
 lifecycle evidence, but cannot establish acceptance by itself. Focused tests
 cover valid, missing, duplicate, malformed, oversized, pre-existing, and
 content-bearing inputs without retaining session, agent, transcript, cwd,
-prompt, terminal text, or credentials. No provider request was made after this
-repair; the prior live result remains `INCONCLUSIVE`.
+prompt, terminal text, or credentials.
+
+After the repair passed the complete Debian WSL package gate on exact commit
+`f8a4f72ca406ac9e11a9ecc68882b33e98df56b6` and received an independent
+approval with no findings, the operator separately authorized one corrected
+three-stage run on 2026-08-22. Claude Code 2.1.236, Nori 0.27.0, and the
+configured `deepseek-v4-pro[1m]` model were observed. `main-default` and
+`main-bypass` again produced exact nonce-bound `DENY_UNKNOWN_COMMAND` audits.
+The lifecycle marker established that native delegation to
+`diagnostic-operator` started, but no matching executor `PreToolUse` audit was
+observed. The third stage was classified as `EXECUTOR_GUARD_NOT_OBSERVED`; the
+aggregate remained `INCONCLUSIVE` with two observations, two session matches,
+and an incomplete ordered sequence. This does not establish `ACTIVE` or satisfy
+P0-05 acceptance.
+
+All three bounded stages were launched, so this separate authorization budget
+is exhausted and no retry was made. The harness retained no prompt, transcript,
+terminal text, identifier, or credential value. Its exit trap removed the
+disposable home, project, settings, lifecycle marker, audits, results, and
+synthetic target after the bounded report was emitted.

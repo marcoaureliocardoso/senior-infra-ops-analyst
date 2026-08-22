@@ -2,7 +2,7 @@
 
 <!-- cspell:words autouse configured_unproven precondition reparse -->
 
-Last updated: 2026-08-21.
+Last updated: 2026-08-22.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -564,12 +564,17 @@ python3 tests/test-native-execution-boundary-safety.py
 bash tests/live-native-execution-boundary-smoke.sh --self-test
 ```
 
-- [ ] **Step 6: Run the real opt-in probe**
+- [x] **Step 6: Run the real opt-in probe**
 
 After the operator explicitly authorizes provider use, run the bounded live
 harness in Debian WSL. Expected acceptance requires all three exact observations
 and cleanup success. If capability is absent or the cycle times out, record
 `INCONCLUSIVE` and do not claim `ACTIVE` or complete P0-05.
+
+The corrected authorized run on 2026-08-22 observed both main-session denials
+and the native executor delegation, but no executor `PreToolUse` audit. Its
+bounded classification is `EXECUTOR_GUARD_NOT_OBSERVED`; acceptance remains
+unmet and the authorization budget is exhausted.
 
 - [ ] **Step 7: Commit the live contract and honest evidence**
 
@@ -810,6 +815,9 @@ cannot prove; treat MCP annotations as hints; keep browser and gateway
 implementation out of scope; publish 0.13.0 as unpublished; close the external
 TODO only after merge.
 
-**Question** No implementation blocker remains. Provider-backed live validation and all GitHub writes require their normal explicit operator authorizations when those steps are reached.
+**Question** Implementation is complete, but provider-backed acceptance remains
+blocked by the missing delegated-executor `PreToolUse` audit. Any revised
+acceptance design or additional provider run requires a new explicit operator
+decision. All GitHub writes retain their normal authorization gates.
 
 ---
