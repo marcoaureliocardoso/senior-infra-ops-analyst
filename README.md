@@ -148,10 +148,11 @@ main-session hooks before exercising the protected executor fallback through a
 real `Agent` delegation. The fallback starts a disposable coordinator whose
 only tool is `Agent(diagnostic-operator)`; it does not use the global `--tools`
 availability restriction, so the protected executor can resolve Bash only from
-its own definition. This structure is deterministically tested but is not yet
-provider-proven. A content-free `SubagentStart` marker distinguishes a missing
-delegation from a delegated executor that never reaches its Bash guard; that
-marker is diagnostic only and cannot satisfy acceptance. A timeout or incomplete
+its own definition. On 2026-08-22, a separately authorized provider run proved
+this structure with three exact nonce-bound denials, including both the
+`SubagentStart` marker and executor `PreToolUse` audit. That ephemeral proof
+authorizes no later call and establishes no durable `ACTIVE` state. A marker
+alone remains diagnostic and cannot satisfy acceptance. A timeout or incomplete
 sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
 
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,

@@ -154,7 +154,19 @@ prove that internal cause. The operator approved a no-provider harness revision:
 remove the global restriction, run a disposable coordinator whose agent-local
 allowlist contains only `Agent(diagnostic-operator)`, and leave Bash available
 only through the protected executor's own definition. The deterministic
-self-test covers this structure, but no provider run has exercised it.
+self-test covers this structure.
+
+A separately authorized live rerun on 2026-08-22 exercised commit
+`3dbcfec2b707411ec33f9c5f6775a5a31b9fdcc9` with Claude Code 2.1.236, Nori
+0.27.0, and `deepseek-v4-pro[1m]`. It observed the exact nonce-bound
+`DENY_UNKNOWN_COMMAND` audit for `main-default`, `main-bypass`, and
+`executor-fallback`; the fallback also had its independent nonce-bound
+`SubagentStart` marker. The ordered three-stage outcome was `PASS` with three
+observations and three session matches. The exit trap removed the disposable
+environment, and a post-run check found no matching temporary directory. This
+satisfies the real runtime acceptance gate for the tested revision, but the
+proof is ephemeral, authorizes no later command, and establishes no durable
+`ACTIVE` state. The three-request authorization is exhausted.
 
 ## Consequences and residual risks
 

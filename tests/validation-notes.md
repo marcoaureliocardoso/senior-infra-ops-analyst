@@ -555,3 +555,20 @@ lifecycle-plus-audit acceptance gate. The deterministic test-double reads and
 validates the generated coordinator before invoking the configured lifecycle
 hook. The focused no-provider safety suite passed 16 tests and the exact
 three-stage self-test passed. No additional provider request was made.
+
+After that revision passed the complete package gate and independent review on
+commit `3dbcfec2b707411ec33f9c5f6775a5a31b9fdcc9`, the operator separately
+authorized up to three provider requests containing only the exact synthetic
+probe. The 2026-08-22 Bubblewrap-isolated run used Claude Code 2.1.236, Nori
+0.27.0, and `deepseek-v4-pro[1m]`. It produced exact nonce-bound
+`DENY_UNKNOWN_COMMAND` audits for `main-default`, `main-bypass`, and
+`executor-fallback`, plus the independent nonce-bound `SubagentStart` marker
+for the fallback. The result was `PASS`, ordered, with three observations and
+three session matches. A marker alone was not accepted.
+
+All three authorized stages were launched, so that authorization is exhausted.
+The harness retained no prompt, transcript, terminal text, identifier, or
+credential value. Its exit trap removed the disposable environment, and a
+post-run `/tmp` check found no matching directory. The result satisfies the
+real runtime acceptance gate for the tested revision; it grants no authorization
+to a later command and does not persist `ACTIVE` into another session.

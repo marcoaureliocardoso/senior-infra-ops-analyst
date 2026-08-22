@@ -585,7 +585,14 @@ tool pool. The operator approved replacing it with a disposable coordinator
 whose only agent-local tool is `Agent(diagnostic-operator)`. The no-provider
 self-test must pass before any separately authorized live rerun.
 
-- [ ] **Step 7: Commit the live contract and honest evidence**
+The separately authorized rerun on commit
+`3dbcfec2b707411ec33f9c5f6775a5a31b9fdcc9` then passed all three exact stages
+with three nonce-bound audits, three session matches, and a separate lifecycle
+marker for the delegated executor. Cleanup was confirmed and the authorization
+budget is exhausted. This satisfies the live runtime gate without authorizing a
+later command or persisting `ACTIVE` beyond that disposable validation context.
+
+- [x] **Step 7: Commit the live contract and honest evidence**
 
 ```bash
 git add README.md tests/live-native-execution-boundary-smoke.sh tests/native-execution-boundary-pty.py tests/test-native-execution-boundary-pty.py tests/test-native-execution-boundary-safety.py tests/validation-notes.md
