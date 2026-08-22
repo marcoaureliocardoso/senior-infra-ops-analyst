@@ -444,8 +444,10 @@ accepts exactly one fresh audit record in a nonce-specific file for each stage.
 Deterministic tests reject missing, repeated, orphaned, reordered, echoed-only,
 stale-session, malformed, oversized, and timed-out evidence. The main hooks were
 applied only to the disposable project and removed before the installed
-`diagnostic-operator` fallback was exercised. Cleanup removed the generated
-home, settings, audit events, stage results, synthetic target, and fake tools.
+`diagnostic-operator` fallback was exercised through a simulated native `Agent`
+delegation. The exact self-test result has `delegationObserved: true` only for
+that fallback. Cleanup removed the generated home, settings, audit and lifecycle
+events, stage results, synthetic target, and fake tools.
 
 This self-test proves harness structure, not provider-backed Claude Code hook
 behavior, and therefore does not establish `ACTIVE` or complete P0-05. The
@@ -498,3 +500,22 @@ budget is treated as exhausted even though the content-free evidence cannot
 prove whether the third process reached the provider. No additional provider
 request was made. The harness retained no prompt, transcript, terminal text,
 or credential value, and cleanup removed the disposable tree.
+
+Post-run comparison with the current official Claude Code hook contract found
+a deterministic mismatch in the previous fallback route. A session started
+with `--agent` supplies `agent_type`, while `agent_id` is present only inside a
+real subagent call. The command guard intentionally rejects either partial
+identity shape, so the old `--agent diagnostic-operator` harness could not
+represent a protected delegated executor.
+
+The corrected no-provider harness leaves the guard unchanged and instead
+restricts the parent to the native `Agent` tool, delegates the exact synthetic
+probe to `diagnostic-operator`, and observes the executor's existing
+nonce-bound audit. A disposable `SubagentStart` hook records only fixed
+booleans, event type, schema version, and nonce. It distinguishes
+`DELEGATION_NOT_OBSERVED`, `EXECUTOR_GUARD_NOT_OBSERVED`, and malformed
+lifecycle evidence, but cannot establish acceptance by itself. Focused tests
+cover valid, missing, duplicate, malformed, oversized, pre-existing, and
+content-bearing inputs without retaining session, agent, transcript, cwd,
+prompt, terminal text, or credentials. No provider request was made after this
+repair; the prior live result remains `INCONCLUSIVE`.

@@ -149,9 +149,11 @@ class NativeExecutionBoundarySafetyTests(unittest.TestCase):
 
     def test_main_hooks_are_removed_before_protected_executor_fallback(self) -> None:
         removal = self.live.index("--remove-owned")
-        fallback = self.live.index("executor-fallback")
+        fallback = self.live.index("run_stage executor-fallback")
         self.assertLess(removal, fallback)
-        self.assertEqual(self.live.count("--agent diagnostic-operator"), 1)
+        self.assertNotIn("--agent diagnostic-operator", self.live)
+        self.assertIn("--tools Agent", self.live)
+        self.assertIn("native-execution-boundary-lifecycle.py", self.live)
         self.assertIn("run_stage main-bypass bypassPermissions", self.live)
 
     def test_self_test_uses_fake_tools_and_package_gate_runs_it(self) -> None:
@@ -159,10 +161,20 @@ class NativeExecutionBoundarySafetyTests(unittest.TestCase):
         self.assertIn("create_fake_nori", self.live)
         self.assertIn('if [[ "$MODE" == "self-test" ]]', self.live)
         self.assertIn("python3 tests/test-native-execution-boundary-pty.py", self.package_gate)
+        self.assertIn("python3 tests/test-native-execution-boundary-lifecycle.py", self.package_gate)
         self.assertIn("bash -n tests/live-native-execution-boundary-smoke.sh", self.package_gate)
         self.assertIn(
             "bash tests/live-native-execution-boundary-smoke.sh --self-test",
             self.package_gate,
+        )
+
+    def test_self_test_invokes_the_configured_subagent_start_hook(self) -> None:
+        self.assertIn("hook_event_name", self.live)
+        self.assertIn("subprocess.run(", self.live)
+        self.assertIn("settings.local.json", self.live)
+        self.assertNotIn(
+            "with open(os.environ['P005_LIFECYCLE_EVENT_PATH'], 'w'",
+            self.live,
         )
 
     def test_nori_profile_identity_is_detected_and_strictly_bounded(self) -> None:

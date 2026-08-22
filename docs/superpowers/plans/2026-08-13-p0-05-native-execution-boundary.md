@@ -477,7 +477,9 @@ git commit -m "test: validate installed execution boundary"
 **Files:**
 - Create: `tests/live-native-execution-boundary-smoke.sh`
 - Create: `tests/native-execution-boundary-pty.py`
+- Create: `tests/native-execution-boundary-lifecycle.py`
 - Create: `tests/test-native-execution-boundary-pty.py`
+- Create: `tests/test-native-execution-boundary-lifecycle.py`
 - Modify: `tests/test-native-execution-boundary-safety.py`
 - Modify: `tests/validation-notes.md`
 - Modify: `README.md`
@@ -521,6 +523,9 @@ The driver must:
   evidence file;
 - wait within an explicit timeout;
 - cancel safely and classify timeout as inconclusive;
+- distinguish a missing native delegation from a delegated executor whose Bash
+  guard was not observed, using a content-free marker that cannot satisfy
+  acceptance;
 - require exact sequence equality, not suffix matching;
 - emit no credential or environment value.
 
@@ -532,7 +537,10 @@ Claude Code in normal and `bypassPermissions` modes, and requests an unknown
 harmless fixture call, exactly `printf P005_GUARD_PROBE`, that the guard
 deterministically denies before execution.
 It then removes main hooks and proves the executor fallback produces the same
-guard family and denial reason.
+guard family and denial reason. The fallback must use a real native `Agent`
+delegation. Do not substitute `--agent`: that main-session shape has
+`agent_type` without the subagent-only `agent_id` and is intentionally rejected
+by the guard.
 
 Gate provider access behind explicit opt-in and acknowledgement. Import only
 the minimum existing Claude/provider configuration required to start the
@@ -551,6 +559,7 @@ Run:
 
 ```bash
 python3 tests/test-native-execution-boundary-pty.py
+python3 tests/test-native-execution-boundary-lifecycle.py
 python3 tests/test-native-execution-boundary-safety.py
 bash tests/live-native-execution-boundary-smoke.sh --self-test
 ```

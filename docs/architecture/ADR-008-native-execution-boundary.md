@@ -116,7 +116,10 @@ synthetic sequence `main-default`, `main-bypass`, and `executor-fallback`, each
 as one `PreToolUse` denial with `DENY_UNKNOWN_COMMAND`. It also proves hook
 removal before fallback, bounded PTY output, nonce-specific audits, exact
 sequence comparison, filesystem cleanup, Bubblewrap requirements for the real
-route, and an allowlisted child environment whose values do not enter argv.
+route, and an allowlisted child environment whose values do not enter argv. The
+fallback now uses the native `Agent` tool rather than `--agent`, and a separate
+nonce-bound `SubagentStart` marker classifies delegation failure without
+becoming acceptance evidence.
 
 The explicitly authorized provider-backed route ran on 2026-08-21 with Claude
 Code 2.1.236, Nori 0.27.0, and the operator-configured
@@ -124,7 +127,12 @@ Code 2.1.236, Nori 0.27.0, and the operator-configured
 observed for `main-default` and `main-bypass`; `executor-fallback` produced no
 auditable record and was reported as `TIMEOUT_OR_NO_AUDIT`. The three-stage
 result is therefore `INCONCLUSIVE`, not `ACTIVE`. The deterministic self-test
-is not represented as direct live executor proof.
+is not represented as direct live executor proof. Post-run investigation found
+that the earlier harness used `--agent`, whose documented main-session hook
+shape carries `agent_type` without the subagent-only `agent_id`; the strict
+guard correctly rejects that shape. The corrected harness preserves that
+rejection and uses an actual delegated executor, but it has not made another
+provider request.
 
 ## Consequences and residual risks
 

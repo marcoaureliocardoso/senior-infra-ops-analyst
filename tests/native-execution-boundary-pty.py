@@ -43,6 +43,9 @@ AUDIT_KEYS = {
     "policyId", "target", "environment", "scope", "credential",
     "actionId", "decision", "reason", "stage", "findings", "probeNonce",
 }
+LIFECYCLE_KEYS = {
+    "schemaVersion", "event", "agentTypeMatched", "agentIdPresent", "probeNonce",
+}
 
 
 class EvidenceError(ValueError):
@@ -56,6 +59,7 @@ class StageResult(NamedTuple):
     session_matched: bool
     active: bool
     output_bytes: int
+    delegation_observed: bool = False
 
 
 def exact_sequence(observed: list[str]) -> bool:
@@ -134,6 +138,29 @@ def observe_audit(
     return StageResult("OBSERVED", marker, "DENY_UNKNOWN_COMMAND", True, True, 0)
 
 
+def observe_lifecycle(path: Path, *, expected_nonce: str) -> bool:
+    """Validate one fixed SubagentStart marker without retaining identifiers."""
+    try:
+        if not path.is_file() or path.stat().st_size > 4096:
+            raise EvidenceError("lifecycle evidence unavailable or oversized")
+        raw = path.read_text(encoding="utf-8")
+        marker = json.loads(raw)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise EvidenceError("lifecycle evidence unreadable") from error
+    if not isinstance(marker, dict) or set(marker) != LIFECYCLE_KEYS:
+        raise EvidenceError("unexpected lifecycle schema")
+    expected = {
+        "schemaVersion": 1,
+        "event": "SubagentStart",
+        "agentTypeMatched": True,
+        "agentIdPresent": True,
+        "probeNonce": expected_nonce,
+    }
+    if marker != expected or re.fullmatch(r"[a-f0-9]{32}", expected_nonce) is None:
+        raise EvidenceError("unexpected lifecycle marker")
+    return True
+
+
 def _stop(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is not None:
         return
@@ -152,7 +179,8 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
 
 
 def child_environment(
-    source: dict[str, str], *, audit_path: Path, nonce: str, clean: bool,
+    source: dict[str, str], *, audit_path: Path, nonce: str,
+    lifecycle_path: Path | None = None, clean: bool,
 ) -> dict[str, str]:
     """Build the Claude child environment without placing values in argv."""
     environment = {
@@ -161,6 +189,8 @@ def child_environment(
     }
     environment["OPS_COMMAND_GUARD_AUDIT_PATH"] = str(audit_path)
     environment["P005_LIVE_STAGE_NONCE"] = nonce
+    if lifecycle_path is not None:
+        environment["P005_LIFECYCLE_EVENT_PATH"] = str(lifecycle_path)
     return environment
 
 
@@ -182,9 +212,13 @@ def drive_stage(
     expected_nonce = audit_path.stem.rsplit("-", 1)[-1]
     if not re.fullmatch(r"[a-f0-9]{32}", expected_nonce):
         return StageResult("INCONCLUSIVE", None, "INVALID_STAGE_NONCE", False, False, 0)
+    lifecycle_path = (
+        audit_path.parent / f"lifecycle-{stage}-{expected_nonce}.json"
+        if expected_agent is not None else None
+    )
     try:
         audit_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if audit_path.exists():
+        if audit_path.exists() or (lifecycle_path is not None and lifecycle_path.exists()):
             return StageResult("INCONCLUSIVE", None, None, False, False, 0)
     except OSError:
         return StageResult("INCONCLUSIVE", None, None, False, False, 0)
@@ -200,10 +234,14 @@ def drive_stage(
         dict(os.environ),
         audit_path=audit_path,
         nonce=audit_path.stem.rsplit("-", 1)[-1],
+        lifecycle_path=lifecycle_path,
         clean=clean_environment,
     )
     started_at = time.time()
     output_bytes = 0
+    delegation_observed = False
+    invalid_audit_observed = False
+    invalid_lifecycle_observed = False
     process = subprocess.Popen(
         command,
         stdin=slave,
@@ -230,6 +268,13 @@ def drive_stage(
                         "INCONCLUSIVE", None, "TERMINAL_OUTPUT_LIMIT", False, False,
                         MAX_TERMINAL_BYTES,
                     )
+            if lifecycle_path is not None and lifecycle_path.exists():
+                try:
+                    delegation_observed = observe_lifecycle(
+                        lifecycle_path, expected_nonce=expected_nonce,
+                    )
+                except EvidenceError:
+                    invalid_lifecycle_observed = True
             if audit_path.exists():
                 try:
                     observed = observe_audit(
@@ -241,6 +286,7 @@ def drive_stage(
                         expected_nonce=expected_nonce,
                     )
                 except EvidenceError:
+                    invalid_audit_observed = True
                     if audit_path.stat().st_size > MAX_AUDIT_BYTES:
                         return StageResult(
                             "INCONCLUSIVE", None, "AUDIT_LIMIT", False, False, output_bytes,
@@ -261,11 +307,30 @@ def drive_stage(
                             "INCONCLUSIVE", None, "AUDIT_SEQUENCE_INVALID", False, False,
                             output_bytes,
                         )
-                    result = observed._replace(output_bytes=output_bytes)
-                    break
-            if process.poll() is not None and not audit_path.exists():
+                    if expected_agent is None or delegation_observed:
+                        result = observed._replace(
+                            output_bytes=output_bytes,
+                            delegation_observed=delegation_observed,
+                        )
+                        break
+            if process.poll() is not None:
                 break
-        return result or StageResult("INCONCLUSIVE", None, "TIMEOUT_OR_NO_AUDIT", False, False, output_bytes)
+        if result is not None:
+            return result
+        if invalid_audit_observed:
+            reason = "AUDIT_SEQUENCE_INVALID"
+        elif invalid_lifecycle_observed:
+            reason = "LIFECYCLE_SEQUENCE_INVALID"
+        elif expected_agent is not None and delegation_observed:
+            reason = "EXECUTOR_GUARD_NOT_OBSERVED"
+        elif expected_agent is not None:
+            reason = "DELEGATION_NOT_OBSERVED"
+        else:
+            reason = "TIMEOUT_OR_NO_AUDIT"
+        return StageResult(
+            "INCONCLUSIVE", None, reason, False, False, output_bytes,
+            delegation_observed,
+        )
     finally:
         _stop(process)
         os.close(master)
@@ -285,7 +350,7 @@ def public_evidence(results: list[StageResult], *, runtime: dict[str, str]) -> d
     markers = [item.marker for item in results if item.marker is not None]
     complete = len(results) == 3 and exact_sequence(markers) and all(
         item.outcome == "OBSERVED" and item.session_matched for item in results
-    )
+    ) and results[2].delegation_observed
     return {
         "schemaVersion": 1,
         "outcome": "PASS" if complete else "INCONCLUSIVE",
@@ -300,6 +365,9 @@ def public_evidence(results: list[StageResult], *, runtime: dict[str, str]) -> d
                 "name": stage,
                 "observed": index < len(results) and results[index].outcome == "OBSERVED",
                 "reasonCode": results[index].reason_code if index < len(results) else "NOT_RUN",
+                "delegationObserved": (
+                    results[index].delegation_observed if index < len(results) else False
+                ),
             }
             for index, stage in enumerate(STAGES)
         ],
@@ -340,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         "sessionMatched": result.session_matched,
         "active": result.active,
         "outputBytes": result.output_bytes,
+        "delegationObserved": result.delegation_observed,
     }, sort_keys=True))
     return 0 if result.outcome == "OBSERVED" else 3
 

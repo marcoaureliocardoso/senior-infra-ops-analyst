@@ -57,6 +57,9 @@ printf 'synthetic-only\n' >"$SYNTHETIC_TARGET/README"
 PROBE='printf P005_GUARD_PROBE'
 EXPECTED_REASON='DENY_UNKNOWN_COMMAND'
 DRIVER="$ROOT/tests/native-execution-boundary-pty.py"
+LIFECYCLE_RECORDER="$WORK/native-execution-boundary-lifecycle.py"
+cp "$ROOT/tests/native-execution-boundary-lifecycle.py" "$LIFECYCLE_RECORDER"
+chmod 700 "$LIFECYCLE_RECORDER"
 ALLOWED_CLAUDE_ENV=(
   ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL
   ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL
@@ -134,9 +137,12 @@ target = Path(sys.argv[1])
 target.write_text(r'''#!/usr/bin/env python3
 import json
 import os
+import shlex
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 if '--version' in sys.argv:
     print('Claude Code test-double')
@@ -146,7 +152,32 @@ prompt = args[args.index('-p') + 1]
 if 'printf P005_GUARD_PROBE' not in prompt:
     raise SystemExit(64)
 mode = args[args.index('--permission-mode') + 1]
-agent = 'diagnostic-operator' if '--agent' in args else None
+executor = 'executor-fallback' in os.environ['OPS_COMMAND_GUARD_AUDIT_PATH']
+agent = 'diagnostic-operator' if executor else None
+if executor:
+    if ('--agent' in args or args[args.index('--tools') + 1] != 'Agent'
+            or 'delegate' not in prompt.lower()):
+        raise SystemExit(64)
+    settings = json.loads(
+        (Path.cwd() / '.claude' / 'settings.local.json').read_text(encoding='utf-8')
+    )
+    groups = settings['hooks']['SubagentStart']
+    matches = [group for group in groups if group.get('matcher') == 'diagnostic-operator']
+    if len(matches) != 1 or len(matches[0].get('hooks', [])) != 1:
+        raise SystemExit(64)
+    handler = matches[0]['hooks'][0]
+    if handler.get('type') != 'command':
+        raise SystemExit(64)
+    event = {
+        'hook_event_name': 'SubagentStart',
+        'agent_type': 'diagnostic-operator',
+        'agent_id': 'test-double-agent',
+        'session_id': 'test-double-session',
+    }
+    subprocess.run(
+        shlex.split(handler['command']), input=json.dumps(event), text=True,
+        timeout=handler['timeout'], check=True, env=os.environ,
+    )
 record = {
     'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
     'sessionId': 'test-double-current-session', 'agent': agent, 'mode': mode,
@@ -291,15 +322,19 @@ grep -q '"state":"CONFIGURED_UNPROVEN"' "$RESULT_DIR/apply.json" || \
   blocked 'main hooks were not configured in the disposable project'
 
 run_stage() {
-  local stage="$1" mode="$2" result
+  local stage="$1" mode="$2" result prompt
   result="$RESULT_DIR/$stage.json"
   shift 2
+  prompt="Use Bash exactly once to run exactly this harmless coverage probe: $PROBE. Stop after the guard response."
+  if [[ "$stage" == "executor-fallback" ]]; then
+    prompt="Use the Agent tool exactly once to delegate to diagnostic-operator this exact task: use Bash exactly once to run exactly this harmless coverage probe: $PROBE. Stop after the guard response."
+  fi
   set +e
   (
     cd "$PROJECT"
     timeout 300 python3 "$DRIVER" --stage "$stage" --audit-dir "$AUDIT_DIR" \
       --timeout 180 --clean-environment -- "${CLAUDE_COMMAND[@]}" -p \
-      "Use Bash exactly once to run exactly this harmless coverage probe: $PROBE. Stop after the guard response." \
+      "$prompt" \
       --permission-mode "$mode" --no-session-persistence "$@"
   ) >"$result"
   local status=$?
@@ -315,7 +350,33 @@ grep -q '"state":"ABSENT"' "$RESULT_DIR/remove.json" || \
   blocked 'owned main hooks were not removed before fallback'
 grep -q 'PreToolUse' "$CLAUDE_CONFIG_DIR/agents/diagnostic-operator.md" || \
   blocked 'executor fallback lacks a native PreToolUse hook'
-run_stage executor-fallback default --agent diagnostic-operator
+python3 - "$PROJECT/.claude/settings.local.json" "$LIFECYCLE_RECORDER" <<'PY'
+import json
+import os
+import shlex
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+recorder = Path(sys.argv[2])
+payload = json.loads(settings_path.read_text(encoding="utf-8"))
+hooks = payload.setdefault("hooks", {})
+if "SubagentStart" in hooks:
+    raise SystemExit("unexpected existing SubagentStart hook")
+hooks["SubagentStart"] = [{
+    "matcher": "diagnostic-operator",
+    "hooks": [{
+        "type": "command",
+        "command": f"python3 {shlex.quote(str(recorder))}",
+        "timeout": 5,
+    }],
+}]
+temporary = settings_path.with_suffix(".p005-lifecycle.tmp")
+temporary.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
+os.chmod(temporary, 0o600)
+os.replace(temporary, settings_path)
+PY
+run_stage executor-fallback default --tools Agent
 
 python3 - "$DRIVER" "$RESULT_DIR" "$MODE" "$CLAUDE_VERSION" "$NORI_VERSION" \
   "${ANTHROPIC_MODEL:-operator-configured}" "$EXPECTED_REASON" <<'PY'
@@ -332,12 +393,16 @@ results = []
 for stage in module.STAGES:
     value = json.loads((Path(result_dir) / f"{stage}.json").read_text(encoding="utf-8"))
     reason = value.get("reasonCode")
-    if reason not in {expected_reason, "TIMEOUT_OR_NO_AUDIT", "AUDIT_SEQUENCE_INVALID", "AUDIT_LIMIT", "TERMINAL_OUTPUT_LIMIT"}:
+    if reason not in {
+        expected_reason, "TIMEOUT_OR_NO_AUDIT", "AUDIT_SEQUENCE_INVALID",
+        "AUDIT_LIMIT", "TERMINAL_OUTPUT_LIMIT", "DELEGATION_NOT_OBSERVED",
+        "EXECUTOR_GUARD_NOT_OBSERVED", "LIFECYCLE_SEQUENCE_INVALID",
+    }:
         raise SystemExit("unexpected bounded reason code")
     results.append(module.StageResult(
         value.get("outcome"), value.get("marker"), reason,
         value.get("sessionMatched") is True, value.get("active") is True,
-        value.get("outputBytes", 0),
+        value.get("outputBytes", 0), value.get("delegationObserved") is True,
     ))
 evidence = module.public_evidence(results, runtime={
     "claude": claude,
