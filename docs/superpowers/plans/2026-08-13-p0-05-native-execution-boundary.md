@@ -835,10 +835,13 @@ TODO only after merge.
 live-tested runtime revision. PR Security later exposed ShellCheck `SC2163` in
 the harness's dynamic environment import. The minimal `${entry?}` expansion
 keeps the same `NAME=value` export behavior while making the intent explicit to
-ShellCheck 0.11.0; deterministic harness tests cover the final form. No new
-provider run is authorized or claimed for that lint-only delta. Remaining gates
-are exact-head CI and Security, final PR status, an explicit operator merge
-request, and post-merge TODO synchronization. All GitHub writes retain their
-normal authorization gates.
+ShellCheck 0.11.0; deterministic harness tests cover the final form. PR CI run
+146 subsequently passed the package, schema, link, and hygiene jobs but exposed
+only dictionary and Markdown formatting defects in the P0-05 documentation.
+Those defects are corrected and the matching local lint and content gates pass.
+No new provider run is authorized or claimed for either non-semantic delta.
+Remaining gates are exact-head CI and Security, final PR status, an explicit
+operator merge request, and post-merge TODO synchronization. All GitHub writes
+retain their normal authorization gates.
 
 ---

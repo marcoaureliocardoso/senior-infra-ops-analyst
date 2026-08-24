@@ -478,7 +478,7 @@ or any provider request because the detected Nori Skillsets CLI 0.27.0 linked
 the disposable package with a bare identity while the harness still assumed
 the newer `personal/` namespace. A second authorized attempt also stopped
 before Claude Code or the provider because that CLI decorates linked entries
-from `list` with the literal ` (linked)` suffix. Cleanup removed both
+from `list` with the literal `(linked)` suffix preceded by one ASCII space. Cleanup removed both
 disposable trees. The harness now removes only that exact structural suffix,
 requires exactly one identity, and accepts only the requested bare identity or
 its exact `personal/` form; missing, ambiguous, or unrelated identities fail
@@ -581,3 +581,14 @@ expansion form, without changing the imported `NAME=value` string. The exact
 ShellCheck 0.11.0 archive and workflow SHA-256 passed against every shell script;
 the 16 safety tests, 16 PTY tests, and three-stage self-test also passed. No
 additional provider request was authorized or made for this lint-only delta.
+
+PR #41 CI run 146 then passed package validation, schema checks, live links,
+and hygiene, but exposed documentation-only spell-check and Markdown failures:
+`syscalls` and `idempotently` were missing from the project dictionary, one
+CHANGELOG bullet exceeded 400 columns, and the literal linked-profile suffix
+used a code span with a leading space. The project dictionary now contains the
+two technical terms, the unchanged CHANGELOG sentence is wrapped, and the
+suffix is described as `(linked)` preceded by one ASCII space. Markdownlint
+0.23.2, incremental CSpell, release-history tests, architecture-document tests,
+content validation, and `git diff --check` pass locally. This documentation-only
+delta neither changes the live harness nor authorizes a provider request.

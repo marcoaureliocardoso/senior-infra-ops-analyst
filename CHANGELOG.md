@@ -10,7 +10,8 @@ tag. Tagged versions correspond to repository tags.
 - Defined one fail-closed native execution-routing matrix for protected main-session Bash, protected executor fallback, typed tools, and no-execution outcomes.
 - Added project-local opt-in main-session hooks with exact package ownership, conflict detection, bounded locking, settings-first transactions, crash recovery, idempotent apply, and owned-only rollback.
 - Added source and installed-form validation for ephemeral coverage proof without treating exact settings, `bypassPermissions`, or a separate probe as authorization for later commands.
-- Added a bounded no-provider PTY self-test for exact nonce-bound main default, main bypass, and genuinely delegated executor fallback denials, with a content-free `SubagentStart` diagnostic and a disposable coordinator whose sole tool is `Agent(diagnostic-operator)`; after an earlier inconclusive run exposed a global `--tools Agent` confounder, a separately authorized Bubblewrap-isolated provider run observed all three exact denials and passed the live acceptance gate.
+- Added a bounded no-provider PTY self-test for exact nonce-bound main default, main bypass, and genuinely delegated executor fallback denials, with a content-free `SubagentStart` diagnostic and a disposable coordinator whose sole tool is `Agent(diagnostic-operator)`; after an earlier inconclusive run exposed a global
+  `--tools Agent` confounder, a separately authorized Bubblewrap-isolated provider run observed all three exact denials and passed the live acceptance gate.
 
 ### 0.11.1 (unreleased) - declared 2026-08-08
 
