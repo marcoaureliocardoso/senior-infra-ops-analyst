@@ -770,7 +770,7 @@ git diff --check HEAD^ HEAD
 - Consumes: clean, reviewed, locally passing final head.
 - Produces: pushed branch, reviewed PR, green CI/Security, merge commit, and external TODO evidence.
 
-- [ ] **Step 1: Rebase safely on current `origin/main`**
+- [x] **Step 1: Rebase safely on current `origin/main`**
 
 Fetch without modifying operator Git configuration. If main advanced, rebase
 the isolated branch, resolve only P0-05 overlaps, rerun focused and complete
@@ -831,9 +831,12 @@ cannot prove; treat MCP annotations as hints; keep browser and gateway
 implementation out of scope; publish 0.13.0 as unpublished; close the external
 TODO only after merge.
 
-**Question** Implementation is complete, but provider-backed acceptance remains
-blocked by the missing delegated-executor `PreToolUse` audit. Any revised
-acceptance design or additional provider run requires a new explicit operator
-decision. All GitHub writes retain their normal authorization gates.
+**Status** Implementation and provider-backed acceptance are complete for the
+live-tested runtime revision. The final documentation-only head preserves the
+exact tested harness and passed the complete local gate and independent review.
+Remaining gates are the draft PR, exact-head CI and Security, final PR status,
+an explicit operator merge request, and post-merge TODO synchronization. No
+additional provider run is authorized or required unless runtime-relevant files
+change. All GitHub writes retain their normal authorization gates.
 
 ---
