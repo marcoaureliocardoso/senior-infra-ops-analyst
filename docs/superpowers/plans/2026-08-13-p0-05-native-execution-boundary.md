@@ -832,11 +832,13 @@ implementation out of scope; publish 0.13.0 as unpublished; close the external
 TODO only after merge.
 
 **Status** Implementation and provider-backed acceptance are complete for the
-live-tested runtime revision. The final documentation-only head preserves the
-exact tested harness and passed the complete local gate and independent review.
-Remaining gates are the draft PR, exact-head CI and Security, final PR status,
-an explicit operator merge request, and post-merge TODO synchronization. No
-additional provider run is authorized or required unless runtime-relevant files
-change. All GitHub writes retain their normal authorization gates.
+live-tested runtime revision. PR Security later exposed ShellCheck `SC2163` in
+the harness's dynamic environment import. The minimal `${entry?}` expansion
+keeps the same `NAME=value` export behavior while making the intent explicit to
+ShellCheck 0.11.0; deterministic harness tests cover the final form. No new
+provider run is authorized or claimed for that lint-only delta. Remaining gates
+are exact-head CI and Security, final PR status, an explicit operator merge
+request, and post-merge TODO synchronization. All GitHub writes retain their
+normal authorization gates.
 
 ---

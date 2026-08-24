@@ -572,3 +572,12 @@ credential value. Its exit trap removed the disposable environment, and a
 post-run `/tmp` check found no matching directory. The result satisfies the
 real runtime acceptance gate for the tested revision; it grants no authorization
 to a later command and does not persist `ACTIVE` into another session.
+
+PR #41 Security run 152 later failed only its ShellCheck job: ShellCheck 0.11.0
+reported `SC2163` for the intentional dynamic `export "$entry"` in the live
+harness environment loader. CodeQL JavaScript/TypeScript and Python both passed.
+The minimal correction uses `export "${entry?}"`, the rule's explicit dynamic
+expansion form, without changing the imported `NAME=value` string. The exact
+ShellCheck 0.11.0 archive and workflow SHA-256 passed against every shell script;
+the 16 safety tests, 16 PTY tests, and three-stage self-test also passed. No
+additional provider request was authorized or made for this lint-only delta.
