@@ -250,7 +250,7 @@ else
   ENV_LOADER_PID=$!
   while IFS= read -r -d '' entry; do
     key="${entry%%=*}"
-    if [[ ! -v "$key" ]]; then export "$entry"; fi
+    if [[ ! -v "$key" ]]; then export "${entry?}"; fi
   done <"$CLAUDE_ENV_PIPE"
   set +e
   wait "$ENV_LOADER_PID"
