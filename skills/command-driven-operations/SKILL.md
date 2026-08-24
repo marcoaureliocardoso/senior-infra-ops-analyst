@@ -1,8 +1,8 @@
 ---
 name: Command Driven Operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
-version: 0.5.1
-last_updated: 2026-07-26
+version: 0.6.0
+last_updated: 2026-08-21
 maintainer: Marco Aurelio Cardoso
 triggers:
   - run commands
@@ -45,6 +45,18 @@ identity, and transport; different explicit catalogued targets in that domain
 are permitted, but credential reuse is not command approval. Reprompt after
 mode, session, or model-context loss. Never reconstruct, persist, echo, log,
 hash, compare, or search the transcript for the credential.
+
+## Native execution routing
+
+Direct main-session operational Bash requires `ACTIVE` command-guard coverage.
+Exact settings alone are `CONFIGURED_UNPROVEN`. Only the current session's
+expected structured guard denial for `printf P005_GUARD_PROBE` establishes
+ephemeral coverage, and that probe does not authorize a later command. Without
+that result, delegate to a matching installed executor with proven Pre/Post
+Bash hooks. If neither route is proven, do not execute; return the observed
+limitation, unexecuted proposal, required operator action, and validation
+steps. Use `references/native-execution-boundary.md` for the canonical routing
+matrix and typed-tool boundary.
 
 ## Execution loop
 
@@ -111,6 +123,7 @@ Available helpers:
 - `references/diagnostic-order.md`
 - `references/risk-levels.md`
 - `references/command-execution-protocol.md`
+- `references/native-execution-boundary.md`
 
 ## Output
 

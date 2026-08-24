@@ -29,6 +29,8 @@ LAUNCHER_RELATIVE_PATH = Path(
 )
 SECURITY_CRITICAL_ARTIFACTS = (
     Path("command-driven-operations/scripts/command-guard-launcher.sh"),
+    Path("command-driven-operations/scripts/configure-native-execution-boundary.mjs"),
+    Path("command-driven-operations/scripts/main-session-settings.mjs"),
     Path("command-driven-operations/scripts/validate-ops-command.mjs"),
     Path("command-driven-operations/scripts/record-command-approval.mjs"),
     *tuple(

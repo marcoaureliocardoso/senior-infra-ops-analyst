@@ -32,6 +32,21 @@ REQUIRED_ADR_006 = (
     "External side effects",
     "Rollback",
 )
+REQUIRED_ADR_008 = (
+    "references/native-execution-boundary.md",
+    "CONFIGURED_UNPROVEN",
+    "P005_GUARD_PROBE",
+    "DENY_UNKNOWN_COMMAND",
+    "Operator ownership",
+    "Runtime proof",
+    "nonce value emitted by the guard",
+    "denied probe cannot invoke `PostToolUse`",
+    "same-principal local actor",
+    "Alternatives rejected",
+    "Validation evidence",
+    "P0-04B",
+    "P3-16",
+)
 
 
 class ArchitectureDocumentationTests(unittest.TestCase):
@@ -131,6 +146,24 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         for fragment in REQUIRED_ADR_006:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, text)
+
+    def test_adr008_documents_native_execution_boundary(self) -> None:
+        path = self.index_path.parent / "ADR-008-native-execution-boundary.md"
+        self.assertTrue(path.is_file(), "ADR-008 record is missing")
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(
+            self.original_index.count("ADR-008-native-execution-boundary.md"), 1
+        )
+        for fragment in REQUIRED_ADR_008:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, text)
+        for heading in (
+            "## Context", "## Decision", "## Routing matrix",
+            "## Operator ownership", "## Runtime proof",
+            "## Alternatives rejected", "## Validation evidence",
+            "## Consequences and residual risks", "## Follow-ups",
+        ):
+            self.assertIn(heading, text)
 
     def test_operator_docs_expose_owned_configuration_and_rollback(self) -> None:
         for name in ("README.md", "docs.md"):

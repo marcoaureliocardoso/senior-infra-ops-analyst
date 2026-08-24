@@ -1,0 +1,193 @@
+# ADR-008 — Native execution boundary
+
+- **Status:** Accepted
+- **Date:** 2026-08-21
+- **Scope:** Native command routing for the main Claude Code session and protected executor subagents
+
+## Context
+
+The executor subagents already carried deterministic native `PreToolUse` and
+`PostToolUse` command guards, but the main session had no equivalent proven
+boundary. Claude Code permission modes, including `bypassPermissions`, are not
+evidence that those hooks are installed or firing. Direct execution based only
+on settings presence could therefore bypass the package's command catalogue,
+risk classification, redaction, and approval semantics.
+
+## Decision
+
+Adopt `references/native-execution-boundary.md` as the canonical routing
+contract. Main-session hooks are an explicit project-local opt-in and remain
+operator-owned. Exact settings establish only `CONFIGURED_UNPROVEN`. The
+current session becomes eligible for direct operational Bash only after its
+exact harmless probe `printf P005_GUARD_PROBE` produces a fresh structured
+`PreToolUse` denial with reason `DENY_UNKNOWN_COMMAND` through the configured
+guard. The probe proves coverage only; it authorizes no later command.
+
+Every later Bash call is independently classified and authorized. If current
+main-session coverage is not proven, route to a matching installed executor
+whose native hooks are present. If neither route is proven, perform no
+execution. Native typed tools remain governed by their own typed contracts and
+do not become shell escape hatches.
+
+## Routing matrix
+
+The canonical matrix has four outcomes:
+
+- `PROTECTED_BASH`: use direct Bash only with ephemeral `ACTIVE` proof.
+- `PROTECTED_EXECUTOR`: delegate to a role with installed native Bash hooks.
+- `TYPED_TOOL`: use the typed tool contract without converting it into Bash.
+- `NO_EXECUTION`: report the limitation, unexecuted proposal, required operator
+  action, and validation steps.
+
+The configuration inspection states are `ACTIVE`, `CONFIGURED_UNPROVEN`,
+`ABSENT`, `CONFLICT`, and `UNSUPPORTED`. Any inability to re-establish the
+current-session proof removes direct Bash autonomy.
+
+## Operator ownership
+
+Nori installation does not modify project settings. The installed
+`command-driven-operations` component exposes `--check`, `--apply`, and
+`--remove-owned`. It merges exact package hook groups into
+`.claude/settings.local.json`, records only package-owned entries, uses a
+bounded lock and settings-first transaction, recovers interrupted writes, and
+never restores or replaces the whole operator file. Conflicting or drifted
+entries fail closed.
+
+The lock and raw-byte recheck reject cooperative races and any changed target
+observed before replacement. Node's cross-platform filesystem API does not
+offer a handle-anchored compare-and-swap rename, so this configurator is not a
+security boundary against a malicious same-principal local actor that can
+replace a checked ancestor or target between syscalls. Such an actor can also
+edit the settings immediately after the operation. Where that actor is in the
+threat model, do not run `--apply`; use managed settings or an operator-reviewed
+manual change protected by operating-system access controls.
+
+No prompt, transcript, raw command, credential, provider value, or terminal
+capture is stored by the configurator or public evidence document.
+
+## Runtime proof
+
+Configuration presence is not Runtime proof. An ephemeral proof is valid only
+for the observed session, runtime identity, permission mode, effective settings
+and hooks, policy, and installed paths. Resume, clear, compaction, session or
+mode change, runtime replacement, settings drift, hook drift, or loss of
+identity requires revalidation.
+
+The bounded PTY observer ignores terminal text and accepts exactly one fresh
+content-free audit record in a nonce-specific path for each stage. The expected
+nonce value emitted by the guard must exactly match the random value carried
+only in the launched child environment. Echoed text,
+suffix matches, stale sessions, missing, repeated, orphaned, reordered,
+malformed, oversized, and timed-out evidence cannot establish `ACTIVE`.
+
+Both hook phases must be exact in effective settings, but the deliberately
+denied probe cannot invoke `PostToolUse`. Its observed `PreToolUse` denial proves
+the authorization boundary needed before direct Bash. A later successful call
+must independently reach the configured `PostToolUse` hook before credential
+reuse can activate; missing Post evidence remains a silent no-op and grants no
+reuse.
+
+## Alternatives rejected
+
+- Treating `bypassPermissions` as guard proof: permission mode and hook
+  coverage are independent properties.
+- Treating exact settings as runtime proof: configured hooks may be disabled,
+  superseded, unsupported, or not invoked by the current runtime.
+- Sending a separate probe as authorization for a later call: authorization is
+  per call, while the probe establishes coverage only.
+- Persisting transcript or terminal content for proof: it expands secret and
+  operator-data exposure and permits echo-based false positives.
+- Automatically editing operator settings during Nori installation: it violates
+  local ownership and safe rollback.
+- Falling through to unprotected main-session Bash: absence of evidence is not
+  evidence of coverage.
+
+## Validation evidence
+
+The source routing contract, configuration state machine, exact ownership,
+transaction recovery, concurrency, installed artifact, and safety suites pass.
+An isolated Nori self-test proves that the installed package includes the
+configurator and settings module, preserves operator settings, applies
+idempotently, removes only owned hooks, and uses installed rather than source
+paths.
+
+The no-provider live-routing self-test on 2026-08-21 observed the exact ordered
+synthetic sequence `main-default`, `main-bypass`, and `executor-fallback`, each
+as one `PreToolUse` denial with `DENY_UNKNOWN_COMMAND`. It also proves hook
+removal before fallback, bounded PTY output, nonce-specific audits, exact
+sequence comparison, filesystem cleanup, Bubblewrap requirements for the real
+route, and an allowlisted child environment whose values do not enter argv. The
+fallback never runs the protected executor itself through `--agent`. It starts
+a disposable main-session coordinator through `--agent`; that coordinator's
+only tool is `Agent(diagnostic-operator)`, which creates the real delegated
+executor. A separate nonce-bound `SubagentStart` marker classifies delegation
+failure without becoming acceptance evidence.
+
+The explicitly authorized provider-backed route ran on 2026-08-21 with Claude
+Code 2.1.236, Nori 0.27.0, and the operator-configured
+`deepseek-v4-pro[1m]` model. Exact nonce-bound `PreToolUse` denials were
+observed for `main-default` and `main-bypass`; `executor-fallback` produced no
+auditable record and was reported as `TIMEOUT_OR_NO_AUDIT`. The three-stage
+result is therefore `INCONCLUSIVE`, not `ACTIVE`. The deterministic self-test
+is not represented as direct live executor proof. Post-run investigation found
+that the earlier harness used `--agent`, whose documented main-session hook
+shape carries `agent_type` without the subagent-only `agent_id`; the strict
+guard correctly rejects that shape. The corrected harness preserves that
+rejection and uses an actual delegated executor, but it made no additional
+provider request in that run.
+
+A separately authorized corrected run on 2026-08-22 used the same Claude Code,
+Nori, provider model, and exact synthetic probe. It again observed exact
+nonce-bound `DENY_UNKNOWN_COMMAND` records for `main-default` and
+`main-bypass`. The content-free lifecycle marker proved that the native
+`diagnostic-operator` delegation started, but no matching executor
+`PreToolUse` audit appeared; the bounded result was
+`EXECUTOR_GUARD_NOT_OBSERVED`. The complete three-stage result therefore
+remains `INCONCLUSIVE`, and the authorization budget for that run is exhausted.
+
+The current official tool contract makes `--tools` an availability restriction
+and describes subagents as inheriting the main conversation's available tool
+pool. The missing executor audit is therefore consistent with the corrected
+run's global `--tools Agent` restriction having removed Bash before the
+subagent's own allowlist was resolved. The retained content-free evidence cannot
+prove that internal cause. The operator approved a no-provider harness revision:
+remove the global restriction, run a disposable coordinator whose agent-local
+allowlist contains only `Agent(diagnostic-operator)`, and leave Bash available
+only through the protected executor's own definition. The deterministic
+self-test covers this structure.
+
+A separately authorized live rerun on 2026-08-22 exercised commit
+`3dbcfec2b707411ec33f9c5f6775a5a31b9fdcc9` with Claude Code 2.1.236, Nori
+0.27.0, and `deepseek-v4-pro[1m]`. It observed the exact nonce-bound
+`DENY_UNKNOWN_COMMAND` audit for `main-default`, `main-bypass`, and
+`executor-fallback`; the fallback also had its independent nonce-bound
+`SubagentStart` marker. The ordered three-stage outcome was `PASS` with three
+observations and three session matches. The exit trap removed the disposable
+environment, and a post-run check found no matching temporary directory. This
+satisfies the real runtime acceptance gate for the tested revision, but the
+proof is ephemeral, authorizes no later command, and establishes no durable
+`ACTIVE` state. The three-request authorization is exhausted.
+
+## Consequences and residual risks
+
+Direct main-session automation is deliberately unavailable when the state is
+not `ACTIVE`; delegation or no execution is the expected result. The harmless
+probe consumes a provider turn on the real route and may remain inconclusive if
+the model does not request the exact Bash call or if current Claude Code does
+not surface the expected hook contract. Timeout remains `INCONCLUSIVE`, never
+success.
+
+The real harness keeps provider egress because Claude Code must reach its
+configured provider. Bubblewrap limits filesystem visibility to runtime files,
+minimal DNS/TLS data, and the disposable work tree, but cannot reduce provider
+disclosure below the content sent to the configured model. Operator credentials
+remain a separately acknowledged runtime input and are never retained as
+evidence.
+
+## Follow-ups
+
+P0-04B remains responsible for browser automation and its context impact.
+P3-16 remains responsible for any broader catalog of typed-tool execution
+boundaries. Neither follow-up weakens this fail-closed Bash routing decision.
+Complete provider-backed evidence for all three stages and an independent
+final-head review remain acceptance gates before P0-05 can be marked complete.

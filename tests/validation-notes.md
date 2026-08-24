@@ -427,3 +427,168 @@ head and must not be uploaded or reused as publication evidence. A final
 external staging must be regenerated from the reviewed commit before any
 operator-authorized registry upload. No subagent component or root dependency
 was published by this validation.
+
+## Native execution boundary live-routing self-test (2026-08-21)
+
+The P0-05 deterministic self-test completed in Debian WSL without a provider
+call. It used generated Nori and Claude Code test doubles, a disposable home,
+project, local settings scope, synthetic target, audit directory, and three
+separate PTY processes. The observed exact sequence was
+`main-default:PreToolUse:deny`, `main-bypass:PreToolUse:deny`, then
+`executor-fallback:PreToolUse:deny`; all three records carried
+`DENY_UNKNOWN_COMMAND`, matched their expected current-session actor and mode,
+and the final bounded report contained three observations in exact order.
+
+The driver ignores all terminal text, retains only its bounded byte count, and
+accepts exactly one fresh audit record in a nonce-specific file for each stage.
+Deterministic tests reject missing, repeated, orphaned, reordered, echoed-only,
+stale-session, malformed, oversized, and timed-out evidence. The main hooks were
+applied only to the disposable project and removed before the installed
+`diagnostic-operator` fallback was exercised through a simulated native `Agent`
+delegation. The exact self-test result has `delegationObserved: true` only for
+that fallback. Cleanup removed the generated home, settings, audit and lifecycle
+events, stage results, synthetic target, and fake tools.
+
+This self-test proves harness structure, not provider-backed Claude Code hook
+behavior, and therefore does not establish `ACTIVE` or complete P0-05. The
+later provider-backed result below also remained inconclusive. The `--run-live`
+route requires the explicit
+`P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` acknowledgement; a
+missing record, invalid exact sequence, output bound, or timeout is reported as
+`INCONCLUSIVE` and cannot satisfy acceptance.
+
+Independent-review remediation now requires every accepted audit record to
+carry the exact 32-character random stage nonce supplied only to that launched
+child process. Missing, malformed, or mismatched nonce evidence is rejected.
+The main-session event contract also rejects either partial identity shape:
+`agent_type` without `agent_id` and `agent_id` without `agent_type`.
+
+The denied coverage probe ends at `PreToolUse` by design and therefore cannot
+exercise `PostToolUse`. Both phases must still be exact in installed settings;
+successful authorization reuse remains unavailable unless its real call later
+produces matching successful Post evidence. The settings configurator detects
+and preserves a target changed before its guarded raw-byte recheck. Its
+cross-platform path operations are not represented as protection against a
+malicious same-principal local actor swapping paths between syscalls; managed
+settings or an operating-system-protected manual change is required for that
+threat model.
+
+The first operator-authorized `--run-live` attempt stopped before Claude Code
+or any provider request because the detected Nori Skillsets CLI 0.27.0 linked
+the disposable package with a bare identity while the harness still assumed
+the newer `personal/` namespace. A second authorized attempt also stopped
+before Claude Code or the provider because that CLI decorates linked entries
+from `list` with the literal `(linked)` suffix preceded by one ASCII space. Cleanup removed both
+disposable trees. The harness now removes only that exact structural suffix,
+requires exactly one identity, and accepts only the requested bare identity or
+its exact `personal/` form; missing, ambiguous, or unrelated identities fail
+closed. Neither aborted attempt is provider-backed evidence, and together they
+consumed none of the three authorized requests.
+
+After the strict Nori-output repair passed the complete package gate and an
+independent review, the authorized provider route ran with Claude Code 2.1.236,
+Nori 0.27.0, and the configured `deepseek-v4-pro[1m]` model. The bounded public
+report observed exact nonce-bound `PreToolUse` denials with
+`DENY_UNKNOWN_COMMAND` for `main-default` and `main-bypass`.
+`executor-fallback` produced no auditable record and returned
+`TIMEOUT_OR_NO_AUDIT`, so the exact three-stage sequence was incomplete and the
+overall result was `INCONCLUSIVE`. It does not establish `ACTIVE` or satisfy
+P0-05 acceptance.
+
+All three bounded Claude stages were launched, so the operator authorization
+budget is treated as exhausted even though the content-free evidence cannot
+prove whether the third process reached the provider. No additional provider
+request was made. The harness retained no prompt, transcript, terminal text,
+or credential value, and cleanup removed the disposable tree.
+
+Post-run comparison with the current official Claude Code hook contract found
+a deterministic mismatch in the previous fallback route. A session started
+with `--agent` supplies `agent_type`, while `agent_id` is present only inside a
+real subagent call. The command guard intentionally rejects either partial
+identity shape, so the old `--agent diagnostic-operator` harness could not
+represent a protected delegated executor.
+
+The corrected no-provider harness leaves the guard unchanged, delegates the
+exact synthetic probe to `diagnostic-operator`, and observes the executor's
+existing nonce-bound audit. A disposable `SubagentStart` hook records only fixed
+booleans, event type, schema version, and nonce. It distinguishes
+`DELEGATION_NOT_OBSERVED`, `EXECUTOR_GUARD_NOT_OBSERVED`, and malformed
+lifecycle evidence, but cannot establish acceptance by itself. Focused tests
+cover valid, missing, duplicate, malformed, oversized, pre-existing, and
+content-bearing inputs without retaining session, agent, transcript, cwd,
+prompt, terminal text, or credentials.
+
+After the repair passed the complete Debian WSL package gate on exact commit
+`f8a4f72ca406ac9e11a9ecc68882b33e98df56b6` and received an independent
+approval with no findings, the operator separately authorized one corrected
+three-stage run on 2026-08-22. Claude Code 2.1.236, Nori 0.27.0, and the
+configured `deepseek-v4-pro[1m]` model were observed. `main-default` and
+`main-bypass` again produced exact nonce-bound `DENY_UNKNOWN_COMMAND` audits.
+The lifecycle marker established that native delegation to
+`diagnostic-operator` started, but no matching executor `PreToolUse` audit was
+observed. The third stage was classified as `EXECUTOR_GUARD_NOT_OBSERVED`; the
+aggregate remained `INCONCLUSIVE` with two observations, two session matches,
+and an incomplete ordered sequence. This does not establish `ACTIVE` or satisfy
+P0-05 acceptance.
+
+All three bounded stages were launched, so this separate authorization budget
+is exhausted and no retry was made. The harness retained no prompt, transcript,
+terminal text, identifier, or credential value. Its exit trap removed the
+disposable home, project, settings, lifecycle marker, audits, results, and
+synthetic target after the bounded report was emitted.
+
+Read-only follow-up against the current official Claude Code contract identified
+a remaining harness confounder. `--tools` restricts built-in tool availability,
+while delegated agents inherit the main conversation's available tool pool.
+The live fallback's global `--tools Agent` could therefore allow delegation but
+remove Bash before `diagnostic-operator` resolved its own tool list. This is the
+leading explanation for `EXECUTOR_GUARD_NOT_OBSERVED`, but the deliberately
+content-free evidence cannot prove it.
+
+The operator approved a no-provider revision that removes the global
+availability restriction. The fallback now creates a fixed disposable
+`p005-probe-coordinator` whose sole agent-local tool is
+`Agent(diagnostic-operator)` and starts only that coordinator through `--agent`.
+The protected executor is still a real delegated subagent, retains its own Bash
+allowlist and hooks by configuration, and remains subject to the same
+lifecycle-plus-audit acceptance gate. The deterministic test-double reads and
+validates the generated coordinator before invoking the configured lifecycle
+hook. The focused no-provider safety suite passed 16 tests and the exact
+three-stage self-test passed. No additional provider request was made.
+
+After that revision passed the complete package gate and independent review on
+commit `3dbcfec2b707411ec33f9c5f6775a5a31b9fdcc9`, the operator separately
+authorized up to three provider requests containing only the exact synthetic
+probe. The 2026-08-22 Bubblewrap-isolated run used Claude Code 2.1.236, Nori
+0.27.0, and `deepseek-v4-pro[1m]`. It produced exact nonce-bound
+`DENY_UNKNOWN_COMMAND` audits for `main-default`, `main-bypass`, and
+`executor-fallback`, plus the independent nonce-bound `SubagentStart` marker
+for the fallback. The result was `PASS`, ordered, with three observations and
+three session matches. A marker alone was not accepted.
+
+All three authorized stages were launched, so that authorization is exhausted.
+The harness retained no prompt, transcript, terminal text, identifier, or
+credential value. Its exit trap removed the disposable environment, and a
+post-run `/tmp` check found no matching directory. The result satisfies the
+real runtime acceptance gate for the tested revision; it grants no authorization
+to a later command and does not persist `ACTIVE` into another session.
+
+PR #41 Security run 152 later failed only its ShellCheck job: ShellCheck 0.11.0
+reported `SC2163` for the intentional dynamic `export "$entry"` in the live
+harness environment loader. CodeQL JavaScript/TypeScript and Python both passed.
+The minimal correction uses `export "${entry?}"`, the rule's explicit dynamic
+expansion form, without changing the imported `NAME=value` string. The exact
+ShellCheck 0.11.0 archive and workflow SHA-256 passed against every shell script;
+the 16 safety tests, 16 PTY tests, and three-stage self-test also passed. No
+additional provider request was authorized or made for this lint-only delta.
+
+PR #41 CI run 146 then passed package validation, schema checks, live links,
+and hygiene, but exposed documentation-only spell-check and Markdown failures:
+`syscalls` and `idempotently` were missing from the project dictionary, one
+CHANGELOG bullet exceeded 400 columns, and the literal linked-profile suffix
+used a code span with a leading space. The project dictionary now contains the
+two technical terms, the unchanged CHANGELOG sentence is wrapped, and the
+suffix is described as `(linked)` preceded by one ASCII space. Markdownlint
+0.23.2, incremental CSpell, release-history tests, architecture-document tests,
+content validation, and `git diff --check` pass locally. This documentation-only
+delta neither changes the live harness nor authorizes a provider request.

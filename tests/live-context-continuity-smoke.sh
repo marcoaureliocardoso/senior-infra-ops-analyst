@@ -504,7 +504,7 @@ emit_synthetic_credential_event() {
 secret=sys.stdin.read()
 q=chr(34)
 command=f"OPS_CREDENTIAL_IDENTITY=operator curl -q -H {q}Authorization: Bearer {secret}{q} http://127.0.0.1:43119/health"
-print(json.dumps({"session_id":sys.argv[1],"tool_use_id":sys.argv[2],"hook_event_name":"PreToolUse","agent_type":"diagnostic-operator","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":command}}))' "$session_id" "$tool_use_id"
+print(json.dumps({"session_id":sys.argv[1],"tool_use_id":sys.argv[2],"hook_event_name":"PreToolUse","agent_id":"p004a-live-diagnostic-operator","agent_type":"diagnostic-operator","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":command}}))' "$session_id" "$tool_use_id"
 }
 
 run_installed_credential_compaction_probe() {

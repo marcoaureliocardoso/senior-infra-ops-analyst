@@ -23,6 +23,7 @@ VERSION_LINE_ERROR = "noncanonical version-bearing line"
 CURRENT_RELEASE = "### 0.12.0 - 2026-08-13"
 CURRENT_RELEASE_BULLET_COUNT = 18
 UNPUBLISHED_LEDGER = [
+    ("0.13.0", "2026-08-21", None),
     ("0.11.1", "2026-08-08", None),
     ("0.11.0", "2026-07-26", None),
     ("0.9.1", "2026-07-23", None),
@@ -64,9 +65,19 @@ class ReleaseHistoryTests(unittest.TestCase):
         cls.readme = cls.sandbox / "README.md"
         cls.changelog = cls.sandbox / "CHANGELOG.md"
         cls.manifest = cls.sandbox / "nori.json"
+        cls.nori_version = cls.sandbox / ".nori-version"
+        cls.docs = cls.sandbox / "docs.md"
+        cls.skill_manifest = cls.sandbox / "skills/command-driven-operations/nori.json"
+        cls.skill = cls.sandbox / "skills/command-driven-operations/SKILL.md"
+        cls.skills_catalog = cls.sandbox / "skills.json"
         cls.original_readme = cls.readme.read_text(encoding="utf-8")
         cls.original_changelog = cls.changelog.read_text(encoding="utf-8")
         cls.original_manifest = cls.manifest.read_text(encoding="utf-8")
+        cls.original_nori_version = cls.nori_version.read_text(encoding="utf-8")
+        cls.original_docs = cls.docs.read_text(encoding="utf-8")
+        cls.original_skill_manifest = cls.skill_manifest.read_text(encoding="utf-8")
+        cls.original_skill = cls.skill.read_text(encoding="utf-8")
+        cls.original_skills_catalog = cls.skills_catalog.read_text(encoding="utf-8")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -76,6 +87,11 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.readme.write_text(self.original_readme, encoding="utf-8")
         self.changelog.write_text(self.original_changelog, encoding="utf-8")
         self.manifest.write_text(self.original_manifest, encoding="utf-8")
+        self.nori_version.write_text(self.original_nori_version, encoding="utf-8")
+        self.docs.write_text(self.original_docs, encoding="utf-8")
+        self.skill_manifest.write_text(self.original_skill_manifest, encoding="utf-8")
+        self.skill.write_text(self.original_skill, encoding="utf-8")
+        self.skills_catalog.write_text(self.original_skills_catalog, encoding="utf-8")
 
     def run_validator(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -98,6 +114,54 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertIn(TAGGED_HEADING, self.original_changelog)
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_current_unpublished_metadata_is_consistent(self) -> None:
+        self.assertEqual(self.original_changelog.count(
+            "### 0.13.0 (unreleased) - declared 2026-08-21"
+        ), 1)
+        self.assertIn('"version": "0.13.0"', self.original_manifest)
+        self.assertIn('"version": "0.13.0"', self.original_nori_version)
+        self.assertIn("Version: 0.13.0", self.original_readme)
+        self.assertIn("Version: 0.13.0", self.original_docs)
+        self.assertIn('"version": "1.1.0"', self.original_skill_manifest)
+        self.assertIn("version: 0.6.0", self.original_skill)
+        self.assertIn("last_updated: 2026-08-21", self.original_skill)
+        self.assertIn('"command-driven-operations": "*"', self.original_skills_catalog)
+
+    def test_0130_wrong_unpublished_date_is_rejected(self) -> None:
+        self.replace_changelog(
+            "### 0.13.0 (unreleased) - declared 2026-08-21",
+            "### 0.13.0 (unreleased) - declared 2026-08-20",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unpublished-ledger drift", result.stdout)
+
+    def test_current_version_metadata_drift_is_rejected(self) -> None:
+        mutations = (
+            (self.nori_version, self.original_nori_version.replace("0.13.0", "0.13.1"),
+             "current-version metadata drift"),
+            (self.readme, self.original_readme.replace("Version: 0.13.0", "Version: 0.13.1", 1),
+             "current-version metadata drift"),
+            (self.docs, self.original_docs.replace("Version: 0.13.0", "Version: 0.13.1", 1),
+             "current-version metadata drift"),
+            (self.skill_manifest, self.original_skill_manifest.replace("1.1.0", "1.1.1", 1),
+             "component-version drift"),
+            (self.skill, self.original_skill.replace("version: 0.6.0", "version: 0.6.1", 1),
+             "skill-version drift"),
+            (self.skill, self.original_skill.replace("2026-08-21", "2026-08-20", 1),
+             "skill-date drift"),
+            (self.skills_catalog, self.original_skills_catalog.replace(
+                '"command-driven-operations": "*"', '"command-driven-operations": "1.1.0"', 1
+            ), "skills catalogue"),
+        )
+        for path, content, expected in mutations:
+            with self.subTest(path=path.name, expected=expected):
+                path.write_text(content, encoding="utf-8")
+                result = self.run_validator()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected, result.stdout)
+                self.tearDown()
 
     def test_0120_misclassified_as_unpublished_is_rejected(self) -> None:
         mutated = self.original_changelog.replace(CURRENT_RELEASE, "", 1)
@@ -206,10 +270,10 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertIn("unexpected changelog taxonomy heading", result.stdout)
 
     def test_manifest_version_must_match_highest_recorded_state(self) -> None:
-        self.assertIn('"version": "0.12.0"', self.original_manifest)
+        self.assertIn('"version": "0.13.0"', self.original_manifest)
         self.manifest.write_text(
             self.original_manifest.replace(
-                '"version": "0.12.0"', '"version": "0.12.1"', 1
+                '"version": "0.13.0"', '"version": "0.13.1"', 1
             ),
             encoding="utf-8",
         )

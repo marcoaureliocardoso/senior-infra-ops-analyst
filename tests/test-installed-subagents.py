@@ -175,6 +175,26 @@ class InstalledSubagentValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("installed command guard artifact differs", result.stdout + result.stderr)
 
+    def test_missing_installed_main_session_configurator_fails(self) -> None:
+        path = (
+            self.skills / "command-driven-operations" / "scripts" /
+            "configure-native-execution-boundary.mjs"
+        )
+        path.unlink()
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("installed command guard artifact missing", result.stdout + result.stderr)
+
+    def test_changed_installed_main_session_settings_fails(self) -> None:
+        path = (
+            self.skills / "command-driven-operations" / "scripts" /
+            "main-session-settings.mjs"
+        )
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("installed command guard artifact differs", result.stdout + result.stderr)
+
     def test_changed_installed_continuity_hook_fails(self) -> None:
         path = self.installed / "change-manager.md"
         path.write_text(

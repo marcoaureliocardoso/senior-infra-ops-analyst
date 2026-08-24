@@ -9,7 +9,7 @@ A command-driven skillset that personifies a Senior Infrastructure Operations An
 25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
 Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.12.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.13.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Context continuity
 
@@ -59,6 +59,34 @@ catalogued changes. `bypassPermissions` permits catalogued non-destructive
 operations without another confirmation; destructive operations still ask,
 and unknown or inconclusive operations deny. Pipes remain usable when every
 stage and edge is understood.
+
+Main-session protection is separately opt-in and project-local. Nori
+installation does not activate it or overwrite operator preferences. Run the
+installed component's configurator:
+
+```bash
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --check
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --apply
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
+```
+
+The configurator rejects linked paths and target drift observed before
+replacement. A malicious local process running as the same account can still
+race cross-platform path syscalls or edit settings afterwards; use managed
+settings or an operating-system-protected manual change when that actor is in
+scope.
+
+`CONFIGURED_UNPROVEN` confirms exact settings only. Direct operational Bash
+requires the current session's structured guard denial for
+`printf P005_GUARD_PROBE`; this proves hook coverage but authorizes no later
+command. Otherwise use a proven executor or no execution. The canonical matrix
+is `references/native-execution-boundary.md`.
+
+Run `bash tests/live-native-execution-boundary-smoke.sh --self-test` for the
+no-provider structural gate. The real provider-backed route requires
+`P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE` and
+`--run-live`; missing or timed-out structural evidence is `INCONCLUSIVE` and
+never establishes `ACTIVE`.
 
 Operator-supplied literal credentials are treated as already visible to the
 model/provider/transcript. First literal use always asks. Only matching

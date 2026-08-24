@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.12.0
+Version: 0.13.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -103,6 +103,57 @@ Node.js validator and approval recorder from the Nori-installed
 `command-driven-operations` skill. Missing runtimes or artifacts, timeouts,
 crashes, malformed output, and unexpected stdout block the call. The four
 analytical roles remain shell-free.
+
+Direct main-session Bash protection is an explicit project-local opt-in. Nori
+installation alone does not modify operator settings. From the installed
+`command-driven-operations` skill, inspect, add, or remove only package-owned
+hooks with:
+
+```bash
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --check
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --apply
+node "<installed-command-driven-operations>/scripts/configure-native-execution-boundary.mjs" --remove-owned
+```
+
+The configurator rejects linked paths and target drift it observes before
+replacement. It is not a security boundary against a malicious local process
+running as the same account and racing filesystem syscalls; use managed
+settings or an operating-system-protected manual change for that threat model.
+
+Exact settings produce `CONFIGURED_UNPROVEN`, not runtime proof. Before direct
+operational Bash, the current session must observe the expected structured
+guard denial for `printf P005_GUARD_PROBE`; the probe proves coverage only and
+does not authorize a later command. Otherwise delegate to a protected executor
+or perform no execution. See `references/native-execution-boundary.md`.
+
+The deterministic live-routing self-test uses disposable Nori and Claude Code
+test doubles and makes no provider call:
+
+```bash
+bash tests/live-native-execution-boundary-smoke.sh --self-test
+```
+
+Real validation is separately opt-in, bounded to three harmless denied probes,
+and imports only the allowlisted provider settings needed to start Claude Code:
+
+```bash
+P0_05_LIVE_PROVIDER_ACK=I_AUTHORIZE_BOUNDED_PROVIDER_USE \
+  bash tests/live-native-execution-boundary-smoke.sh --run-live
+```
+
+The real route creates a disposable home and project, observes only fresh
+content-free hook audit records bound to an exact random child nonce, never
+retains terminal output, and removes the
+main-session hooks before exercising the protected executor fallback through a
+real `Agent` delegation. The fallback starts a disposable coordinator whose
+only tool is `Agent(diagnostic-operator)`; it does not use the global `--tools`
+availability restriction, so the protected executor can resolve Bash only from
+its own definition. On 2026-08-22, a separately authorized provider run proved
+this structure with three exact nonce-bound denials, including both the
+`SubagentStart` marker and executor `PreToolUse` audit. That ephemeral proof
+authorizes no later call and establishes no durable `ACTIVE` state. A marker
+alone remains diagnostic and cannot satisfy acceptance. A timeout or incomplete
+sequence is `INCONCLUSIVE`; it never establishes `ACTIVE`.
 
 The guard uses separate Bash and PowerShell lexers, builds the complete stage,
 operator, redirect, and data-flow graph, and validates every stage against a

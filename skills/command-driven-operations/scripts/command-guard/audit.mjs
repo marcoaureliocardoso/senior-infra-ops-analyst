@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const FORBIDDEN = /command|secret|password|token|cookie|authorization|transcript/iu;
+const LIVE_STAGE_NONCE = /^[a-f0-9]{32}$/u;
 
 export function sanitizeAuditValue(value) {
   if (value === null || value === undefined) return null;
@@ -45,6 +46,11 @@ export function structuralActionIdentity(result) {
 
 export function appendAudit(result, event, env = process.env) {
   const auditPath = resolveAuditPath(env);
+  const hasProbeNonce = Object.hasOwn(env, 'P005_LIVE_STAGE_NONCE');
+  const probeNonce = env.P005_LIVE_STAGE_NONCE;
+  if (hasProbeNonce && (typeof probeNonce !== 'string' || !LIVE_STAGE_NONCE.test(probeNonce))) {
+    throw new Error('invalid live stage nonce');
+  }
   const record = sanitizeAuditValue({
     timestamp: new Date().toISOString(), sessionId: event.sessionId,
     agent: event.agentType, mode: event.permissionMode, risk: result.risk ?? null,
@@ -54,6 +60,7 @@ export function appendAudit(result, event, env = process.env) {
     actionId: structuralActionIdentity(result), decision: result.decision,
     reason: result.reasonCode, stage: result.stage ?? null,
     findings: result.findings ?? [],
+    ...(hasProbeNonce ? { probeNonce } : {}),
   });
   mkdirSync(path.dirname(auditPath), { recursive: true, mode: 0o700 });
   appendFileSync(auditPath, `${JSON.stringify(record)}\n`, { encoding: 'utf8', mode: 0o600 });
