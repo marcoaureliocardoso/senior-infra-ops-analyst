@@ -12,6 +12,8 @@ python3 tests/test-native-execution-boundary-safety.py
 python3 tests/test-prompt-injection-policy.py
 python3 tests/test-prompt-injection-install-policy.py
 python3 tests/test-prompt-injection-live.py
+python3 tests/test-prompt-injection-deny-tool.py
+python3 tests/test-live-prompt-injection-safety.py
 python3 tests/test-native-execution-boundary-pty.py
 python3 tests/test-native-execution-boundary-lifecycle.py
 python3 tests/test-context-continuity-install-policy.py
@@ -51,12 +53,14 @@ bash -n tests/live-command-guard-smoke.sh
 bash -n tests/live-context-continuity-smoke.sh
 bash -n tests/live-nori-package-smoke.sh
 bash -n tests/live-native-execution-boundary-smoke.sh
+bash -n tests/live-prompt-injection-smoke.sh
 bash -n tests/validate-package.sh
 bash tests/live-subagent-runtime-smoke.sh --self-test
 bash tests/live-command-guard-smoke.sh --self-test
 bash tests/live-context-continuity-smoke.sh --self-test
 bash tests/live-nori-package-smoke.sh --self-test
 bash tests/live-native-execution-boundary-smoke.sh --self-test
+bash tests/live-prompt-injection-smoke.sh --self-test
 skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev/null
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then
