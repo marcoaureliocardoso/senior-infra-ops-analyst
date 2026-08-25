@@ -178,7 +178,7 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
                 "#!/usr/bin/env bash\n"
                 "case \"${1:-}\" in\n"
                 "  --help) printf '%s\\n' '--output-format --verbose "
-                "--include-hook-events --no-session-persistence --max-turns "
+                "--include-hook-events --no-session-persistence "
                 "--permission-mode --agent' ;;\n"
                 "  --version) printf '%s\\n' 'native Claude test double' ;;\n"
                 "  *) exit 97 ;;\n"

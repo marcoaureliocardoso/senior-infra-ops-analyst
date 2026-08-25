@@ -191,7 +191,7 @@ BWRAP_BIN="$(readlink -f "$BWRAP_BIN")"
 
 claude_help="$("$CLAUDE_BIN" --help 2>/dev/null)" || blocked 'Claude Code capability detection failed'
 for capability in --output-format --verbose --include-hook-events \
-  --no-session-persistence --max-turns --permission-mode --agent; do
+  --no-session-persistence --permission-mode --agent; do
   grep -q -- "$capability" <<<"$claude_help" || blocked "Claude Code lacks $capability"
 done
 nori_help="$("$NORI_BIN" --help 2>/dev/null)" || blocked 'Nori capability detection failed'
