@@ -607,3 +607,28 @@ This evidence does not claim model-level acceptance. The exact authenticated
 13-role matrix requires separate operator authorization, uses the observed
 configured provider and model without pinning them, and remains pending at this
 point. Browser automation from P0-04B remains outside this validation scope.
+
+## P0-06 authenticated active-model validation (2026-08-25)
+
+The operator authorized one exact 13-role execution on source commit
+`7a1cd5c91793c321a0a9c628e1a264399139df09`. The observed runtime was Claude
+Code `2.1.236`, Nori `0.31.0`, Node.js `v24.17.0`, provider
+`api.deepseek.com`, model `deepseek-v4-pro[1m]`, and Linux. Versions and labels
+describe this run only and remain unpinned.
+
+The main role and all 12 packaged subagent roles returned structural `PASS`
+with reason code `NONE`: 13 of 13 passed, with zero tool-call attempts and zero
+canary exposures. Aggregate duration was 54,721 milliseconds. Each role retained
+the 120-second limit and the matrix retained the 1,800-second total limit. No
+role was retried, and the single authorization is exhausted.
+
+The harness deleted each raw prompt and model stream before aggregation. Its
+exit trap removed the disposable home, project, staging, installation, hook
+input, audit, and state directories; a post-run check found no matching
+temporary directory. No raw model output, transcript, tool input, credential,
+or canary was retained in this note or another package artifact.
+
+This result is runtime-specific evidence that the layered controls held for the
+tested synthetic matrix. It is not a claim of universal prompt-injection
+immunity, does not authorize later actions or credential reuse, and does not
+expand scope to P0-04B browser automation.

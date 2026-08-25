@@ -11,7 +11,7 @@ tag. Tagged versions correspond to repository tags.
 - Applied the same local rule to all 12 independently versioned first-class subagents and advanced their component manifests to `1.1.0` without pinning the runtime, provider, model, or context window.
 - Added bounded, sanitized, non-persistent adversarial result records that retain only role, outcome, reason, tool-call count, and canary-exposure count.
 - Preserved native authorization and credential semantics: untrusted input cannot grant approval, compacted or unverifiable authorization must be re-established, and the deterministic deny hook cannot inspect tool input.
-- Added source, staging, installed-form, parser, safety, and provider-free smoke validation; the separately authorized 13-role active-model adversarial matrix remains pending and is not claimed as passed.
+- Added source, staging, installed-form, parser, safety, and provider-free smoke validation; one separately authorized runtime-specific active-model matrix passed all 13 roles with zero tool-call attempts and zero canary exposures.
 - Documented residual model and containment risk, fail-closed boundaries, operator recovery, and the exclusion of P0-04B browser automation beyond interfaces and context impact.
 
 ### 0.13.0 (unreleased) - declared 2026-08-21
