@@ -283,9 +283,20 @@ if ((${#installed_files[@]} != 1)); then
   printf 'error: expected exactly one installed CLAUDE.md\n' >&2
   exit 1
 fi
+INSTALLED_CLAUDE="${installed_files[0]}"
+INSTALLED_AGENTS_DIR="$INSTALL_ROOT/.claude/agents"
+
+"$PYTHON_BIN" "$ROOT/tests/prompt_injection_install_policy.py" \
+  --source-root "$STAGING" \
+  --installed-claude "$INSTALLED_CLAUDE" \
+  --installed-agents-dir "$INSTALLED_AGENTS_DIR" \
+  >"$WORK/p006-install.log" 2>&1 || {
+    printf 'error: installed prompt injection policy validation failed\n' >&2
+    exit 1
+  }
 
 verification="$("$PYTHON_BIN" - \
-  "$STAGING" "${installed_files[0]}" "$INSTALL_ROOT" "$P005_PROJECT" "$WORK" <<'PY'
+  "$STAGING" "$INSTALLED_CLAUDE" "$INSTALL_ROOT" "$P005_PROJECT" "$WORK" <<'PY'
 import json
 import re
 import sys
@@ -408,6 +419,8 @@ evidence = {
         (work / "p005-apply.json").read_text(encoding="utf-8")
         + (work / "p005-apply.err").read_text(encoding="utf-8")
     ),
+    "p006GlobalPolicyInstalled": True,
+    "p006SubagentPolicyExact": True,
 }
 print(json.dumps(evidence, separators=(",", ":"), sort_keys=True))
 if evidence != {
@@ -434,6 +447,8 @@ if evidence != {
     "p005InstalledPathsExact": True,
     "p005SourcePathsAbsent": True,
     "p005ReportSecretAbsent": True,
+    "p006GlobalPolicyInstalled": True,
+    "p006SubagentPolicyExact": True,
 }:
     raise SystemExit(1)
 PY
