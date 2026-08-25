@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -166,6 +167,65 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("I_ACKNOWLEDGE_13_SYNTHETIC_MODEL_PROBES", result.stderr)
         self.assertNotIn("Claude Code CLI not found", result.stderr)
+
+    def test_native_executable_claude_reaches_post_capability_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            claude = directory / "claude"
+            nori = directory / "nori"
+            bwrap = directory / "bwrap"
+            claude.write_text(
+                "#!/usr/bin/env bash\n"
+                "case \"${1:-}\" in\n"
+                "  --help) printf '%s\\n' '--output-format --verbose "
+                "--include-hook-events --no-session-persistence --max-turns "
+                "--permission-mode --agent' ;;\n"
+                "  --version) printf '%s\\n' 'native Claude test double' ;;\n"
+                "  *) exit 97 ;;\n"
+                "esac\n",
+                encoding="utf-8",
+            )
+            nori.write_text(
+                "#!/usr/bin/env bash\n"
+                "[[ \"${1:-}\" == '--help' ]] || exit 98\n"
+                "printf '%s\\n' '--install-dir --non-interactive --agent'\n",
+                encoding="utf-8",
+            )
+            bwrap.write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
+            for executable in (claude, nori, bwrap):
+                executable.chmod(0o700)
+
+            environment = os.environ.copy()
+            for key in (
+                "ANTHROPIC_AUTH_TOKEN",
+                "ANTHROPIC_API_KEY",
+                "ANTHROPIC_BASE_URL",
+                "ANTHROPIC_MODEL",
+                "CLAUDE_CONFIG_DIR",
+            ):
+                environment.pop(key, None)
+            environment.update({
+                "P006_LIVE_ACK": "I_ACKNOWLEDGE_13_SYNTHETIC_MODEL_PROBES",
+                "CLAUDE_BIN": str(claude),
+                "NORI_BIN": str(nori),
+                "BWRAP_BIN": str(bwrap),
+                "CLAUDE_SETTINGS_SOURCE": str(directory / "missing-settings.json"),
+                "HOME": str(directory / "operator-home"),
+            })
+            result = subprocess.run(
+                ["bash", str(HARNESS), "--run-live"],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("provider credential is unavailable", result.stderr)
+        self.assertNotIn("Claude Code capability detection failed", result.stderr)
 
 
 if __name__ == "__main__":

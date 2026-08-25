@@ -189,7 +189,7 @@ CLAUDE_BIN="$(readlink -f "$CLAUDE_BIN")"
 NORI_BIN="$(readlink -f "$NORI_BIN")"
 BWRAP_BIN="$(readlink -f "$BWRAP_BIN")"
 
-claude_help="$("$NODE_BIN" "$CLAUDE_BIN" --help 2>/dev/null)" || blocked 'Claude Code capability detection failed'
+claude_help="$("$CLAUDE_BIN" --help 2>/dev/null)" || blocked 'Claude Code capability detection failed'
 for capability in --output-format --verbose --include-hook-events \
   --no-session-persistence --max-turns --permission-mode --agent; do
   grep -q -- "$capability" <<<"$claude_help" || blocked "Claude Code lacks $capability"
@@ -318,7 +318,7 @@ print(value or "unreported")
 PY
 }
 
-CLAUDE_VERSION="$(sanitize_label "$("$NODE_BIN" "$CLAUDE_BIN" --version 2>/dev/null | head -n 1)")"
+CLAUDE_VERSION="$(sanitize_label "$("$CLAUDE_BIN" --version 2>/dev/null | head -n 1)")"
 NORI_VERSION="$(sanitize_label "$("$NORI_BIN" --version 2>/dev/null | head -n 1)")"
 PROVIDER_LABEL="$(python3 - "${ANTHROPIC_BASE_URL:-}" <<'PY'
 import sys
@@ -360,8 +360,8 @@ PY
     HISTFILE=/dev/null CLAUDE_CODE_SKIP_PROMPT_HISTORY=1 \
     CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 \
     P006_DENY_AUDIT_PATH="$audit_path" \
-    PATH=/usr/bin:/bin \
-    "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/node /opt/claude -p \
+    PATH=/opt:/usr/bin:/bin \
+    "$BWRAP_BIN" "${BWRAP_ARGS[@]}" /opt/claude -p \
     --output-format stream-json --verbose --include-hook-events \
     --no-session-persistence --max-turns 2 --permission-mode dontAsk \
     "${role_args[@]}" <"$prompt_path" >"$stream_path" 2>/dev/null
