@@ -6,10 +6,10 @@ Path: `senior-infra-ops-analyst/`
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
-25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
+25 skills, 20 slash commands, 12 subagents, and 35 reference documents cover the full operational surface:
 Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.13.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.14.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Context continuity
 
@@ -156,7 +156,7 @@ senior-infra-ops-analyst/
 │       ├── SUBAGENT.md        # Canonical Claude Code definition
 │       └── nori.json          # Independent Nori component metadata
 ├── slashcommands/             # 20 operator slash commands
-├── references/                # 33 domain reference documents
+├── references/                # 35 domain reference documents
 └── tests/                     # Validators and CI scripts
 ```
 

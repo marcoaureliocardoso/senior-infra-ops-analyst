@@ -111,7 +111,7 @@ class NoriStagingTests(unittest.TestCase):
                 )
                 self.assertEqual(set(manifest), {"name", "version", "type", "description"})
                 self.assertEqual(manifest["name"], directory.name)
-                self.assertEqual(manifest["version"], "1.0.0")
+                self.assertEqual(manifest["version"], "1.1.0")
                 self.assertEqual(manifest["type"], "subagent")
 
     def test_json_inventory_is_sorted_and_does_not_enter_staging(self) -> None:

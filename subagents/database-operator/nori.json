@@ -1,6 +1,6 @@
 {
   "name": "database-operator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "subagent",
   "description": "Use for database availability, performance, session and lock analysis, replication health, backup verification, storage consumption, and query-level diagnostics across relational and NoSQL databases."
 }

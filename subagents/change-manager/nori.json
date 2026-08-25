@@ -1,6 +1,6 @@
 {
   "name": "change-manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "subagent",
   "description": "Use when planning, reviewing, coordinating approval, validating, or documenting infrastructure changes, including rollback planning, dependency checks, post-change monitoring, and operational risk review."
 }

@@ -5,6 +5,15 @@ tag. Tagged versions correspond to repository tags.
 
 ## Unreleased package states
 
+### 0.14.0 (unreleased) - declared 2026-08-25
+
+- Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
+- Applied the same local rule to all 12 independently versioned first-class subagents and advanced their component manifests to `1.1.0` without pinning the runtime, provider, model, or context window.
+- Added bounded, sanitized, non-persistent adversarial result records that retain only role, outcome, reason, tool-call count, and canary-exposure count.
+- Preserved native authorization and credential semantics: untrusted input cannot grant approval, compacted or unverifiable authorization must be re-established, and the deterministic deny hook cannot inspect tool input.
+- Added source, staging, installed-form, parser, safety, and provider-free smoke validation; the separately authorized 13-role active-model adversarial matrix remains pending and is not claimed as passed.
+- Documented residual model and containment risk, fail-closed boundaries, operator recovery, and the exclusion of P0-04B browser automation beyond interfaces and context impact.
+
 ### 0.13.0 (unreleased) - declared 2026-08-21
 
 - Defined one fail-closed native execution-routing matrix for protected main-session Bash, protected executor fallback, typed tools, and no-execution outcomes.

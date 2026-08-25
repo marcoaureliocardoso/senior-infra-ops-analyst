@@ -1,6 +1,6 @@
 {
   "name": "diagnostic-operator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "subagent",
   "description": "Use when performing command-driven infrastructure troubleshooting, evidence collection, hypothesis testing, and ordered diagnostics across Linux, Windows, networking, DNS, storage, virtualization, Kubernetes, cloud, and application infrastructure."
 }

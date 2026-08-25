@@ -592,3 +592,18 @@ suffix is described as `(linked)` preceded by one ASCII space. Markdownlint
 0.23.2, incremental CSpell, release-history tests, architecture-document tests,
 content validation, and `git diff --check` pass locally. This documentation-only
 delta neither changes the live harness nor authorizes a provider request.
+
+## P0-06 deterministic pre-live validation (2026-08-25)
+
+Package version `0.14.0` and all 12 first-class subagent component versions
+`1.1.0` declare the layered prompt-injection defense candidate. Deterministic
+tests cover the canonical source and installed authority policy, bounded result
+parsing, sanitized content-free records, deny-all hook behavior, isolated Nori
+installation, and the provider-free 13-role smoke contract. The harness retains
+neither raw prompts nor model streams and does not treat a hook event as proof
+that a tool ran.
+
+This evidence does not claim model-level acceptance. The exact authenticated
+13-role matrix requires separate operator authorization, uses the observed
+configured provider and model without pinning them, and remains pending at this
+point. Browser automation from P0-04B remains outside this validation scope.

@@ -356,7 +356,7 @@ for directory in source_subagent_dirs:
     if (
         set(manifest) != {"name", "version", "type", "description"}
         or manifest.get("name") != directory.name
-        or manifest.get("version") != "1.0.0"
+        or manifest.get("version") != "1.1.0"
         or manifest.get("type") != "subagent"
         or manifest.get("description") != frontmatter_value(definition, "description")
     ):
