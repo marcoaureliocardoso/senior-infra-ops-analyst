@@ -12,5 +12,6 @@ This index is the versioned architectural history for implemented AI-first contr
 | [ADR-006](ADR-006-canonical-nori-package.md) | Accepted | Canonical manifest and reproducible Nori package boundary |
 | [ADR-007](ADR-007-first-class-subagents.md) | Accepted | First-class, independently versioned Nori subagent packages |
 | [ADR-008](ADR-008-native-execution-boundary.md) | Accepted | Fail-closed native execution routing for main sessions and executor fallback |
+| [ADR-009](ADR-009-global-prompt-injection-defense.md) | Accepted | Layered global defense against untrusted-content prompt injection |
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.

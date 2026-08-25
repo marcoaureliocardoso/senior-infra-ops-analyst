@@ -161,6 +161,17 @@ Use these official references when updating or validating this skillset. Prefer 
 - NIST SP 800-34 Rev. 1: https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final
 - NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
 
+## AI agent security
+
+- Claude Code hooks reference: https://code.claude.com/docs/en/hooks
+- Claude Code permissions: https://code.claude.com/docs/en/permissions
+- Anthropic - Mitigating the risk of prompt injections in browser use: https://www.anthropic.com/research/prompt-injection-defenses
+- Anthropic - How we contain Claude across products: https://www.anthropic.com/engineering/how-we-contain-claude
+- OWASP LLM01:2025 Prompt Injection: https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+- OWASP LLM06:2025 Excessive Agency: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+- OWASP Agentic Security Initiative: https://genai.owasp.org/initiatives/agentic-security-initiative/
+- OWASP guide for secure third-party MCP use: https://genai.owasp.org/resource/cheatsheet-a-practical-guide-for-securely-using-third-party-mcp-servers-1-0/
+
 ## Related references
 
 - `references/command-execution-protocol.md`
