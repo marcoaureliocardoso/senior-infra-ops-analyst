@@ -115,7 +115,7 @@ export async function collectStaticInventory(root) {
     if (
       JSON.stringify(Object.keys(metadata).sort()) !== JSON.stringify(SUBAGENT_MANIFEST_FIELDS)
       || metadata.name !== id
-      || metadata.version !== '1.0.0'
+      || metadata.version !== '1.1.0'
       || metadata.type !== 'subagent'
       || metadata.description !== frontmatterDescription(text)
     ) {

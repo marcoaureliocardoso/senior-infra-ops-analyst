@@ -65,7 +65,7 @@ test('inventory discovers a directory-based first-class subagent', async () => {
     );
     await writeFile(
       path.join(root, 'subagents', 'example-operator', 'nori.json'),
-      '{"name":"example-operator","version":"1.0.0","type":"subagent","description":"Example operator"}\n',
+      '{"name":"example-operator","version":"1.1.0","type":"subagent","description":"Example operator"}\n',
       'utf8',
     );
     const report = await collectStaticInventory(root);
@@ -100,8 +100,8 @@ test('inventory rejects incomplete or drifted first-class subagent manifests', a
     const invalidManifests = [
       { name: 'example-operator', type: 'subagent', description: 'Example operator' },
       { name: 'example-operator', version: '2.0.0', type: 'subagent', description: 'Example operator' },
-      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Drifted' },
-      { name: 'example-operator', version: '1.0.0', type: 'subagent', description: 'Example operator', scripts: [] },
+      { name: 'example-operator', version: '1.1.0', type: 'subagent', description: 'Drifted' },
+      { name: 'example-operator', version: '1.1.0', type: 'subagent', description: 'Example operator', scripts: [] },
     ];
     for (const manifest of invalidManifests) {
       await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, 'utf8');
