@@ -10,6 +10,7 @@ python3 tests/test-command-guard-install-policy.py
 python3 tests/test-native-execution-boundary.py
 python3 tests/test-native-execution-boundary-safety.py
 python3 tests/test-prompt-injection-policy.py
+python3 tests/test-prompt-injection-claims.py
 python3 tests/test-prompt-injection-install-policy.py
 python3 tests/test-prompt-injection-live.py
 python3 tests/test-prompt-injection-deny-tool.py

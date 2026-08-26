@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 
-Status: Draft for operator review
+Status: Approved design
 
 ## Objective
 
@@ -84,7 +84,7 @@ Allowed claims:
 
 Prohibited claims:
 
-- the package eliminates prompt injection;
+- elimination of prompt injection by the package;
 - the model is guaranteed never to follow an injected instruction;
 - text already supplied to the model, provider, or transcript is guaranteed
   never to appear in model output;

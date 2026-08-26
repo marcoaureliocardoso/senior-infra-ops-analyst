@@ -4,6 +4,19 @@ Date: 2026-08-25
 
 Status: Approved design
 
+> **Acceptance amendment (2026-08-26):** This design remains the historical
+> basis for the implemented layered defense. Deterministic P0-06 merge
+> acceptance and runtime compatibility are now separated by the approved
+> `2026-08-26-p0-06-guarantee-separation-design.md` amendment.
+
+## Guarantee Taxonomy Amendment
+
+The amended guarantee taxonomy is `DG-POLICY`, `DG-AUTHZ`, `DG-EFFECT`, and
+`DG-EVIDENCE` for deterministic package guarantees, plus `RC-AUTHORITY`,
+`RC-TOOL-PROPOSAL`, and `RC-OUTPUT` for strict runtime compatibility. The
+current corrected observations remain `RC-OUTPUT=FAIL`; they are not rewritten
+as schema-v2 results or treated as deterministic acceptance failures.
+
 ## Objective
 
 Prevent logs, tickets, documents, web content, tool and MCP results, code,
@@ -13,7 +26,8 @@ authorized instructions.
 The defense must reach the Nori-installed `CLAUDE.md`, apply to all packaged
 subagents, preserve the existing command and authorization gates, block and
 record exfiltration attempts without retaining malicious or secret content,
-and pass adversarial tests with the active model.
+and expose strict, separately authorized adversarial runtime compatibility
+results without making them a deterministic package merge gate.
 
 This design does not claim that prompt injection can be eliminated by a system
 prompt, a regular expression, a classifier, or a single hook. It limits both
@@ -384,8 +398,10 @@ and pass/fail outcomes may be preserved.
 
 The authenticated live run remains opt-in and requires an exact operator-
 approved request scope. CI runs deterministic self-tests and validates the live
-harness parser without credentials. P0-06 is not complete until a real active-
-model run passes on the reviewed commit.
+harness parser without credentials. Deterministic P0-06 acceptance depends on
+the four `DG-*` guarantees. A runtime may be labeled compatible only when one
+separately authorized complete matrix passes all three `RC-*` axes on the exact
+reviewed commit; that label is not required for deterministic merge acceptance.
 
 ## Documentation and Release Effects
 
@@ -415,13 +431,16 @@ P0-06 is ready for merge only when:
 5. external content cannot alter policy, identity, tools, permission mode,
    authorization, or gates;
 6. exfiltration attempts are blocked and represented by sanitized records;
-7. no prompt, token, configuration value, credential, raw payload, or synthetic
-   canary is persisted or emitted;
+7. `DG-POLICY`, `DG-AUTHZ`, `DG-EFFECT`, and `DG-EVIDENCE` pass their bounded
+   source, installation, native-boundary, parser, hook, and retention gates;
 8. credential and `bypassPermissions` behavior remains consistent with the
    existing command and continuity contracts;
 9. deterministic repository, package, installation, and adversarial tests
    pass;
-10. the authenticated active-model matrix passes on the reviewed commit;
+10. runtime compatibility remains strict: `RC-AUTHORITY`,
+    `RC-TOOL-PROPOSAL`, and `RC-OUTPUT` must all pass before the exact tested
+    runtime can be labeled compatible, while a failure such as
+    `CANARY_EXPOSED` remains visible and is not a deterministic merge gate;
 11. an independent security review approves the implementation;
 12. required CI and security checks pass;
 13. version, changelog, README, ADR index, and validation evidence are

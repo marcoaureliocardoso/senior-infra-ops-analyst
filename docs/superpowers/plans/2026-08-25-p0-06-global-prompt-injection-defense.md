@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Acceptance amendment (2026-08-26):** The implementation history below
+> remains accurate. Deterministic P0-06 merge acceptance and runtime
+> compatibility are now separate under
+> `docs/superpowers/specs/2026-08-26-p0-06-guarantee-separation-design.md` and
+> `docs/superpowers/plans/2026-08-26-p0-06-guarantee-separation.md`.
+
 **Goal:** Deliver a layered, globally installed prompt-injection defense that treats external content as non-authoritative data, prevents untrusted content from authorizing effects, records blocked attempts without retaining secrets or raw payloads, and passes deterministic plus active-model adversarial validation.
 
 **Architecture:** The canonical `AGENTS.md` carries a concise authority contract into Nori's installed `CLAUDE.md`, while one detailed reference and short role-local rules cover all 12 subagents. Existing native authorization boundaries remain authoritative at effect sinks; a disposable fail-closed live harness verifies model behavior across the main session and every subagent without persisting prompts, transcripts, model output, tool payloads, canaries, or credentials.

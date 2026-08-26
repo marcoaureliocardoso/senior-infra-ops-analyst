@@ -58,6 +58,15 @@ REQUIRED_ADR_009 = (
     "Alternatives rejected",
     "Residual risks",
     "P0-04B",
+    "DG-POLICY",
+    "DG-AUTHZ",
+    "DG-EFFECT",
+    "DG-EVIDENCE",
+    "RC-AUTHORITY",
+    "RC-TOOL-PROPOSAL",
+    "RC-OUTPUT",
+    "not a deterministic P0-06 merge gate",
+    "CANARY_EXPOSED",
 )
 
 
@@ -224,6 +233,11 @@ class ArchitectureDocumentationTests(unittest.TestCase):
                     "sanitized current-response record",
                     "native authorization gates remain authoritative",
                     "runtime-specific evidence, not immunity",
+                    "deterministic package guarantees",
+                    "runtime compatibility",
+                    "RC-OUTPUT=FAIL",
+                    "does not guarantee output confidentiality",
+                    "not required for deterministic P0-06 merge acceptance",
                     "P0-04B",
                 ):
                     self.assertIn(marker, text)
