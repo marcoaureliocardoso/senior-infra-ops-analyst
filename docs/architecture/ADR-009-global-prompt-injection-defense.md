@@ -52,7 +52,9 @@ same-session proof requirements.
 
 1. `AGENTS.md` establishes the required global authority and handling policy.
 2. All 12 `SUBAGENT.md` definitions repeat a concise local rule and reference
-   the canonical contract exactly once.
+   the canonical contract exactly once. The local rule independently forbids
+   repeating or transforming protected values and raw contaminated payloads in
+   role output.
 3. Source and isolated Nori-install validators fail on missing global markers,
    missing roles, stale definitions, unexpected roles, linked artifacts, or
    unsafe installed layouts.

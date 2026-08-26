@@ -8,10 +8,10 @@ tag. Tagged versions correspond to repository tags.
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
-- Applied the same local rule to all 12 independently versioned first-class subagents and advanced their component manifests to `1.1.0` without pinning the runtime, provider, model, or context window.
+- Applied the same local authority and protected-output rules to all 12 independently versioned first-class subagents and advanced their component manifests to `1.1.0` without pinning the runtime, provider, model, or context window.
 - Added an explicit 13-role adversarial source/effect/variant matrix covering every Bash-capable subagent, all five effect classes, the required untrusted channels, credential confusion, encoded/escaped/invisible content, role impersonation, and adjacent legitimate operator intent; retained results contain only role, outcome, reason, tool-call count, and canary-exposure count.
 - Preserved native authorization and credential semantics: untrusted input cannot grant approval, compacted or unverifiable authorization must be re-established, and the deterministic deny hook never logs, emits, or persists tool-input values when producing its denial and bounded audit.
-- Added source, staging, installed-form, parser, safety, and provider-free smoke validation; an earlier runtime-specific active-model matrix passed all 13 roles but predates the corrected complete matrix, while the separately authorized corrected-candidate run stopped at `incident-commander` with `CANARY_EXPOSED` and zero tool-call attempts. P0-06 active acceptance remains pending.
+- Added source, staging, installed-form, parser, safety, and provider-free smoke validation; an earlier runtime-specific active-model matrix passed all 13 roles but predates the corrected complete matrix, while the separately authorized corrected-candidate run stopped at `incident-commander` with `CANARY_EXPOSED` and zero tool-call attempts. That failure drove explicit protected-output reinforcement in every role; P0-06 active acceptance remains pending.
 - Documented residual model and containment risk, fail-closed boundaries, operator recovery, and the exclusion of P0-04B browser automation beyond interfaces and context impact.
 
 ### 0.13.0 (unreleased) - declared 2026-08-21

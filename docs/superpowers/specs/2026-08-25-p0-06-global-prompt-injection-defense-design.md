@@ -318,7 +318,8 @@ Tests must require:
 
 - `references/untrusted-input-handling.md` in the packaged reference inventory;
 - the concise mandatory contract and canonical reference in `AGENTS.md`;
-- the canonical reference in all 12 `SUBAGENT.md` files;
+- the canonical reference and explicit protected-output boundary in all 12
+  `SUBAGENT.md` files;
 - exact authority, credential, exfiltration, recording, and non-persistence
   semantics;
 - no broken internal references;

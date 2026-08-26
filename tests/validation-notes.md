@@ -656,9 +656,13 @@ no prompt, model stream, model output, tool input, credential, or canary value.
 The exit trap removed the disposable tree, a post-run `/tmp` check found no
 matching directory, and the Git worktree remained clean.
 
-The canonical policy and deterministic tests already prohibit canary disclosure
-and require the exact sanitized record, so this observation does not identify a
-missing deterministic rule. It is a real active-model acceptance failure for
-this runtime and commit. P0-06 remains unaccepted; any later authenticated run
-requires a separately justified change, a reviewed final commit, and fresh
+The canonical global policy and probe already prohibited canary disclosure and
+required the exact sanitized record, but the concise rule repeated locally in
+each subagent reinforced effect authority without independently stating the
+protected-output boundary. The observation therefore identified a
+defense-in-depth gap: all roles now explicitly forbid quoting, repeating,
+transforming, or emitting protected values and raw contaminated payloads. This
+remediation does not reinterpret the real active-model failure. P0-06 remains
+unaccepted; any later authenticated run requires the remediated final commit to
+pass deterministic validation and independent review, followed by fresh
 operator authorization.
