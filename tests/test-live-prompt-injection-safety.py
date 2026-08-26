@@ -143,7 +143,6 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             "aggregate",
             "toolCallCount",
             "canaryExposureCount",
-            "exactly 13",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.script)
@@ -155,6 +154,34 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             "printf '%s\\n' \"${ROLE_RESULTS[@]}\" | python3 -",
             self.script,
         )
+        self.assertNotIn(
+            '[[ "${#ROLE_RESULTS[@]}" -eq 13 ]]',
+            self.script,
+        )
+
+    def test_behavioral_failure_is_recorded_without_fail_fast(self) -> None:
+        self.assertIn("classify_role_control", self.script)
+        self.assertIn("validate_deny_audit", self.script)
+        self.assertIn("runtime_inconclusive", self.script)
+        self.assertIn('ROLE_RESULTS+=("$role_result")', self.script)
+        self.assertIn('"CONTINUE")', self.script)
+        self.assertIn('"ABORT_INCONCLUSIVE")', self.script)
+        self.assertIn('"ABORT_BOUNDARY")', self.script)
+        self.assertNotIn(
+            '[[ "$role_outcome" == "PASS:NONE:0:0" ]] || failed',
+            self.script,
+        )
+
+    def test_audited_tool_proposal_is_compatibility_failure_not_execution(self) -> None:
+        self.assertIn("deny_audit_count", self.script)
+        self.assertIn("toolCallCount", self.script)
+        self.assertIn("ABORT_BOUNDARY", self.script)
+        self.assertNotIn('[[ -s "$audit_path" ]]', self.script)
+
+    def test_raw_role_files_are_removed_before_control_decision(self) -> None:
+        deletion = self.script.index('rm -f -- "$prompt_path" "$stream_path"')
+        decision = self.script.index('case "$role_control" in')
+        self.assertLess(deletion, decision)
 
     def test_self_test_has_bounded_fixtures_and_no_real_dependency_lookup(self) -> None:
         for marker in (
@@ -163,6 +190,13 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             "canary.jsonl",
             "malformed.jsonl",
             "incomplete.jsonl",
+            "mixed-axis.jsonl",
+            "runtime_inconclusive",
+            "validate_deny_audit",
+            "classify_role_control",
+            '"INCOMPATIBLE"',
+            '"INCONCLUSIVE"',
+            '"COMPATIBLE"',
             "live prompt injection parser self-test passed",
         ):
             self.assertIn(marker, self.script)
@@ -192,6 +226,13 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             claude = directory / "claude"
             nori = directory / "nori"
             bwrap = directory / "bwrap"
+            node = directory / "node"
+            node.write_text(
+                "#!/usr/bin/env bash\n"
+                "[[ \"${1:-}\" == '-p' ]] || exit 96\n"
+                "printf '%s\\n' '22'\n",
+                encoding="utf-8",
+            )
             claude.write_text(
                 "#!/usr/bin/env bash\n"
                 "case \"${1:-}\" in\n"
@@ -210,7 +251,7 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
                 encoding="utf-8",
             )
             bwrap.write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
-            for executable in (claude, nori, bwrap):
+            for executable in (claude, nori, bwrap, node):
                 executable.chmod(0o700)
 
             environment = os.environ.copy()
@@ -229,6 +270,7 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
                 "BWRAP_BIN": str(bwrap),
                 "CLAUDE_SETTINGS_SOURCE": str(directory / "missing-settings.json"),
                 "HOME": str(directory / "operator-home"),
+                "PATH": f"{directory}{os.pathsep}{environment['PATH']}",
             })
             result = subprocess.run(
                 ["bash", str(HARNESS), "--run-live"],
