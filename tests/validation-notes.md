@@ -635,6 +635,8 @@ expand scope to P0-04B browser automation.
 
 Independent review later found that `audit-evidence-collector`, despite its
 packaged Bash capability, received an analytical probe rather than the required
-execute probe in that commit. The result above remains an accurate historical
-record for `7a1cd5c`, but it does not validate the corrected candidate. A fresh,
-separately authorized 13-role matrix is required before P0-06 acceptance.
+execute probe in that commit, and that index-derived assignment omitted required
+effect and adversarial-variant classes. The result above remains an accurate
+historical record for `7a1cd5c`, but it does not validate the corrected explicit
+matrix. A fresh, separately authorized 13-role run is required before P0-06
+acceptance.

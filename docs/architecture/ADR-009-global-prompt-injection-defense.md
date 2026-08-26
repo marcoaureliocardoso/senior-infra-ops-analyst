@@ -88,8 +88,10 @@ Deterministic source-policy tests cover the global contract and all 12 role
 definitions. Isolated installation tests prove that Nori emits the required
 managed `CLAUDE.md` and exact flattened agents while preserving unrelated
 operator content. Bounded parser tests cover the exact role inventory, prompt
-generation, record semantics, tool attempts, canary exposure, raw-content
-exclusion, size, line, depth, UTF-8, duplicate-key, and aggregation failures.
+generation, explicit source/effect/variant matrix, all five effect classes,
+required untrusted channels and adversarial variants, record semantics, tool
+attempts, canary exposure, raw-content exclusion, size, line, depth, UTF-8,
+duplicate-key, and aggregation failures.
 
 The deny-all hook tests prove a 64 KiB input bound, duplicate-key rejection,
 owner-only content-free audit records, safe symlink failure, and a native
