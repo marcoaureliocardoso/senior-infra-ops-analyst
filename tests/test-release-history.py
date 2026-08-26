@@ -128,6 +128,11 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertIn("version: 0.6.0", self.original_skill)
         self.assertIn("last_updated: 2026-08-21", self.original_skill)
         self.assertIn('"command-driven-operations": "*"', self.original_skills_catalog)
+        self.assertIn("deterministic package guarantees", self.original_changelog)
+        self.assertIn("runtime compatibility", self.original_changelog)
+        self.assertIn("RC-OUTPUT=FAIL", self.original_changelog)
+        self.assertIn("no new authenticated provider request", self.original_changelog)
+        self.assertNotIn("### 0.14.1", self.original_changelog)
 
     def test_0130_wrong_unpublished_date_is_rejected(self) -> None:
         self.replace_changelog(

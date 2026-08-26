@@ -15,6 +15,8 @@ VALIDATOR = "tests/prompt_injection_claims.py"
 MUTABLE = (
     "README.md",
     "docs.md",
+    "CHANGELOG.md",
+    "tests/validation-notes.md",
     "docs/architecture/ADR-009-global-prompt-injection-defense.md",
 )
 
@@ -105,6 +107,16 @@ class PromptInjectionClaimsTests(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("current compatibility disclosure", result.stdout)
+
+    def test_corrected_runtime_evidence_cannot_be_removed(self) -> None:
+        self.mutate(
+            "CHANGELOG.md",
+            "65fd95da1c4890741180f2e2c9c80820d8421a4d",
+            "OMITTED_CORRECTED_COMMIT",
+        )
+        result = self.run_validator()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("historical compatibility evidence", result.stdout)
 
 
 if __name__ == "__main__":

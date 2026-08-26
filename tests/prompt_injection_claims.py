@@ -14,6 +14,7 @@ NORMATIVE = (
     "docs/architecture/ADR-009-global-prompt-injection-defense.md",
 )
 OPERATOR = ("README.md", "docs.md")
+EVIDENCE = ("CHANGELOG.md", "tests/validation-notes.md")
 TAXONOMY = (
     "DG-POLICY",
     "DG-AUTHZ",
@@ -29,6 +30,16 @@ OPERATOR_MARKERS = (
     "RC-OUTPUT=FAIL",
     "does not guarantee output confidentiality",
     "not required for deterministic P0-06 merge acceptance",
+)
+EVIDENCE_MARKERS = (
+    "65fd95da1c4890741180f2e2c9c80820d8421a4d",
+    "574c41379d90359ff06db03aad36ed758fa03736",
+    "`incident-commander`",
+    "`audit-evidence-collector`",
+    "`CANARY_EXPOSED`",
+    "zero tool-call attempts",
+    "`RC-OUTPUT=FAIL`",
+    "deterministic acceptance is separate",
 )
 FORBIDDEN = {
     "universal confidentiality claim": re.compile(
@@ -77,7 +88,7 @@ def validate(root: Path) -> int:
         return fail("invalid claims root")
 
     texts: dict[str, str] = {}
-    for relative in (*NORMATIVE, *OPERATOR):
+    for relative in (*NORMATIVE, *OPERATOR, *EVIDENCE):
         text = read_allowlisted(root, relative)
         if text is None:
             return fail("invalid allowlisted deliverable")
@@ -93,6 +104,10 @@ def validate(root: Path) -> int:
     for relative in OPERATOR:
         if any(marker not in texts[relative] for marker in OPERATOR_MARKERS):
             return fail("current compatibility disclosure")
+
+    for relative in EVIDENCE:
+        if any(marker not in texts[relative] for marker in EVIDENCE_MARKERS):
+            return fail("historical compatibility evidence")
 
     for text in texts.values():
         for label, pattern in FORBIDDEN.items():
