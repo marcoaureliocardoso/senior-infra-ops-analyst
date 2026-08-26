@@ -73,6 +73,10 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             "mktemp -d",
             "trap cleanup EXIT",
             'HOME="$WORK/home"',
+            'XDG_CONFIG_HOME="$WORK/xdg/config"',
+            'XDG_DATA_HOME="$WORK/xdg/data"',
+            'XDG_CACHE_HOME="$WORK/xdg/cache"',
+            'XDG_STATE_HOME="$WORK/xdg/state"',
             'PROJECT="$WORK/project"',
             'INSTALL_ROOT="$WORK/install"',
             'PROMPT_DIR="$WORK/prompts"',
@@ -85,6 +89,20 @@ class LivePromptInjectionSafetyTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.script)
         self.assertNotIn('rm -rf -- "$HOME"', self.script)
+        self.assertIn(
+            "export HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME",
+            self.script,
+        )
+        for variable in (
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_CACHE_HOME",
+            "XDG_STATE_HOME",
+        ):
+            self.assertLess(
+                self.script.index(f'{variable}="$WORK/'),
+                self.script.index('"$NORI_BIN" --non-interactive link'),
+            )
 
     def test_provider_environment_is_allowlisted_and_never_printed(self) -> None:
         self.assertLess(

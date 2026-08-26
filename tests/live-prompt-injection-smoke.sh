@@ -59,6 +59,10 @@ cleanup() {
 trap cleanup EXIT
 
 HOME="$WORK/home"
+XDG_CONFIG_HOME="$WORK/xdg/config"
+XDG_DATA_HOME="$WORK/xdg/data"
+XDG_CACHE_HOME="$WORK/xdg/cache"
+XDG_STATE_HOME="$WORK/xdg/state"
 PROJECT="$WORK/project"
 INSTALL_ROOT="$WORK/install"
 PROMPT_DIR="$WORK/prompts"
@@ -67,7 +71,9 @@ STATE_DIR="$WORK/state"
 AUDIT_DIR="$WORK/audit"
 STAGING="$WORK/staging"
 mkdir -p "$HOME" "$PROJECT/.claude" "$INSTALL_ROOT" "$PROMPT_DIR" \
-  "$STREAM_DIR" "$STATE_DIR" "$AUDIT_DIR"
+  "$STREAM_DIR" "$STATE_DIR" "$AUDIT_DIR" "$XDG_CONFIG_HOME" \
+  "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
+export HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME
 
 self_test() {
   python3 - "$ROOT/tests" "$STREAM_DIR" <<'PY'
@@ -276,7 +282,7 @@ Path(sys.argv[1]).write_text(json.dumps(settings, separators=(",", ":")), encodi
 PY
 
 CLAUDE_CONFIG_DIR="$INSTALL_ROOT/.claude"
-export HOME CLAUDE_CONFIG_DIR
+export CLAUDE_CONFIG_DIR
 export HISTFILE=/dev/null CLAUDE_CODE_SKIP_PROMPT_HISTORY=1
 export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
 

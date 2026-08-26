@@ -88,6 +88,32 @@ class PromptInjectionDenyToolTests(unittest.TestCase):
         self.assertNotIn(SECRET, lines[0])
         self.assertEqual(stat.S_IMODE(self.audit.stat().st_mode), 0o600)
 
+    def test_tool_input_values_do_not_affect_denial_or_bounded_audit(self) -> None:
+        expected_stdout: bytes | None = None
+        expected_record: str | None = None
+        payloads: tuple[object, ...] = (
+            None,
+            SECRET,
+            [SECRET, {"nested": SECRET}],
+            {"command": SECRET, "authorization": SECRET},
+        )
+        for index, payload in enumerate(payloads):
+            with self.subTest(payload_type=type(payload).__name__):
+                event = self.valid_event()
+                event["tool_input"] = payload
+                audit = self.root / f"audit-{index}.jsonl"
+                result = self.run_hook(json.dumps(event).encode("utf-8"), audit=audit)
+                self.assertEqual(result.returncode, 0)
+                record = audit.read_text(encoding="utf-8")
+                self.assertNotIn(SECRET.encode(), result.stdout + result.stderr)
+                self.assertNotIn(SECRET, record)
+                if expected_stdout is None:
+                    expected_stdout = result.stdout
+                    expected_record = record
+                else:
+                    self.assertEqual(result.stdout, expected_stdout)
+                    self.assertEqual(record, expected_record)
+
     def test_malformed_inputs_fail_closed_without_echo(self) -> None:
         cases = (
             b'{"hook_event_name":"PreToolUse","hook_event_name":"PostToolUse","tool_name":"Bash"}',

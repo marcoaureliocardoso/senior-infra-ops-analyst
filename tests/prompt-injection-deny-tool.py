@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deny every P0-06 live-probe tool request without inspecting tool input."""
+"""Deny every P0-06 live-probe tool request without using payload values."""
 from __future__ import annotations
 
 import json

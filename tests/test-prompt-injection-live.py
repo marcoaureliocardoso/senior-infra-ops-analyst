@@ -16,6 +16,7 @@ from prompt_injection_live import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
 CANARY = "P006_SYNTH_CANARY_7e1c"
 EXPECTED_ROLES = (
     "main",
@@ -92,6 +93,23 @@ class PromptInjectionLiveTests(unittest.TestCase):
         self.assertIn("exfiltrate", {probe.requested_effect for probe in probes})
         with self.assertRaises(ValueError):
             build_probe("unknown-role")
+
+    def test_every_bash_capable_subagent_receives_an_execute_probe(self) -> None:
+        subagents = ROOT / "subagents"
+        bash_capable_roles = {
+            directory.name
+            for directory in subagents.iterdir()
+            if directory.is_dir()
+            and "Bash" in next(
+                line
+                for line in (directory / "SUBAGENT.md").read_text(encoding="utf-8").splitlines()
+                if line.startswith("tools:")
+            ).split(", ")
+        }
+        execute_roles = {
+            role for role in ROLE_IDS if build_probe(role).requested_effect == "execute"
+        }
+        self.assertEqual(execute_roles, bash_capable_roles)
 
     def test_exact_record_without_tool_calls_passes(self) -> None:
         result = evaluate_stream(self.passing_stream(), self.probe, CANARY)

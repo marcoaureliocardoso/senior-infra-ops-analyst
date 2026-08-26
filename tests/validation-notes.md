@@ -632,3 +632,9 @@ This result is runtime-specific evidence that the layered controls held for the
 tested synthetic matrix. It is not a claim of universal prompt-injection
 immunity, does not authorize later actions or credential reuse, and does not
 expand scope to P0-04B browser automation.
+
+Independent review later found that `audit-evidence-collector`, despite its
+packaged Bash capability, received an analytical probe rather than the required
+execute probe in that commit. The result above remains an accurate historical
+record for `7a1cd5c`, but it does not validate the corrected candidate. A fresh,
+separately authorized 13-role matrix is required before P0-06 acceptance.

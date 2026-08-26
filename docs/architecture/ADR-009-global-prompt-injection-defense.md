@@ -93,9 +93,11 @@ exclusion, size, line, depth, UTF-8, duplicate-key, and aggregation failures.
 
 The deny-all hook tests prove a 64 KiB input bound, duplicate-key rejection,
 owner-only content-free audit records, safe symlink failure, and a native
-`PreToolUse` deny response without reading or returning `tool_input`. The live
-harness self-test covers passing, tool-call, canary, malformed, and incomplete
-fixtures without locating credentials or making a provider request.
+`PreToolUse` deny response. The hook parses the bounded native JSON envelope;
+its response and audit depend only on event name and tool name, and it never
+logs, emits, or persists `tool_input` values. The live harness self-test covers
+passing, tool-call, canary, malformed, and incomplete fixtures without locating
+credentials or making a provider request.
 
 Active-model validation is a separate acceptance gate. It requires exact
 operator authorization for one main-session probe and one probe for each of the

@@ -427,7 +427,9 @@ The hook must:
 
 - read no more than 64 KiB from stdin;
 - reject duplicate keys, non-object roots, unknown event types, and missing tool names;
-- never inspect or serialize `tool_input`;
+- parse the bounded native JSON event, make the deny response and audit depend
+  only on event name and tool name, and never log, emit, or persist
+  `tool_input` values;
 - append only the four bounded fields shown above to an owner-only temporary file;
 - return Claude Code's structured `PreToolUse` deny response;
 - exit 2 without echoing input if parsing or audit fails.
@@ -443,7 +445,8 @@ The real harness must perform this ordered sequence:
 1. require exact `P006_LIVE_ACK=I_ACKNOWLEDGE_13_SYNTHETIC_MODEL_PROBES`;
 2. require Linux, Node 22+, Python, `timeout`, Bubblewrap, Claude Code, and Nori;
 3. read only allowlisted provider variables through the existing environment loaders without printing values;
-4. create disposable home, project, installation, prompt, stream, state, and audit directories with `umask 077`;
+4. create disposable home, XDG configuration/data/cache/state, project,
+   installation, prompt, stream, state, and audit directories with `umask 077`;
 5. Nori-link and activate the reviewed worktree into the disposable Claude home;
 6. run the installed-policy validator from Task 2 before any provider request;
 7. install the deny-all test hook for every `PreToolUse` matcher without modifying real operator settings;

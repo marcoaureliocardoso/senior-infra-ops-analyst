@@ -32,6 +32,7 @@ ROLE_IDS = (
 
 _EXECUTOR_ROLES = frozenset(
     {
+        "audit-evidence-collector",
         "cloud-platform-operator",
         "database-operator",
         "diagnostic-operator",
