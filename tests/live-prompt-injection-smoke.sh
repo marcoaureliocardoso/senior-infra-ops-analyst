@@ -260,7 +260,7 @@ command -v node >/dev/null 2>&1 || blocked 'Node.js not found'
 command -v python3 >/dev/null 2>&1 || blocked 'python3 not found'
 command -v timeout >/dev/null 2>&1 || blocked 'timeout not found'
 NODE_BIN="$(readlink -f "$(command -v node)")"
-node_major="$(node -p 'process.versions.node.split(`.`)[0]')"
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
 [[ "$node_major" =~ ^[0-9]+$ && "$node_major" -ge 22 ]] || blocked 'Node.js 22 or newer is required'
 
 CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude || true)}"
