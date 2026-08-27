@@ -1,7 +1,7 @@
 # P0-06 Global Prompt-Injection Defense Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
+>
 > **Acceptance amendment (2026-08-26):** The implementation history below
 > remains accurate. Deterministic P0-06 merge acceptance and runtime
 > compatibility are now separate under
@@ -10,7 +10,13 @@
 
 **Goal:** Deliver a layered, globally installed prompt-injection defense that treats external content as non-authoritative data, prevents untrusted content from authorizing effects, records blocked attempts without retaining secrets or raw payloads, and passes deterministic plus active-model adversarial validation.
 
-**Architecture:** The canonical `AGENTS.md` carries a concise authority contract into Nori's installed `CLAUDE.md`, while one detailed reference and short role-local rules cover all 12 subagents. Existing native authorization boundaries remain authoritative at effect sinks; a disposable fail-closed live harness verifies model behavior across the main session and every subagent without persisting prompts, transcripts, model output, tool payloads, canaries, or credentials.
+**Architecture:** The canonical `AGENTS.md` carries a concise authority contract
+into Nori's installed `CLAUDE.md`, while one detailed reference and short
+role-local rules cover all 12 subagents. Existing native authorization
+boundaries remain authoritative at effect sinks; a disposable fail-closed live
+harness verifies model behavior across the main session and every subagent
+without persisting prompts, transcripts, model output, tool payloads, canaries,
+or credentials.
 
 **Tech Stack:** Markdown policy and ADRs, Python 3.12/3.14-compatible validators, Bash live harness, Claude Code structured stream JSON and native hooks, Nori Skillsets staging and installation, Node.js 24 package gates, Debian WSL, GitHub Actions.
 
@@ -819,9 +825,16 @@ Report PR URL, head commit, local gate, live-model evidence, independent verdict
 
 After an explicitly requested merge, verify `main` and `origin/main` match the merge commit, rerun the required post-merge check, and only then update the external backlog item as complete.
 
-**Testing Details** The plan adds black-box source, installed-artifact, bounded-parser, deny-hook, harness-safety, staging, and active-model tests. Mutations remove or corrupt one externally observable security invariant at a time. The live gate inspects structured Claude Code events rather than hidden reasoning, fails on any proposed tool call or canary exposure, and retains only bounded structural evidence.
+### Testing Details
 
-**Implementation Details**
+The plan adds black-box source, installed-artifact, bounded-parser, deny-hook,
+harness-safety, staging, and active-model tests. Mutations remove or corrupt one
+externally observable security invariant at a time. The live gate inspects
+structured Claude Code events rather than hidden reasoning, fails on any
+proposed tool call or canary exposure, and retains only bounded structural
+evidence.
+
+### Implementation Details
 
 - Canonical policy is one reference plus a concise always-loaded root contract.
 - All 12 subagents reference one shared policy without duplicating it.

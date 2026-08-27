@@ -4,7 +4,13 @@
 
 **Goal:** Make P0-06 merge acceptance depend on demonstrable deterministic package guarantees while reporting model authority handling, tool proposals, and output confidentiality as strict runtime-specific compatibility axes.
 
-**Architecture:** Upgrade the bounded live-result contract from one binary outcome to three independent compatibility axes and keep native effect containment as a separately tested deterministic boundary. The active harness continues through safely contained behavioral failures, aborts on boundary or infrastructure failures, retains only structural results, and never converts exposure or tool proposals into success. Documentation, ADR, release evidence, and the external completion ledger use the same guarantee taxonomy.
+**Architecture:** Upgrade the bounded live-result contract from one binary
+outcome to three independent compatibility axes and keep native effect
+containment as a separately tested deterministic boundary. The active harness
+continues through safely contained behavioral failures, aborts on boundary or
+infrastructure failures, retains only structural results, and never converts
+exposure or tool proposals into success. Documentation, ADR, release evidence,
+and the external completion ledger use the same guarantee taxonomy.
 
 **Tech Stack:** Python 3 standard library and `unittest`, Bash, Claude Code native hooks and stream JSON, Nori isolated installation, Bubblewrap, Markdown, Debian WSL for package gates, Windows Git and GitHub CLI for repository delivery.
 
@@ -805,12 +811,16 @@ Expected: all tests pass. No provider request occurs.
 
 Run:
 
+<!-- markdownlint-disable MD013 -->
+
 ```powershell
 $repo = 'C:\projects\senior-infra-ops-analyst\senior-infra-ops-analyst\.worktrees\p0-06-prompt-injection'
 git -C $repo add -- README.md docs.md tests/prompt_injection_claims.py tests/test-prompt-injection-claims.py tests/validate-package.sh tests/test-architecture-docs.py docs/architecture/README.md docs/architecture/ADR-009-global-prompt-injection-defense.md docs/superpowers/specs/2026-08-25-p0-06-global-prompt-injection-defense-design.md docs/superpowers/specs/2026-08-26-p0-06-guarantee-separation-design.md docs/superpowers/plans/2026-08-25-p0-06-global-prompt-injection-defense.md
 git -C $repo diff --cached --check
 git -C $repo commit -m "docs(security): bound P0-06 guarantee claims"
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 Expected: one commit containing the claims validator and coherent normative and
 operator documentation, with no behavioral policy or version change.
@@ -954,9 +964,13 @@ provider configuration changes.
 
 Run:
 
+<!-- markdownlint-disable MD013 -->
+
 ```powershell
 wsl.exe -d Debian -- bash -lc "cd /mnt/c/projects/senior-infra-ops-analyst/senior-infra-ops-analyst/.worktrees/p0-06-prompt-injection && python3 tests/test-prompt-injection-policy.py && python3 tests/test-prompt-injection-install-policy.py && python3 tests/test-prompt-injection-claims.py && python3 tests/test-prompt-injection-live.py && python3 tests/test-prompt-injection-deny-tool.py && python3 tests/test-live-prompt-injection-safety.py && bash -n tests/live-prompt-injection-smoke.sh && bash tests/live-prompt-injection-smoke.sh --self-test && python3 tests/test-architecture-docs.py && python3 tests/test-release-history.py && python3 tests/validate-content.py"
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 Expected: all tests pass and no authenticated request occurs.
 
@@ -975,9 +989,13 @@ the validation note; do not copy raw fixture or model text.
 
 Run:
 
+<!-- markdownlint-disable MD013 -->
+
 ```powershell
 wsl.exe -d Debian -- bash -lc "cd /mnt/c/projects/senior-infra-ops-analyst/senior-infra-ops-analyst/.worktrees/p0-06-prompt-injection && python3 scripts/build_nori_staging.py --source . --destination /mnt/c/projects/senior-infra-ops-analyst/.tmp/p0-06-guarantee-staging && python3 scripts/build_nori_staging.py --source . --destination /mnt/c/projects/senior-infra-ops-analyst/.tmp/p0-06-guarantee-staging --check"
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 Expected: reproducible staging passes. The staging directory is a generated
 selection artifact, not a Git source of truth and not part of the commit.
@@ -1220,6 +1238,8 @@ Expected: exit zero on the merge commit, without a provider request.
 Only after Step 3 passes, use `apply_patch` on
 `C:\projects\senior-infra-ops-analyst\TODO-AI-FIRST.md`:
 
+<!-- cspell:disable -->
+
 ```diff
 -## [ ] P0-06 — Proteger globalmente contra prompt injection
 +## [x] P0-06 — Proteger globalmente contra prompt injection
@@ -1241,6 +1261,8 @@ Replace the four acceptance bullets at lines 893-896 with:
 - revisão independente, CI, Security e validação pós-merge passam no head
   integrado, sem novo request autenticado ao provider.
 ```
+
+<!-- cspell:enable -->
 
 Append a bounded completion paragraph containing the PR number, reviewed head,
 merge commit, CI run IDs, Security run IDs, post-merge gate result, and the

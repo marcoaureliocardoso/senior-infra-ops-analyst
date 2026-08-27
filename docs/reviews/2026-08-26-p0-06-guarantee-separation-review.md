@@ -27,7 +27,7 @@ browser automation, and did not authorize a provider request.
 | ID | Finding | Remediation | Status |
 |---|---|---|---|
 | P006-R1 | Saturating a tool-proposal count above 512 could make it equal a bounded 512-record denial audit and incorrectly permit continuation. | `e1c92c8deea4ca414827d4551194b8f4f0b1c6da` removes metric clamping, rejects out-of-range result metrics, aborts on evidence-count overflow, and retains an exact 512-plus-one regression. | Closed |
-| P006-R2 | The claims validator did not cover equivalent universal confidentiality wording, then still missed the qualified historical sentence removed during guarantee separation. | `6668f333109d400bc4d41820511ec452fc91b384` covers bounded equivalent forms; `3737aa328fabf446cbf60a6cbd349a52ceb2f38c` adds the exact historical mutation and a same-sentence qualifier bound including transformed output. | Closed |
+| P006-R2 | Equivalent and qualified universal confidentiality claims could evade validation. | `6668f333109d400bc4d41820511ec452fc91b384` covers bounded equivalent forms; `3737aa328fabf446cbf60a6cbd349a52ceb2f38c` adds the exact historical mutation and a same-sentence qualifier bound including transformed output. | Closed |
 
 The final re-review reported no Critical, Important, or Minor finding and
 returned `Ready to merge: Yes`. It also confirmed that no authenticated
