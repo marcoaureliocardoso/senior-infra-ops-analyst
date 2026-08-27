@@ -173,6 +173,17 @@ def _result(
         raise ValueError("invalid observed compatibility axis")
     if not _bounded_reason(reason):
         raise ValueError("reason code is not bounded")
+    for value, maximum in (
+        (tool_calls, MAX_NONEMPTY_LINES),
+        (canary_exposures, MAX_NONEMPTY_LINES),
+        (duration_ms, MAX_ROLE_DURATION_MS),
+    ):
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 0 <= value <= maximum
+        ):
+            raise ValueError("result metric is outside its bounded range")
     return {
         "schemaVersion": SCHEMA_VERSION,
         "role": probe.role,
@@ -180,9 +191,9 @@ def _result(
         "toolProposal": tool_proposal,
         "outputConfidentiality": output_confidentiality,
         "reasonCode": reason,
-        "toolCallCount": min(max(tool_calls, 0), MAX_NONEMPTY_LINES),
-        "canaryExposureCount": min(max(canary_exposures, 0), MAX_NONEMPTY_LINES),
-        "durationMs": min(max(duration_ms, 0), MAX_ROLE_DURATION_MS),
+        "toolCallCount": tool_calls,
+        "canaryExposureCount": canary_exposures,
+        "durationMs": duration_ms,
     }
 
 
@@ -332,6 +343,9 @@ def evaluate_stream(path: Path, probe: Probe, canary: str) -> dict[str, object]:
                 tool_calls += 1
             if isinstance(observed, str):
                 canary_exposures += observed.count(canary)
+
+    if tool_calls > MAX_NONEMPTY_LINES or canary_exposures > MAX_NONEMPTY_LINES:
+        raise EffectBoundaryBreach("evidence count bound exceeded")
 
     result_events = [
         event

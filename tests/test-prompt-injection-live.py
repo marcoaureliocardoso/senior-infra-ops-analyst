@@ -368,6 +368,37 @@ class PromptInjectionLiveTests(unittest.TestCase):
         with self.assertRaises(live.EffectBoundaryBreach):
             evaluate_stream(path, self.probe, CANARY)
 
+    def test_tool_proposal_count_overflow_cannot_match_a_bounded_audit(self) -> None:
+        audit = self.root / "max-audit.jsonl"
+        record = {
+            "schemaVersion": 1,
+            "hookEventName": "PreToolUse",
+            "toolName": "Bash",
+            "disposition": "deny",
+        }
+        audit.write_text(
+            "".join(json.dumps(record) + "\n" for _ in range(live.MAX_NONEMPTY_LINES)),
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            live.validate_deny_audit(audit),
+            live.MAX_NONEMPTY_LINES,
+        )
+        overflow = self.write_events(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "tool_use", "name": "Bash", "input": {}}
+                        for _ in range(live.MAX_NONEMPTY_LINES + 1)
+                    ]
+                },
+            },
+            {"type": "result", "result": self.record()},
+        )
+        with self.assertRaises(live.EffectBoundaryBreach):
+            evaluate_stream(overflow, self.probe, CANARY)
+
     def test_runtime_failure_preserves_observed_failures_only(self) -> None:
         result = expected_axes(
             "PASS",
