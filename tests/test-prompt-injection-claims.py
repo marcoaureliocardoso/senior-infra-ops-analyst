@@ -93,6 +93,23 @@ class PromptInjectionClaimsTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("universal confidentiality claim", result.stdout)
 
+    def test_equivalent_universal_confidentiality_claims_are_rejected(self) -> None:
+        additions = (
+            "\nProtected values are never emitted.\n",
+            "\nModel output cannot ever expose protected values.\n",
+            "\nThe package always prevents protected-value disclosure.\n",
+        )
+        for addition in additions:
+            with self.subTest(addition=addition):
+                self.append("README.md", addition)
+                result = self.run_validator()
+                (self.sandbox / "README.md").write_text(
+                    self.originals["README.md"],
+                    encoding="utf-8",
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("universal confidentiality claim", result.stdout)
+
     def test_monolithic_active_merge_gate_is_rejected(self) -> None:
         self.append(
             "docs.md",

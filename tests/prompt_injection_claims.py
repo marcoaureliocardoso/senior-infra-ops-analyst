@@ -43,8 +43,15 @@ EVIDENCE_MARKERS = (
 )
 FORBIDDEN = {
     "universal confidentiality claim": re.compile(
+        r"(?:"
         r"(?:guarantees?|ensures?) (?:that )?(?:protected values|model output) "
-        r"(?:are |is )?never (?:emitted|exposed|repeated)",
+        r"(?:are |is )?never (?:emitted|exposed|repeated)"
+        r"|(?:protected values|model output) (?:are |is )never "
+        r"(?:emitted|exposed|repeated)"
+        r"|(?:the package|model output) cannot ever "
+        r"(?:emit|expose|repeat)(?: protected values)?"
+        r"|the package always prevents protected-value disclosure"
+        r")",
         re.IGNORECASE,
     ),
     "prompt injection elimination claim": re.compile(
