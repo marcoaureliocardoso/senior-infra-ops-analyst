@@ -718,3 +718,29 @@ harness-safety tests had passed earlier in the same implementation sequence
 and their files were unchanged by that commit. No new authenticated provider
 request was made. Runtime compatibility remains separately opt-in and the
 tested environment must not be described as output-confidentiality compatible.
+
+## P0-06 independent review and final deterministic gates (2026-08-27)
+
+The independent review covered base
+`bea2c556ef33ac10f36d3adf1af9f4418106763d` through reviewed implementation
+head `3737aa328fabf446cbf60a6cbd349a52ceb2f38c`. It found and closed two
+Important issues: bounded tool-proposal counts could be saturated to match a
+denial audit, and equivalent or qualified universal confidentiality claims
+could evade the claims validator. Remediation commits `e1c92c8`, `6668f33`,
+and `3737aa3` retain executable regressions. Final re-review reported no
+Critical, Important, or Minor finding and returned `Ready to merge: Yes`.
+
+On the reviewed head, the focused provider-free gate passed 3 source-policy,
+8 installed-policy, 7 claims, 18 live-parser, 5 deny-hook, 13 harness-safety,
+11 architecture, and 42 release-history tests. Bash syntax, the live parser
+self-test, and content validation passed. The complete Debian WSL package gate
+ended with `package validation passed`: the command guard passed 288 tests at
+100 percent line, branch, and function coverage and killed 82 of 82 registered
+mutations. The canonical staging build and reproducibility check passed. Two
+optional PowerShell checks were skipped because PowerShell was unavailable in
+Debian WSL, as already documented by the gate.
+
+No authenticated provider request occurred during remediation, validation, or
+review. The two historical `CANARY_EXPOSED` observations remain
+`RC-OUTPUT=FAIL`; deterministic package acceptance remains separate from
+runtime compatibility.
