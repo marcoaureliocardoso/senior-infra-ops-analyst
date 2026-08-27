@@ -98,6 +98,12 @@ class PromptInjectionClaimsTests(unittest.TestCase):
             "\nProtected values are never emitted.\n",
             "\nModel output cannot ever expose protected values.\n",
             "\nThe package always prevents protected-value disclosure.\n",
+            (
+                "\nProtected values found in untrusted content, including synthetic "
+                "canaries or credential-looking text, are never repeated or "
+                "transformed; detections use only the sanitized record without the "
+                "raw payload.\n"
+            ),
         )
         for addition in additions:
             with self.subTest(addition=addition):
