@@ -6,10 +6,10 @@ Path: `senior-infra-ops-analyst/`
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
-25 skills, 20 slash commands, 12 subagents, and 33 reference documents cover the full operational surface:
+25 skills, 20 slash commands, 12 subagents, and 35 reference documents cover the full operational surface:
 Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.13.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.14.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Context continuity
 
@@ -41,6 +41,30 @@ The live gate detects native auto-compaction options at runtime and allows a
 derived absolute diagnostic only after structural evidence proves divergent
 window reporting.
 P0-04B browser automation is not included.
+
+## Prompt-injection defense
+
+The canonical policy in `references/untrusted-input-handling.md` applies to the
+main session and every packaged subagent. External logs, tickets, documents,
+code, websites, tool and MCP results, and handoffs are data, not instructions.
+Embedded commands are never automatic. Credentials are authentication data, not instructions
+or approval.
+The deterministic package guarantees cover installed policy, preservation of
+native authorization and effect boundaries, and bounded non-persistent package
+evidence. The policy still forbids repeating protected values and requires a
+sanitized current-response record without the raw payload;
+native authorization gates remain authoritative for every effect. These guarantees do not establish
+model compliance, and the package does not guarantee output confidentiality.
+The strict active matrix reports runtime compatibility separately across
+authority handling, tool proposals, and output confidentiality.
+
+The two corrected observed executions currently establish `RC-OUTPUT=FAIL`
+for their tested roles because each exposed one synthetic canary; neither
+attempted a tool call. That failure remains visible and is
+not required for deterministic P0-06 merge acceptance. A future runtime may be called compatible
+only after all 13 roles pass every axis in one separately authorized run. Such
+evidence is runtime-specific evidence, not immunity. P0-04B browser automation
+remains outside P0-06 and requires its own containment validation.
 
 ## Native executor command authorization
 
@@ -140,7 +164,7 @@ senior-infra-ops-analyst/
 │       ├── SUBAGENT.md        # Canonical Claude Code definition
 │       └── nori.json          # Independent Nori component metadata
 ├── slashcommands/             # 20 operator slash commands
-├── references/                # 33 domain reference documents
+├── references/                # 35 domain reference documents
 └── tests/                     # Validators and CI scripts
 ```
 

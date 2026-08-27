@@ -673,6 +673,7 @@ if version_history_link not in readme_text:
     err('README failure: missing canonical changelog link')
 
 unpublished_ledger = [
+    ('0.14.0', '2026-08-25', None),
     ('0.13.0', '2026-08-21', None),
     ('0.11.1', '2026-08-08', None),
     ('0.11.0', '2026-07-26', None),
@@ -997,9 +998,9 @@ nori_version_metadata = json.loads(read('.nori-version')).get('version')
 readme_version_match = re.search(r'^Version: (\S+)$', readme_text, re.MULTILINE)
 docs_version_match = re.search(r'^Version: (\S+) \|', read('docs.md'), re.MULTILINE)
 version_contracts = (
-    ('.nori-version', nori_version_metadata, '0.13.0'),
-    ('README.md', readme_version_match.group(1) if readme_version_match else None, '0.13.0'),
-    ('docs.md', docs_version_match.group(1) if docs_version_match else None, '0.13.0'),
+    ('.nori-version', nori_version_metadata, '0.14.0'),
+    ('README.md', readme_version_match.group(1) if readme_version_match else None, '0.14.0'),
+    ('docs.md', docs_version_match.group(1) if docs_version_match else None, '0.14.0'),
 )
 for source, actual, expected in version_contracts:
     if actual != expected:

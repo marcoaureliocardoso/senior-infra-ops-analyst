@@ -80,7 +80,14 @@
     "findall",
     "elif",
     "fullmatch",
+    "frozenset",
     "shutil",
+    "pathlib",
+    "dataclass",
+    "dataclasses",
+    "isinstance",
+    "IGNORECASE",
+    "esac",
     "copytree",
     "returncode",
     "noprofile",
@@ -140,6 +147,8 @@
     "unredacted",
     "unvalidated",
     "unwritable",
+    "overclaim",
+    "bypassable",
     "userinfo",
     "usrmerge",
     "vmsvc",
@@ -199,7 +208,8 @@
     "syscalls",
     "Datagram",
     "dcdiag",
-    "repadmin"
+    "repadmin",
+    "marcoaureliocardoso"
   ],
   "ignorePaths": [
     ".git/**",

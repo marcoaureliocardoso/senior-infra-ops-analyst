@@ -1,6 +1,6 @@
 {
   "name": "incident-commander",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "subagent",
   "description": "Use during active incidents, suspected outages, service degradation, or situations requiring severity assignment, coordination, mitigation planning, stakeholder communication, and incident evidence tracking."
 }

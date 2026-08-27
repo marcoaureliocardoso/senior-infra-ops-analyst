@@ -173,7 +173,9 @@ class NoriPackageContractTests(unittest.TestCase):
         dependencies = manifest["dependencies"]
         assert isinstance(dependencies, dict)
         dependencies["subagents"] = {
-            path.name: "1.0.0"
+            path.name: json.loads(
+                (path / "nori.json").read_text(encoding="utf-8")
+            )["version"]
             for path in sorted((self.sandbox / "subagents").iterdir())
             if path.is_dir()
         }
@@ -279,7 +281,7 @@ class NoriPackageContractTests(unittest.TestCase):
                 manifest = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(set(manifest), SUBAGENT_FIELDS)
                 self.assertEqual(manifest["name"], path.parent.name)
-                self.assertEqual(manifest["version"], "1.0.0")
+                self.assertEqual(manifest["version"], "1.1.0")
                 self.assertEqual(manifest["type"], "subagent")
 
     def test_flat_subagent_definition_is_rejected(self) -> None:

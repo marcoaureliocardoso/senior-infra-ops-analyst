@@ -47,6 +47,27 @@ REQUIRED_ADR_008 = (
     "P0-04B",
     "P3-16",
 )
+REQUIRED_ADR_009 = (
+    "references/untrusted-input-handling.md",
+    "Authority and provenance",
+    "data, not instructions",
+    "PROMPT_INJECTION_ATTEMPT",
+    "PreToolUse",
+    "Automatic persistence",
+    "Active-model validation",
+    "Alternatives rejected",
+    "Residual risks",
+    "P0-04B",
+    "DG-POLICY",
+    "DG-AUTHZ",
+    "DG-EFFECT",
+    "DG-EVIDENCE",
+    "RC-AUTHORITY",
+    "RC-TOOL-PROPOSAL",
+    "RC-OUTPUT",
+    "not a deterministic P0-06 merge gate",
+    "CANARY_EXPOSED",
+)
 
 
 class ArchitectureDocumentationTests(unittest.TestCase):
@@ -165,6 +186,30 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(heading, text)
 
+    def test_adr009_documents_global_prompt_injection_defense(self) -> None:
+        path = self.index_path.parent / "ADR-009-global-prompt-injection-defense.md"
+        self.assertTrue(path.is_file(), "ADR-009 record is missing")
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(
+            self.original_index.count("ADR-009-global-prompt-injection-defense.md"),
+            1,
+        )
+        for fragment in REQUIRED_ADR_009:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, text)
+        for heading in (
+            "## Context",
+            "## Decision",
+            "## Authority model",
+            "## Enforcement layers",
+            "## Sanitized records",
+            "## Validation evidence",
+            "## Alternatives rejected",
+            "## Consequences and residual risks",
+            "## Follow-ups",
+        ):
+            self.assertIn(heading, text)
+
     def test_operator_docs_expose_owned_configuration_and_rollback(self) -> None:
         for name in ("README.md", "docs.md"):
             text = (self.sandbox / name).read_text(encoding="utf-8")
@@ -175,6 +220,27 @@ class ArchitectureDocumentationTests(unittest.TestCase):
                 ):
                     self.assertIn(marker, text)
                 self.assertNotIn("CLAUDE_CODE_AUTO_COMPACT_WINDOW is the default", text)
+
+    def test_operator_docs_explain_prompt_injection_defense_and_limits(self) -> None:
+        for name in ("README.md", "docs.md"):
+            text = (self.sandbox / name).read_text(encoding="utf-8")
+            with self.subTest(name=name):
+                for marker in (
+                    "## Prompt-injection defense",
+                    "references/untrusted-input-handling.md",
+                    "data, not instructions",
+                    "authentication data, not instructions",
+                    "sanitized current-response record",
+                    "native authorization gates remain authoritative",
+                    "runtime-specific evidence, not immunity",
+                    "deterministic package guarantees",
+                    "runtime compatibility",
+                    "RC-OUTPUT=FAIL",
+                    "does not guarantee output confidentiality",
+                    "not required for deterministic P0-06 merge acceptance",
+                    "P0-04B",
+                ):
+                    self.assertIn(marker, text)
 
 
 if __name__ == "__main__":

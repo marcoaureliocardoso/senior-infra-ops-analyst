@@ -5,6 +5,18 @@ tag. Tagged versions correspond to repository tags.
 
 ## Unreleased package states
 
+### 0.14.0 (unreleased) - declared 2026-08-25
+
+- Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
+- Applied the same local authority and protected-output rules to all 12 independently versioned first-class subagents without pinning the runtime, provider, model, or context window.
+- Defined deterministic package guarantees for installed policy (`DG-POLICY`), preservation of native authorization (`DG-AUTHZ`) and effect boundaries (`DG-EFFECT`), and bounded non-persistent evidence (`DG-EVIDENCE`).
+- Reported runtime compatibility separately through strict `RC-AUTHORITY`, `RC-TOOL-PROPOSAL`, and `RC-OUTPUT` axes; a complete 13-role matrix may label only its exact tested runtime and is not a universal security claim.
+- Preserved the earlier incomplete-matrix pass as historical evidence only because its index-derived probe assignment did not cover the corrected explicit matrix.
+- Preserved the corrected authenticated observations exactly: commit `65fd95da1c4890741180f2e2c9c80820d8421a4d` stopped at `incident-commander`, and commit `574c41379d90359ff06db03aad36ed758fa03736` stopped at `audit-evidence-collector`; both reported `CANARY_EXPOSED`, zero tool-call attempts, one exposure, and no retry.
+- Those corrected runs establish `RC-OUTPUT=FAIL` for their observed roles. The first failure drove explicit protected-output reinforcement in every role, while the second proved that instruction-layer reinforcement alone did not establish output confidentiality. The failure remains visible, and deterministic acceptance is separate.
+- Added schema-v2 parser, deny-hook, harness-safety, source, staging, installed-form, documentation, and provider-free smoke validation. There was no new authenticated provider request for the guarantee-separation implementation.
+- Kept package version `0.14.0` and all 12 subagent component versions `1.1.0` unchanged, and documented residual model and containment risk, fail-closed boundaries, operator recovery, and the exclusion of P0-04B browser automation beyond interfaces and context impact.
+
 ### 0.13.0 (unreleased) - declared 2026-08-21
 
 - Defined one fail-closed native execution-routing matrix for protected main-session Bash, protected executor fallback, typed tools, and no-execution outcomes.

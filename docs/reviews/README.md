@@ -7,6 +7,7 @@ conditions for changing the verdict.
 
 | Date | Scope | Verdict |
 |---|---|---|
+| [2026-08-27](2026-08-26-p0-06-guarantee-separation-review.md) | P0-06 deterministic guarantee separation | Approved; no Critical or Important finding remains |
 | [2026-07-26, updated 2026-07-28](2026-07-26-pr-25-independent-review.md) | PR #25, P0-04 native command guard | Changes required; remediation pending independent re-review; RV-11 accepted exception |
 
 A passing test suite does not override an open blocking finding. A verdict can

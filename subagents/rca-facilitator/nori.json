@@ -1,6 +1,6 @@
 {
   "name": "rca-facilitator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "subagent",
   "description": "Use when an incident has been resolved and a root cause analysis is needed, or when a recurring problem requires structured causal investigation, evidence mapping, action planning, and postmortem documentation."
 }

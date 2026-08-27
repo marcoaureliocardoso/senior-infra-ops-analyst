@@ -70,7 +70,10 @@ class LiveNoriPackageSafetyTests(unittest.TestCase):
             "credentials",
             "authToken",
             "transcript",
-            "prompt",
+            "$PROMPT",
+            "--prompt",
+            "prompt.txt",
+            "prompt.json",
         ):
             self.assertNotIn(marker, self.script)
 
@@ -110,6 +113,17 @@ class LiveNoriPackageSafetyTests(unittest.TestCase):
             "commandsExact",
         ):
             self.assertIn(marker, self.script)
+
+    def test_installed_prompt_injection_policy_is_verified_content_free(self) -> None:
+        for marker in (
+            "prompt_injection_install_policy.py",
+            '--installed-claude "$INSTALLED_CLAUDE"',
+            '--installed-agents-dir "$INSTALLED_AGENTS_DIR"',
+            "p006GlobalPolicyInstalled",
+            "p006SubagentPolicyExact",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.script)
 
     def test_argument_validation_fails_closed(self) -> None:
         bash = os.environ.get("GIT_BASH", r"C:\Program Files\Git\bin\bash.exe")
