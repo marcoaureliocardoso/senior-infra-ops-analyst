@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 
 import { analyzeCommand } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
@@ -11,6 +12,51 @@ function analyze(command, permissionMode = 'default') {
     tool_input: { command },
   }))));
 }
+
+const BROWSER_RUNNER = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
+const browserCommand = (args) => `node ${JSON.stringify(BROWSER_RUNNER)} ${args.join(' ')}`;
+
+
+test('protected browser runner is an exact always-confirmed command family', () => {
+  const open = browserCommand([
+    '--step open --operation-id op-123 --session-id session-123 --role network-edge-operator',
+    '--objective-ref change-42 --target edge-router-1 --environment production',
+    '--service-origin https://router.example.invalid --identity-ref vault:network-admin',
+    '--credential-transport vault --permission-mode normal --action inspect --action validate',
+    '--effect LOW_RISK_CHANGE --risk LOW_RISK_CHANGE --precondition-ref reachable',
+    '--validation-ref interface-state --compensation-ref restore-interface --expires-in-seconds 600',
+  ]);
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze(open, mode);
+    assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
+    assert.equal(result.risk, 'LOW_RISK_CHANGE');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.reasonCode, 'ASK_SENSITIVE_OPERATION');
+  }
+  const inspect = analyze(browserCommand([
+    '--operation-id op-123 --step inspect --origin https://router.example.invalid',
+    '--locator-role status --expect-ref status-readable',
+  ]));
+  assert.equal(inspect.policyId, 'BROWSER_PROTECTED_RUNNER');
+  assert.equal(inspect.risk, 'SAFE_READ_ONLY');
+  assert.equal(inspect.decision, 'ask');
+});
+
+
+test('browser runner catalogue rejects path and grammar escape hatches', () => {
+  const rejected = [
+    `node ./skills/browser-operations/scripts/browser-runner.mjs --operation-id op-123 --step close`,
+    `node ${JSON.stringify(`${BROWSER_RUNNER}.copy`)} --operation-id op-123 --step close`,
+    'node -e "process.exit(0)"',
+    browserCommand(['--operation-id op-123 --step fill --origin https://router.example.invalid --locator-role textbox --value literal']),
+    browserCommand(['--operation-id op-123 --step navigate --origin javascript:alert(1)']),
+    browserCommand(['--operation-id op-123 --step navigate --origin https://']),
+    browserCommand(['--operation-id op-123 --step inspect --origin https://router.example.invalid --locator-role status --expect-ref ok --unknown x']),
+  ];
+  for (const command of rejected) {
+    assert.equal(analyze(command).decision, 'deny', command);
+  }
+});
 
 test('narrow read and bounded read pipeline allow in normal mode', () => {
   assert.equal(analyze('uname -a').decision, 'allow');

@@ -2,6 +2,8 @@ import { lexBash } from './bash-lexer.mjs';
 import { buildComposition } from './composition.mjs';
 import { LIMITS } from './limits.mjs';
 import { resolveOutputPath } from './output-path.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const POSIX_READ = new Set(['uname', 'uptime', 'free', 'df', 'lsblk', 'findmnt']);
 const FILTER = new Set(['grep', 'rg', 'head', 'tail', 'cut', 'sort', 'uniq', 'wc']);
@@ -19,6 +21,7 @@ export const POLICY_IDS = Object.freeze([
   'AWS', 'AZURE', 'GCP', 'POSTGRES', 'MYSQL', 'MONGODB', 'REDIS',
   'NETWORK_READ', 'PACKET_CAPTURE', 'HTTP', 'REMOTE', 'PRIVILEGE', 'GIT_CI',
   'POWERSHELL_READ', 'WINDOWS_CONTROL', 'FILTER', 'DECRYPTOR',
+  'BROWSER_PROTECTED_RUNNER',
 ]);
 export const COMMAND_FAMILIES = Object.freeze(POLICY_IDS.filter((id) => id !== 'FILTER'));
 export const FILTER_FAMILIES = Object.freeze(['FILTER']);
@@ -1589,6 +1592,147 @@ function parseDmesg(words) {
   return hasLevel ? { risk, modifiers: ['SENSITIVE_OUTPUT', 'APPROVAL_REQUIRED'] } : null;
 }
 
+const BROWSER_RUNNER_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../browser-operations/scripts/browser-runner.mjs',
+);
+const BROWSER_REPEATABLE = new Set(['--service-origin', '--auth-origin', '--action', '--modifier']);
+const BROWSER_OPEN_FLAGS = new Set([
+  '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
+  '--environment', '--service-origin', '--auth-origin', '--identity-ref',
+  '--credential-transport', '--permission-mode', '--action', '--effect', '--risk',
+  '--modifier', '--precondition-ref', '--validation-ref', '--compensation-ref',
+  '--expires-in-seconds',
+]);
+const BROWSER_STEP_FLAGS = new Set([
+  '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
+  '--value-ref', '--expect-ref', '--effect', '--artifact-ref',
+]);
+const BROWSER_EFFECT_RISK = new Map([
+  ['PUBLIC_READ', 'SAFE_READ_ONLY'], ['SENSITIVE_READ', 'SAFE_READ_ONLY'],
+  ['INTERACTIVE_STATE', 'LOW_RISK_CHANGE'], ['LOW_RISK_CHANGE', 'LOW_RISK_CHANGE'],
+  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'DESTRUCTIVE'],
+  ['SENSITIVE_ARTIFACT', 'LOW_RISK_CHANGE'],
+]);
+const BROWSER_EXECUTOR_ROLES = new Set([
+  'main', 'cloud-platform-operator', 'database-operator', 'diagnostic-operator',
+  'kubernetes-operator', 'network-edge-operator', 'observability-sre',
+  'release-cicd-operator',
+]);
+const BROWSER_AUDIT_ACTIONS = new Set(['inspect', 'validate', 'close']);
+
+function browserOrigin(value) {
+  if (typeof value !== 'string' || value.length > 2048 || value.includes('*') || /[^\x20-\x7e]/u.test(value)) return null;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password
+        || !parsed.hostname || parsed.hostname.split('.').some((label) => label.startsWith('xn--'))) return null;
+    return `${parsed.protocol}//${parsed.hostname.toLowerCase()}:${parsed.port || (parsed.protocol === 'https:' ? '443' : '80')}`;
+  } catch {
+    return null;
+  }
+}
+
+function browserFlags(words) {
+  const values = new Map();
+  if ((words.length - 2) % 2 !== 0 || words.length < 6 || words.length > 66) return null;
+  for (let index = 2; index < words.length; index += 2) {
+    const flag = words[index];
+    const value = words[index + 1];
+    if (typeof flag !== 'string' || !flag.startsWith('--') || !literalOperand(value)
+        || value.length > 2048 || (!BROWSER_REPEATABLE.has(flag) && values.has(flag))) return null;
+    const entries = values.get(flag) ?? [];
+    entries.push(value);
+    values.set(flag, entries);
+  }
+  return values;
+}
+
+function browserOne(values, flag) {
+  const entries = values.get(flag) ?? [];
+  return entries.length === 1 ? entries[0] : null;
+}
+
+function browserBounded(value, pattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u) {
+  return typeof value === 'string' && pattern.test(value);
+}
+
+function parseBrowserRunner(words) {
+  if (words[0] !== 'node' || !path.isAbsolute(words[1])
+      || path.normalize(words[1]) !== BROWSER_RUNNER_PATH) return null;
+  const values = browserFlags(words);
+  if (!values) return null;
+  const step = browserOne(values, '--step');
+  const operationId = browserOne(values, '--operation-id');
+  if (!browserBounded(operationId)) return null;
+
+  if (step === 'open') {
+    if ([...values.keys()].some((flag) => !BROWSER_OPEN_FLAGS.has(flag))) return null;
+    const required = [
+      '--session-id', '--role', '--objective-ref', '--target', '--environment',
+      '--identity-ref', '--credential-transport', '--permission-mode', '--effect', '--risk',
+      '--precondition-ref', '--validation-ref', '--compensation-ref', '--expires-in-seconds',
+    ];
+    if (required.some((flag) => !browserBounded(browserOne(values, flag)))) return null;
+    if ((values.get('--service-origin') ?? []).length < 1
+        || (values.get('--action') ?? []).length < 1
+        || [...(values.get('--service-origin') ?? []), ...(values.get('--auth-origin') ?? [])]
+          .some((value) => browserOrigin(value) === null)
+        || (values.get('--action') ?? []).some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
+        || (values.get('--modifier') ?? []).some((value) => !/^[A-Z][A-Z_]{0,63}$/u.test(value))) return null;
+    const seconds = browserOne(values, '--expires-in-seconds');
+    if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) return null;
+    const effect = browserOne(values, '--effect');
+    const effectRisk = BROWSER_EFFECT_RISK.get(effect);
+    const declaredRisk = new Map([
+      ['safe', 'SAFE_READ_ONLY'], ['low', 'LOW_RISK_CHANGE'],
+      ['medium', 'DISRUPTIVE_CHANGE'], ['high', 'DESTRUCTIVE'],
+    ]).get(browserOne(values, '--risk')) ?? browserOne(values, '--risk');
+    if (!effectRisk || !['SAFE_READ_ONLY', 'LOW_RISK_CHANGE', 'DISRUPTIVE_CHANGE', 'DESTRUCTIVE'].includes(declaredRisk)) return null;
+    const role = browserOne(values, '--role');
+    const auditReadOnly = role === 'audit-evidence-collector'
+      && ['PUBLIC_READ', 'SENSITIVE_READ'].includes(effect)
+      && (values.get('--action') ?? []).every((action) => BROWSER_AUDIT_ACTIONS.has(action));
+    if (!BROWSER_EXECUTOR_ROLES.has(role) && !auditReadOnly) return null;
+    const ranks = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
+    const risk = ranks[declaredRisk] > ranks[effectRisk] ? declaredRisk : effectRisk;
+    return {
+      risk, target: operationId,
+      environment: browserOrigin(values.get('--service-origin')[0]),
+      modifiers: ['ALWAYS_ASK'], browserArgs: words.slice(2),
+    };
+  }
+
+  if ([...values.keys()].some((flag) => !BROWSER_STEP_FLAGS.has(flag))) return null;
+  const schemas = {
+    inspect: ['--origin', '--locator-role', '--expect-ref'], navigate: ['--origin'],
+    fill: ['--origin', '--locator-role', '--value-ref'], select: ['--origin', '--locator-role', '--value-ref'],
+    click: ['--origin', '--locator-role', '--effect'], submit: ['--origin', '--locator-role', '--effect'],
+    upload: ['--origin', '--artifact-ref'], download: ['--origin', '--artifact-ref'],
+    screenshot: ['--origin', '--artifact-ref'], trace: ['--origin', '--artifact-ref'],
+    validate: ['--expect-ref'], close: [],
+  };
+  const required = schemas[step];
+  if (!required || required.some((flag) => !browserBounded(browserOne(values, flag)))) return null;
+  const optional = new Set(['--operation-id', '--step', ...required]);
+  if (['inspect', 'fill', 'select', 'click', 'submit'].includes(step)) optional.add('--locator-name');
+  if ([...values.keys()].some((flag) => !optional.has(flag))) return null;
+  const selectedOrigin = values.has('--origin') ? browserOrigin(browserOne(values, '--origin')) : null;
+  if (values.has('--origin') && selectedOrigin === null) return null;
+  const effect = ['inspect', 'validate'].includes(step) ? 'SENSITIVE_READ'
+    : ['navigate', 'fill', 'select', 'close'].includes(step) ? 'INTERACTIVE_STATE'
+      : ['click', 'submit'].includes(step) ? browserOne(values, '--effect') : 'SENSITIVE_ARTIFACT';
+  const risk = BROWSER_EFFECT_RISK.get(effect);
+  if (!risk) return null;
+  const modifiers = ['ALWAYS_ASK'];
+  if (['inspect', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('SENSITIVE_OUTPUT');
+  if (['upload', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('FILE_WRITE');
+  return {
+    risk, target: operationId, environment: selectedOrigin,
+    modifiers, browserArgs: words.slice(2),
+  };
+}
+
 export function lookupFamily(stage, context = {}) {
   const argv = [...stage.argv];
   const exeIndex = executableIndex(argv);
@@ -1596,6 +1740,15 @@ export function lookupFamily(stage, context = {}) {
   const words = argv.slice(exeIndex);
   const exe = words[0];
   const lower = exe.toLowerCase();
+
+  if (lower === 'node') {
+    const invocation = parseBrowserRunner(words);
+    return invocation ? result(
+      'BROWSER_PROTECTED_RUNNER', invocation.risk, invocation.target,
+      invocation.environment, invocation.modifiers,
+      { requiresExplicitBinding: true, browserArgs: invocation.browserArgs },
+    ) : null;
+  }
 
   if (POSIX_READ.has(lower)) return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
   if (lower === 'ps') {

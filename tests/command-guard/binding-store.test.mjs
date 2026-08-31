@@ -18,6 +18,7 @@ import {
 import { evaluateApprovalHook, main as approvalMain } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
 import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
 import { validEvent } from './helpers.mjs';
+import { readActiveOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 
 const NOW = 1_800_000_000_000;
 const binding = Object.freeze({
@@ -29,6 +30,17 @@ const binding = Object.freeze({
   family: 'HTTP',
   targetClass: 'HTTP',
 });
+const browserRunner = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
+const browserOpenCommand = (overrides = '') => [
+  'node', JSON.stringify(browserRunner), '--step open --operation-id op-post-coverage',
+  '--session-id session-post-coverage --role network-edge-operator',
+  '--objective-ref change-42 --target edge-router-1 --environment production',
+  '--service-origin https://router.example.invalid --identity-ref vault:network-admin',
+  '--credential-transport vault --permission-mode normal --action inspect --action validate',
+  '--effect LOW_RISK_CHANGE --risk LOW_RISK_CHANGE --precondition-ref reachable',
+  '--validation-ref interface-state --compensation-ref restore-interface --expires-in-seconds 600',
+  overrides,
+].filter(Boolean).join(' ');
 
 async function withState(run) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'ops-binding-'));
@@ -224,6 +236,38 @@ test('PostToolUse is a silent no-op when a successful Bash call has no pending b
     const error = new Writable({ write(chunk, encoding, callback) { errorText += chunk.toString(); callback(); } });
     assert.equal(await approvalMain({ input: Readable.from([raw]), error, env }), 0);
     assert.equal(errorText, '');
+  });
+});
+
+
+test('PostToolUse browser correlation covers exact activation and every fail-closed parser branch', async () => {
+  await withState(async (baseEnv) => {
+    const env = { ...baseEnv, OPS_BROWSER_STATE_DIR: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser') };
+    const event = (command, overrides = {}) => JSON.stringify({
+      session_id: 'session-post-coverage', tool_use_id: 'tool-post-coverage',
+      hook_event_name: 'PostToolUse', tool_name: 'Bash', permission_mode: 'normal',
+      tool_input: { command }, ...overrides,
+    });
+    assert.equal(evaluateApprovalHook(event('uname -a'), env, NOW), false);
+    assert.equal(evaluateApprovalHook(event('uname -a | head -n 1'), env, NOW), false);
+    assert.equal(evaluateApprovalHook(event('echo $(id)'), env, NOW), false);
+    assert.equal(evaluateApprovalHook(event(
+      `node ${JSON.stringify(browserRunner)} --operation-id op-post-coverage --step close`,
+    ), env, NOW), false);
+    assert.equal(evaluateApprovalHook(event(browserOpenCommand().replace(
+      '--role network-edge-operator', '--role unknown-role',
+    )), env, NOW), false);
+    assert.throws(() => evaluateApprovalHook(event(null), env, NOW));
+    assert.throws(() => evaluateApprovalHook(event(browserOpenCommand(), {
+      session_id: 'different-session',
+    }), env, NOW));
+    assert.throws(() => evaluateApprovalHook(event(browserOpenCommand(), {
+      permission_mode: 'bypassPermissions',
+    }), env, NOW));
+    assert.equal(evaluateApprovalHook(event(browserOpenCommand()), env, NOW), true);
+    assert.equal(readActiveOperation(
+      'session-post-coverage', 'op-post-coverage', env, NOW + 1,
+    ).outcome, 'READY');
   });
 });
 

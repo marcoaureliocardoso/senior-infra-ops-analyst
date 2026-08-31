@@ -26,6 +26,23 @@ async function catalogueFixture({ root, mutationId }, argv) {
   return lookupFamily({ argv });
 }
 
+function browserRunnerPath(context) {
+  return path.resolve(context.root, '../../browser-operations/scripts/browser-runner.mjs');
+}
+
+function browserOpenArgv(context) {
+  return [
+    'node', browserRunnerPath(context), '--step', 'open', '--operation-id', 'op-witness',
+    '--session-id', 'session-witness', '--role', 'network-edge-operator',
+    '--objective-ref', 'change-42', '--target', 'router-1', '--environment', 'production',
+    '--service-origin', 'https://router.example.invalid', '--identity-ref', 'vault:network-admin',
+    '--credential-transport', 'vault', '--permission-mode', 'normal', '--action', 'inspect',
+    '--action', 'validate', '--effect', 'LOW_RISK_CHANGE', '--risk', 'LOW_RISK_CHANGE',
+    '--precondition-ref', 'reachable', '--validation-ref', 'interface-state',
+    '--compensation-ref', 'restore-interface', '--expires-in-seconds', '600',
+  ];
+}
+
 async function postgresEnvironmentFixture(context, name, value) {
   const result = await policyFixture(
     context,
@@ -471,6 +488,44 @@ const witnesses = {
     assert.equal(deniedResult.decision, 'deny');
     assert.equal(deniedResult.reasonCode, 'DENY_POWERSHELL_PROFILE');
     assert.equal((await policyFixture(context, 'pwsh -NoProfile -Command "Get-Service"')).decision, 'allow');
+  },
+  async CATALOGUE_BROWSER_RUNNER_PATH_IDENTITY(context) {
+    const argv = browserOpenArgv(context);
+    argv[1] = `${argv[1]}.copy`;
+    assert.equal(await catalogueFixture(context, argv), null);
+  },
+  async CATALOGUE_BROWSER_CLOSED_FLAGS(context) {
+    assert.equal(await catalogueFixture(context, [
+      ...browserOpenArgv(context), '--password', 'literal-secret',
+    ]), null);
+  },
+  async CATALOGUE_BROWSER_OPERATION_BINDING(context) {
+    assert.equal(await catalogueFixture(context, [
+      'node', browserRunnerPath(context), '--step', 'navigate',
+      '--origin', 'https://router.example.invalid',
+    ]), null);
+  },
+  async CATALOGUE_BROWSER_ORIGIN_NORMALIZATION(context) {
+    assert.equal(await catalogueFixture(context, [
+      'node', browserRunnerPath(context), '--operation-id', 'op-witness',
+      '--step', 'navigate', '--origin', 'ftp://router.example.invalid',
+    ]), null);
+  },
+  async CATALOGUE_BROWSER_EFFECT_CLASSIFICATION(context) {
+    const argv = browserOpenArgv(context);
+    argv[argv.indexOf('--effect') + 1] = 'DESTRUCTIVE_CHANGE';
+    argv[argv.indexOf('--risk') + 1] = 'safe';
+    assert.equal((await catalogueFixture(context, argv)).risk, 'DESTRUCTIVE');
+  },
+  async CATALOGUE_BROWSER_ALWAYS_ASK(context) {
+    const argv = browserOpenArgv(context);
+    const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
+    assert.equal((await policyFixture(context, command)).decision, 'ask');
+  },
+  async CATALOGUE_BROWSER_ROLE_BOUNDARY(context) {
+    const argv = browserOpenArgv(context);
+    argv[argv.indexOf('--role') + 1] = 'change-manager';
+    assert.equal(await catalogueFixture(context, argv), null);
   },
 };
 

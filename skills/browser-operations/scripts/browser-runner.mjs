@@ -1,0 +1,364 @@
+#!/usr/bin/env node
+
+import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+
+import {
+  clearOutcomeUnknown,
+  completeBrowserCall,
+  invalidateOperation,
+  readActiveOperation,
+  readPendingOperation,
+  recordOutcomeUnknown,
+  stageBrowserCall,
+  writePendingOperation,
+} from './browser-binding-store.mjs';
+import { EFFECT_CLASSES, normalizeOrigin, parseOperationEnvelope } from './browser-contract.mjs';
+
+
+const STEPS = Object.freeze([
+  'open', 'inspect', 'navigate', 'fill', 'select', 'click', 'submit',
+  'upload', 'download', 'screenshot', 'trace', 'validate', 'close',
+]);
+const REPEATABLE = new Set(['--service-origin', '--auth-origin', '--action', '--modifier']);
+const OPEN_FLAGS = new Set([
+  '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
+  '--environment', '--service-origin', '--auth-origin', '--identity-ref',
+  '--credential-transport', '--permission-mode', '--action', '--effect', '--risk',
+  '--modifier', '--precondition-ref', '--validation-ref', '--compensation-ref',
+  '--expires-in-seconds',
+]);
+const STEP_FLAGS = new Set([
+  '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
+  '--value-ref', '--expect-ref', '--effect', '--artifact-ref',
+]);
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u;
+const ACTION = /^[a-z0-9][a-z0-9-]{0,95}$/u;
+const RISK_ALIASES = new Map([
+  ['safe', 'SAFE_READ_ONLY'], ['low', 'LOW_RISK_CHANGE'],
+  ['medium', 'DISRUPTIVE_CHANGE'], ['high', 'DESTRUCTIVE'],
+]);
+const EXECUTOR_ROLES = new Set([
+  'main', 'cloud-platform-operator', 'database-operator', 'diagnostic-operator',
+  'kubernetes-operator', 'network-edge-operator', 'observability-sre',
+  'release-cicd-operator',
+]);
+const AUDIT_ACTIONS = new Set(['inspect', 'validate', 'close']);
+
+
+export class BrowserRunnerError extends Error {
+  constructor(code) {
+    super(code);
+    this.name = 'BrowserRunnerError';
+    this.code = code;
+  }
+}
+
+
+function fail(code) {
+  throw new BrowserRunnerError(`BROWSER_RUNNER_${code}`);
+}
+
+
+function freeze(value) {
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+
+function parseFlags(argv) {
+  if (!Array.isArray(argv) || argv.length < 2 || argv.length > 64) fail('INVALID_ARGUMENTS');
+  const values = new Map();
+  for (let index = 0; index < argv.length; index += 2) {
+    const flag = argv[index];
+    const value = argv[index + 1];
+    if (typeof flag !== 'string' || !flag.startsWith('--') || typeof value !== 'string'
+        || value.length < 1 || value.length > 2048 || /[\r\n\0]/u.test(value)) fail('INVALID_ARGUMENTS');
+    if (!REPEATABLE.has(flag) && values.has(flag)) fail('DUPLICATE_FLAG');
+    const entries = values.get(flag) ?? [];
+    entries.push(value);
+    values.set(flag, entries);
+  }
+  return values;
+}
+
+
+function one(values, flag, required = true) {
+  const entries = values.get(flag) ?? [];
+  if (entries.length === 0 && !required) return null;
+  if (entries.length !== 1) fail('MISSING_OR_DUPLICATE_FLAG');
+  return entries[0];
+}
+
+
+function many(values, flag, minimum = 0) {
+  const entries = values.get(flag) ?? [];
+  if (entries.length < minimum) fail('MISSING_FLAG');
+  return entries;
+}
+
+
+function bounded(value, pattern = IDENTIFIER) {
+  if (typeof value !== 'string' || !pattern.test(value)) fail('INVALID_VALUE');
+  return value;
+}
+
+
+function origin(value) {
+  try {
+    return normalizeOrigin(value);
+  } catch {
+    fail('INVALID_ORIGIN');
+  }
+}
+
+
+function risk(value) {
+  const normalized = RISK_ALIASES.get(value) ?? value;
+  if (!['SAFE_READ_ONLY', 'LOW_RISK_CHANGE', 'DISRUPTIVE_CHANGE', 'DESTRUCTIVE'].includes(normalized)) {
+    fail('INVALID_RISK');
+  }
+  return normalized;
+}
+
+
+function parseOpen(values, now) {
+  for (const flag of values.keys()) if (!OPEN_FLAGS.has(flag)) fail('UNKNOWN_FLAG');
+  const seconds = one(values, '--expires-in-seconds');
+  if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) fail('INVALID_EXPIRY');
+  const effect = one(values, '--effect');
+  if (!EFFECT_CLASSES.includes(effect) || effect === 'UNKNOWN') fail('INVALID_EFFECT');
+  const envelope = parseOperationEnvelope({
+    version: 1,
+    operationId: bounded(one(values, '--operation-id')),
+    sessionId: bounded(one(values, '--session-id')),
+    role: bounded(one(values, '--role')),
+    objectiveRef: bounded(one(values, '--objective-ref')),
+    target: bounded(one(values, '--target')),
+    environment: bounded(one(values, '--environment')),
+    serviceOrigins: many(values, '--service-origin', 1).map(origin),
+    authOrigins: many(values, '--auth-origin').map(origin),
+    identityRef: bounded(one(values, '--identity-ref')),
+    credentialTransport: bounded(one(values, '--credential-transport'), ACTION),
+    permissionModeAtApproval: bounded(one(values, '--permission-mode')),
+    actions: many(values, '--action', 1).map((item) => bounded(item, ACTION)),
+    expectedEffect: effect,
+    risk: risk(one(values, '--risk')),
+    modifiers: many(values, '--modifier').map((item) => bounded(item, /^[A-Z][A-Z_]{0,63}$/u)),
+    preconditionRef: bounded(one(values, '--precondition-ref')),
+    validationRef: bounded(one(values, '--validation-ref')),
+    compensationRef: bounded(one(values, '--compensation-ref')),
+    artifactPolicy: {
+      enabled: false, types: [], purposeRef: 'none', sourceClasses: [],
+      destinationClasses: [], maxItems: 0, maxBytes: 0, redaction: 'none', retentionSeconds: 0,
+    },
+    expiresAt: now + Number(seconds) * 1000,
+  }, now);
+  const auditReadOnly = envelope.role === 'audit-evidence-collector'
+    && ['PUBLIC_READ', 'SENSITIVE_READ'].includes(envelope.expectedEffect)
+    && envelope.actions.every((action) => AUDIT_ACTIONS.has(action));
+  if (!EXECUTOR_ROLES.has(envelope.role) && !auditReadOnly) fail('ROLE_NOT_EXECUTOR');
+  return freeze({ step: 'open', operationId: envelope.operationId, envelope });
+}
+
+
+function parseStep(values) {
+  for (const flag of values.keys()) if (!STEP_FLAGS.has(flag)) fail('UNKNOWN_FLAG');
+  const step = one(values, '--step');
+  if (!STEPS.includes(step) || step === 'open') fail('INVALID_STEP');
+  const request = {
+    operationId: bounded(one(values, '--operation-id')),
+    step,
+    origin: values.has('--origin') ? origin(one(values, '--origin')) : null,
+    locatorRole: values.has('--locator-role') ? bounded(one(values, '--locator-role'), ACTION) : null,
+    locatorName: values.has('--locator-name') ? bounded(one(values, '--locator-name')) : null,
+    valueRef: values.has('--value-ref') ? bounded(one(values, '--value-ref')) : null,
+    expectRef: values.has('--expect-ref') ? bounded(one(values, '--expect-ref')) : null,
+    effect: values.has('--effect') ? one(values, '--effect') : null,
+    artifactRef: values.has('--artifact-ref') ? bounded(one(values, '--artifact-ref')) : null,
+  };
+  if (request.effect !== null && !EFFECT_CLASSES.includes(request.effect)) fail('INVALID_EFFECT');
+  const required = {
+    inspect: ['origin', 'locatorRole', 'expectRef'], navigate: ['origin'],
+    fill: ['origin', 'locatorRole', 'valueRef'], select: ['origin', 'locatorRole', 'valueRef'],
+    click: ['origin', 'locatorRole', 'effect'], submit: ['origin', 'locatorRole', 'effect'],
+    upload: ['origin', 'artifactRef'], download: ['origin', 'artifactRef'],
+    screenshot: ['origin', 'artifactRef'], trace: ['origin', 'artifactRef'],
+    validate: ['expectRef'], close: [],
+  }[step];
+  for (const field of required) if (request[field] === null) fail('MISSING_FLAG');
+  const allowed = new Set(['operationId', 'step', ...required]);
+  if (request.locatorName !== null && ['inspect', 'fill', 'select', 'click', 'submit'].includes(step)) {
+    allowed.add('locatorName');
+  }
+  for (const [field, value] of Object.entries(request)) {
+    if (value !== null && !allowed.has(field)) fail('FLAG_NOT_ALLOWED_FOR_STEP');
+  }
+  return freeze(request);
+}
+
+
+export function parseRunnerArgs(argv, now = Date.now()) {
+  try {
+    if (!Number.isSafeInteger(now) || now < 0) fail('INVALID_CLOCK');
+    const values = parseFlags(argv);
+    return one(values, '--step') === 'open' ? parseOpen(values, now) : parseStep(values);
+  } catch (error) {
+    if (error instanceof BrowserRunnerError) throw error;
+    fail('INVALID_CONTRACT');
+  }
+}
+
+
+function stepEffect(request) {
+  if (['inspect', 'validate'].includes(request.step)) return 'SENSITIVE_READ';
+  if (['navigate', 'fill', 'select', 'close'].includes(request.step)) return 'INTERACTIVE_STATE';
+  if (['click', 'submit'].includes(request.step)) return request.effect;
+  if (['upload', 'download', 'screenshot', 'trace'].includes(request.step)) return 'SENSITIVE_ARTIFACT';
+  return 'UNKNOWN';
+}
+
+
+function effectRank(effect) {
+  return ['PUBLIC_READ', 'SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE',
+    'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE'].indexOf(effect);
+}
+
+
+export function authorizeRunnerStep(request, envelope, capability, now = Date.now()) {
+  if (capability?.state !== 'ACTIVE' || capability?.routeClass !== 'PROTECTED_RUNNER') {
+    return freeze({ allowed: false, reasonCode: 'CAPABILITY_UNAVAILABLE', effect: stepEffect(request) });
+  }
+  if (now >= envelope.expiresAt) return freeze({ allowed: false, reasonCode: 'OPERATION_EXPIRED', effect: stepEffect(request) });
+  const effect = stepEffect(request);
+  const roleAllowed = EXECUTOR_ROLES.has(envelope.role)
+    || (envelope.role === 'audit-evidence-collector' && effect === 'SENSITIVE_READ');
+  if (!roleAllowed) return freeze({ allowed: false, reasonCode: 'ROLE_NOT_EXECUTOR', effect });
+  if (!envelope.actions.includes(request.step)) return freeze({ allowed: false, reasonCode: 'ACTION_NOT_BOUND', effect: stepEffect(request) });
+  if (request.origin && ![...envelope.serviceOrigins, ...envelope.authOrigins].includes(request.origin)) {
+    return freeze({ allowed: false, reasonCode: 'ORIGIN_ESCAPE', effect: stepEffect(request) });
+  }
+  const effectAllowed = effect === 'SENSITIVE_ARTIFACT'
+    ? envelope.expectedEffect === effect && envelope.artifactPolicy.enabled
+    : effectRank(effect) >= 0 && effectRank(effect) <= effectRank(envelope.expectedEffect);
+  if (!effectAllowed) return freeze({ allowed: false, reasonCode: 'EFFECT_NOT_BOUND', effect });
+  return freeze({ allowed: true, reasonCode: 'BOUND_OPERATION', effect });
+}
+
+
+function output(status, reasonCode, operationId, step, effect, validationRequired, observation = null) {
+  const boundedObservation = typeof observation === 'string' && observation.length <= 128
+    ? { trust: 'untrusted', summary: observation } : null;
+  return freeze({
+    status, reasonCode, operationId, step, effect,
+    validationRequired: Boolean(validationRequired), observation: boundedObservation,
+  });
+}
+
+
+export async function executeRunnerStep(request, dependencies = {}) {
+  const env = dependencies.env ?? process.env;
+  const now = dependencies.now ?? Date.now();
+  if (request.step === 'open') {
+    if (dependencies.proof) writePendingOperation(request.envelope, dependencies.proof, env, now);
+    const pending = readPendingOperation(
+      request.envelope.sessionId, request.operationId, env, now,
+    );
+    if (!pending && dependencies.proof) {
+      return output('denied', 'PENDING_APPROVAL_MISSING', request.operationId, 'open', request.envelope.expectedEffect, false);
+    }
+    return output('pending', 'PENDING_NATIVE_APPROVAL', request.operationId, 'open', request.envelope.expectedEffect, false);
+  }
+
+  const sessionId = dependencies.sessionId ?? env.OPS_BROWSER_SESSION_ID;
+  if (typeof sessionId !== 'string') {
+    return output('denied', 'SESSION_BINDING_MISSING', request.operationId, request.step, stepEffect(request), false);
+  }
+  const active = readActiveOperation(sessionId, request.operationId, env, now);
+  if (!active) return output('denied', 'OPERATION_NOT_ACTIVE', request.operationId, request.step, stepEffect(request), false);
+  if (active.outcome === 'OUTCOME_UNKNOWN' && !['validate', 'close'].includes(request.step)) {
+    return output('denied', 'OUTCOME_UNKNOWN', request.operationId, request.step, stepEffect(request), true);
+  }
+  if (request.step === 'close') {
+    try {
+      await dependencies.adapter?.close?.();
+    } finally {
+      invalidateOperation(sessionId, request.operationId, 'OPERATOR_CLOSED', env, now);
+    }
+    return output('closed', 'OPERATION_CLOSED', request.operationId, 'close', 'INTERACTIVE_STATE', false);
+  }
+  if (!dependencies.adapter || typeof dependencies.adapter.execute !== 'function') {
+    return output('denied', 'CAPABILITY_UNAVAILABLE', request.operationId, request.step, stepEffect(request), active.validationRequired);
+  }
+  const authorization = authorizeRunnerStep(request, active.envelope, active.capability, now);
+  if (!authorization.allowed) {
+    return output('denied', authorization.reasonCode, request.operationId, request.step, authorization.effect, active.validationRequired);
+  }
+
+  let credential = null;
+  if (request.valueRef !== null) {
+    if (typeof dependencies.credentialResolver !== 'function') {
+      return output('denied', 'CREDENTIAL_RESOLVER_UNAVAILABLE', request.operationId, request.step, authorization.effect, active.validationRequired);
+    }
+    credential = await dependencies.credentialResolver(request.valueRef);
+    if (typeof credential !== 'string' || credential.length < 1) {
+      return output('denied', 'CREDENTIAL_REFERENCE_UNRESOLVED', request.operationId, request.step, authorization.effect, active.validationRequired);
+    }
+  }
+
+  if (request.step === 'validate' && active.outcome === 'OUTCOME_UNKNOWN') {
+    try {
+      const observed = await dependencies.adapter.execute({ ...request, credential: null });
+      if (observed?.status !== 'ok' || request.expectRef !== active.envelope.validationRef) {
+        return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true, observed?.observation);
+      }
+      clearOutcomeUnknown(sessionId, request.operationId, request.expectRef, env, now);
+      return output('ok', 'VALIDATED', request.operationId, request.step, 'SENSITIVE_READ', false, observed.observation);
+    } finally {
+      await dependencies.adapter.close?.();
+    }
+  }
+
+  const callId = `runner-${randomUUID()}`;
+  if (!stageBrowserCall(sessionId, request.operationId, {
+    toolUseId: callId, action: request.step, effect: authorization.effect,
+  }, env, now)) {
+    return output('denied', 'CALL_BINDING_FAILED', request.operationId, request.step, authorization.effect, active.validationRequired);
+  }
+  try {
+    const observed = await dependencies.adapter.execute({ ...request, credential });
+    if (observed?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+    completeBrowserCall(sessionId, callId, env, now);
+    const updated = readActiveOperation(sessionId, request.operationId, env, now);
+    return output('ok', 'STEP_COMPLETED', request.operationId, request.step, authorization.effect, updated?.validationRequired, observed.observation);
+  } catch {
+    recordOutcomeUnknown(sessionId, request.operationId, {
+      reasonCode: 'ADAPTER_FAILURE', action: request.step, effect: authorization.effect,
+    }, env, now);
+    return output('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId, request.step, authorization.effect, true);
+  } finally {
+    credential = null;
+    await dependencies.adapter.close?.();
+  }
+}
+
+
+async function main() {
+  try {
+    const request = parseRunnerArgs(process.argv.slice(2));
+    const result = await executeRunnerStep(request);
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return ['ok', 'pending', 'closed'].includes(result.status) ? 0 : 2;
+  } catch {
+    process.stderr.write('Browser runner rejected the request.\n');
+    return 2;
+  }
+}
+
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = await main();
+}

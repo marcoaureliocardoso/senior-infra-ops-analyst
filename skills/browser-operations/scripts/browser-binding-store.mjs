@@ -211,6 +211,15 @@ export function readActiveOperation(sessionId, operationId, env = process.env, n
 }
 
 
+export function readPendingOperation(sessionId, operationId, env = process.env, now = Date.now()) {
+  const boundedSession = bounded(sessionId, 'INVALID_SESSION');
+  const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
+  const state = readState(boundedSession, env, now);
+  const entry = state.pending.find((candidate) => candidate.operationId === boundedOperation);
+  return entry ? Object.freeze(clone(entry)) : null;
+}
+
+
 export function readSingleActiveOperation(sessionId, env = process.env, now = Date.now()) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const state = readState(boundedSession, env, now);

@@ -26,6 +26,7 @@ REQUIRED = (
     Path("skills/browser-operations/nori.json"),
     Path("skills/browser-operations/scripts/browser-hook.mjs"),
     Path("skills/browser-operations/scripts/browser-hook-launcher.sh"),
+    Path("skills/browser-operations/scripts/browser-runner.mjs"),
     Path("skills/browser-operations/scripts/configure-browser-operations.mjs"),
     Path("skills/browser-operations/scripts/browser-main-session-settings.mjs"),
     Path("references/browser-operations.md"),

@@ -1,8 +1,8 @@
 ---
 name: Command Driven Operations
 description: Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands.
-version: 0.6.0
-last_updated: 2026-08-21
+version: 0.7.0
+last_updated: 2026-08-31
 maintainer: Marco Aurelio Cardoso
 triggers:
   - run commands
@@ -57,6 +57,25 @@ Bash hooks. If neither route is proven, do not execute; return the observed
 limitation, unexecuted proposal, required operator action, and validation
 steps. Use `references/native-execution-boundary.md` for the canonical routing
 matrix and typed-tool boundary.
+
+## Protected browser runner
+
+Browser work from an operational subagent uses only the package-owned
+`skills/browser-operations/scripts/browser-runner.mjs` through guarded Bash.
+Every invocation is parsed as one closed semantic step and requires the exact
+absolute runner path, literal bounded arguments, an operation ID, and native
+approval. The runner does not accept arbitrary JavaScript, shell fragments,
+CDP endpoints, profile paths, browser installation, literal credentials, or
+unbound file paths.
+
+Open an operation with the complete browser envelope described in
+`references/browser-operations.md`. A successful `PostToolUse` for the exact
+approved open command activates the session-bound operation; running the open
+command alone does not. Each later step is rechecked against its role, action,
+effect, normalized origin, expiry, protected value or artifact reference, and
+declared validation. All browser-runner commands use `ALWAYS_ASK`, including in
+`bypassPermissions`. `OUTCOME_UNKNOWN` blocks retries until the declared
+independent validation succeeds; `close` invalidates the operation.
 
 ## Execution loop
 

@@ -409,4 +409,39 @@ export const MUTATIONS = Object.freeze([
     search: "    if (profileCount !== 1) throw new CommandPolicyError('DENY_POWERSHELL_PROFILE', 'PowerShell profile loading must be disabled exactly once');",
     replacement: '    if (false) throw new CommandPolicyError(\'DENY_POWERSHELL_PROFILE\', \'PowerShell profile loading must be disabled exactly once\');',
   },
+  {
+    id: 'CATALOGUE_BROWSER_RUNNER_PATH_IDENTITY', file: 'command-guard/catalogue.mjs',
+    search: '      || path.normalize(words[1]) !== BROWSER_RUNNER_PATH) return null;',
+    replacement: '      || false) return null;',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_CLOSED_FLAGS', file: 'command-guard/catalogue.mjs',
+    search: '    if ([...values.keys()].some((flag) => !BROWSER_OPEN_FLAGS.has(flag))) return null;',
+    replacement: '    if (false) return null;',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_OPERATION_BINDING', file: 'command-guard/catalogue.mjs',
+    search: '  if (!browserBounded(operationId)) return null;',
+    replacement: '  if (false) return null;',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_ORIGIN_NORMALIZATION', file: 'command-guard/catalogue.mjs',
+    search: "  if (values.has('--origin') && selectedOrigin === null) return null;",
+    replacement: '  if (false) return null;',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_EFFECT_CLASSIFICATION', file: 'command-guard/catalogue.mjs',
+    search: "  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'DESTRUCTIVE'],",
+    replacement: "  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'LOW_RISK_CHANGE'],",
+  },
+  {
+    id: 'CATALOGUE_BROWSER_ALWAYS_ASK', file: 'command-guard/catalogue.mjs',
+    search: "      modifiers: ['ALWAYS_ASK'], browserArgs: words.slice(2),",
+    replacement: '      modifiers: [], browserArgs: words.slice(2),',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_ROLE_BOUNDARY', file: 'command-guard/catalogue.mjs',
+    search: '    if (!BROWSER_EXECUTOR_ROLES.has(role) && !auditReadOnly) return null;',
+    replacement: '    if (false) return null;',
+  },
 ]);

@@ -60,6 +60,10 @@ const FAMILY = Object.freeze({
   WINDOWS_CONTROL: ['Restart-Service -Name spooler', 'Set-Item x y'],
   FILTER: ['grep Linux', 'grep root /etc/passwd'],
   DECRYPTOR: ['gpg --decrypt credential.gpg', 'gpg --encrypt plaintext'],
+  BROWSER_PROTECTED_RUNNER: [
+    `node ${JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs'))} --operation-id op-coverage --step close`,
+    'node /tmp/browser-runner.mjs --operation-id op-coverage --step close',
+  ],
 });
 
 const REASONS = Object.freeze({
