@@ -8,6 +8,7 @@ node --test tests/browser-operations/mcp-registry.test.mjs
 node --test tests/browser-operations/policy.test.mjs
 node --test tests/browser-operations/binding-store.test.mjs
 node --test tests/browser-operations/hook.test.mjs
+node --test tests/browser-operations/settings.test.mjs
 node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
 node --test tests/context-continuity/compact-hook.test.mjs
@@ -17,6 +18,7 @@ python3 tests/test-native-execution-boundary.py
 python3 tests/test-native-execution-boundary-safety.py
 python3 tests/test-prompt-injection-policy.py
 python3 tests/test-browser-operation-policy.py
+python3 tests/test-browser-operation-install-policy.py
 python3 tests/test-prompt-injection-claims.py
 python3 tests/test-prompt-injection-install-policy.py
 python3 tests/test-prompt-injection-live.py
