@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 node tests/run-command-guard-tests.mjs
+node --test tests/browser-operations/contract.test.mjs
 node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
 node --test tests/context-continuity/compact-hook.test.mjs
