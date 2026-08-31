@@ -12,6 +12,8 @@ node --test tests/browser-operations/settings.test.mjs
 node --test tests/browser-operations/runner-contract.test.mjs
 node --test tests/browser-operations/adapters.test.mjs
 node --test tests/browser-operations/artifacts.test.mjs
+node --test tests/browser-operations/fixture-server.test.mjs
+node --test tests/browser-operations/real-browser.test.mjs
 node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
 node --test tests/context-continuity/compact-hook.test.mjs
