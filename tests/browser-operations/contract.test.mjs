@@ -52,6 +52,11 @@ function validEnvelope(overrides = {}) {
 }
 
 
+test('accepts the main session as an operation role', () => {
+  assert.equal(parseOperationEnvelope(validEnvelope({ role: 'main' }), NOW).role, 'main');
+});
+
+
 function expectCode(code, operation) {
   assert.throws(operation, (error) => {
     assert.equal(error?.code, code);

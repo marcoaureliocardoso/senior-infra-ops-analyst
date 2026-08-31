@@ -90,7 +90,9 @@ export function matchBrowserMcpCapability(
 
 
 function descriptorFor(capability) {
-  if (capability?.state !== 'AVAILABLE_RECOGNIZED') throw new Error('MCP_CAPABILITY_UNRECOGNIZED');
+  if (!['AVAILABLE_RECOGNIZED', 'ACTIVE'].includes(capability?.state)) {
+    throw new Error('MCP_CAPABILITY_UNRECOGNIZED');
+  }
   const matches = MCP_BROWSER_DESCRIPTORS.filter(({ id }) => id === capability.descriptorId);
   if (matches.length !== 1) throw new Error('MCP_CAPABILITY_CONFLICT');
   return matches[0];

@@ -41,6 +41,7 @@ const ARTIFACT_FIELDS = Object.freeze([
   'maxItems', 'maxBytes', 'redaction', 'retentionSeconds',
 ]);
 const ROLES = new Set([
+  'main',
   'audit-evidence-collector', 'change-manager', 'cloud-platform-operator',
   'database-operator', 'diagnostic-operator', 'incident-commander',
   'kubernetes-operator', 'network-edge-operator', 'observability-sre',

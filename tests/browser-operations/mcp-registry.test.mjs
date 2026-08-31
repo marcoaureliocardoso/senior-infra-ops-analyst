@@ -128,3 +128,13 @@ test('mutation-ambiguous click and unknown tools map to UNKNOWN or deny', () => 
     toolName: 'mcp__playwright__browser_evaluate', input: { function: '() => 1' },
   }), /MCP_TOOL_UNRECOGNIZED/u);
 });
+
+
+test('maps the same approved descriptor after capability activation', () => {
+  const capability = matchBrowserMcpCapability(observation(), approvedRuntime());
+  const mapped = mapBrowserMcpCall({ ...capability, state: 'ACTIVE' }, {
+    toolName: `${capability.toolPrefix}browser_snapshot`, input: {},
+  });
+  assert.equal(mapped.action, 'inspect');
+  assert.equal(mapped.effect, 'SENSITIVE_READ');
+});
