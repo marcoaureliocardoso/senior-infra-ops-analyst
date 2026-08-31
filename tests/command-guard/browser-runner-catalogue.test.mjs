@@ -38,6 +38,28 @@ function removed(args, flag) {
 }
 
 
+function removedAll(args, flag) {
+  const copy = [...args];
+  for (let index = copy.lastIndexOf(flag); index >= 0; index = copy.lastIndexOf(flag)) {
+    copy.splice(index, 2);
+  }
+  return copy;
+}
+
+
+function artifactOpen() {
+  return changed([...OPEN,
+    '--action', 'screenshot', '--action', 'trace',
+    '--artifact-type', 'screenshot', '--artifact-type', 'trace',
+    '--artifact-purpose-ref', 'change-evidence',
+    '--artifact-source-class', 'browser-viewport', '--artifact-source-class', 'browser-trace',
+    '--artifact-destination-class', 'operation-temp',
+    '--artifact-max-items', '2', '--artifact-max-bytes', '4096',
+    '--artifact-redaction', 'required', '--artifact-retention-seconds', '60',
+  ], '--effect', 'SENSITIVE_ARTIFACT');
+}
+
+
 test('browser runner catalogue classifies every effect risk and semantic step', () => {
   for (const [effect, expectedRisk] of [
     ['PUBLIC_READ', 'SAFE_READ_ONLY'], ['SENSITIVE_READ', 'SAFE_READ_ONLY'],
@@ -56,6 +78,7 @@ test('browser runner catalogue classifies every effect risk and semantic step', 
     '--risk', 'safe',
   );
   assert.equal(lookup(auditOpen).risk, 'SAFE_READ_ONLY');
+  assert.equal(lookup(artifactOpen()).risk, 'LOW_RISK_CHANGE');
 
   const steps = [
     ['inspect', ['--origin', 'https://router.example.invalid', '--locator-role', 'status', '--locator-name', 'Status', '--expect-ref', 'readable'], 'SAFE_READ_ONLY'],
@@ -81,7 +104,7 @@ test('browser runner catalogue classifies every effect risk and semantic step', 
 
 
 test('browser runner catalogue rejects every closed-grammar branch', () => {
-  const oversizedPairs = Array.from({ length: 33 }, (_, index) => [`--x${index}`, 'v']).flat();
+  const oversizedPairs = Array.from({ length: 49 }, (_, index) => [`--x${index}`, 'v']).flat();
   const invalidGeneric = [
     { args: ['--operation-id', 'op'], executable: 'nodejs' },
     { args: ['--operation-id', 'op'], runnerPath: 'relative/browser-runner.mjs' },
@@ -124,6 +147,24 @@ test('browser runner catalogue rejects every closed-grammar branch', () => {
     changed(OPEN, '--risk', 'unknown'),
     changed(OPEN, '--role', 'change-manager'),
     changed(OPEN, '--role', 'audit-evidence-collector'),
+    ...[
+      '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
+      '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
+      '--artifact-redaction', '--artifact-retention-seconds',
+    ].map((flag) => removedAll(artifactOpen(), flag)),
+    changed(artifactOpen(), '--effect', 'LOW_RISK_CHANGE'),
+    changed(artifactOpen(), '--artifact-type', 'cookie'),
+    changed(artifactOpen(), '--artifact-type', 'download'),
+    changed(artifactOpen(), '--artifact-source-class', 'Invalid_Class'),
+    changed(artifactOpen(), '--artifact-destination-class', 'Invalid_Class'),
+    changed(artifactOpen(), '--artifact-purpose-ref', 'bad value'),
+    changed(artifactOpen(), '--artifact-max-items', '0'),
+    changed(artifactOpen(), '--artifact-max-items', '17'),
+    changed(artifactOpen(), '--artifact-max-bytes', '0'),
+    changed(artifactOpen(), '--artifact-max-bytes', '50000001'),
+    changed(artifactOpen(), '--artifact-redaction', 'none'),
+    changed(artifactOpen(), '--artifact-retention-seconds', '0'),
+    changed(artifactOpen(), '--artifact-retention-seconds', '3601'),
   ];
   for (const args of invalidOpen) assert.equal(lookup(args), null);
 

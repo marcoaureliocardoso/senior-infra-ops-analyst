@@ -14,19 +14,26 @@ import {
   writePendingOperation,
 } from './browser-binding-store.mjs';
 import { EFFECT_CLASSES, normalizeOrigin, parseOperationEnvelope } from './browser-contract.mjs';
+import { resolveBrowserAdapter } from './browser-adapters/index.mjs';
 
 
 const STEPS = Object.freeze([
   'open', 'inspect', 'navigate', 'fill', 'select', 'click', 'submit',
   'upload', 'download', 'screenshot', 'trace', 'validate', 'close',
 ]);
-const REPEATABLE = new Set(['--service-origin', '--auth-origin', '--action', '--modifier']);
+const REPEATABLE = new Set([
+  '--service-origin', '--auth-origin', '--action', '--modifier', '--artifact-type',
+  '--artifact-source-class', '--artifact-destination-class',
+]);
 const OPEN_FLAGS = new Set([
   '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
   '--environment', '--service-origin', '--auth-origin', '--identity-ref',
   '--credential-transport', '--permission-mode', '--action', '--effect', '--risk',
   '--modifier', '--precondition-ref', '--validation-ref', '--compensation-ref',
   '--expires-in-seconds',
+  '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
+  '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
+  '--artifact-redaction', '--artifact-retention-seconds',
 ]);
 const STEP_FLAGS = new Set([
   '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
@@ -70,7 +77,7 @@ function freeze(value) {
 
 
 function parseFlags(argv) {
-  if (!Array.isArray(argv) || argv.length < 2 || argv.length > 64) fail('INVALID_ARGUMENTS');
+  if (!Array.isArray(argv) || argv.length < 2 || argv.length > 96) fail('INVALID_ARGUMENTS');
   const values = new Map();
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
@@ -125,12 +132,40 @@ function risk(value) {
 }
 
 
+function integer(values, flag, maximum) {
+  const value = one(values, flag);
+  if (!/^[1-9][0-9]{0,7}$/u.test(value) || Number(value) > maximum) fail('INVALID_ARTIFACT_POLICY');
+  return Number(value);
+}
+
+
 function parseOpen(values, now) {
   for (const flag of values.keys()) if (!OPEN_FLAGS.has(flag)) fail('UNKNOWN_FLAG');
   const seconds = one(values, '--expires-in-seconds');
   if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) fail('INVALID_EXPIRY');
   const effect = one(values, '--effect');
   if (!EFFECT_CLASSES.includes(effect) || effect === 'UNKNOWN') fail('INVALID_EFFECT');
+  const artifactFlags = [
+    '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
+    '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
+    '--artifact-redaction', '--artifact-retention-seconds',
+  ];
+  const artifactsEnabled = artifactFlags.some((flag) => values.has(flag));
+  if (artifactsEnabled && artifactFlags.some((flag) => !values.has(flag))) fail('INVALID_ARTIFACT_POLICY');
+  const artifactPolicy = artifactsEnabled ? {
+    enabled: true,
+    types: many(values, '--artifact-type', 1).map((item) => bounded(item, ACTION)),
+    purposeRef: bounded(one(values, '--artifact-purpose-ref')),
+    sourceClasses: many(values, '--artifact-source-class', 1).map((item) => bounded(item, ACTION)),
+    destinationClasses: many(values, '--artifact-destination-class', 1).map((item) => bounded(item, ACTION)),
+    maxItems: integer(values, '--artifact-max-items', 16),
+    maxBytes: integer(values, '--artifact-max-bytes', 50_000_000),
+    redaction: one(values, '--artifact-redaction'),
+    retentionSeconds: integer(values, '--artifact-retention-seconds', 3600),
+  } : {
+    enabled: false, types: [], purposeRef: 'none', sourceClasses: [],
+    destinationClasses: [], maxItems: 0, maxBytes: 0, redaction: 'none', retentionSeconds: 0,
+  };
   const envelope = parseOperationEnvelope({
     version: 1,
     operationId: bounded(one(values, '--operation-id')),
@@ -151,16 +186,17 @@ function parseOpen(values, now) {
     preconditionRef: bounded(one(values, '--precondition-ref')),
     validationRef: bounded(one(values, '--validation-ref')),
     compensationRef: bounded(one(values, '--compensation-ref')),
-    artifactPolicy: {
-      enabled: false, types: [], purposeRef: 'none', sourceClasses: [],
-      destinationClasses: [], maxItems: 0, maxBytes: 0, redaction: 'none', retentionSeconds: 0,
-    },
+    artifactPolicy,
     expiresAt: now + Number(seconds) * 1000,
   }, now);
   const auditReadOnly = envelope.role === 'audit-evidence-collector'
     && ['PUBLIC_READ', 'SENSITIVE_READ'].includes(envelope.expectedEffect)
     && envelope.actions.every((action) => AUDIT_ACTIONS.has(action));
   if (!EXECUTOR_ROLES.has(envelope.role) && !auditReadOnly) fail('ROLE_NOT_EXECUTOR');
+  if (envelope.artifactPolicy.enabled
+      && envelope.artifactPolicy.types.some((type) => !envelope.actions.includes(type))) {
+    fail('INVALID_ARTIFACT_POLICY');
+  }
   return freeze({ step: 'open', operationId: envelope.operationId, envelope });
 }
 
@@ -259,6 +295,33 @@ function output(status, reasonCode, operationId, step, effect, validationRequire
 }
 
 
+async function selectedAdapter(active, dependencies, env) {
+  if (dependencies.adapter) return dependencies.adapter;
+  const factory = dependencies.adapterFactory ?? resolveBrowserAdapter;
+  try {
+    const detected = await factory({
+      preference: env.OPS_BROWSER_ADAPTER ?? null,
+      options: {
+        allowedOrigins: [...active.envelope.serviceOrigins, ...active.envelope.authOrigins],
+        artifactManager: dependencies.artifactManager ?? null,
+      },
+    });
+    return detected?.state === 'ACTIVE' ? detected.adapter : null;
+  } catch {
+    return null;
+  }
+}
+
+
+async function invokeAdapter(adapter, request, credential) {
+  await adapter.open?.();
+  if (typeof adapter.execute === 'function') return adapter.execute({ ...request, credential });
+  const method = adapter[request.step];
+  if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
+  return method.call(adapter, { ...request, credential });
+}
+
+
 export async function executeRunnerStep(request, dependencies = {}) {
   const env = dependencies.env ?? process.env;
   const now = dependencies.now ?? Date.now();
@@ -290,7 +353,8 @@ export async function executeRunnerStep(request, dependencies = {}) {
     }
     return output('closed', 'OPERATION_CLOSED', request.operationId, 'close', 'INTERACTIVE_STATE', false);
   }
-  if (!dependencies.adapter || typeof dependencies.adapter.execute !== 'function') {
+  const adapter = await selectedAdapter(active, dependencies, env);
+  if (!adapter) {
     return output('denied', 'CAPABILITY_UNAVAILABLE', request.operationId, request.step, stepEffect(request), active.validationRequired);
   }
   const authorization = authorizeRunnerStep(request, active.envelope, active.capability, now);
@@ -311,14 +375,14 @@ export async function executeRunnerStep(request, dependencies = {}) {
 
   if (request.step === 'validate' && active.outcome === 'OUTCOME_UNKNOWN') {
     try {
-      const observed = await dependencies.adapter.execute({ ...request, credential: null });
+      const observed = await invokeAdapter(adapter, request, null);
       if (observed?.status !== 'ok' || request.expectRef !== active.envelope.validationRef) {
         return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true, observed?.observation);
       }
       clearOutcomeUnknown(sessionId, request.operationId, request.expectRef, env, now);
       return output('ok', 'VALIDATED', request.operationId, request.step, 'SENSITIVE_READ', false, observed.observation);
     } finally {
-      await dependencies.adapter.close?.();
+      await adapter.close?.();
     }
   }
 
@@ -329,7 +393,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
     return output('denied', 'CALL_BINDING_FAILED', request.operationId, request.step, authorization.effect, active.validationRequired);
   }
   try {
-    const observed = await dependencies.adapter.execute({ ...request, credential });
+    const observed = await invokeAdapter(adapter, request, credential);
     if (observed?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
     completeBrowserCall(sessionId, callId, env, now);
     const updated = readActiveOperation(sessionId, request.operationId, env, now);
@@ -341,7 +405,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
     return output('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId, request.step, authorization.effect, true);
   } finally {
     credential = null;
-    await dependencies.adapter.close?.();
+    await adapter.close?.();
   }
 }
 

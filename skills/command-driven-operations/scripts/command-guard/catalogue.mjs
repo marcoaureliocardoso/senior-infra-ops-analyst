@@ -1596,13 +1596,19 @@ const BROWSER_RUNNER_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../browser-operations/scripts/browser-runner.mjs',
 );
-const BROWSER_REPEATABLE = new Set(['--service-origin', '--auth-origin', '--action', '--modifier']);
+const BROWSER_REPEATABLE = new Set([
+  '--service-origin', '--auth-origin', '--action', '--modifier', '--artifact-type',
+  '--artifact-source-class', '--artifact-destination-class',
+]);
 const BROWSER_OPEN_FLAGS = new Set([
   '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
   '--environment', '--service-origin', '--auth-origin', '--identity-ref',
   '--credential-transport', '--permission-mode', '--action', '--effect', '--risk',
   '--modifier', '--precondition-ref', '--validation-ref', '--compensation-ref',
   '--expires-in-seconds',
+  '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
+  '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
+  '--artifact-redaction', '--artifact-retention-seconds',
 ]);
 const BROWSER_STEP_FLAGS = new Set([
   '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
@@ -1635,7 +1641,7 @@ function browserOrigin(value) {
 
 function browserFlags(words) {
   const values = new Map();
-  if ((words.length - 2) % 2 !== 0 || words.length < 6 || words.length > 66) return null;
+  if ((words.length - 2) % 2 !== 0 || words.length < 6 || words.length > 98) return null;
   for (let index = 2; index < words.length; index += 2) {
     const flag = words[index];
     const value = words[index + 1];
@@ -1684,6 +1690,32 @@ function parseBrowserRunner(words) {
     if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) return null;
     const effect = browserOne(values, '--effect');
     const effectRisk = BROWSER_EFFECT_RISK.get(effect);
+    const artifactFlags = [
+      '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
+      '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
+      '--artifact-redaction', '--artifact-retention-seconds',
+    ];
+    const artifactsEnabled = artifactFlags.some((flag) => values.has(flag));
+    if (artifactsEnabled) {
+      const artifactTypes = values.get('--artifact-type') ?? [];
+      const artifactSources = values.get('--artifact-source-class') ?? [];
+      const artifactDestinations = values.get('--artifact-destination-class') ?? [];
+      const artifactNumber = (flag, maximum) => {
+        const value = browserOne(values, flag);
+        return /^[1-9][0-9]{0,7}$/u.test(value) && Number(value) <= maximum;
+      };
+      if (artifactFlags.some((flag) => !values.has(flag))
+          || effect !== 'SENSITIVE_ARTIFACT'
+          || artifactTypes.some((type) => !['upload', 'download', 'screenshot', 'trace'].includes(type))
+          || artifactTypes.some((type) => !values.get('--action').includes(type))
+          || artifactSources.some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
+          || artifactDestinations.some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
+          || !browserBounded(browserOne(values, '--artifact-purpose-ref'))
+          || !artifactNumber('--artifact-max-items', 16)
+          || !artifactNumber('--artifact-max-bytes', 50_000_000)
+          || !['required', 'structured'].includes(browserOne(values, '--artifact-redaction'))
+          || !artifactNumber('--artifact-retention-seconds', 3600)) return null;
+    }
     const declaredRisk = new Map([
       ['safe', 'SAFE_READ_ONLY'], ['low', 'LOW_RISK_CHANGE'],
       ['medium', 'DISRUPTIVE_CHANGE'], ['high', 'DESTRUCTIVE'],

@@ -98,6 +98,24 @@ test('closed parser accepts the complete open envelope and freezes it', () => {
 });
 
 
+test('open accepts an exact enabled artifact policy without file paths', () => {
+  const argv = replaceFlag([...OPEN,
+    '--action', 'screenshot', '--action', 'trace',
+    '--artifact-type', 'screenshot', '--artifact-type', 'trace',
+    '--artifact-purpose-ref', 'change-evidence',
+    '--artifact-source-class', 'browser-viewport',
+    '--artifact-source-class', 'browser-trace',
+    '--artifact-destination-class', 'operation-temp',
+    '--artifact-max-items', '2', '--artifact-max-bytes', '4096',
+    '--artifact-redaction', 'required', '--artifact-retention-seconds', '60',
+  ], '--effect', 'SENSITIVE_ARTIFACT');
+  const request = parseRunnerArgs(argv, NOW);
+  assert.equal(request.envelope.artifactPolicy.enabled, true);
+  assert.deepEqual(request.envelope.artifactPolicy.types, ['screenshot', 'trace']);
+  assert.equal(request.envelope.artifactPolicy.maxBytes, 4096);
+});
+
+
 test('closed parser accepts every semantic step with only its bounded grammar', () => {
   const cases = [
     ['inspect', ['--origin', 'https://router.example.invalid', '--locator-role', 'status', '--expect-ref', 'status-readable']],
@@ -245,6 +263,57 @@ test('maximum-length operation ids retain a bounded internal call correlation', 
       ...fixture.dependencies, now: NOW + 2, sessionId: 'session-runner-001',
     });
     assert.equal(result.status, 'ok');
+  });
+});
+
+
+test('runner invokes the detected common adapter API and closes it in finally', async () => {
+  await stateFixture(async (env) => {
+    const opening = fakeDependencies(env);
+    await executeRunnerStep(parseRunnerArgs(OPEN, NOW), opening.dependencies);
+    activateOperation({
+      sessionId: 'session-runner-001', operationId: 'op-runner-001',
+      toolUseId: proof().toolUseId,
+    }, env, NOW + 1);
+    const calls = [];
+    const adapter = {
+      async open() { calls.push('open'); },
+      async inspect() { calls.push('inspect'); return { status: 'ok', observation: 'structural' }; },
+      async close() { calls.push('close'); },
+    };
+    const inspect = parseRunnerArgs([
+      '--operation-id', 'op-runner-001', '--step', 'inspect',
+      '--origin', 'https://router.example.invalid', '--locator-role', 'status',
+      '--expect-ref', 'status-readable',
+    ], NOW + 2);
+    const result = await executeRunnerStep(inspect, {
+      env, now: NOW + 2, sessionId: 'session-runner-001',
+      adapterFactory: async () => ({ state: 'ACTIVE', adapter }),
+    });
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(calls, ['open', 'inspect', 'close']);
+  });
+});
+
+
+test('runner reports unavailable detection without attempting a step', async () => {
+  await stateFixture(async (env) => {
+    const opening = fakeDependencies(env);
+    await executeRunnerStep(parseRunnerArgs(OPEN, NOW), opening.dependencies);
+    activateOperation({
+      sessionId: 'session-runner-001', operationId: 'op-runner-001',
+      toolUseId: proof().toolUseId,
+    }, env, NOW + 1);
+    const inspect = parseRunnerArgs([
+      '--operation-id', 'op-runner-001', '--step', 'inspect',
+      '--origin', 'https://router.example.invalid', '--locator-role', 'status',
+      '--expect-ref', 'status-readable',
+    ], NOW + 2);
+    const result = await executeRunnerStep(inspect, {
+      env, now: NOW + 2, sessionId: 'session-runner-001',
+      adapterFactory: async () => ({ state: 'UNAVAILABLE', adapter: null }),
+    });
+    assert.equal(result.reasonCode, 'CAPABILITY_UNAVAILABLE');
   });
 });
 
