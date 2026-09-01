@@ -94,7 +94,7 @@ class NoriArchiveTests(unittest.TestCase):
                 ],
                 [],
             )
-        self.assertEqual(len(expected), 215)
+        self.assertEqual(len(expected), 234)
 
     def test_drifted_staging_is_rejected_without_replacing_archive(self) -> None:
         self.output.write_bytes(b"operator archive")
