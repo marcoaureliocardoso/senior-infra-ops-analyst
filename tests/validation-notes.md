@@ -761,3 +761,14 @@ aggregation. Page text, DOM/accessibility content, console/network payloads,
 cookies, credentials, profiles, and artifact bodies are not retained. CI runs
 only the parser, static safety tests, shell syntax, and provider-free self-test;
 it never runs active provider or browser mode.
+
+## P0-04B architecture and release metadata (2026-09-01)
+
+ADR-010 indexes the implemented browser boundary and links its approved design,
+plan, and canonical reference. Operator documentation covers runtime capability
+detection, opt-in activation, route precedence, authentication, human-only
+challenges, origin and artifact limits, subagent authority, and owned rollback.
+Package metadata declares the pre-merge `0.15.0` state, 26 first-class skills,
+and 12 browser-aware subagent components at `1.2.0`. The changelog distinguishes
+deterministic/provider-free evidence from the still-pending real-browser and
+authenticated active-runtime gates.

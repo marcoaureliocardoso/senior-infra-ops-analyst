@@ -356,7 +356,7 @@ for directory in source_subagent_dirs:
     if (
         set(manifest) != {"name", "version", "type", "description"}
         or manifest.get("name") != directory.name
-        or manifest.get("version") != "1.1.0"
+        or manifest.get("version") != "1.2.0"
         or manifest.get("type") != "subagent"
         or manifest.get("description") != frontmatter_value(definition, "description")
     ):
@@ -428,8 +428,8 @@ if evidence != {
     "canonicalContent": True,
     "skillsSectionCount": 1,
     "unmanagedSentinel": True,
-    "sourceSkillCount": 25,
-    "installedSkillCount": 26,
+    "sourceSkillCount": 26,
+    "installedSkillCount": 27,
     "packagedSkillsComplete": True,
     "unexpectedSkillsAbsent": True,
     "subagentCount": 12,

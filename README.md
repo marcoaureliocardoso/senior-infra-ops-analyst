@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.14.0
+Version: 0.15.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -14,7 +14,7 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 ## Included skills
 
-This package includes 25 skills covering core operations, continuity, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
+This package includes 26 skills covering core operations, continuity, guarded browser operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
 ## Context continuity and preventive compaction
 
@@ -69,7 +69,37 @@ use `--confirmed-window-diagnostic <tokens>` only when that positive integer
 equals the single consistent capacity observed through that runtime field and
 the operator separately approves it. Missing, conflicting, or mismatched evidence
 blocks before the exceptional automatic probe.
-P0-04B browser automation remains outside this release.
+
+## Guarded browser operations
+
+Browser capability detection uses this route precedence: an existing recognized
+main-session MCP first, then a recognized protected runner. Unavailable,
+unrecognized, conflicting, or guard-unproven routes
+stop without execution. Nori installation does not install or enable an MCP,
+browser, Playwright, or Puppeteer, and it does not activate the project hooks.
+
+Inspect, activate, or remove only package-owned browser settings with:
+
+```bash
+node skills/browser-operations/scripts/configure-browser-operations.mjs --check
+node skills/browser-operations/scripts/configure-browser-operations.mjs --apply
+node skills/browser-operations/scripts/configure-browser-operations.mjs --remove-owned
+```
+
+Exact settings are not runtime proof: the current session must observe the
+expected structured guard deny before use. Every navigation and UI effect stays
+bound to one operation envelope, approved origins, and native authorization.
+Interactive authentication may use an existing protected session, a recognized
+vault/helper, or a credential requested from the operator; credentials remain
+authentication data and are never approval. A human-only challenge pauses for
+the operator.
+
+Downloads, screenshots, traces, and other artifact classes are denied unless
+the envelope explicitly permits their type, limits, path, and retention. An
+unknown mutating outcome is never retried automatically. The 12 subagents keep
+their role-specific authority and receive no generic browser or MCP grant. See
+`references/browser-operations.md` and
+`docs/architecture/ADR-010-browser-automation-boundary.md`.
 
 ## Prompt-injection defense
 

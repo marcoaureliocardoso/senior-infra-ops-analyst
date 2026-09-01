@@ -1,8 +1,8 @@
 ---
 name: Context Continuity
 description: Use for long Claude Code work, context pressure, compaction recovery, native task continuity, local preventive-compaction configuration, or context-cost measurement.
-version: 1.0.0
-last_updated: 2026-08-08
+version: 1.0.1
+last_updated: 2026-09-01
 maintainer: Marco Aurelio Cardoso
 triggers:
   - long task

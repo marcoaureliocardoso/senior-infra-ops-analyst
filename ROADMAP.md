@@ -45,6 +45,15 @@ The previous roadmap domains received dedicated skills, references, and template
 - vendor escalation management
 - audit and compliance evidence collection
 
+## In validation for v0.15.0
+
+- P0-04B guarded browser operations are implemented on the isolated delivery
+  branch with deterministic policy, hook, runner, adapter, artifact, fixture,
+  packaging, and provider-free harness coverage. A passing recognized
+  real-browser adapter matrix, any separately authorized active-runtime gate,
+  independent review, CI/Security, merge, and post-merge verification remain
+  required before the definitive external backlog can be marked complete.
+
 ## Future improvements
 
 | Priority | Item | Owner | Notes |

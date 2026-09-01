@@ -6,10 +6,10 @@ Path: `senior-infra-ops-analyst/`
 
 A command-driven skillset that personifies a Senior Infrastructure Operations Analyst for safe, evidence-based hybrid infrastructure operations. Designed for operators who have terminal, shell, SSH, or API access and need structured diagnostics, incident triage, change planning, RCA, and runbook authoring — all gated by an explicit safety model.
 
-25 skills, 20 slash commands, 12 subagents, and 35 reference documents cover the full operational surface:
+26 skills, 20 slash commands, 12 subagents, and 36 reference documents cover the full operational surface:
 Linux, Windows Server, networking, pfSense, VMware, Kubernetes/K3s, cloud (AWS/Azure/GCP), databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, SSH/privileged access, ITSM/CMDB workflows, disaster recovery, vendor escalation, audit evidence, and context continuity.
 
-Version: 0.14.0 | Author: Marco Aurelio Cardoso | License: MIT
+Version: 0.15.0 | Author: Marco Aurelio Cardoso | License: MIT
 
 ## Context continuity
 
@@ -40,7 +40,30 @@ validation is isolated, opt-in, and reports unsupported capabilities honestly.
 The live gate detects native auto-compaction options at runtime and allows a
 derived absolute diagnostic only after structural evidence proves divergent
 window reporting.
-P0-04B browser automation is not included.
+
+## Guarded browser operations
+
+Browser capability detection uses this route precedence: a recognized
+main-session MCP, then a recognized protected runner. Unavailable,
+unrecognized, conflicting, or guard-unproven states stop. Nori installation
+does not install or enable an MCP, browser, Playwright, or Puppeteer and does not
+activate the project hooks.
+
+```bash
+node skills/browser-operations/scripts/configure-browser-operations.mjs --check
+node skills/browser-operations/scripts/configure-browser-operations.mjs --apply
+node skills/browser-operations/scripts/configure-browser-operations.mjs --remove-owned
+```
+
+Exact settings still require a structured runtime guard proof. Every UI effect
+is bound to the operation envelope, origin policy, and native authorization.
+Interactive authentication may use a protected session, recognized vault or
+helper, or a credential requested from the operator; the credential is never
+approval. A human-only challenge pauses for the operator. Artifact output is
+denied unless its class, limits, path, and retention are explicitly allowed,
+and unknown mutations are never retried automatically. The 12 subagents retain
+their role-specific limits and receive no generic browser or MCP grant. See
+`references/browser-operations.md`.
 
 ## Prompt-injection defense
 
@@ -153,7 +176,7 @@ senior-infra-ops-analyst/
 ├── docs/architecture/         # Indexed architecture decision records
 ├── docs/reviews/              # Indexed independent review verdicts
 ├── scripts/                   # Canonical package discovery and staging tools
-├── skills/                    # 25 operational and continuity skills
+├── skills/                    # 26 operational, continuity, and browser skills
 │   └── <skill>/
 │       ├── SKILL.md           # Skill definition
 │       ├── nori.json          # Per-skill metadata
@@ -164,7 +187,7 @@ senior-infra-ops-analyst/
 │       ├── SUBAGENT.md        # Canonical Claude Code definition
 │       └── nori.json          # Independent Nori component metadata
 ├── slashcommands/             # 20 operator slash commands
-├── references/                # 35 domain reference documents
+├── references/                # 36 domain reference documents
 └── tests/                     # Validators and CI scripts
 ```
 
@@ -196,6 +219,7 @@ senior-infra-ops-analyst/
 | `disaster-recovery-drills` | Tabletop exercises, restore tests, failover readiness, and RTO/RPO validation |
 | `vendor-escalation-management` | Support escalation packages for vendors, ISPs, and cloud providers |
 | `audit-compliance-evidence` | Audit evidence collection, redaction, organization, and explanation |
+| `browser-operations` | Capability-detected, guarded infrastructure UI diagnosis and approved effects |
 
 ### Slash commands
 
@@ -257,6 +281,9 @@ All roles deny `Write` and `Edit`. Incident coordination, change management, RCA
 
 **Governance:**
 `itsm-cmdb-workflows.md`, `disaster-recovery-drills.md`, `vendor-escalation.md`, `audit-compliance-evidence.md`
+
+**Safety and execution boundaries:**
+`native-execution-boundary.md`, `untrusted-input-handling.md`, `browser-operations.md`
 
 ### Safety model
 

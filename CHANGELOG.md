@@ -5,6 +5,18 @@ tag. Tagged versions correspond to repository tags.
 
 ## Unreleased package states
 
+### 0.15.0 (unreleased) - declared 2026-09-01
+
+- Added `browser-operations` as the 26th first-class skill, with a canonical operation envelope, effect classes, authorization requirements, origin policy, credential handling, human-only challenge pauses, artifact limits, and unknown-outcome reconciliation.
+- Added fail-closed runtime capability states and deterministic route precedence across a recognized main-session MCP and a recognized protected runner, without installing or pinning an MCP, adapter, browser, Claude Code, Nori, provider, model, or context window.
+- Added transactional project-local browser hook configuration with conflict detection, exact ownership, structured runtime proof, idempotent apply, and owned-only rollback.
+- Added protected browser runner handling to the command guard, optional fixed-import Playwright and Puppeteer adapters, opaque bounded artifacts, and no automatic retry after an uncertain mutation.
+- Updated all 12 first-class subagents to component version `1.2.0` for their explicit browser authority and execution boundaries; no role receives a generic MCP grant.
+- Updated `context-continuity` to `1.0.1` so its package inventory validates the new `1.2.0` subagent component contract while retaining content-free measurements.
+- Added a loopback-only authenticated infrastructure UI fixture and a 36-scenario browser matrix covering reads, authentication, approved effects, uploads/downloads, redirects, popups, injection channels, human challenges, selector drift, cleanup, and unknown outcomes.
+- Added a bounded content-free live harness with provider-free self-test and preflight. The 2026-09-01 preflight observed Claude Code `2.1.257`, no recognized adapter, and an exact fail-closed hook deny; it made no authenticated provider request.
+- Deterministic browser tests and provider-free safety checks passed before this declaration. A passing real-browser adapter matrix and any authenticated provider-backed browser result remain separate acceptance evidence and are not claimed here.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
