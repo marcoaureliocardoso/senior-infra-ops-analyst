@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
+import { pathToFileURL } from 'node:url';
 
 
 const LOOPBACK = new Set(['127.0.0.1', '::1']);
@@ -261,4 +262,22 @@ export async function startBrowserFixture({
       await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     },
   });
+}
+
+
+async function main() {
+  const fixture = await startBrowserFixture();
+  process.stdout.write(`${JSON.stringify({ origin: fixture.origin })}\n`);
+  const stop = async () => {
+    await fixture.close();
+    process.exitCode = 0;
+  };
+  process.once('SIGINT', () => { void stop(); });
+  process.once('SIGTERM', () => { void stop(); });
+  await new Promise(() => {});
+}
+
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }

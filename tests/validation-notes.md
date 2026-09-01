@@ -744,3 +744,20 @@ No authenticated provider request occurred during remediation, validation, or
 review. The two historical `CANARY_EXPOSED` observations remain
 `RC-OUTPUT=FAIL`; deterministic package acceptance remains separate from
 runtime compatibility.
+
+## P0-04B browser harness safety (2026-09-01)
+
+The browser runtime harness defaults to a provider-free self-test and has a
+separate read-only preflight. Active mode requires fresh exact operator
+authorization, a bounded request count and timeout, a disposable Nori install,
+and a loopback-only synthetic fixture. It performs no automatic retry and
+stops on unrecognized, conflicting, unproven, unknown-outcome, or human-only
+states.
+
+The retained aggregate is content-free: observed runtime labels, capability
+state, exact guard-proof class, the fixed 12-role count, numeric context fields,
+and cleanup status. Prompts and structured streams are deleted before
+aggregation. Page text, DOM/accessibility content, console/network payloads,
+cookies, credentials, profiles, and artifact bodies are not retained. CI runs
+only the parser, static safety tests, shell syntax, and provider-free self-test;
+it never runs active provider or browser mode.
