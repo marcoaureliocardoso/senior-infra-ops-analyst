@@ -17,6 +17,7 @@ import {
 
 const CLI = path.resolve('skills/browser-operations/scripts/configure-browser-operations.mjs');
 const SKILL_ROOT = path.resolve('skills/browser-operations');
+const BROWSER_MCP_MATCHER = 'mcp__playwright__browser_(navigate|snapshot|type|click)';
 
 
 async function fixture(run) {
@@ -48,9 +49,9 @@ test('desired hooks are exact bounded browser MCP lifecycle entries', () => {
   assert.deepEqual(desired.hooks.map(({ event, group }) => [
     event, group.matcher, group.hooks[0].args[0], group.hooks[0].timeout,
   ]), [
-    ['PreToolUse', 'mcp__.*', 'pre', 9],
-    ['PostToolUse', 'mcp__.*', 'post', 9],
-    ['PostToolUseFailure', 'mcp__.*', 'failure', 9],
+    ['PreToolUse', BROWSER_MCP_MATCHER, 'pre', 9],
+    ['PostToolUse', BROWSER_MCP_MATCHER, 'post', 9],
+    ['PostToolUseFailure', BROWSER_MCP_MATCHER, 'failure', 9],
   ]);
   assert.equal(desired.hooks.every(({ group }) =>
     group.hooks[0].command.endsWith('browser-hook-launcher.sh')), true);
@@ -78,7 +79,9 @@ test('merge and removal preserve all operator settings and hook order', () => {
     current: applied.settings, desired, ownership: applied.ownership,
   });
   assert.deepEqual(repeated, applied);
-  const removed = removeOwnedBrowserHooks({ current: repeated.settings, ownership: repeated.ownership });
+  const removed = removeOwnedBrowserHooks({
+    current: repeated.settings, desired, ownership: repeated.ownership,
+  });
   assert.deepEqual(removed.settings, current);
   assert.deepEqual(removed.ownership, emptyBrowserOwnership());
   assert.deepEqual(removed.conflicts, []);
@@ -124,6 +127,22 @@ test('unowned duplicates and ownership drift fail without widening hooks', () =>
 });
 
 
+test('owned removal rejects a forged record naming an operator hook', () => {
+  const desired = desiredBrowserHooks({ skillRoot: SKILL_ROOT, platform: process.platform });
+  const operatorGroup = {
+    matcher: 'Read', hooks: [{ type: 'command', command: '/operator/hook' }],
+  };
+  const ownership = {
+    ...emptyBrowserOwnership(),
+    configurationIdentity: desired.configurationIdentity,
+    entries: [{ event: 'PreToolUse', group: structuredClone(operatorGroup) }],
+  };
+  assert.throws(() => removeOwnedBrowserHooks({
+    current: { hooks: { PreToolUse: [operatorGroup] } }, desired, ownership,
+  }), /OWNERSHIP_DRIFT/u);
+});
+
+
 test('CLI check is read-only and apply/remove are idempotent and structural', async () => {
   await fixture(async ({ root, claude }) => {
     const before = runCli(['--check', '--root', root]);
@@ -144,7 +163,7 @@ test('CLI check is read-only and apply/remove are idempotent and structural', as
     const settings = JSON.parse(await readFile(path.join(claude, 'settings.local.json'), 'utf8'));
     for (const event of ['PreToolUse', 'PostToolUse', 'PostToolUseFailure']) {
       assert.equal(settings.hooks[event].length, 1);
-      assert.equal(settings.hooks[event][0].matcher, 'mcp__.*');
+      assert.equal(settings.hooks[event][0].matcher, BROWSER_MCP_MATCHER);
     }
     const removed = runCli(['--remove-owned', '--root', root]);
     assert.equal(removed.status, 0, removed.stderr);

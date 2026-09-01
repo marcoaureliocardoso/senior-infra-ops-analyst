@@ -39,18 +39,8 @@ function browserOpenRequest(value, now) {
 }
 
 
-function activateBrowserOpen(value, binding, env, now) {
-  const request = browserOpenRequest(value, now);
-  if (!request) return false;
-  if (request.envelope.sessionId !== binding.sessionId
-      || (value.permission_mode !== undefined
-        && value.permission_mode !== request.envelope.permissionModeAtApproval)) {
-    throw new Error('browser post hook binding mismatch');
-  }
-  const permissionModes = [...new Set([
-    request.envelope.permissionModeAtApproval, 'bypassPermissions',
-  ])];
-  const capability = {
+function protectedRunnerCapability() {
+  return {
     state: 'ACTIVE', reasonCode: 'CAPABILITY_ACTIVE', adapterId: 'protected-runner',
     routeClass: 'PROTECTED_RUNNER', settingsFingerprint: 'browser-runner-v1',
     descriptorId: 'protected-runner-v1', serverName: null, toolPrefix: null,
@@ -60,11 +50,33 @@ function activateBrowserOpen(value, binding, env, now) {
       preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: true,
     },
   };
-  writePendingOperation(request.envelope, {
-    toolUseId: binding.toolUseId, adapterId: capability.adapterId,
+}
+
+
+export function stageBrowserOpenApproval(result, event, env = process.env, now = Date.now()) {
+  if (result?.policyId !== 'BROWSER_PROTECTED_RUNNER'
+      || !Array.isArray(result.browserArgs) || result.decision === 'deny'
+      || typeof event?.toolUseId !== 'string') return false;
+  const request = parseRunnerArgs(result.browserArgs, now);
+  if (request.step !== 'open' || request.envelope.sessionId !== event.sessionId
+      || request.envelope.permissionModeAtApproval !== event.permissionMode) return false;
+  const capability = protectedRunnerCapability();
+  return writePendingOperation(request.envelope, {
+    toolUseId: event.toolUseId, adapterId: capability.adapterId,
     routeClass: capability.routeClass, settingsFingerprint: capability.settingsFingerprint,
-    permissionModes, capability,
+    permissionModes: [...new Set([event.permissionMode, 'bypassPermissions'])], capability,
   }, env, now);
+}
+
+
+function activateBrowserOpen(value, binding, env, now) {
+  const request = browserOpenRequest(value, now);
+  if (!request) return false;
+  if (request.envelope.sessionId !== binding.sessionId
+      || (value.permission_mode !== undefined
+        && value.permission_mode !== request.envelope.permissionModeAtApproval)) {
+    throw new Error('browser post hook binding mismatch');
+  }
   return activateOperation({
     sessionId: binding.sessionId, operationId: request.operationId,
     toolUseId: binding.toolUseId,

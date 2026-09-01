@@ -267,7 +267,7 @@ async function run(options) {
         current: current.settings.value, desired, ownership: current.ownership.value,
       })
       : removeOwnedBrowserHooks({
-        current: current.settings.value, ownership: current.ownership.value,
+        current: current.settings.value, desired, ownership: current.ownership.value,
       });
     if (operation === 'apply' && current.settings.raw === null) {
       changedValues.ownership.createdSettingsFile = true;

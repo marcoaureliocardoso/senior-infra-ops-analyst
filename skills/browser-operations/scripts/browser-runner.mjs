@@ -330,7 +330,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
     const pending = readPendingOperation(
       request.envelope.sessionId, request.operationId, env, now,
     );
-    if (!pending && dependencies.proof) {
+    if (!pending) {
       return output('denied', 'PENDING_APPROVAL_MISSING', request.operationId, 'open', request.envelope.expectedEffect, false);
     }
     return output('pending', 'PENDING_NATIVE_APPROVAL', request.operationId, 'open', request.envelope.expectedEffect, false);

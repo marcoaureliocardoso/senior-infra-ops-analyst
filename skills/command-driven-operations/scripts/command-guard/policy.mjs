@@ -210,5 +210,6 @@ export function analyzeCommand(event, env = {}) {
     risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
     credential: credentialAnalysis.metadata, credentialBinding, findings, stage: aggregate.stage,
+    browserArgs: Array.isArray(aggregate.browserArgs) ? [...aggregate.browserArgs] : null,
   };
 }

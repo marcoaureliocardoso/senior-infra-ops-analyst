@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 
 const OWNERSHIP_VERSION = 1;
+const BROWSER_MCP_MATCHER = 'mcp__playwright__browser_(navigate|snapshot|type|click)';
 const EVENTS = Object.freeze([
   ['PreToolUse', 'pre'],
   ['PostToolUse', 'post'],
@@ -45,7 +46,7 @@ export function desiredBrowserHooks({ skillRoot, platform = process.platform }) 
   const hooks = EVENTS.map(([event, mode]) => Object.freeze({
     event,
     group: Object.freeze({
-      matcher: 'mcp__.*',
+      matcher: BROWSER_MCP_MATCHER,
       hooks: Object.freeze([Object.freeze({
         type: 'command', command, args: Object.freeze([mode]), timeout: 9,
       })]),
@@ -81,7 +82,7 @@ function validateDesired(desired) {
   for (let index = 0; index < EVENTS.length; index += 1) {
     const [event, mode] = EVENTS[index];
     const item = desired.hooks[index];
-    if (item?.event !== event || item?.group?.matcher !== 'mcp__.*'
+    if (item?.event !== event || item?.group?.matcher !== BROWSER_MCP_MATCHER
         || !Array.isArray(item.group.hooks) || item.group.hooks.length !== 1
         || item.group.hooks[0]?.type !== 'command'
         || typeof item.group.hooks[0]?.command !== 'string'
@@ -152,9 +153,16 @@ export function applyOwnedBrowserHooks({ current, desired, ownership }) {
 }
 
 
-export function removeOwnedBrowserHooks({ current, ownership }) {
+export function removeOwnedBrowserHooks({ current, desired, ownership }) {
   object(current, 'INVALID_SETTINGS');
+  validateDesired(desired);
   validateOwnership(ownership);
+  if (ownership.entries.length > 0 && (
+    ownership.configurationIdentity !== desired.configurationIdentity
+      || ownership.entries.some((entry) => !desired.hooks.some((item) =>
+        entry.event === item.event && isDeepStrictEqual(entry.group, item.group))))) {
+    throw new Error('OWNERSHIP_DRIFT');
+  }
   const settings = clone(current);
   const conflicts = [];
   const remaining = [];

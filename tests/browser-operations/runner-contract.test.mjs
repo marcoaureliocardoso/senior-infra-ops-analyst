@@ -12,6 +12,7 @@ import {
 } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 import { NOW, capabilityFixture } from './helpers.mjs';
 import { evaluateApprovalHook } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
+import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
 
 
 const OPEN = [
@@ -42,6 +43,7 @@ async function stateFixture(run) {
     ...process.env,
     OPS_BROWSER_STATE_DIR: directory,
     OPS_COMMAND_GUARD_STATE_DIR: path.join(directory, 'command-guard'),
+    OPS_COMMAND_GUARD_AUDIT_PATH: path.join(directory, 'command-guard', 'audit.jsonl'),
   };
   try {
     await run(env);
@@ -208,18 +210,28 @@ test('open writes pending only and exact successful correlation activates it', a
 });
 
 
-test('native PostToolUse creates and activates the exact successful open command', async () => {
+test('native PostToolUse activates only a matching operation staged by PreToolUse', async () => {
   await stateFixture(async (env) => {
     const request = parseRunnerArgs(OPEN, NOW);
-    const pending = await executeRunnerStep(request, { env, now: NOW });
-    assert.equal(pending.status, 'pending');
-    assert.equal(readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 1), null);
     const command = ['node', JSON.stringify(RUNNER_PATH), ...OPEN].join(' ');
-    assert.equal(evaluateApprovalHook(JSON.stringify({
+    const missing = await executeRunnerStep(request, { env, now: NOW });
+    assert.equal(missing.reasonCode, 'PENDING_APPROVAL_MISSING');
+    const post = {
       session_id: 'session-runner-001', tool_use_id: 'tool-runner-post-001',
       hook_event_name: 'PostToolUse', tool_name: 'Bash', permission_mode: 'normal',
       tool_input: { command },
-    }), env, NOW + 2), true);
+    };
+    assert.equal(evaluateApprovalHook(JSON.stringify(post), env, NOW + 1), false);
+    assert.equal(readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 1), null);
+
+    const decision = evaluateHook(JSON.stringify({
+      session_id: 'session-runner-001', tool_use_id: 'tool-runner-post-001',
+      hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+      tool_input: { command },
+    }), env, NOW + 2);
+    assert.equal(decision.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal((await executeRunnerStep(request, { env, now: NOW + 2 })).status, 'pending');
+    assert.equal(evaluateApprovalHook(JSON.stringify(post), env, NOW + 3), true);
     assert.equal(readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 3).outcome, 'READY');
   });
 });
