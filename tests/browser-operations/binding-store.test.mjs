@@ -81,7 +81,9 @@ test('state is bounded owner-only atomic and contains no raw content', async () 
 });
 
 
-test('state directory and file symlinks fail closed', async () => {
+test('state directory and file symlinks fail closed', {
+  skip: process.platform === 'win32' ? 'Windows symlink privilege is unavailable' : false,
+}, async () => {
   const parent = await mkdtemp(path.join(os.tmpdir(), 'browser-binding-link-'));
   try {
     const real = path.join(parent, 'real');

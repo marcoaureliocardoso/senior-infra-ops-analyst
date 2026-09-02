@@ -15,7 +15,9 @@ import {
   resolveBindingStateDirectory,
   writePendingBinding,
 } from '../../skills/command-driven-operations/scripts/command-guard/binding-store.mjs';
-import { evaluateApprovalHook, main as approvalMain } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
+import {
+  evaluateApprovalHook, main as approvalMain, stageBrowserOpenApproval,
+} from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
 import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
 import { validEvent } from './helpers.mjs';
 import { readActiveOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
@@ -242,7 +244,11 @@ test('PostToolUse is a silent no-op when a successful Bash call has no pending b
 
 test('PostToolUse browser correlation covers exact activation and every fail-closed parser branch', async () => {
   await withState(async (baseEnv) => {
-    const env = { ...baseEnv, OPS_BROWSER_STATE_DIR: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser') };
+    const env = {
+      ...baseEnv,
+      OPS_BROWSER_STATE_DIR: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser'),
+      OPS_COMMAND_GUARD_AUDIT_PATH: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl'),
+    };
     const event = (command, overrides = {}) => JSON.stringify({
       session_id: 'session-post-coverage', tool_use_id: 'tool-post-coverage',
       hook_event_name: 'PostToolUse', tool_name: 'Bash', permission_mode: 'normal',
@@ -264,10 +270,41 @@ test('PostToolUse browser correlation covers exact activation and every fail-clo
     assert.throws(() => evaluateApprovalHook(event(browserOpenCommand(), {
       permission_mode: 'bypassPermissions',
     }), env, NOW));
-    assert.equal(evaluateApprovalHook(event(browserOpenCommand()), env, NOW), true);
+    const pre = JSON.stringify({
+      session_id: 'session-post-coverage', tool_use_id: 'tool-post-coverage',
+      hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+      tool_input: { command: browserOpenCommand() },
+    });
+    const approvalNow = Date.now();
+    assert.equal(evaluateHook(pre, env).hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(evaluateApprovalHook(event(browserOpenCommand()), env, approvalNow), true);
     assert.equal(readActiveOperation(
-      'session-post-coverage', 'op-post-coverage', env, NOW + 1,
+      'session-post-coverage', 'op-post-coverage', env, approvalNow + 1,
     ).outcome, 'READY');
+  });
+});
+
+
+test('browser PreToolUse staging covers every non-activation branch', async () => {
+  await withState(async (baseEnv) => {
+    const env = {
+      ...baseEnv,
+      OPS_BROWSER_STATE_DIR: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser'),
+    };
+    const browserArgs = browserOpenCommand().slice(browserOpenCommand().indexOf('--step')).split(' ');
+    const result = { policyId: 'BROWSER_PROTECTED_RUNNER', browserArgs, decision: 'ask' };
+    const event = {
+      sessionId: 'session-post-coverage', toolUseId: 'tool-post-coverage', permissionMode: 'normal',
+    };
+    assert.equal(stageBrowserOpenApproval({ ...result, policyId: 'OTHER' }, event, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval({ ...result, browserArgs: null }, event, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval({ ...result, decision: 'deny' }, event, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval(result, { ...event, toolUseId: null }, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval(result, { ...event, sessionId: 'other-session' }, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval(result, { ...event, permissionMode: 'bypassPermissions' }, env, NOW), false);
+    assert.equal(stageBrowserOpenApproval({
+      ...result, browserArgs: ['--operation-id', 'op-post-coverage', '--step', 'close'],
+    }, event, env, NOW), false);
   });
 });
 
