@@ -65,11 +65,13 @@ Close the browser context, invalidate the operation binding, clear ephemeral aut
 
 ## Role boundary
 
-The seven operational specialists may use only the protected runner through guarded Bash. `audit-evidence-collector` is browser read-only. `incident-commander`, `change-manager`, `rca-facilitator`, and `security-operations-reviewer` request, coordinate, or review browser work but do not execute it. Packaged subagents never receive generic `mcp__*` grants.
+The seven operational specialists may use only the protected runner through guarded Bash. Its packaged one-process adapter route is read-only unless the runtime proves a single persistent, independently validated workflow host; separate CLI invocations never imply one browser session. `audit-evidence-collector` is browser read-only. `incident-commander`, `change-manager`, `rca-facilitator`, and `security-operations-reviewer` request, coordinate, or review browser work but do not execute it. Packaged subagents never receive generic `mcp__*` grants.
 
 ## Limitations
 
 Tool search, browser tools, MCP schemas, existing profiles, and adapter libraries are runtime capabilities. Discovery results can change and do not authorize effects. A detected but unvalidated implementation remains unavailable for mutation.
+
+The packaged Playwright adapter can prove pre-navigation popup containment. The packaged Puppeteer adapter cannot and therefore does not advertise that guarantee. Binary evidence requires an injected reviewed redactor; retained artifacts and adapter-self-asserted postconditions fail closed.
 
 ## Required references
 

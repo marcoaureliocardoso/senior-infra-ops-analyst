@@ -1,5 +1,13 @@
 # P0-04B Browser Automation Design
 
+> Implementation clarification (2026-09-02): independent review showed that
+> separate protected-runner CLI processes do not preserve one browser context.
+> The shipped runner therefore activates reads only. Authentication and mutation
+> remain contingent on a recognized persistent route, and acceptance must either
+> prove that route or explicitly amend the criterion. Adapter-self-reported
+> validation cannot clear `OUTCOME_UNKNOWN`; an independent reconciler must
+> classify the effect as applied or not applied.
+
 Date: 2026-08-31
 
 Status: Approved design

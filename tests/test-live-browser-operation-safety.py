@@ -115,7 +115,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 "claude": "observed", "provider": "observed", "model": "observed",
                 "adapter": "playwright",
             },
-            "capabilityState": "ACTIVE", "guardProof": "exact-deny", "roleCount": 12,
+            "capabilityState": "ACTIVE", "guardProof": "exact-bound-read", "roleCount": 12,
             "toolCalls": 1, "hookEvents": 1,
             "context": {
                 "before": 1, "afterSkill": 2, "afterSubagent": 3,
@@ -128,6 +128,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             {**value, "rawPrompt": "forbidden"},
             {**value, "roleCount": 13},
             {**value, "cleanup": "unknown"},
+            {**value, "guardProof": "exact-deny"},
         ):
             with self.assertRaises(ValueError):
                 validate_aggregate(mutation)

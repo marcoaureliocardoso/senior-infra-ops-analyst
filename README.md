@@ -89,13 +89,18 @@ node skills/browser-operations/scripts/configure-browser-operations.mjs --remove
 Exact settings are not runtime proof: the current session must observe the
 expected structured guard deny before use. Every navigation and UI effect stays
 bound to one operation envelope, approved origins, and native authorization.
+The packaged per-command runner is currently read-only: separate processes do
+not share a browser session, so authentication or mutation requires a recognized
+persistent route with sufficient origin, popup, validation, and cleanup proof.
 Interactive authentication may use an existing protected session, a recognized
 vault/helper, or a credential requested from the operator; credentials remain
 authentication data and are never approval. A human-only challenge pauses for
 the operator.
 
 Downloads, screenshots, traces, and other artifact classes are denied unless
-the envelope explicitly permits their type, limits, path, and retention. An
+the envelope explicitly permits their type and limits; binary evidence also
+requires a reviewed redactor. Artifact retention is not implemented and is
+denied. An
 unknown mutating outcome is never retried automatically. The 12 subagents keep
 their role-specific authority and receive no generic browser or MCP grant. See
 `references/browser-operations.md` and

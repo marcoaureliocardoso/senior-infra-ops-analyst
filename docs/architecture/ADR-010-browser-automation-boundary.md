@@ -18,7 +18,11 @@ Browser automation is an operational transport governed by the same operation
 envelope, authorization, effect, and evidence model as other protected routes.
 The main-session MCP route and the protected runner route both require a bound
 operation, per-call policy evaluation, current native authorization, and exact
-hook coverage. The package gives no generic MCP grants to subagents; all 12
+hook coverage. The packaged per-command runner is read-only because separate
+processes cannot truthfully claim one persistent browser session. Authentication
+and mutation require a recognized persistent route that proves confinement,
+independent validation, and cleanup for the whole bounded operation. The
+package gives no generic MCP grants to subagents; all 12
 roles keep their declared tool boundaries and may use only an explicitly routed
 and proven capability.
 
@@ -57,11 +61,14 @@ against the bound origin policy. Cross-origin transitions require an explicitly
 approved origin expansion. Downloads, screenshots, traces, and other artifact
 classes are denied unless the operation envelope permits their exact class,
 size, path, and retention policy. Approved artifacts use opaque handles,
-verified roots, bounded sizes, redaction rules, and deterministic cleanup.
+verified system-temporary roots, bounded sizes, redaction rules, and
+deterministic cleanup.
+The current package rejects retention and requires an injected reviewed redactor
+before binary capture.
 
 Mutating calls that time out or lose confirmation become `OUTCOME_UNKNOWN`.
-They are not retried automatically; the operator must first reconcile the
-observed state.
+They are not retried automatically; an independent validator must first
+classify the state as applied or not applied. Applied operations cannot repeat.
 
 ## Validation evidence
 
@@ -69,7 +76,9 @@ Deterministic tests cover capability routing, MCP mapping, operation binding,
 hook decisions, transactional settings, protected runner behavior, optional
 adapter detection, origin restrictions, artifact handling, and a 36-scenario
 loopback fixture matrix. The provider-free harness self-test and preflight prove
-bounded retention and an exact fail-closed deny. On 2026-09-01 no recognized
+bounded retention and an exact fail-closed deny. The hardened harness cannot
+report `ACTIVE` from zero calls or a deny-only probe and verifies cleanup only
+after deletion. On 2026-09-02 no recognized
 real-browser adapter or authenticated provider-backed browser session had yet
 been accepted as runtime evidence; those gates remain explicit and cannot be
 inferred from deterministic success.

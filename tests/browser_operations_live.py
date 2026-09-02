@@ -60,6 +60,13 @@ def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> di
     for field in ("toolCalls", "hookEvents"):
         if not isinstance(result[field], int) or isinstance(result[field], bool) or result[field] < 0:
             raise ValueError(f"invalid {field}")
+    if result["status"] == "pass" and (
+        result["capabilityState"] != "ACTIVE"
+        or result["guardProof"] != "exact-bound-read"
+        or result["toolCalls"] < 1
+        or result["hookEvents"] < 1
+    ):
+        raise ValueError("passing result lacks active runtime proof")
     context = _exact(result["context"], CONTEXT_FIELDS, "context")
     for field in CONTEXT_FIELDS - {"toolSearchMode"}:
         if not isinstance(context[field], int) or isinstance(context[field], bool) or not 0 <= context[field] <= 100:
@@ -140,11 +147,14 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
         role for sample in samples for role in sample.get("roleLabels", [])
         if isinstance(role, str) and LABEL.fullmatch(role)
     }
+    guard_proof = "exact-deny"
     if "fail" in statuses:
         status, reason, capability = "fail", "BOUNDARY_FAILURE", "OUTCOME_UNKNOWN"
     elif ("inconclusive" in statuses or len(percentages) < 5 or tool_calls < 1
           or hook_events < 1 or len(role_labels) != 12):
         status, reason, capability = "inconclusive", "RUNTIME_INCONCLUSIVE", "UNAVAILABLE"
+    elif guard_proof != "exact-bound-read":
+        status, reason, capability = "inconclusive", "GUARD_UNPROVEN", "AVAILABLE_RECOGNIZED"
     else:
         status, reason, capability = "pass", "COMPATIBLE", "ACTIVE"
     return validate_aggregate({
@@ -152,7 +162,7 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
         "reasonCode": reason,
         "observedRuntime": runtime,
         "capabilityState": capability,
-        "guardProof": "exact-deny",
+        "guardProof": guard_proof,
         "roleCount": len(role_labels),
         "toolCalls": tool_calls,
         "hookEvents": hook_events,
