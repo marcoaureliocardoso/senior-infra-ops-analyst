@@ -16,6 +16,18 @@ const LOCK_ATTEMPTS = 400;
 const LOCK_WAIT_MS = 5;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u;
 const INVOCATION_FINGERPRINT = /^[a-f0-9]{64}$/u;
+const WORKFLOW_APPROVAL_MARKER = 'PENDING_NATIVE_APPROVAL';
+const EFFECTS = new Set([
+  'PUBLIC_READ', 'SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE',
+  'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE', 'SENSITIVE_ARTIFACT',
+]);
+const CAPABILITY_FIELDS = Object.freeze([
+  'state', 'reasonCode', 'adapterId', 'routeClass', 'settingsFingerprint',
+  'descriptorId', 'serverName', 'toolPrefix', 'effects', 'enforcement',
+]);
+const ENFORCEMENT_FIELDS = Object.freeze([
+  'preCall', 'topLevelOrigin', 'redirects', 'popups', 'artifacts',
+]);
 
 
 function bounded(value, code) {
@@ -164,9 +176,75 @@ function normalizedProof(proof) {
 }
 
 
+function exactDataFields(value, fields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(value);
+  return keys.length === fields.length
+    && fields.every((field) => Object.hasOwn(descriptors, field)
+      && Object.hasOwn(descriptors[field], 'value'));
+}
+
+
+function boundedValue(value) {
+  return typeof value === 'string' && IDENTIFIER.test(value);
+}
+
+
+function workflowApprovalMarker(capability) {
+  return exactDataFields(capability, ['state']) && capability.state === WORKFLOW_APPROVAL_MARKER;
+}
+
+
+function workflowRequiredEffects(envelope) {
+  const required = new Set(['SENSITIVE_READ', envelope.expectedEffect]);
+  if (envelope.actions.some((action) => ['navigate', 'fill', 'select', 'click'].includes(action))) {
+    required.add('INTERACTIVE_STATE');
+  }
+  if (envelope.artifactPolicy.enabled) required.add('SENSITIVE_ARTIFACT');
+  return required;
+}
+
+
+function effectiveWorkflowCapability(value, pending) {
+  if (!exactDataFields(value, CAPABILITY_FIELDS)
+      || !exactDataFields(value.enforcement, ENFORCEMENT_FIELDS)
+      || value.state !== 'ACTIVE' || value.reasonCode !== 'CAPABILITY_ACTIVE'
+      || value.routeClass !== 'PROTECTED_RUNNER'
+      || value.adapterId !== pending.adapterId
+      || value.routeClass !== pending.routeClass
+      || value.settingsFingerprint !== pending.settingsFingerprint
+      || value.descriptorId !== 'protected-runner-v1'
+      || value.serverName !== null || value.toolPrefix !== null
+      || !boundedValue(value.adapterId) || !boundedValue(value.settingsFingerprint)
+      || !boundedValue(value.descriptorId)
+      || !Array.isArray(value.effects) || value.effects.length < 1
+      || value.effects.length > EFFECTS.size
+      || new Set(value.effects).size !== value.effects.length
+      || value.effects.some((effect) => !EFFECTS.has(effect))
+      || ENFORCEMENT_FIELDS.some((field) => typeof value.enforcement[field] !== 'boolean')) {
+    return null;
+  }
+  const requiredEffects = workflowRequiredEffects(pending.envelope);
+  if ([...requiredEffects].some((effect) => !value.effects.includes(effect))) return null;
+  if (value.enforcement.preCall !== true
+      || value.enforcement.topLevelOrigin !== true
+      || value.enforcement.redirects !== true
+      || value.enforcement.popups !== true
+      || (pending.envelope.artifactPolicy.enabled && value.enforcement.artifacts !== true)) {
+    return null;
+  }
+  return clone(value);
+}
+
+
 export function writePendingOperation(envelopeValue, proofValue, env = process.env, now = Date.now()) {
   const envelope = parseOperationEnvelope(envelopeValue, now);
   const proof = normalizedProof(proofValue);
+  if (proof.invocationFingerprint !== null && !workflowApprovalMarker(proof.capability)) {
+    throw new Error('INVALID_BROWSER_PROOF');
+  }
   return withLock(envelope.sessionId, env, (target) => {
     const state = readState(envelope.sessionId, env, now);
     state.pending = state.pending.filter(({ operationId, toolUseId }) =>
@@ -224,10 +302,15 @@ export function activatePendingWorkflow(correlation, env = process.env, now = Da
       && entry.permissionModes.length === 1
       && entry.permissionModes[0] === entry.envelope.permissionModeAtApproval);
     if (index < 0) return false;
-    const [pending] = state.pending.splice(index, 1);
+    const pending = state.pending[index];
+    if (!workflowApprovalMarker(pending.capability)) return false;
+    const effectiveCapability = effectiveWorkflowCapability(correlation?.effectiveCapability, pending);
+    if (!effectiveCapability) return false;
+    state.pending.splice(index, 1);
     state.active = state.active.filter((entry) => entry.operationId !== operationId);
     pushBounded(state.active, {
       ...pending,
+      capability: effectiveCapability,
       active: true,
       outcome: 'READY',
       validationRequired: false,

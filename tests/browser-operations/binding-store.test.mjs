@@ -12,11 +12,13 @@ import {
   completeBrowserCall,
   invalidateOperation,
   readActiveOperation,
+  readPendingOperation,
   recordOutcomeUnknown,
   resolveBrowserStateDirectory,
   stageBrowserCall,
   writePendingOperation,
 } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
+import { authorizeRunnerStep, parseRunnerArgs } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 import { browserEnvelope, capabilityFixture, NOW } from './helpers.mjs';
 
 
@@ -38,6 +40,42 @@ function proof(overrides = {}) {
     settingsFingerprint: 'settings-browser-a',
     permissionModes: ['normal', 'bypassPermissions'],
     capability: capabilityFixture(),
+    ...overrides,
+  };
+}
+
+
+function workflowApprovalProof(overrides = {}) {
+  return proof({
+    adapterId: 'protected-runner',
+    routeClass: 'PROTECTED_RUNNER',
+    settingsFingerprint: 'browser-runner-v1',
+    permissionModes: ['normal'],
+    invocationFingerprint: 'a'.repeat(64),
+    capability: { state: 'PENDING_NATIVE_APPROVAL' },
+    ...overrides,
+  });
+}
+
+
+function effectiveWorkflowCapability(overrides = {}) {
+  return {
+    state: 'ACTIVE',
+    reasonCode: 'CAPABILITY_ACTIVE',
+    adapterId: 'protected-runner',
+    routeClass: 'PROTECTED_RUNNER',
+    settingsFingerprint: 'browser-runner-v1',
+    descriptorId: 'protected-runner-v1',
+    serverName: null,
+    toolPrefix: null,
+    effects: ['SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE'],
+    enforcement: {
+      preCall: true,
+      topLevelOrigin: true,
+      redirects: true,
+      popups: true,
+      artifacts: false,
+    },
     ...overrides,
   };
 }
@@ -68,7 +106,7 @@ test('workflow activation consumes only the exact approved invocation fingerprin
   await withState(async (env) => {
     const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
     const fingerprint = 'a'.repeat(64);
-    writePendingOperation(envelope, proof({
+    writePendingOperation(envelope, workflowApprovalProof({
       invocationFingerprint: fingerprint,
       permissionModes: ['bypassPermissions'],
     }), env, NOW);
@@ -77,7 +115,7 @@ test('workflow activation consumes only the exact approved invocation fingerprin
       operationId: envelope.operationId,
       invocationFingerprint: fingerprint,
     }, env, NOW), false);
-    writePendingOperation(envelope, proof({
+    writePendingOperation(envelope, workflowApprovalProof({
       invocationFingerprint: fingerprint,
       permissionModes: ['normal'],
     }), env, NOW);
@@ -98,6 +136,7 @@ test('workflow activation consumes only the exact approved invocation fingerprin
       sessionId: envelope.sessionId,
       operationId: envelope.operationId,
       invocationFingerprint: fingerprint,
+      effectiveCapability: effectiveWorkflowCapability(),
     }, env, NOW + 2), true);
     const active = readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 3);
     assert.equal(active.invocationFingerprint, fingerprint);
@@ -106,6 +145,119 @@ test('workflow activation consumes only the exact approved invocation fingerprin
       operationId: envelope.operationId,
       invocationFingerprint: fingerprint,
     }, env, NOW + 4), false);
+  });
+});
+
+
+test('workflow activation replaces the approval marker with a sufficient effective capability', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope({
+      actions: ['navigate', 'fill', 'submit', 'inspect'],
+    }), NOW);
+    const fingerprint = 'a'.repeat(64);
+    assert.throws(() => writePendingOperation(envelope, workflowApprovalProof({
+      invocationFingerprint: fingerprint,
+      capability: effectiveWorkflowCapability(),
+    }), env, NOW), /INVALID_BROWSER_PROOF/u);
+    writePendingOperation(envelope, workflowApprovalProof({ invocationFingerprint: fingerprint }), env, NOW);
+
+    assert.equal(activatePendingWorkflow({
+      sessionId: envelope.sessionId,
+      operationId: envelope.operationId,
+      invocationFingerprint: fingerprint,
+      effectiveCapability: effectiveWorkflowCapability(),
+    }, env, NOW + 1), true);
+    const active = readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 2);
+    assert.deepEqual(active.capability, effectiveWorkflowCapability());
+    assert.equal(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW + 2), null);
+
+    const fill = parseRunnerArgs([
+      '--operation-id', envelope.operationId, '--step', 'fill',
+      '--origin', 'https://router.example.invalid', '--locator-role', 'textbox',
+      '--value-ref', 'vault:field-value',
+    ], NOW);
+    assert.equal(authorizeRunnerStep(fill, active.envelope, active.capability, NOW + 2).allowed, true);
+  });
+});
+
+
+test('workflow activation rejects insufficient runtime capabilities without consuming approval', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope({
+      actions: ['navigate', 'fill', 'submit', 'inspect'],
+    }), NOW);
+    const fingerprint = 'a'.repeat(64);
+    writePendingOperation(envelope, workflowApprovalProof({ invocationFingerprint: fingerprint }), env, NOW);
+
+    const insufficient = [
+      undefined,
+      effectiveWorkflowCapability({ effects: ['PUBLIC_READ', 'SENSITIVE_READ'] }),
+      effectiveWorkflowCapability({ effects: ['SENSITIVE_READ', 'INTERACTIVE_STATE'] }),
+      effectiveWorkflowCapability({ state: 'AVAILABLE_UNRECOGNIZED', reasonCode: 'CAPABILITY_UNRECOGNIZED' }),
+      effectiveWorkflowCapability({ state: 'CONFLICT', reasonCode: 'CAPABILITY_CONFLICT' }),
+      effectiveWorkflowCapability({ routeClass: 'CONTROLLED_BROWSER_MCP' }),
+      effectiveWorkflowCapability({ adapterId: 'other-adapter' }),
+      effectiveWorkflowCapability({ settingsFingerprint: 'other-settings' }),
+      effectiveWorkflowCapability({ descriptorId: 'unrecognized-runner' }),
+      { ...effectiveWorkflowCapability(), untrustedExtra: true },
+      effectiveWorkflowCapability({ enforcement: { ...effectiveWorkflowCapability().enforcement, topLevelOrigin: false } }),
+      effectiveWorkflowCapability({ enforcement: { ...effectiveWorkflowCapability().enforcement, redirects: false } }),
+      effectiveWorkflowCapability({ enforcement: { ...effectiveWorkflowCapability().enforcement, popups: false } }),
+    ];
+    for (const effectiveCapability of insufficient) {
+      assert.equal(activatePendingWorkflow({
+        sessionId: envelope.sessionId,
+        operationId: envelope.operationId,
+        invocationFingerprint: fingerprint,
+        effectiveCapability,
+      }, env, NOW + 1), false);
+      assert.notEqual(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW + 1), null);
+    }
+
+    const artifactEnvelope = parseOperationEnvelope(browserEnvelope({
+      operationId: 'op-browser-artifact-001',
+      actions: ['screenshot', 'inspect'],
+      expectedEffect: 'SENSITIVE_ARTIFACT',
+      artifactPolicy: {
+        enabled: true,
+        types: ['screenshot'],
+        purposeRef: 'change-evidence',
+        sourceClasses: ['browser-viewport'],
+        destinationClasses: ['operation-temp'],
+        maxItems: 1,
+        maxBytes: 4096,
+        redaction: 'required',
+        retentionSeconds: 60,
+      },
+    }), NOW);
+    writePendingOperation(artifactEnvelope, workflowApprovalProof({
+      toolUseId: 'tool-artifact-001',
+      invocationFingerprint: 'b'.repeat(64),
+    }), env, NOW);
+    assert.equal(activatePendingWorkflow({
+      sessionId: artifactEnvelope.sessionId,
+      operationId: artifactEnvelope.operationId,
+      invocationFingerprint: 'b'.repeat(64),
+      effectiveCapability: effectiveWorkflowCapability({
+        effects: ['SENSITIVE_READ', 'SENSITIVE_ARTIFACT'],
+        enforcement: { ...effectiveWorkflowCapability().enforcement, artifacts: false },
+      }),
+    }, env, NOW + 1), false);
+    assert.notEqual(readPendingOperation(
+      artifactEnvelope.sessionId, artifactEnvelope.operationId, env, NOW + 1,
+    ), null);
+    assert.equal(activatePendingWorkflow({
+      sessionId: artifactEnvelope.sessionId,
+      operationId: artifactEnvelope.operationId,
+      invocationFingerprint: 'b'.repeat(64),
+      effectiveCapability: effectiveWorkflowCapability({
+        effects: ['SENSITIVE_READ'],
+        enforcement: { ...effectiveWorkflowCapability().enforcement, artifacts: true },
+      }),
+    }, env, NOW + 1), false);
+    assert.notEqual(readPendingOperation(
+      artifactEnvelope.sessionId, artifactEnvelope.operationId, env, NOW + 1,
+    ), null);
   });
 });
 

@@ -79,6 +79,18 @@ function replaceFlag(argv, flag, value) {
   return copy;
 }
 
+function effectiveWorkflowCapability() {
+  return {
+    state: 'ACTIVE', reasonCode: 'CAPABILITY_ACTIVE', adapterId: 'protected-runner',
+    routeClass: 'PROTECTED_RUNNER', settingsFingerprint: 'browser-runner-v1',
+    descriptorId: 'protected-runner-v1', serverName: null, toolPrefix: null,
+    effects: ['SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE'],
+    enforcement: {
+      preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+    },
+  };
+}
+
 test('pending binding activates only after a matching successful post event', async () => {
   await withState(async (env) => {
     assert.equal(writePendingBinding(binding, env, NOW), true);
@@ -352,6 +364,7 @@ test('PreToolUse stages one-shot workflows and exact activation rejects every ma
     const pending = readPendingOperation(pre.session_id, approved.operationId, env, now);
     assert.equal(pending.invocationFingerprint, approved.invocationFingerprint);
     assert.deepEqual(pending.permissionModes, ['normal']);
+    assert.deepEqual(pending.capability, { state: 'PENDING_NATIVE_APPROVAL' });
 
     const bypassArgs = replaceFlag(
       replaceFlag(WORKFLOW, '--operation-id', 'op-workflow-bypass'),
@@ -397,6 +410,7 @@ test('PreToolUse stages one-shot workflows and exact activation rejects every ma
       sessionId: pre.session_id,
       operationId: approved.operationId,
       invocationFingerprint: approved.invocationFingerprint,
+      effectiveCapability: effectiveWorkflowCapability(),
     }, env, now), true);
     assert.equal(evaluateApprovalHook(JSON.stringify({
       session_id: pre.session_id, tool_use_id: pre.tool_use_id,
@@ -406,7 +420,7 @@ test('PreToolUse stages one-shot workflows and exact activation rejects every ma
 });
 
 
-test('direct workflow CLI execution without staged native approval exits before adapter use', async () => {
+test('direct workflow CLI execution without staged native approval exits before execution', async () => {
   await withState(async (baseEnv) => {
     const browserState = path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser');
     const result = spawnSync(process.execPath, [browserRunner, ...WORKFLOW], {

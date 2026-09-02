@@ -52,6 +52,11 @@ function protectedRunnerCapability() {
 }
 
 
+function workflowApprovalMarker() {
+  return { state: 'PENDING_NATIVE_APPROVAL' };
+}
+
+
 export function stageBrowserOpenApproval(result, event, env = process.env, now = Date.now()) {
   if (result?.policyId !== 'BROWSER_PROTECTED_RUNNER'
       || !Array.isArray(result.browserArgs) || result.decision !== 'ask'
@@ -59,10 +64,11 @@ export function stageBrowserOpenApproval(result, event, env = process.env, now =
   const request = parseRunnerArgs(result.browserArgs, now);
   if (!['open', 'workflow'].includes(request.step) || request.envelope.sessionId !== event.sessionId
       || request.envelope.permissionModeAtApproval !== event.permissionMode) return false;
-  const capability = protectedRunnerCapability();
+  const protectedCapability = protectedRunnerCapability();
+  const capability = request.step === 'workflow' ? workflowApprovalMarker() : protectedCapability;
   return writePendingOperation(request.envelope, {
-    toolUseId: event.toolUseId, adapterId: capability.adapterId,
-    routeClass: capability.routeClass, settingsFingerprint: capability.settingsFingerprint,
+    toolUseId: event.toolUseId, adapterId: protectedCapability.adapterId,
+    routeClass: protectedCapability.routeClass, settingsFingerprint: protectedCapability.settingsFingerprint,
     permissionModes: request.step === 'workflow'
       ? [event.permissionMode] : [...new Set([event.permissionMode, 'bypassPermissions'])],
     invocationFingerprint: request.step === 'workflow' ? request.invocationFingerprint : null,
