@@ -66,6 +66,14 @@ function artifactOpen() {
   ], '--effect', 'SENSITIVE_ARTIFACT');
 }
 
+function artifactWorkflow() {
+  return [
+    ...changed(changed(artifactOpen(), '--step', 'workflow'), '--service-origin', 'http://127.0.0.1:43111'),
+    '--workflow-step', 'eyJzdGVwIjoic2NyZWVuc2hvdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJhcnRpZmFjdFJlZiI6ImFydGlmYWN0LTEifQ',
+    '--validation-step', 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsInByZWRpY2F0ZSI6InByZXNlbnQiLCJleHBlY3RlZFJlZiI6ImVudjpPUFNfQlJPV1NFUl9WQUxVRV9FWFBFQ1RFRCIsImV4cGVjdFJlZiI6ImludGVyZmFjZS1zdGF0ZSJ9',
+  ];
+}
+
 
 test('browser runner catalogue classifies every effect risk and semantic step', () => {
   for (const [effect, expectedRisk] of [
@@ -120,6 +128,15 @@ test('browser runner catalogue decodes a workflow and takes its highest declared
     removedAll(WORKFLOW, '--validation-step'),
     [...WORKFLOW, '--unknown', 'x'],
   ]) assert.equal(lookup(args), null);
+});
+
+
+test('browser runner workflow preserves artifact risk and output modifiers', () => {
+  const result = lookup(artifactWorkflow());
+  assert.equal(result.risk, 'LOW_RISK_CHANGE');
+  assert.ok(result.modifiers.includes('ALWAYS_ASK'));
+  assert.ok(result.modifiers.includes('FILE_WRITE'));
+  assert.ok(result.modifiers.includes('SENSITIVE_OUTPUT'));
 });
 
 
