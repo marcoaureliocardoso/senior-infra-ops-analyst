@@ -27,6 +27,22 @@ const OPEN = [
   '--precondition-ref', 'router-reachable', '--validation-ref', 'interface-state',
   '--compensation-ref', 'restore-interface', '--expires-in-seconds', '600',
 ];
+const WORKFLOW = [
+  '--step', 'workflow', '--operation-id', 'op-workflow-001',
+  '--session-id', 'session-runner-001', '--role', 'network-edge-operator',
+  '--objective-ref', 'change-42', '--target', 'edge-router-1',
+  '--environment', 'production', '--service-origin', 'http://127.0.0.1:43111',
+  '--identity-ref', 'vault:network-admin', '--credential-transport', 'vault',
+  '--permission-mode', 'normal', '--action', 'navigate', '--action', 'fill',
+  '--action', 'submit', '--action', 'inspect', '--effect', 'LOW_RISK_CHANGE',
+  '--risk', 'LOW_RISK_CHANGE', '--precondition-ref', 'router-reachable',
+  '--validation-ref', 'interface-state', '--compensation-ref', 'restore-interface',
+  '--expires-in-seconds', '600',
+  '--workflow-step', 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
+  '--workflow-step', 'eyJzdGVwIjoiZmlsbCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InRleHRib3giLCJsb2NhdG9yTmFtZSI6IlBhc3N3b3JkIiwidmFsdWVSZWYiOiJlbnY6T1BTX0JST1dTRVJfVkFMVUVfUEFTU1dPUkQifQ',
+  '--workflow-step', 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwibG9jYXRvck5hbWUiOiJTYXZlIiwiZWZmZWN0IjoiTE9XX1JJU0tfQ0hBTkdFIn0',
+  '--validation-step', 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsImxvY2F0b3JOYW1lIjoiU2F2ZWQgc3RhdGUiLCJwcmVkaWNhdGUiOiJ0ZXh0LWVxdWFscyIsImV4cGVjdGVkUmVmIjoiZW52Ok9QU19CUk9XU0VSX1ZBTFVFX0VYUEVDVEVEIiwiZXhwZWN0UmVmIjoiaW50ZXJmYWNlLXN0YXRlIn0',
+];
 const RUNNER_PATH = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
 
 
@@ -99,6 +115,18 @@ test('closed parser accepts the complete open envelope and freezes it', () => {
   assert.equal(request.envelope.expiresAt, NOW + 600_000);
   assert.equal(Object.isFrozen(request), true);
   assert.equal(Object.isFrozen(request.envelope), true);
+});
+
+
+test('workflow parser binds exact envelope actions origins validation and fingerprint', () => {
+  const request = parseRunnerArgs(WORKFLOW, NOW);
+  assert.equal(request.step, 'workflow');
+  assert.equal(request.executionSteps.length, 3);
+  assert.equal(request.validationSteps.length, 1);
+  assert.match(request.invocationFingerprint, /^[a-f0-9]{64}$/u);
+  assert.equal(Object.isFrozen(request), true);
+  assert.throws(() => parseRunnerArgs(replaceFlag(WORKFLOW, '--validation-ref', 'other-interface-state'), NOW), /BROWSER_RUNNER_WORKFLOW_VALIDATION_REFERENCE/u);
+  assert.throws(() => parseRunnerArgs(replaceFlag(WORKFLOW, '--action', 'inspect-only'), NOW), /BROWSER_RUNNER_WORKFLOW_ACTION_NOT_BOUND/u);
 });
 
 

@@ -15,6 +15,7 @@ import {
   writePendingOperation,
 } from './browser-binding-store.mjs';
 import { EFFECT_CLASSES, normalizeOrigin, parseOperationEnvelope } from './browser-contract.mjs';
+import { BrowserWorkflowError, parseWorkflowSteps, workflowFingerprint } from './browser-workflow.mjs';
 import { resolveBrowserAdapter } from './browser-adapters/index.mjs';
 
 
@@ -25,6 +26,7 @@ const STEPS = Object.freeze([
 const REPEATABLE = new Set([
   '--service-origin', '--auth-origin', '--action', '--modifier', '--artifact-type',
   '--artifact-source-class', '--artifact-destination-class',
+  '--workflow-step', '--validation-step',
 ]);
 const OPEN_FLAGS = new Set([
   '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
@@ -35,6 +37,7 @@ const OPEN_FLAGS = new Set([
   '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
   '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
   '--artifact-redaction', '--artifact-retention-seconds',
+  '--workflow-step', '--validation-step',
 ]);
 const STEP_FLAGS = new Set([
   '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
@@ -78,7 +81,7 @@ function freeze(value) {
 
 
 function parseFlags(argv) {
-  if (!Array.isArray(argv) || argv.length < 2 || argv.length > 96) fail('INVALID_ARGUMENTS');
+  if (!Array.isArray(argv) || argv.length < 2 || argv.length > 224) fail('INVALID_ARGUMENTS');
   const values = new Map();
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
@@ -140,8 +143,9 @@ function integer(values, flag, maximum) {
 }
 
 
-function parseOpen(values, now) {
+function parseOpen(values, now, workflow = false) {
   for (const flag of values.keys()) if (!OPEN_FLAGS.has(flag)) fail('UNKNOWN_FLAG');
+  if (!workflow && (values.has('--workflow-step') || values.has('--validation-step'))) fail('UNKNOWN_FLAG');
   const seconds = one(values, '--expires-in-seconds');
   if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) fail('INVALID_EXPIRY');
   const effect = one(values, '--effect');
@@ -202,6 +206,31 @@ function parseOpen(values, now) {
 }
 
 
+function parseWorkflow(values, now) {
+  const opening = parseOpen(values, now, true);
+  let workflow;
+  try {
+    workflow = parseWorkflowSteps(many(values, '--workflow-step', 1), many(values, '--validation-step', 1));
+  } catch (error) {
+    if (error instanceof BrowserWorkflowError) fail(error.code);
+    throw error;
+  }
+  const allowedOrigins = new Set([...opening.envelope.serviceOrigins, ...opening.envelope.authOrigins]);
+  for (const step of [...workflow.executionSteps, ...workflow.validationSteps]) {
+    if (!allowedOrigins.has(step.origin)) fail('WORKFLOW_ORIGIN_NOT_BOUND');
+    if (!opening.envelope.actions.includes(step.step)) fail('WORKFLOW_ACTION_NOT_BOUND');
+  }
+  if (workflow.validationSteps.at(-1).expectRef !== opening.envelope.validationRef) {
+    fail('WORKFLOW_VALIDATION_REFERENCE');
+  }
+  const request = {
+    step: 'workflow', operationId: opening.operationId, envelope: opening.envelope,
+    executionSteps: workflow.executionSteps, validationSteps: workflow.validationSteps,
+  };
+  return freeze({ ...request, invocationFingerprint: workflowFingerprint(request) });
+}
+
+
 function parseStep(values) {
   for (const flag of values.keys()) if (!STEP_FLAGS.has(flag)) fail('UNKNOWN_FLAG');
   const step = one(values, '--step');
@@ -242,7 +271,10 @@ export function parseRunnerArgs(argv, now = Date.now()) {
   try {
     if (!Number.isSafeInteger(now) || now < 0) fail('INVALID_CLOCK');
     const values = parseFlags(argv);
-    return one(values, '--step') === 'open' ? parseOpen(values, now) : parseStep(values);
+    const step = one(values, '--step');
+    if (step === 'open') return parseOpen(values, now);
+    if (step === 'workflow') return parseWorkflow(values, now);
+    return parseStep(values);
   } catch (error) {
     if (error instanceof BrowserRunnerError) throw error;
     fail('INVALID_CONTRACT');
