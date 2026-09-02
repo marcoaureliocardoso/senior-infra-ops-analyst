@@ -755,8 +755,9 @@ stops on unrecognized, conflicting, unproven, unknown-outcome, or human-only
 states.
 
 The retained aggregate is content-free: observed runtime labels, capability
-state, exact guard-proof class, the fixed 12-role count, numeric context fields,
-and cleanup status. Prompts and structured streams are deleted before
+state, exact guard-proof class, the count derived from observed role labels,
+numeric context fields, and cleanup status. Prompts and structured streams are
+deleted before
 aggregation. Page text, DOM/accessibility content, console/network payloads,
 cookies, credentials, profiles, and artifact bodies are not retained. CI runs
 only the parser, static safety tests, shell syntax, and provider-free self-test;
