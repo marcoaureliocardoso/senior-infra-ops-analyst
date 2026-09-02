@@ -4,11 +4,12 @@ import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 import {
-  clearOutcomeUnknown,
+  completeIndependentValidation,
   completeBrowserCall,
   invalidateOperation,
   readActiveOperation,
   readPendingOperation,
+  reconcileOutcomeUnknown,
   recordOutcomeUnknown,
   stageBrowserCall,
   writePendingOperation,
@@ -342,6 +343,9 @@ export async function executeRunnerStep(request, dependencies = {}) {
   }
   const active = readActiveOperation(sessionId, request.operationId, env, now);
   if (!active) return output('denied', 'OPERATION_NOT_ACTIVE', request.operationId, request.step, stepEffect(request), false);
+  if (active.outcome === 'APPLIED_CONFIRMED' && request.step !== 'close') {
+    return output('denied', 'OPERATION_COMPLETE', request.operationId, request.step, stepEffect(request), false);
+  }
   if (active.outcome === 'OUTCOME_UNKNOWN' && !['validate', 'close'].includes(request.step)) {
     return output('denied', 'OUTCOME_UNKNOWN', request.operationId, request.step, stepEffect(request), true);
   }
@@ -352,10 +356,6 @@ export async function executeRunnerStep(request, dependencies = {}) {
       invalidateOperation(sessionId, request.operationId, 'OPERATOR_CLOSED', env, now);
     }
     return output('closed', 'OPERATION_CLOSED', request.operationId, 'close', 'INTERACTIVE_STATE', false);
-  }
-  const adapter = await selectedAdapter(active, dependencies, env);
-  if (!adapter) {
-    return output('denied', 'CAPABILITY_UNAVAILABLE', request.operationId, request.step, stepEffect(request), active.validationRequired);
   }
   const authorization = authorizeRunnerStep(request, active.envelope, active.capability, now);
   if (!authorization.allowed) {
@@ -373,17 +373,43 @@ export async function executeRunnerStep(request, dependencies = {}) {
     }
   }
 
-  if (request.step === 'validate' && active.outcome === 'OUTCOME_UNKNOWN') {
-    try {
-      const observed = await invokeAdapter(adapter, request, null);
-      if (observed?.status !== 'ok' || request.expectRef !== active.envelope.validationRef) {
-        return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true, observed?.observation);
-      }
-      clearOutcomeUnknown(sessionId, request.operationId, request.expectRef, env, now);
-      return output('ok', 'VALIDATED', request.operationId, request.step, 'SENSITIVE_READ', false, observed.observation);
-    } finally {
-      await adapter.close?.();
+  if (request.step === 'validate') {
+    if (typeof dependencies.postconditionValidator !== 'function') {
+      return output('denied', 'INDEPENDENT_VALIDATOR_UNAVAILABLE', request.operationId, request.step, 'SENSITIVE_READ', true);
     }
+    try {
+      const observed = await dependencies.postconditionValidator({
+        operationId: request.operationId,
+        validationRef: request.expectRef,
+        target: active.envelope.target,
+        environment: active.envelope.environment,
+      });
+      if (observed?.status !== 'met'
+          || observed.validationRef !== active.envelope.validationRef
+          || request.expectRef !== active.envelope.validationRef) {
+        return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true);
+      }
+      if (active.outcome === 'OUTCOME_UNKNOWN') {
+        if (!['applied', 'not-applied'].includes(observed.outcome)) {
+          return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true);
+        }
+        reconcileOutcomeUnknown(
+          sessionId, request.operationId, request.expectRef, observed.outcome, env, now,
+        );
+        return output('ok', observed.outcome === 'applied'
+          ? 'RECONCILED_APPLIED' : 'RECONCILED_NOT_APPLIED',
+        request.operationId, request.step, 'SENSITIVE_READ', false);
+      }
+      completeIndependentValidation(sessionId, request.operationId, request.expectRef, env, now);
+      return output('ok', 'VALIDATED', request.operationId, request.step, 'SENSITIVE_READ', false);
+    } catch {
+      return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, 'SENSITIVE_READ', true);
+    }
+  }
+
+  const adapter = await selectedAdapter(active, dependencies, env);
+  if (!adapter) {
+    return output('denied', 'CAPABILITY_UNAVAILABLE', request.operationId, request.step, stepEffect(request), active.validationRequired);
   }
 
   const callId = `runner-${randomUUID()}`;

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile,
 } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 
@@ -85,7 +86,11 @@ export async function createArtifactManager(policyValue, options = {}) {
   if (!Number.isSafeInteger(now) || now < 0 || typeof options.operationId !== 'string') {
     throw artifactError('ARTIFACT_OPTIONS_INVALID');
   }
-  const root = path.resolve(options.root ?? path.join(process.cwd(), '.browser-artifacts'));
+  const root = path.resolve(options.root ?? os.tmpdir());
+  const binaryRedactor = options.redactor ?? null;
+  if (binaryRedactor !== null && typeof binaryRedactor !== 'function') {
+    throw artifactError('ARTIFACT_OPTIONS_INVALID');
+  }
   await mkdir(root, { recursive: true, mode: 0o700 });
   const rootInfo = await lstat(root);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw artifactError('ARTIFACT_ROOT_UNSAFE');
@@ -127,7 +132,20 @@ export async function createArtifactManager(policyValue, options = {}) {
     const input = Buffer.isBuffer(value.data) ? value.data
       : typeof value.data === 'string' ? Buffer.from(value.data, 'utf8') : null;
     if (!input) throw artifactError('ARTIFACT_DATA_INVALID');
-    const transformed = applyRedaction ? redact(input, value.mimeType) : { data: input, redacted: false };
+    let transformed;
+    if (!applyRedaction) {
+      transformed = { data: input, redacted: false };
+    } else if (TEXT_MIME.has(value.mimeType)) {
+      transformed = redact(input, value.mimeType);
+    } else {
+      if (!binaryRedactor) throw artifactError('ARTIFACT_REDACTOR_REQUIRED');
+      transformed = await binaryRedactor({ data: Buffer.from(input), mimeType: value.mimeType });
+      if (!transformed || !Buffer.isBuffer(transformed.data) || transformed.redacted !== true
+          || typeof transformed.proof !== 'string'
+          || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(transformed.proof)) {
+        throw artifactError('ARTIFACT_REDACTION_UNPROVEN');
+      }
+    }
     if (transformed.data.length > policy.maxBytes || totalBytes + transformed.data.length > policy.maxBytes) {
       throw artifactError('ARTIFACT_BYTE_LIMIT');
     }
@@ -177,7 +195,7 @@ export async function createArtifactManager(policyValue, options = {}) {
     },
     async close({ retain = false } = {}) {
       if (closed) return;
-      if (retain) return;
+      if (retain) throw artifactError('ARTIFACT_RETENTION_UNAVAILABLE');
       const current = await lstat(directory).catch(() => null);
       if (current?.isSymbolicLink() || !within(directory, canonicalRoot)) {
         throw artifactError('ARTIFACT_DIRECTORY_UNSAFE');

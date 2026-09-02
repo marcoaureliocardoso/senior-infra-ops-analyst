@@ -7,7 +7,7 @@ import test from 'node:test';
 import { parseOperationEnvelope } from '../../skills/browser-operations/scripts/browser-contract.mjs';
 import {
   activateOperation,
-  clearOutcomeUnknown,
+  reconcileOutcomeUnknown,
   completeBrowserCall,
   invalidateOperation,
   readActiveOperation,
@@ -107,8 +107,8 @@ test('outcome unknown quarantines the operation until independent validation', a
       env, NOW + 2,
     ), true);
     assert.equal(readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 3).outcome, 'OUTCOME_UNKNOWN');
-    assert.equal(clearOutcomeUnknown(
-      envelope.sessionId, envelope.operationId, 'independent-interface-state', env, NOW + 4,
+    assert.equal(reconcileOutcomeUnknown(
+      envelope.sessionId, envelope.operationId, 'independent-interface-state', 'not-applied', env, NOW + 4,
     ), true);
     assert.equal(readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 5).outcome, 'READY');
   });

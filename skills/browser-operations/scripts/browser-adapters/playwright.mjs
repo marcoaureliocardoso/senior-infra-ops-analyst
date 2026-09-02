@@ -63,17 +63,21 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
       try {
         browser = await runtime.chromium.launch({ headless: true });
         context = await browser.newContext({ acceptDownloads: false, storageState: undefined });
-        context.on('page', async (popup) => { await popup.close().catch(() => {}); });
-        page = await context.newPage();
-        await page.route('**/*', async (route) => {
+        await context.route('**/*', async (route) => {
           const requestUrl = route.request().url();
           try {
+            if (!page || route.request().frame().page() !== page) {
+              await route.abort();
+              return;
+            }
             assertAllowedUrl(requestUrl, allowedOrigins);
             await route.continue();
           } catch {
             await route.abort();
           }
         });
+        page = await context.newPage();
+        context.on('page', async (popup) => { await popup.close().catch(() => {}); });
         opened = true;
         return { status: 'ok', observation: 'ephemeral-context-open' };
       } catch {

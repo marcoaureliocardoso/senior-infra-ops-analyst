@@ -69,6 +69,10 @@ test('artifact policy rejects disabled mismatched unsafe or overflowing writes',
       { type: 'trace', sourceClass: 'browser-trace', destinationClass: 'operation-temp', mimeType: 'application/json', data: Buffer.alloc(1025) },
     ];
     for (const value of rejected) await assert.rejects(() => manager.capture(value), /ARTIFACT_/u);
+    await assert.rejects(() => manager.capture({
+      type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
+      mimeType: 'image/png', data: Buffer.from('SYNTH_SECRET_BINARY_CANARY'),
+    }), /ARTIFACT_REDACTOR_REQUIRED/u);
   });
 });
 
@@ -106,8 +110,8 @@ test('item bounds retention expiry success and failure all clean owned artifacts
       root, operationId: 'op-artifact-4', now: 1000,
     });
     await manager.capture({
-      type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
-      mimeType: 'image/png', data: Buffer.from([137, 80, 78, 71]),
+      type: 'trace', sourceClass: 'browser-trace', destinationClass: 'operation-temp',
+      mimeType: 'application/json', data: Buffer.from('{}'),
     });
     await assert.rejects(() => manager.capture({
       type: 'trace', sourceClass: 'browser-trace', destinationClass: 'operation-temp',
@@ -130,5 +134,39 @@ test('item bounds retention expiry success and failure all clean owned artifacts
       else await next.close({ retain: false, outcome });
       await assert.rejects(() => stat(directory));
     }
+  });
+});
+
+
+test('retention fails closed and the default root is outside the repository', async () => {
+  const manager = await createArtifactManager(POLICY, {
+    operationId: 'op-default-root', now: 1000,
+  });
+  try {
+    assert.equal(path.relative(process.cwd(), manager.directory).startsWith('..'), true);
+    await assert.rejects(() => manager.close({ retain: true }), /ARTIFACT_RETENTION_UNAVAILABLE/u);
+    await stat(manager.directory);
+  } finally {
+    await manager.close({ retain: false });
+  }
+  await assert.rejects(() => stat(manager.directory));
+});
+
+
+test('binary evidence requires an injected redactor proof', async () => {
+  await fixture(async (root) => {
+    const manager = await createArtifactManager(POLICY, {
+      root, operationId: 'op-binary-redactor', now: 1000,
+      redactor: async ({ data, mimeType }) => ({
+        data: Buffer.from([137, 80, 78, 71]), redacted: true,
+        proof: mimeType === 'image/png' && data.length > 0 ? 'trusted-image-redactor-v1' : null,
+      }),
+    });
+    const handle = await manager.capture({
+      type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
+      mimeType: 'image/png', data: Buffer.from('SYNTH_SECRET_BINARY_CANARY'),
+    });
+    assert.equal(handle.redacted, true);
+    assert.doesNotMatch(await readFile(manager.materialize(handle.artifactId), 'utf8'), /SYNTH_SECRET/u);
   });
 });

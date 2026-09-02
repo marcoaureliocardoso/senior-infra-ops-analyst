@@ -330,7 +330,7 @@ test('runner reports unavailable detection without attempting a step', async () 
 });
 
 
-test('unknown outcome blocks retry until declared validation and close invalidates', async () => {
+test('unknown outcome requires an independent exact reconciliation before retry', async () => {
   await stateFixture(async (env) => {
     const opening = fakeDependencies(env);
     await executeRunnerStep(parseRunnerArgs(OPEN, NOW), opening.dependencies);
@@ -354,11 +354,56 @@ test('unknown outcome blocks retry until declared validation and close invalidat
     ], NOW + 4);
     assert.equal((await executeRunnerStep(validate, {
       ...opening.dependencies, now: NOW + 4, sessionId: 'session-runner-001',
-    })).reasonCode, 'VALIDATED');
+    })).reasonCode, 'INDEPENDENT_VALIDATOR_UNAVAILABLE');
+    assert.equal((await executeRunnerStep(validate, {
+      ...opening.dependencies, now: NOW + 4, sessionId: 'session-runner-001',
+      postconditionValidator: async () => ({
+        status: 'met', validationRef: 'wrong-reference', outcome: 'not-applied',
+      }),
+    })).reasonCode, 'VALIDATION_FAILED');
+    assert.equal((await executeRunnerStep(validate, {
+      ...opening.dependencies, now: NOW + 4, sessionId: 'session-runner-001',
+      postconditionValidator: async () => ({
+        status: 'met', validationRef: 'interface-state', outcome: 'not-applied',
+      }),
+    })).reasonCode, 'RECONCILED_NOT_APPLIED');
+    assert.equal((await executeRunnerStep(click, {
+      ...opening.dependencies, now: NOW + 4, sessionId: 'session-runner-001',
+    })).reasonCode, 'STEP_COMPLETED');
     const close = parseRunnerArgs(['--operation-id', 'op-runner-001', '--step', 'close'], NOW + 5);
     assert.equal((await executeRunnerStep(close, {
       ...opening.dependencies, now: NOW + 5, sessionId: 'session-runner-001',
     })).reasonCode, 'OPERATION_CLOSED');
     assert.equal(readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 6), null);
+  });
+});
+
+
+test('confirmed applied unknown outcome cannot repeat the mutation', async () => {
+  await stateFixture(async (env) => {
+    const opening = fakeDependencies(env);
+    await executeRunnerStep(parseRunnerArgs(OPEN, NOW), opening.dependencies);
+    activateOperation({ sessionId: 'session-runner-001', operationId: 'op-runner-001', toolUseId: proof().toolUseId }, env, NOW + 1);
+    const click = parseRunnerArgs([
+      '--operation-id', 'op-runner-001', '--step', 'click',
+      '--origin', 'https://router.example.invalid', '--locator-role', 'button',
+      '--effect', 'LOW_RISK_CHANGE',
+    ], NOW + 2);
+    await executeRunnerStep(click, {
+      ...opening.dependencies, now: NOW + 2, sessionId: 'session-runner-001',
+      adapter: { async execute() { throw new Error('ambiguous'); }, async close() {} },
+    });
+    const validate = parseRunnerArgs([
+      '--operation-id', 'op-runner-001', '--step', 'validate', '--expect-ref', 'interface-state',
+    ], NOW + 3);
+    assert.equal((await executeRunnerStep(validate, {
+      ...opening.dependencies, now: NOW + 3, sessionId: 'session-runner-001',
+      postconditionValidator: async () => ({
+        status: 'met', validationRef: 'interface-state', outcome: 'applied',
+      }),
+    })).reasonCode, 'RECONCILED_APPLIED');
+    assert.equal((await executeRunnerStep(click, {
+      ...opening.dependencies, now: NOW + 4, sessionId: 'session-runner-001',
+    })).reasonCode, 'OPERATION_COMPLETE');
   });
 });

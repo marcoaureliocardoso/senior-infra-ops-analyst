@@ -13,6 +13,12 @@ export const ADAPTER_CAPABILITIES = Object.freeze({
 });
 
 
+export const PUPPETEER_CAPABILITIES = Object.freeze({
+  ...ADAPTER_CAPABILITIES,
+  popups: false,
+});
+
+
 export function adapterError(code) {
   const error = new Error(code);
   error.code = code;

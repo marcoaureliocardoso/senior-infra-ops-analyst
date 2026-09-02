@@ -1,5 +1,5 @@
 import {
-  ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl,
+  PUPPETEER_CAPABILITIES, adapterError, assertAllowedUrl,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
 } from './common.mjs';
 
@@ -61,7 +61,7 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
   const adapter = {
     id: options.id ?? 'puppeteer',
     observedVersion: observedVersion(runtime),
-    capabilities: ADAPTER_CAPABILITIES,
+    capabilities: PUPPETEER_CAPABILITIES,
     async open() {
       if (opened) return { status: 'ok', observation: 'adapter-already-open' };
       try {

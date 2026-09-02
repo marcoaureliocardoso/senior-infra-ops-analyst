@@ -17,12 +17,11 @@ function playwrightRuntime() {
   const pageEvents = new Map();
   const contextEvents = new Map();
   const page = {
-    async route(_pattern, handler) { state.route = handler; },
     on(name, handler) { pageEvents.set(name, handler); },
     async goto(url) {
       let outcome = 'continued';
-      await state.route({
-        request: () => ({ url: () => url }),
+      await state.contextRoute({
+        request: () => ({ url: () => url, frame: () => ({ page: () => page }) }),
         abort: async () => { outcome = 'aborted'; },
         continue: async () => {},
       });
@@ -41,6 +40,7 @@ function playwrightRuntime() {
   };
   const context = {
     on(name, handler) { contextEvents.set(name, handler); },
+    async route(_pattern, handler) { state.contextRoute = handler; },
     async newPage() { state.pages.push(page); return page; },
     async close() { state.closed += 1; },
   };
@@ -129,12 +129,24 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
     locatorRole: 'status', locatorName: 'Status',
   })), /untrusted page text/u);
   await assert.rejects(() => adapter.navigate({ origin: 'https://escape.example.invalid:443' }), /ORIGIN_ESCAPE/u);
-  await assert.rejects(() => fake.state.route({
-    request: () => ({ url: () => 'https://escape.example.invalid/a' }),
+  await assert.rejects(() => fake.state.contextRoute({
+    request: () => ({
+      url: () => 'https://escape.example.invalid/a',
+      frame: () => ({ page: () => fake.state.pages[0] }),
+    }),
     abort: async () => { throw new Error('SUBRESOURCE_BLOCKED'); }, continue: async () => {},
   }), /SUBRESOURCE_BLOCKED/u);
+  let popupRequestAborted = 0;
   const popup = { async close() { fake.state.popupClosed += 1; } };
+  await fake.state.contextRoute({
+    request: () => ({
+      url: () => 'https://router.example.invalid/popup',
+      frame: () => ({ page: () => popup }),
+    }),
+    abort: async () => { popupRequestAborted += 1; }, continue: async () => {},
+  });
   await fake.contextEvents.get('page')(popup);
+  assert.equal(popupRequestAborted, 1);
   assert.equal(fake.state.popupClosed, 1);
   await adapter.fill({ locatorRole: 'textbox', locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER' });
   await adapter.close();
@@ -142,12 +154,13 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
 });
 
 
-test('Puppeteer adapter uses request interception and rejects new targets before use', async () => {
+test('Puppeteer adapter does not claim pre-navigation popup containment', async () => {
   const fake = puppeteerRuntime();
   const adapter = await createPuppeteerAdapter(fake.runtime, {
     id: 'puppeteer', allowedOrigins: ['https://router.example.invalid:443'],
   });
   await adapter.open();
+  assert.equal(adapter.capabilities.popups, false);
   assert.equal(fake.state.interception, true);
   let aborted = 0;
   await fake.pageEvents.get('request')({

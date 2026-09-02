@@ -312,18 +312,39 @@ export function failBrowserCall(sessionId, toolUseId, reasonCode, env = process.
 }
 
 
-export function clearOutcomeUnknown(sessionId, operationId, validationRef, env = process.env, now = Date.now()) {
+export function reconcileOutcomeUnknown(
+  sessionId, operationId, validationRef, outcome, env = process.env, now = Date.now(),
+) {
+  const boundedSession = bounded(sessionId, 'INVALID_SESSION');
+  const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
+  const boundedValidation = bounded(validationRef, 'INVALID_VALIDATION');
+  if (!['applied', 'not-applied'].includes(outcome)) throw new Error('INVALID_VALIDATION_OUTCOME');
+  return withLock(boundedSession, env, (target) => {
+    const state = readState(boundedSession, env, now);
+    const operation = state.active.find((entry) => entry.operationId === boundedOperation);
+    if (!operation || operation.outcome !== 'OUTCOME_UNKNOWN'
+        || operation.envelope.validationRef !== boundedValidation) return false;
+    operation.outcome = outcome === 'applied' ? 'APPLIED_CONFIRMED' : 'READY';
+    operation.validationRequired = false;
+    delete operation.outcomeObservation;
+    atomicWrite(target, state);
+    return true;
+  });
+}
+
+
+export function completeIndependentValidation(
+  sessionId, operationId, validationRef, env = process.env, now = Date.now(),
+) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
   const boundedValidation = bounded(validationRef, 'INVALID_VALIDATION');
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const operation = state.active.find((entry) => entry.operationId === boundedOperation);
-    if (!operation || operation.outcome !== 'OUTCOME_UNKNOWN'
+    if (!operation || operation.outcome !== 'READY'
         || operation.envelope.validationRef !== boundedValidation) return false;
-    operation.outcome = 'READY';
     operation.validationRequired = false;
-    delete operation.outcomeObservation;
     atomicWrite(target, state);
     return true;
   });
