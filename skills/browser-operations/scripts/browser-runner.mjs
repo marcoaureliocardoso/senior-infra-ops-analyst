@@ -226,6 +226,7 @@ function parseWorkflow(values, now) {
   const request = {
     step: 'workflow', operationId: opening.operationId, envelope: opening.envelope,
     executionSteps: workflow.executionSteps, validationSteps: workflow.validationSteps,
+    expiresInSeconds: Number(one(values, '--expires-in-seconds')),
   };
   return freeze({ ...request, invocationFingerprint: workflowFingerprint(request) });
 }

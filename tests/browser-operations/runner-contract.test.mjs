@@ -130,6 +130,17 @@ test('workflow parser binds exact envelope actions origins validation and finger
 });
 
 
+test('workflow fingerprint binds the CLI expiry duration without binding parser clock time', () => {
+  const first = parseRunnerArgs(WORKFLOW, NOW);
+  const later = parseRunnerArgs(WORKFLOW, NOW + 45_000);
+  const longer = parseRunnerArgs(replaceFlag(WORKFLOW, '--expires-in-seconds', '601'), NOW);
+  assert.equal(first.envelope.expiresAt, NOW + 600_000);
+  assert.equal(later.envelope.expiresAt, NOW + 645_000);
+  assert.equal(first.invocationFingerprint, later.invocationFingerprint);
+  assert.notEqual(first.invocationFingerprint, longer.invocationFingerprint);
+});
+
+
 test('open accepts an exact enabled artifact policy without file paths', () => {
   const argv = replaceFlag([...OPEN,
     '--action', 'screenshot', '--action', 'trace',

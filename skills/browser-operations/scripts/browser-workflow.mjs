@@ -153,10 +153,13 @@ function parseJson(source) {
 
 
 function decodeToken(token) {
-  if (typeof token !== 'string' || token.length < 1 || token.length > MAX_TOKEN_BYTES) {
-    fail(token?.length > MAX_TOKEN_BYTES ? 'TOKEN_TOO_LARGE' : 'INVALID_TOKEN');
-  }
+  if (typeof token !== 'string' || token.length < 1) fail('INVALID_TOKEN');
   if (!/^[A-Za-z0-9_-]+$/u.test(token)) fail(token.includes('=') ? 'NON_CANONICAL_TOKEN' : 'INVALID_TOKEN');
+  const remainder = token.length % 4;
+  const decodedUpperBound = Math.floor(token.length / 4) * 3
+    + (remainder === 2 ? 1 : remainder === 3 ? 2 : 0);
+  if (decodedUpperBound > MAX_RECORD_BYTES) fail('RECORD_TOO_LARGE');
+  if (token.length > MAX_TOKEN_BYTES) fail('TOKEN_TOO_LARGE');
   let decoded;
   try {
     decoded = Buffer.from(token, 'base64url');
@@ -307,11 +310,14 @@ function canonicalJson(value) {
 
 export function workflowFingerprint(request) {
   if (!request || typeof request !== 'object' || !request.envelope
-      || !Array.isArray(request.executionSteps) || !Array.isArray(request.validationSteps)) {
+      || !Array.isArray(request.executionSteps) || !Array.isArray(request.validationSteps)
+      || !Number.isSafeInteger(request.expiresInSeconds)
+      || request.expiresInSeconds < 1 || request.expiresInSeconds > 86_400) {
     fail('INVALID_FINGERPRINT_REQUEST');
   }
+  const { expiresAt, ...envelope } = request.envelope;
   const canonical = canonicalJson({
-    envelope: request.envelope,
+    envelope: { ...envelope, expiresInSeconds: request.expiresInSeconds },
     executionSteps: request.executionSteps,
     validationSteps: request.validationSteps,
   });

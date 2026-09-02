@@ -55,6 +55,17 @@ test('rejects non-canonical, oversized, malformed, and duplicate-key encoded rec
 });
 
 
+test('rejects an encoded record whose decoded byte count exceeds the record cap', () => {
+  const prefix = JSON.stringify({ step: 'navigate', origin: 'http://127.0.0.1:43111', pad: '' });
+  const record = JSON.stringify({
+    step: 'navigate', origin: 'http://127.0.0.1:43111',
+    pad: 'x'.repeat(1537 - Buffer.byteLength(prefix, 'utf8')),
+  });
+  assert.equal(Buffer.byteLength(record, 'utf8'), 1537);
+  expectsWorkflowError(() => decodeWorkflowStep(Buffer.from(record, 'utf8').toString('base64url')), 'RECORD_TOO_LARGE');
+});
+
+
 test('rejects action escape hatches, secret literals, unsafe origins, and unapproved references', () => {
   const rejected = [
     { value: { step: 'validate', expectRef: 'interface-state' }, code: 'INVALID_EXECUTION_STEP' },
@@ -91,6 +102,7 @@ test('rejects invalid validation actions and requires one final inspect', () => 
 test('fingerprints the exact normalized envelope and ordered step sequences', () => {
   const request = {
     envelope: { operationId: 'op-1', serviceOrigins: ['http://127.0.0.1:43111'] },
+    expiresInSeconds: 600,
     ...parseWorkflowSteps([NAVIGATE, FILL, SUBMIT], [INSPECT]),
   };
   const stable = workflowFingerprint(request);
@@ -101,4 +113,5 @@ test('fingerprints the exact normalized envelope and ordered step sequences', ()
     ...request,
     validationSteps: [{ ...request.validationSteps[0], expectRef: 'other-interface-state' }],
   }), stable);
+  assert.notEqual(workflowFingerprint({ ...request, expiresInSeconds: 601 }), stable);
 });
