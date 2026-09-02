@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import { parseOperationEnvelope } from '../../skills/browser-operations/scripts/browser-contract.mjs';
 import {
+  activatePendingWorkflow,
   activateOperation,
   reconcileOutcomeUnknown,
   completeBrowserCall,
@@ -59,6 +60,52 @@ test('pending operation activates only after exact successful correlation', asyn
     assert.equal(active.active, true);
     assert.equal(active.outcome, 'READY');
     assert.equal(active.envelope.target, 'edge-router-1');
+  });
+});
+
+
+test('workflow activation consumes only the exact approved invocation fingerprint', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    const fingerprint = 'a'.repeat(64);
+    writePendingOperation(envelope, proof({
+      invocationFingerprint: fingerprint,
+      permissionModes: ['bypassPermissions'],
+    }), env, NOW);
+    assert.equal(activatePendingWorkflow({
+      sessionId: envelope.sessionId,
+      operationId: envelope.operationId,
+      invocationFingerprint: fingerprint,
+    }, env, NOW), false);
+    writePendingOperation(envelope, proof({
+      invocationFingerprint: fingerprint,
+      permissionModes: ['normal'],
+    }), env, NOW);
+
+    for (const invocationFingerprint of [
+      'b'.repeat(64),
+      `${fingerprint.slice(0, -1)}b`,
+    ]) {
+      assert.equal(activatePendingWorkflow({
+        sessionId: envelope.sessionId,
+        operationId: envelope.operationId,
+        invocationFingerprint,
+      }, env, NOW + 1), false);
+      assert.equal(readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 1), null);
+    }
+
+    assert.equal(activatePendingWorkflow({
+      sessionId: envelope.sessionId,
+      operationId: envelope.operationId,
+      invocationFingerprint: fingerprint,
+    }, env, NOW + 2), true);
+    const active = readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 3);
+    assert.equal(active.invocationFingerprint, fingerprint);
+    assert.equal(activatePendingWorkflow({
+      sessionId: envelope.sessionId,
+      operationId: envelope.operationId,
+      invocationFingerprint: fingerprint,
+    }, env, NOW + 4), false);
   });
 });
 

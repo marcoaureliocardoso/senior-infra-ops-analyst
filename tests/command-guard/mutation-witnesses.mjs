@@ -494,21 +494,9 @@ const witnesses = {
     argv[1] = `${argv[1]}.copy`;
     assert.equal(await catalogueFixture(context, argv), null);
   },
-  async CATALOGUE_BROWSER_CLOSED_FLAGS(context) {
+  async CATALOGUE_BROWSER_WORKFLOW_DECODE(context) {
     assert.equal(await catalogueFixture(context, [
       ...browserOpenArgv(context), '--password', 'literal-secret',
-    ]), null);
-  },
-  async CATALOGUE_BROWSER_OPERATION_BINDING(context) {
-    assert.equal(await catalogueFixture(context, [
-      'node', browserRunnerPath(context), '--step', 'navigate',
-      '--origin', 'https://router.example.invalid',
-    ]), null);
-  },
-  async CATALOGUE_BROWSER_ORIGIN_NORMALIZATION(context) {
-    assert.equal(await catalogueFixture(context, [
-      'node', browserRunnerPath(context), '--operation-id', 'op-witness',
-      '--step', 'navigate', '--origin', 'ftp://router.example.invalid',
     ]), null);
   },
   async CATALOGUE_BROWSER_EFFECT_CLASSIFICATION(context) {
@@ -521,11 +509,6 @@ const witnesses = {
     const argv = browserOpenArgv(context);
     const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
     assert.equal((await policyFixture(context, command)).decision, 'ask');
-  },
-  async CATALOGUE_BROWSER_ROLE_BOUNDARY(context) {
-    const argv = browserOpenArgv(context);
-    argv[argv.indexOf('--role') + 1] = 'change-manager';
-    assert.equal(await catalogueFixture(context, argv), null);
   },
 };
 

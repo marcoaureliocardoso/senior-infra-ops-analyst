@@ -20,7 +20,12 @@ import {
 } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
 import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
 import { validEvent } from './helpers.mjs';
-import { readActiveOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
+import {
+  activatePendingWorkflow,
+  readActiveOperation,
+  readPendingOperation,
+} from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
+import { parseRunnerArgs } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 
 const NOW = 1_800_000_000_000;
 const binding = Object.freeze({
@@ -33,6 +38,21 @@ const binding = Object.freeze({
   targetClass: 'HTTP',
 });
 const browserRunner = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
+const WORKFLOW = [
+  '--step', 'workflow', '--operation-id', 'op-workflow-approval',
+  '--session-id', 'session-workflow-approval', '--role', 'network-edge-operator',
+  '--objective-ref', 'change-42', '--target', 'edge-router-1',
+  '--environment', 'production', '--service-origin', 'http://127.0.0.1:43111',
+  '--identity-ref', 'vault:network-admin', '--credential-transport', 'vault',
+  '--permission-mode', 'normal', '--action', 'navigate', '--action', 'submit',
+  '--action', 'inspect', '--effect', 'LOW_RISK_CHANGE', '--risk', 'LOW_RISK_CHANGE',
+  '--precondition-ref', 'reachable', '--validation-ref', 'interface-state',
+  '--compensation-ref', 'restore-interface', '--expires-in-seconds', '600',
+  '--workflow-step', 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
+  '--workflow-step', 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6ImJ1dHRvbiIsImVmZmVjdCI6IkxPV19SSVNLX0NIQU5HRSJ9',
+  '--validation-step', 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsInByZWRpY2F0ZSI6InByZXNlbnQiLCJleHBlY3RlZFJlZiI6ImVudjpPUFNfQlJPV1NFUl9WQUxVRV9FWFBFQ1RFRCIsImV4cGVjdFJlZiI6ImludGVyZmFjZS1zdGF0ZSJ9',
+];
+const workflowCommand = (args = WORKFLOW) => `node ${JSON.stringify(browserRunner)} ${args.join(' ')}`;
 const browserOpenCommand = (overrides = '') => [
   'node', JSON.stringify(browserRunner), '--step open --operation-id op-post-coverage',
   '--session-id session-post-coverage --role network-edge-operator',
@@ -51,6 +71,12 @@ async function withState(run) {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+function replaceFlag(argv, flag, value) {
+  const copy = [...argv];
+  copy[copy.indexOf(flag) + 1] = value;
+  return copy;
 }
 
 test('pending binding activates only after a matching successful post event', async () => {
@@ -305,6 +331,98 @@ test('browser PreToolUse staging covers every non-activation branch', async () =
     assert.equal(stageBrowserOpenApproval({
       ...result, browserArgs: ['--operation-id', 'op-post-coverage', '--step', 'close'],
     }, event, env, NOW), false);
+  });
+});
+
+
+test('PreToolUse stages one-shot workflows and exact activation rejects every manifest mutation', async () => {
+  await withState(async (baseEnv) => {
+    const env = {
+      ...baseEnv,
+      OPS_BROWSER_STATE_DIR: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser'),
+      OPS_COMMAND_GUARD_AUDIT_PATH: path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'audit.jsonl'),
+    };
+    const now = Date.now();
+    const pre = validEvent({
+      session_id: 'session-workflow-approval', tool_use_id: 'tool-workflow-approval',
+      permission_mode: 'normal', tool_input: { command: workflowCommand() },
+    });
+    assert.equal(evaluateHook(JSON.stringify(pre), env).hookSpecificOutput.permissionDecision, 'ask');
+    const approved = parseRunnerArgs(WORKFLOW, now);
+    const pending = readPendingOperation(pre.session_id, approved.operationId, env, now);
+    assert.equal(pending.invocationFingerprint, approved.invocationFingerprint);
+    assert.deepEqual(pending.permissionModes, ['normal']);
+
+    const bypassArgs = replaceFlag(
+      replaceFlag(WORKFLOW, '--operation-id', 'op-workflow-bypass'),
+      '--permission-mode', 'bypassPermissions',
+    );
+    const bypass = validEvent({
+      session_id: 'session-workflow-approval', tool_use_id: 'tool-workflow-bypass',
+      permission_mode: 'bypassPermissions', tool_input: { command: workflowCommand(bypassArgs) },
+    });
+    assert.equal(evaluateHook(JSON.stringify(bypass), env).hookSpecificOutput.permissionDecision, 'ask');
+    assert.deepEqual(readPendingOperation(
+      bypass.session_id, 'op-workflow-bypass', env, now,
+    ).permissionModes, ['bypassPermissions']);
+
+    const firstWorkflowStep = WORKFLOW.indexOf('--workflow-step');
+    const secondWorkflowStep = WORKFLOW.indexOf('--workflow-step', firstWorkflowStep + 1);
+    const reordered = [
+      ...WORKFLOW.slice(0, firstWorkflowStep),
+      ...WORKFLOW.slice(secondWorkflowStep, secondWorkflowStep + 2),
+      ...WORKFLOW.slice(firstWorkflowStep, secondWorkflowStep),
+      ...WORKFLOW.slice(secondWorkflowStep + 2),
+    ];
+    const changedStep = [...WORKFLOW];
+    changedStep[secondWorkflowStep + 1] = 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwiZWZmZWN0IjoiRElTUlVQVElWRV9DSEFOR0UifQ';
+    const altered = [
+      changedStep,
+      reordered,
+      [...WORKFLOW.slice(0, firstWorkflowStep), ...WORKFLOW.slice(firstWorkflowStep + 2)],
+      [...WORKFLOW, '--workflow-step', 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0'],
+    ];
+    for (const args of altered) {
+      const changed = parseRunnerArgs(args, now);
+      assert.notEqual(changed.invocationFingerprint, approved.invocationFingerprint);
+      assert.equal(activatePendingWorkflow({
+        sessionId: pre.session_id,
+        operationId: approved.operationId,
+        invocationFingerprint: changed.invocationFingerprint,
+      }, env, now), false);
+      assert.equal(readActiveOperation(pre.session_id, approved.operationId, env, now), null);
+    }
+
+    assert.equal(activatePendingWorkflow({
+      sessionId: pre.session_id,
+      operationId: approved.operationId,
+      invocationFingerprint: approved.invocationFingerprint,
+    }, env, now), true);
+    assert.equal(evaluateApprovalHook(JSON.stringify({
+      session_id: pre.session_id, tool_use_id: pre.tool_use_id,
+      hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: workflowCommand() },
+    }), env, now), false);
+  });
+});
+
+
+test('direct workflow CLI execution without staged native approval exits before adapter use', async () => {
+  await withState(async (baseEnv) => {
+    const browserState = path.join(baseEnv.OPS_COMMAND_GUARD_STATE_DIR, 'browser');
+    const result = spawnSync(process.execPath, [browserRunner, ...WORKFLOW], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...baseEnv,
+        OPS_BROWSER_STATE_DIR: browserState,
+        OPS_BROWSER_SESSION_ID: 'session-workflow-approval',
+      },
+    });
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /OPERATION_NOT_ACTIVE/u);
+    assert.equal(readActiveOperation('session-workflow-approval', 'op-workflow-approval', {
+      OPS_BROWSER_STATE_DIR: browserState,
+    }), null);
   });
 });
 

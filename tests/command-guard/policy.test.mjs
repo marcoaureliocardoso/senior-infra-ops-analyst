@@ -15,6 +15,18 @@ function analyze(command, permissionMode = 'default') {
 
 const BROWSER_RUNNER = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
 const browserCommand = (args) => `node ${JSON.stringify(BROWSER_RUNNER)} ${args.join(' ')}`;
+const workflowCommand = () => browserCommand([
+  '--step workflow --operation-id op-workflow-123 --session-id session-workflow-123',
+  '--role network-edge-operator --objective-ref change-42 --target edge-router-1',
+  '--environment production --service-origin http://127.0.0.1:43111',
+  '--identity-ref vault:network-admin --credential-transport vault --permission-mode normal',
+  '--action navigate --action submit --action inspect --effect LOW_RISK_CHANGE',
+  '--risk LOW_RISK_CHANGE --precondition-ref reachable --validation-ref interface-state',
+  '--compensation-ref restore-interface --expires-in-seconds 600',
+  '--workflow-step eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
+  '--workflow-step eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwiZWZmZWN0IjoiTE9XX1JJU0tfQ0hBTkdFIn0',
+  '--validation-step eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsInByZWRpY2F0ZSI6InByZXNlbnQiLCJleHBlY3RlZFJlZiI6ImVudjpPUFNfQlJPV1NFUl9WQUxVRV9FWFBFQ1RFRCIsImV4cGVjdFJlZiI6ImludGVyZmFjZS1zdGF0ZSJ9',
+]);
 
 
 test('protected browser runner is an exact always-confirmed command family', () => {
@@ -40,6 +52,16 @@ test('protected browser runner is an exact always-confirmed command family', () 
   assert.equal(inspect.policyId, 'BROWSER_PROTECTED_RUNNER');
   assert.equal(inspect.risk, 'SAFE_READ_ONLY');
   assert.equal(inspect.decision, 'ask');
+});
+
+
+test('one-shot browser workflows always ask even in bypassPermissions', () => {
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze(workflowCommand(), mode);
+    assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.reasonCode, 'ASK_SENSITIVE_OPERATION');
+  }
 });
 
 

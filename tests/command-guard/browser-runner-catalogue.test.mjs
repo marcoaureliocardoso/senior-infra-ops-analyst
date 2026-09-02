@@ -19,6 +19,13 @@ const OPEN = [
   '--validation-ref', 'interface-state', '--compensation-ref', 'restore-interface',
   '--expires-in-seconds', '600',
 ];
+const WORKFLOW = [
+  ...changed(changed(OPEN, '--step', 'workflow'), '--service-origin', 'http://127.0.0.1:43111'),
+  '--action', 'navigate', '--action', 'submit',
+  '--workflow-step', 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
+  '--workflow-step', 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwiZWZmZWN0IjoiRElTUlVQVElWRV9DSEFOR0UifQ',
+  '--validation-step', 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsInByZWRpY2F0ZSI6InByZXNlbnQiLCJleHBlY3RlZFJlZiI6ImVudjpPUFNfQlJPV1NFUl9WQUxVRV9FWFBFQ1RFRCIsImV4cGVjdFJlZiI6ImludGVyZmFjZS1zdGF0ZSJ9',
+];
 
 
 function changed(args, flag, value) {
@@ -100,6 +107,19 @@ test('browser runner catalogue classifies every effect risk and semantic step', 
     assert.equal(result.risk, expectedRisk, step);
     assert.ok(result.modifiers.includes('ALWAYS_ASK'), step);
   }
+});
+
+
+test('browser runner catalogue decodes a workflow and takes its highest declared step effect', () => {
+  const result = lookup(WORKFLOW);
+  assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
+  assert.equal(result.risk, 'DISRUPTIVE_CHANGE');
+  assert.ok(result.modifiers.includes('ALWAYS_ASK'));
+  for (const args of [
+    removedAll(WORKFLOW, '--workflow-step'),
+    removedAll(WORKFLOW, '--validation-step'),
+    [...WORKFLOW, '--unknown', 'x'],
+  ]) assert.equal(lookup(args), null);
 });
 
 

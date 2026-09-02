@@ -415,19 +415,9 @@ export const MUTATIONS = Object.freeze([
     replacement: '      || false) return null;',
   },
   {
-    id: 'CATALOGUE_BROWSER_CLOSED_FLAGS', file: 'command-guard/catalogue.mjs',
-    search: '    if ([...values.keys()].some((flag) => !BROWSER_OPEN_FLAGS.has(flag))) return null;',
-    replacement: '    if (false) return null;',
-  },
-  {
-    id: 'CATALOGUE_BROWSER_OPERATION_BINDING', file: 'command-guard/catalogue.mjs',
-    search: '  if (!browserBounded(operationId)) return null;',
-    replacement: '  if (false) return null;',
-  },
-  {
-    id: 'CATALOGUE_BROWSER_ORIGIN_NORMALIZATION', file: 'command-guard/catalogue.mjs',
-    search: "  if (values.has('--origin') && selectedOrigin === null) return null;",
-    replacement: '  if (false) return null;',
+    id: 'CATALOGUE_BROWSER_WORKFLOW_DECODE', file: 'command-guard/catalogue.mjs',
+    search: '    request = parseRunnerArgs(words.slice(2));',
+    replacement: '    request = parseRunnerArgs(words.slice(2).slice(0, -2));',
   },
   {
     id: 'CATALOGUE_BROWSER_EFFECT_CLASSIFICATION', file: 'command-guard/catalogue.mjs',
@@ -436,12 +426,7 @@ export const MUTATIONS = Object.freeze([
   },
   {
     id: 'CATALOGUE_BROWSER_ALWAYS_ASK', file: 'command-guard/catalogue.mjs',
-    search: "      modifiers: ['ALWAYS_ASK'], browserArgs: words.slice(2),",
-    replacement: '      modifiers: [], browserArgs: words.slice(2),',
-  },
-  {
-    id: 'CATALOGUE_BROWSER_ROLE_BOUNDARY', file: 'command-guard/catalogue.mjs',
-    search: '    if (!BROWSER_EXECUTOR_ROLES.has(role) && !auditReadOnly) return null;',
-    replacement: '    if (false) return null;',
+    search: "  return ['ALWAYS_ASK', ...new Set(steps.flatMap(browserStepModifiers))];",
+    replacement: '  return [...new Set(steps.flatMap(browserStepModifiers))];',
   },
 ]);

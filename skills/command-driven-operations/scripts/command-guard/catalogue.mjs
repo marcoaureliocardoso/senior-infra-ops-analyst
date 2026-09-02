@@ -2,6 +2,7 @@ import { lexBash } from './bash-lexer.mjs';
 import { buildComposition } from './composition.mjs';
 import { LIMITS } from './limits.mjs';
 import { resolveOutputPath } from './output-path.mjs';
+import { parseRunnerArgs } from '../../../browser-operations/scripts/browser-runner.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1596,172 +1597,72 @@ const BROWSER_RUNNER_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../browser-operations/scripts/browser-runner.mjs',
 );
-const BROWSER_REPEATABLE = new Set([
-  '--service-origin', '--auth-origin', '--action', '--modifier', '--artifact-type',
-  '--artifact-source-class', '--artifact-destination-class',
-]);
-const BROWSER_OPEN_FLAGS = new Set([
-  '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
-  '--environment', '--service-origin', '--auth-origin', '--identity-ref',
-  '--credential-transport', '--permission-mode', '--action', '--effect', '--risk',
-  '--modifier', '--precondition-ref', '--validation-ref', '--compensation-ref',
-  '--expires-in-seconds',
-  '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
-  '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
-  '--artifact-redaction', '--artifact-retention-seconds',
-]);
-const BROWSER_STEP_FLAGS = new Set([
-  '--operation-id', '--step', '--origin', '--locator-role', '--locator-name',
-  '--value-ref', '--expect-ref', '--effect', '--artifact-ref',
-]);
 const BROWSER_EFFECT_RISK = new Map([
   ['PUBLIC_READ', 'SAFE_READ_ONLY'], ['SENSITIVE_READ', 'SAFE_READ_ONLY'],
   ['INTERACTIVE_STATE', 'LOW_RISK_CHANGE'], ['LOW_RISK_CHANGE', 'LOW_RISK_CHANGE'],
   ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'DESTRUCTIVE'],
   ['SENSITIVE_ARTIFACT', 'LOW_RISK_CHANGE'],
 ]);
-const BROWSER_EXECUTOR_ROLES = new Set([
-  'main', 'cloud-platform-operator', 'database-operator', 'diagnostic-operator',
-  'kubernetes-operator', 'network-edge-operator', 'observability-sre',
-  'release-cicd-operator',
-]);
-const BROWSER_AUDIT_ACTIONS = new Set(['inspect', 'validate', 'close']);
+function workflowStepEffect(step) {
+  if (step.step === 'inspect') return 'SENSITIVE_READ';
+  if (['navigate', 'fill', 'select'].includes(step.step)) return 'INTERACTIVE_STATE';
+  if (['click', 'submit'].includes(step.step)) return step.effect;
+  return 'SENSITIVE_ARTIFACT';
+}
 
-function browserOrigin(value) {
-  if (typeof value !== 'string' || value.length > 2048 || value.includes('*') || /[^\x20-\x7e]/u.test(value)) return null;
-  try {
-    const parsed = new URL(value);
-    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password
-        || !parsed.hostname || parsed.hostname.split('.').some((label) => label.startsWith('xn--'))) return null;
-    return `${parsed.protocol}//${parsed.hostname.toLowerCase()}:${parsed.port || (parsed.protocol === 'https:' ? '443' : '80')}`;
-  } catch {
-    return null;
+function parsedRunnerEffects(request) {
+  if (request.step === 'workflow') {
+    return [
+      request.envelope.expectedEffect,
+      ...request.executionSteps.map(workflowStepEffect),
+      ...request.validationSteps.map(workflowStepEffect),
+    ];
   }
+  if (request.step === 'open') return [request.envelope.expectedEffect];
+  if (['inspect', 'validate'].includes(request.step)) return ['SENSITIVE_READ'];
+  if (['navigate', 'fill', 'select', 'close'].includes(request.step)) return ['INTERACTIVE_STATE'];
+  if (['click', 'submit'].includes(request.step)) return [request.effect];
+  return ['SENSITIVE_ARTIFACT'];
 }
 
-function browserFlags(words) {
-  const values = new Map();
-  if ((words.length - 2) % 2 !== 0 || words.length < 6 || words.length > 98) return null;
-  for (let index = 2; index < words.length; index += 2) {
-    const flag = words[index];
-    const value = words[index + 1];
-    if (typeof flag !== 'string' || !flag.startsWith('--') || !literalOperand(value)
-        || value.length > 2048 || (!BROWSER_REPEATABLE.has(flag) && values.has(flag))) return null;
-    const entries = values.get(flag) ?? [];
-    entries.push(value);
-    values.set(flag, entries);
-  }
-  return values;
+function highestBrowserRisk(request) {
+  const ranks = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
+  const risks = [request.envelope?.risk, ...parsedRunnerEffects(request)]
+    .map((value) => BROWSER_EFFECT_RISK.get(value) ?? value)
+    .filter((risk) => Object.hasOwn(ranks, risk));
+  if (risks.length === 0) return null;
+  return risks.reduce((highest, risk) => ranks[risk] > ranks[highest] ? risk : highest);
 }
 
-function browserOne(values, flag) {
-  const entries = values.get(flag) ?? [];
-  return entries.length === 1 ? entries[0] : null;
+function browserStepModifiers(step) {
+  const modifiers = [];
+  if (['inspect', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('SENSITIVE_OUTPUT');
+  if (['upload', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('FILE_WRITE');
+  return modifiers;
 }
 
-function browserBounded(value, pattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u) {
-  return typeof value === 'string' && pattern.test(value);
+function browserModifiers(request) {
+  const steps = request.step === 'workflow'
+    ? [...request.executionSteps, ...request.validationSteps].map(({ step }) => step)
+    : [request.step];
+  return ['ALWAYS_ASK', ...new Set(steps.flatMap(browserStepModifiers))];
 }
 
 function parseBrowserRunner(words) {
   if (words[0] !== 'node' || !path.isAbsolute(words[1])
       || path.normalize(words[1]) !== BROWSER_RUNNER_PATH) return null;
-  const values = browserFlags(words);
-  if (!values) return null;
-  const step = browserOne(values, '--step');
-  const operationId = browserOne(values, '--operation-id');
-  if (!browserBounded(operationId)) return null;
-
-  if (step === 'open') {
-    if ([...values.keys()].some((flag) => !BROWSER_OPEN_FLAGS.has(flag))) return null;
-    const required = [
-      '--session-id', '--role', '--objective-ref', '--target', '--environment',
-      '--identity-ref', '--credential-transport', '--permission-mode', '--effect', '--risk',
-      '--precondition-ref', '--validation-ref', '--compensation-ref', '--expires-in-seconds',
-    ];
-    if (required.some((flag) => !browserBounded(browserOne(values, flag)))) return null;
-    if ((values.get('--service-origin') ?? []).length < 1
-        || (values.get('--action') ?? []).length < 1
-        || [...(values.get('--service-origin') ?? []), ...(values.get('--auth-origin') ?? [])]
-          .some((value) => browserOrigin(value) === null)
-        || (values.get('--action') ?? []).some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
-        || (values.get('--modifier') ?? []).some((value) => !/^[A-Z][A-Z_]{0,63}$/u.test(value))) return null;
-    const seconds = browserOne(values, '--expires-in-seconds');
-    if (!/^[1-9][0-9]{0,4}$/u.test(seconds) || Number(seconds) > 86_400) return null;
-    const effect = browserOne(values, '--effect');
-    const effectRisk = BROWSER_EFFECT_RISK.get(effect);
-    const artifactFlags = [
-      '--artifact-type', '--artifact-purpose-ref', '--artifact-source-class',
-      '--artifact-destination-class', '--artifact-max-items', '--artifact-max-bytes',
-      '--artifact-redaction', '--artifact-retention-seconds',
-    ];
-    const artifactsEnabled = artifactFlags.some((flag) => values.has(flag));
-    if (artifactsEnabled) {
-      const artifactTypes = values.get('--artifact-type') ?? [];
-      const artifactSources = values.get('--artifact-source-class') ?? [];
-      const artifactDestinations = values.get('--artifact-destination-class') ?? [];
-      const artifactNumber = (flag, maximum) => {
-        const value = browserOne(values, flag);
-        return /^[1-9][0-9]{0,7}$/u.test(value) && Number(value) <= maximum;
-      };
-      if (artifactFlags.some((flag) => !values.has(flag))
-          || effect !== 'SENSITIVE_ARTIFACT'
-          || artifactTypes.some((type) => !['upload', 'download', 'screenshot', 'trace'].includes(type))
-          || artifactTypes.some((type) => !values.get('--action').includes(type))
-          || artifactSources.some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
-          || artifactDestinations.some((value) => !browserBounded(value, /^[a-z0-9][a-z0-9-]{0,95}$/u))
-          || !browserBounded(browserOne(values, '--artifact-purpose-ref'))
-          || !artifactNumber('--artifact-max-items', 16)
-          || !artifactNumber('--artifact-max-bytes', 50_000_000)
-          || !['required', 'structured'].includes(browserOne(values, '--artifact-redaction'))
-          || !artifactNumber('--artifact-retention-seconds', 3600)) return null;
-    }
-    const declaredRisk = new Map([
-      ['safe', 'SAFE_READ_ONLY'], ['low', 'LOW_RISK_CHANGE'],
-      ['medium', 'DISRUPTIVE_CHANGE'], ['high', 'DESTRUCTIVE'],
-    ]).get(browserOne(values, '--risk')) ?? browserOne(values, '--risk');
-    if (!effectRisk || !['SAFE_READ_ONLY', 'LOW_RISK_CHANGE', 'DISRUPTIVE_CHANGE', 'DESTRUCTIVE'].includes(declaredRisk)) return null;
-    const role = browserOne(values, '--role');
-    const auditReadOnly = role === 'audit-evidence-collector'
-      && ['PUBLIC_READ', 'SENSITIVE_READ'].includes(effect)
-      && (values.get('--action') ?? []).every((action) => BROWSER_AUDIT_ACTIONS.has(action));
-    if (!BROWSER_EXECUTOR_ROLES.has(role) && !auditReadOnly) return null;
-    const ranks = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
-    const risk = ranks[declaredRisk] > ranks[effectRisk] ? declaredRisk : effectRisk;
-    return {
-      risk, target: operationId,
-      environment: browserOrigin(values.get('--service-origin')[0]),
-      modifiers: ['ALWAYS_ASK'], browserArgs: words.slice(2),
-    };
+  let request;
+  try {
+    request = parseRunnerArgs(words.slice(2));
+  } catch {
+    return null;
   }
-
-  if ([...values.keys()].some((flag) => !BROWSER_STEP_FLAGS.has(flag))) return null;
-  const schemas = {
-    inspect: ['--origin', '--locator-role', '--expect-ref'], navigate: ['--origin'],
-    fill: ['--origin', '--locator-role', '--value-ref'], select: ['--origin', '--locator-role', '--value-ref'],
-    click: ['--origin', '--locator-role', '--effect'], submit: ['--origin', '--locator-role', '--effect'],
-    upload: ['--origin', '--artifact-ref'], download: ['--origin', '--artifact-ref'],
-    screenshot: ['--origin', '--artifact-ref'], trace: ['--origin', '--artifact-ref'],
-    validate: ['--expect-ref'], close: [],
-  };
-  const required = schemas[step];
-  if (!required || required.some((flag) => !browserBounded(browserOne(values, flag)))) return null;
-  const optional = new Set(['--operation-id', '--step', ...required]);
-  if (['inspect', 'fill', 'select', 'click', 'submit'].includes(step)) optional.add('--locator-name');
-  if ([...values.keys()].some((flag) => !optional.has(flag))) return null;
-  const selectedOrigin = values.has('--origin') ? browserOrigin(browserOne(values, '--origin')) : null;
-  if (values.has('--origin') && selectedOrigin === null) return null;
-  const effect = ['inspect', 'validate'].includes(step) ? 'SENSITIVE_READ'
-    : ['navigate', 'fill', 'select', 'close'].includes(step) ? 'INTERACTIVE_STATE'
-      : ['click', 'submit'].includes(step) ? browserOne(values, '--effect') : 'SENSITIVE_ARTIFACT';
-  const risk = BROWSER_EFFECT_RISK.get(effect);
+  const environment = request.envelope?.serviceOrigins?.[0] ?? request.origin ?? null;
+  const risk = highestBrowserRisk(request);
   if (!risk) return null;
-  const modifiers = ['ALWAYS_ASK'];
-  if (['inspect', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('SENSITIVE_OUTPUT');
-  if (['upload', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('FILE_WRITE');
   return {
-    risk, target: operationId, environment: selectedOrigin,
-    modifiers, browserArgs: words.slice(2),
+    risk, target: request.operationId,
+    environment, modifiers: browserModifiers(request), browserArgs: words.slice(2),
   };
 }
 

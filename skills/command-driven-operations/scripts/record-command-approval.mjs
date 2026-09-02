@@ -54,16 +54,19 @@ function protectedRunnerCapability() {
 
 export function stageBrowserOpenApproval(result, event, env = process.env, now = Date.now()) {
   if (result?.policyId !== 'BROWSER_PROTECTED_RUNNER'
-      || !Array.isArray(result.browserArgs) || result.decision === 'deny'
+      || !Array.isArray(result.browserArgs) || result.decision !== 'ask'
       || typeof event?.toolUseId !== 'string') return false;
   const request = parseRunnerArgs(result.browserArgs, now);
-  if (request.step !== 'open' || request.envelope.sessionId !== event.sessionId
+  if (!['open', 'workflow'].includes(request.step) || request.envelope.sessionId !== event.sessionId
       || request.envelope.permissionModeAtApproval !== event.permissionMode) return false;
   const capability = protectedRunnerCapability();
   return writePendingOperation(request.envelope, {
     toolUseId: event.toolUseId, adapterId: capability.adapterId,
     routeClass: capability.routeClass, settingsFingerprint: capability.settingsFingerprint,
-    permissionModes: [...new Set([event.permissionMode, 'bypassPermissions'])], capability,
+    permissionModes: request.step === 'workflow'
+      ? [event.permissionMode] : [...new Set([event.permissionMode, 'bypassPermissions'])],
+    invocationFingerprint: request.step === 'workflow' ? request.invocationFingerprint : null,
+    capability,
   }, env, now);
 }
 

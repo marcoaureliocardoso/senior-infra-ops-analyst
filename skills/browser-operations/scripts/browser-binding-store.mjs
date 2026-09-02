@@ -15,6 +15,7 @@ const MAX_STATE_BYTES = 128 * 1024;
 const LOCK_ATTEMPTS = 400;
 const LOCK_WAIT_MS = 5;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u;
+const INVOCATION_FINGERPRINT = /^[a-f0-9]{64}$/u;
 
 
 function bounded(value, code) {
@@ -146,12 +147,18 @@ function normalizedProof(proof) {
   if (!proof.capability || typeof proof.capability !== 'object' || Array.isArray(proof.capability)) {
     throw new Error('INVALID_BROWSER_PROOF');
   }
+  const invocationFingerprint = proof.invocationFingerprint ?? null;
+  if (invocationFingerprint !== null
+      && (typeof invocationFingerprint !== 'string' || !INVOCATION_FINGERPRINT.test(invocationFingerprint))) {
+    throw new Error('INVALID_BROWSER_PROOF');
+  }
   return {
     toolUseId: bounded(proof.toolUseId, 'INVALID_BROWSER_PROOF'),
     adapterId: bounded(proof.adapterId, 'INVALID_BROWSER_PROOF'),
     routeClass: bounded(proof.routeClass, 'INVALID_BROWSER_PROOF'),
     settingsFingerprint: bounded(proof.settingsFingerprint, 'INVALID_BROWSER_PROOF'),
     permissionModes,
+    invocationFingerprint,
     capability: clone(proof.capability),
   };
 }
@@ -187,6 +194,35 @@ export function activateOperation(correlation, env = process.env, now = Date.now
     const state = readState(sessionId, env, now);
     const index = state.pending.findIndex((entry) =>
       entry.operationId === operationId && entry.toolUseId === toolUseId);
+    if (index < 0) return false;
+    const [pending] = state.pending.splice(index, 1);
+    state.active = state.active.filter((entry) => entry.operationId !== operationId);
+    pushBounded(state.active, {
+      ...pending,
+      active: true,
+      outcome: 'READY',
+      validationRequired: false,
+    });
+    atomicWrite(target, state);
+    return true;
+  });
+}
+
+
+export function activatePendingWorkflow(correlation, env = process.env, now = Date.now()) {
+  const sessionId = bounded(correlation?.sessionId, 'INVALID_BROWSER_CORRELATION');
+  const operationId = bounded(correlation?.operationId, 'INVALID_BROWSER_CORRELATION');
+  const invocationFingerprint = correlation?.invocationFingerprint;
+  if (typeof invocationFingerprint !== 'string' || !INVOCATION_FINGERPRINT.test(invocationFingerprint)) {
+    throw new Error('INVALID_BROWSER_CORRELATION');
+  }
+  return withLock(sessionId, env, (target) => {
+    const state = readState(sessionId, env, now);
+    const index = state.pending.findIndex((entry) =>
+      entry.operationId === operationId
+      && entry.invocationFingerprint === invocationFingerprint
+      && entry.permissionModes.length === 1
+      && entry.permissionModes[0] === entry.envelope.permissionModeAtApproval);
     if (index < 0) return false;
     const [pending] = state.pending.splice(index, 1);
     state.active = state.active.filter((entry) => entry.operationId !== operationId);
