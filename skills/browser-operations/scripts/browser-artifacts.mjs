@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile,
+  chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, rmdir, writeFile,
 } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -86,7 +86,10 @@ export async function createArtifactManager(policyValue, options = {}) {
   if (!Number.isSafeInteger(now) || now < 0 || typeof options.operationId !== 'string') {
     throw artifactError('ARTIFACT_OPTIONS_INVALID');
   }
-  const root = path.resolve(options.root ?? os.tmpdir());
+  const ownsRoot = options.root === undefined;
+  const root = ownsRoot
+    ? await mkdtemp(path.join(os.tmpdir(), 'p004b-artifact-root-'))
+    : path.resolve(options.root);
   const binaryRedactor = options.redactor ?? null;
   if (binaryRedactor !== null && typeof binaryRedactor !== 'function') {
     throw artifactError('ARTIFACT_OPTIONS_INVALID');
@@ -203,6 +206,7 @@ export async function createArtifactManager(policyValue, options = {}) {
       closed = true;
       handles.clear();
       await rm(directory, { recursive: true, force: true });
+      if (ownsRoot) await rmdir(canonicalRoot);
     },
   };
   return Object.freeze(manager);

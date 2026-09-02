@@ -89,6 +89,10 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
       }
     },
     async inspect(request) {
+      if (request.origin) {
+        const destination = assertAllowedUrl(request.origin, allowedOrigins);
+        await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
+      }
       await locator(request).textContent();
       return { status: 'ok', observation: 'element-present' };
     },

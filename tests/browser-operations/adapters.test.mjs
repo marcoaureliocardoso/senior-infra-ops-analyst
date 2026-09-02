@@ -124,10 +124,10 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
   await adapter.open();
   assert.deepEqual(fake.state.launches, [{ headless: true }]);
   assert.deepEqual(fake.state.contexts, [{ acceptDownloads: false, storageState: undefined }]);
-  await adapter.navigate({ origin: 'https://router.example.invalid:443' });
   assert.doesNotMatch(JSON.stringify(await adapter.inspect({
-    locatorRole: 'status', locatorName: 'Status',
+    origin: 'https://router.example.invalid:443', locatorRole: 'status', locatorName: 'Status',
   })), /untrusted page text/u);
+  assert.equal(fake.state.goto, 'https://router.example.invalid:443');
   await assert.rejects(() => adapter.navigate({ origin: 'https://escape.example.invalid:443' }), /ORIGIN_ESCAPE/u);
   await assert.rejects(() => fake.state.contextRoute({
     request: () => ({

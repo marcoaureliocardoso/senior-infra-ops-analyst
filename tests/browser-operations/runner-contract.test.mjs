@@ -61,6 +61,8 @@ function proof() {
     capability: capabilityFixture({
       adapterId: 'protected-runner', routeClass: 'PROTECTED_RUNNER',
       settingsFingerprint: 'browser-runner-v1', descriptorId: 'protected-runner-v1',
+      effects: ['PUBLIC_READ', 'SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE',
+        'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE', 'SENSITIVE_ARTIFACT'],
     }),
   };
 }
@@ -232,7 +234,16 @@ test('native PostToolUse activates only a matching operation staged by PreToolUs
     assert.equal(decision.hookSpecificOutput.permissionDecision, 'ask');
     assert.equal((await executeRunnerStep(request, { env, now: NOW + 2 })).status, 'pending');
     assert.equal(evaluateApprovalHook(JSON.stringify(post), env, NOW + 3), true);
-    assert.equal(readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 3).outcome, 'READY');
+    const active = readActiveOperation('session-runner-001', 'op-runner-001', env, NOW + 3);
+    assert.equal(active.outcome, 'READY');
+    assert.deepEqual(active.capability.effects, ['PUBLIC_READ', 'SENSITIVE_READ']);
+    const click = parseRunnerArgs([
+      '--operation-id', 'op-runner-001', '--step', 'click',
+      '--origin', 'https://router.example.invalid', '--locator-role', 'button',
+      '--effect', 'LOW_RISK_CHANGE',
+    ], NOW + 4);
+    assert.equal(authorizeRunnerStep(click, active.envelope, active.capability, NOW + 4).reasonCode,
+      'CAPABILITY_EFFECT_UNAVAILABLE');
   });
 });
 

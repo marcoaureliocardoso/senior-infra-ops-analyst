@@ -71,7 +71,7 @@ aggregate_results() {
 
 self_test() {
   python3 "$ROOT/tests/browser_operations_live.py" --self-test
-  printf '{"status":"pass","reasonCode":"STRUCTURAL_RESULT","toolCalls":0,"contextPercentages":[1,2,3,4,5]}\n' >"$RESULT_DIR/sample.json"
+  printf '{"status":"pass","reasonCode":"STRUCTURAL_RESULT","toolCalls":0,"hookEvents":0,"roleLabels":[],"contextPercentages":[1,2,3,4,5]}\n' >"$RESULT_DIR/sample.json"
   CLAUDE_LABEL=observed
   PROVIDER_LABEL=observed
   MODEL_LABEL=observed
@@ -124,8 +124,11 @@ if [[ "$MODE" == "--preflight" ]]; then
     unavailable) PREFLIGHT_STATE='UNAVAILABLE' ;;
     conflict) PREFLIGHT_STATE='CONFLICT' ;;
   esac
-  printf '{"status":"inconclusive","reasonCode":"PREFLIGHT_ONLY","observedRuntime":{"claude":"%s","provider":"%s","model":"%s","adapter":"%s"},"capabilityState":"%s","guardProof":"exact-deny","roleCount":12,"context":{"before":0,"afterSkill":0,"afterSubagent":0,"afterDiscovery":0,"afterUse":0,"toolSearchMode":"unavailable"},"cleanup":"verified"}\n' \
-    "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" "$PREFLIGHT_STATE"
+  preflight_json="$(printf '{"status":"inconclusive","reasonCode":"PREFLIGHT_ONLY","observedRuntime":{"claude":"%s","provider":"%s","model":"%s","adapter":"%s"},"capabilityState":"%s","guardProof":"exact-deny","roleCount":0,"toolCalls":0,"hookEvents":0,"context":{"before":0,"afterSkill":0,"afterSubagent":0,"afterDiscovery":0,"afterUse":0,"toolSearchMode":"unavailable"},"cleanup":"pending"}' \
+    "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" "$PREFLIGHT_STATE")"
+  cleanup
+  trap - EXIT
+  python3 "$ROOT/tests/browser_operations_live.py" --finalize-cleanup "$preflight_json" "$WORK_REAL"
   exit 0
 fi
 
@@ -146,7 +149,19 @@ PROFILE_NAME='personal/p0-04b-live'
   switch "$PROFILE_NAME"
 
 HOOK_LAUNCHER="$HOME/.claude/skills/browser-operations/scripts/browser-hook-launcher.sh"
+HOOK_CONFIGURATOR="$HOME/.claude/skills/browser-operations/scripts/configure-browser-operations.mjs"
 [[ -x "$HOOK_LAUNCHER" ]] || blocked 'installed browser hook launcher not found or not executable'
+[[ -f "$HOOK_CONFIGURATOR" ]] || blocked 'installed browser hook configurator not found'
+set +e
+apply_result="$($NODE_BIN "$HOOK_CONFIGURATOR" "--apply" --root "$PROJECT" 2>/dev/null)"
+apply_status=$?
+check_result="$($NODE_BIN "$HOOK_CONFIGURATOR" "--check" --root "$PROJECT" 2>/dev/null)"
+check_status=$?
+set -e
+[[ $apply_status -eq 2 && $check_status -eq 2
+  && "$apply_result" == *'"state":"CONFIGURED_UNPROVEN"'*
+  && "$check_result" == *'"state":"CONFIGURED_UNPROVEN"'* ]] || blocked 'browser hook configuration was not installed exactly'
+unset apply_result check_result
 guard_result="$(printf '%s' '{"session_id":"p004b-live","tool_use_id":"guard-proof","hook_event_name":"PreToolUse","tool_name":"mcp__playwright__browser_snapshot","permission_mode":"normal","tool_input":{}}' | "$HOOK_LAUNCHER" pre 2>/dev/null || true)"
 [[ "$guard_result" == *'"permissionDecision":"deny"'* && "$guard_result" == *'"permissionDecisionReason":"DENY_OPERATION_MISMATCH"'* ]] || blocked 'GUARD_UNPROVEN'
 unset guard_result
@@ -200,7 +215,7 @@ for ((request_index = 1; request_index <= REQUEST_COUNT; request_index += 1)); d
     python3 "$ROOT/tests/browser_operations_live.py" --evaluate-stream \
       "$stream_path" "$CANARY" "$result_path"
   else
-    printf '{"status":"inconclusive","reasonCode":"REQUEST_INCONCLUSIVE","toolCalls":0,"contextPercentages":[]}\n' >"$result_path"
+    printf '{"status":"inconclusive","reasonCode":"REQUEST_INCONCLUSIVE","toolCalls":0,"hookEvents":0,"roleLabels":[],"contextPercentages":[]}\n' >"$result_path"
   fi
   RESULTS+=("$result_path")
   rm -f -- "$prompt_path" "$stream_path"
@@ -212,4 +227,4 @@ fi
 aggregate_json="$(aggregate_results)"
 cleanup
 trap - EXIT
-printf '%s\n' "$aggregate_json"
+python3 "$ROOT/tests/browser_operations_live.py" --finalize-cleanup "$aggregate_json" "$WORK_REAL"

@@ -44,10 +44,9 @@ function protectedRunnerCapability() {
     state: 'ACTIVE', reasonCode: 'CAPABILITY_ACTIVE', adapterId: 'protected-runner',
     routeClass: 'PROTECTED_RUNNER', settingsFingerprint: 'browser-runner-v1',
     descriptorId: 'protected-runner-v1', serverName: null, toolPrefix: null,
-    effects: ['PUBLIC_READ', 'SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE',
-      'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE', 'SENSITIVE_ARTIFACT'],
+    effects: ['PUBLIC_READ', 'SENSITIVE_READ'],
     enforcement: {
-      preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: true,
+      preCall: true, topLevelOrigin: true, redirects: true, popups: false, artifacts: false,
     },
   };
 }

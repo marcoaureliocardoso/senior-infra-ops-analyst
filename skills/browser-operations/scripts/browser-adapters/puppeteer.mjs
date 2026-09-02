@@ -93,6 +93,10 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
       }
     },
     async inspect(request) {
+      if (request.origin) {
+        const destination = assertAllowedUrl(request.origin, allowedOrigins);
+        await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
+      }
       const selected = locator(request);
       if (typeof selected.evaluate === 'function') {
         await selected.evaluate((element) => element.textContent);

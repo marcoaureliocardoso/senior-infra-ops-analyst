@@ -274,6 +274,9 @@ export function authorizeRunnerStep(request, envelope, capability, now = Date.no
   const roleAllowed = EXECUTOR_ROLES.has(envelope.role)
     || (envelope.role === 'audit-evidence-collector' && effect === 'SENSITIVE_READ');
   if (!roleAllowed) return freeze({ allowed: false, reasonCode: 'ROLE_NOT_EXECUTOR', effect });
+  if (!Array.isArray(capability.effects) || !capability.effects.includes(effect)) {
+    return freeze({ allowed: false, reasonCode: 'CAPABILITY_EFFECT_UNAVAILABLE', effect });
+  }
   if (!envelope.actions.includes(request.step)) return freeze({ allowed: false, reasonCode: 'ACTION_NOT_BOUND', effect: stepEffect(request) });
   if (request.origin && ![...envelope.serviceOrigins, ...envelope.authOrigins].includes(request.origin)) {
     return freeze({ allowed: false, reasonCode: 'ORIGIN_ESCAPE', effect: stepEffect(request) });

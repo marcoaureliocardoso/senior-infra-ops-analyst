@@ -48,7 +48,9 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "tests/browser-fixture/server.mjs", "127.0.0.1", "LOOPBACK",
             'rm -f -- "$prompt_path" "$stream_path"', 'rm -rf -- "$WORK_REAL"',
             "scripts/build_nori_staging.py", "--non-interactive", 'link "$STAGING"',
-            'switch "$PROFILE_NAME"',
+            'switch "$PROFILE_NAME"', 'configure-browser-operations.mjs',
+            '"--apply" --root "$PROJECT"', '"--check" --root "$PROJECT"',
+            'CONFIGURED_UNPROVEN',
         ):
             self.assertIn(marker, self.script)
         self.assertNotIn('rm -rf -- "$HOME"', self.script)
@@ -114,6 +116,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 "adapter": "playwright",
             },
             "capabilityState": "ACTIVE", "guardProof": "exact-deny", "roleCount": 12,
+            "toolCalls": 1, "hookEvents": 1,
             "context": {
                 "before": 1, "afterSkill": 2, "afterSubagent": 3,
                 "afterDiscovery": 4, "afterUse": 5, "toolSearchMode": "available-used",
@@ -129,6 +132,23 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_aggregate(mutation)
         self.assertNotIn("rawPrompt", json.dumps(validate_aggregate(value)))
+
+    def test_zero_tool_calls_or_deny_only_proof_cannot_be_active(self) -> None:
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import aggregate_results  # noqa: PLC0415
+
+        sample = {
+            "status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": 0,
+            "hookEvents": 0, "roleLabels": [], "contextPercentages": [1, 2, 3, 4, 5],
+        }
+        result = aggregate_results({
+            "claude": "observed", "provider": "observed", "model": "observed",
+            "adapter": "playwright",
+        }, [sample])
+        self.assertEqual(result["status"], "inconclusive")
+        self.assertNotEqual(result["capabilityState"], "ACTIVE")
 
     def test_parser_retains_only_bounded_numeric_context_samples(self) -> None:
         import sys
