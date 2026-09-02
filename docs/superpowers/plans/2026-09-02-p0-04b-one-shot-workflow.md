@@ -91,7 +91,7 @@
 - Modify: `tests/command-guard/policy.test.mjs`
 
 **Interfaces:**
-- Produces: pending browser proof field `invocationFingerprint` and `activatePendingWorkflow({sessionId, operationId, invocationFingerprint})`.
+- Produces: pending browser proof field `invocationFingerprint` and `activatePendingWorkflow({sessionId, operationId, invocationFingerprint, effectiveCapability})`.
 - Consumes: Task 1 `workflowFingerprint(request)` and the exact workflow request parsed by both the command guard and runner.
 
 - [ ] **Step 1: Write failing approval-correlation tests**
@@ -110,7 +110,7 @@
 
 - [ ] **Step 3: Implement exact staging and activation**
 
-  Extend the closed catalogue grammar with repeatable workflow flags, decode through Task 1 rather than duplicating semantic validation, classify by the highest declared step effect, and add `ALWAYS_ASK`. `stageBrowserOpenApproval()` becomes the staging function for both `open` and `workflow`; it records the fingerprint in the proof. `activatePendingWorkflow()` atomically compares and consumes the exact pending record. Existing `open` plus PostToolUse behavior remains backward compatible and read-only.
+  Extend the closed catalogue grammar with repeatable workflow flags, decode through Task 1 rather than duplicating semantic validation, classify by the highest declared step effect, and add `ALWAYS_ASK`. `stageBrowserOpenApproval()` becomes the staging function for both `open` and `workflow`; it records the fingerprint in the proof. `activatePendingWorkflow()` atomically compares the exact pending record and replaces its approval-time capability with the supplied runtime-observed effective capability before promotion. Existing `open` plus PostToolUse behavior remains backward compatible and read-only.
 
 - [ ] **Step 4: Verify GREEN and fail-closed process behavior**
 
@@ -157,7 +157,7 @@
 
 - [ ] **Step 3: Implement one-shot execution**
 
-  Activate the exact pending workflow at process entry, resolve a recognized adapter, intersect its observed capabilities before any effect, open once, and execute the ordered operation steps. Resolve built-in environment references only when their names match `OPS_BROWSER_VALUE_[A-Z0-9_]+`; blank and missing values deny. Clear local references after each call. Always close the execution adapter before creating the validation adapter.
+  At process entry, resolve a recognized inert adapter descriptor without opening a browser, derive and validate its effective capability, and atomically activate the exact pending workflow with that capability. Activation must complete before `adapter.open()`, navigation, reference resolution, or any browser effect. Then open once and execute the ordered operation steps. Resolve built-in environment references only when their names match `OPS_BROWSER_VALUE_[A-Z0-9_]+`; blank and missing values deny. Clear local references after each call. Always close the execution adapter before creating the validation adapter.
 
 - [ ] **Step 4: Implement structural independent validation**
 
