@@ -378,6 +378,15 @@ function mutableWorkflow(effect) {
 }
 
 
+function runnerErrorReason(error, fallback) {
+  if (error instanceof BrowserRunnerError && typeof error.code === 'string'
+      && error.code.startsWith('BROWSER_RUNNER_')) {
+    return error.code.slice('BROWSER_RUNNER_'.length);
+  }
+  return fallback;
+}
+
+
 function builtInReferenceName(reference) {
   if (typeof reference !== 'string' || !reference.startsWith('env:')) return null;
   const name = reference.slice(4);
@@ -436,54 +445,85 @@ function effectiveWorkflowCapability(request, adapter, dependencies) {
 }
 
 
+async function executeWorkflowStep(adapter, step, envelope, capability, dependencies, env, now) {
+  const authorization = authorizeRunnerStep(step, envelope, capability, now);
+  if (!authorization.allowed) {
+    return { type: 'denied', reasonCode: authorization.reasonCode, effect: authorization.effect, step };
+  }
+  let credential = null;
+  try {
+    if (['fill', 'select'].includes(step.step)) {
+      credential = await resolveProtectedReference(
+        step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
+      );
+    }
+    const method = adapter?.[step.step];
+    if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
+    const result = await method.call(adapter, credential === null ? step : { ...step, credential });
+    if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+    return { type: 'ok' };
+  } catch (error) {
+    const reasonCode = runnerErrorReason(error, 'ADAPTER_FAILURE');
+    if (error instanceof BrowserRunnerError) {
+      return { type: 'denied', reasonCode, effect: authorization.effect, step };
+    }
+    return {
+      type: 'failure',
+      reasonCode,
+      effect: authorization.effect,
+      step,
+      ambiguous: mutableWorkflow(authorization.effect),
+    };
+  } finally {
+    credential = null;
+  }
+}
+
+
 async function runWorkflowSteps(adapter, steps, dependencies, env) {
   for (const step of steps) {
-    let credential = null;
-    try {
-      if (['fill', 'select'].includes(step.step)) {
-        credential = await resolveProtectedReference(
-          step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
-        );
-      }
-      const method = adapter?.[step.step];
-      if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
-      const result = await method.call(adapter, credential === null ? step : { ...step, credential });
-      if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
-    } finally {
-      credential = null;
+    const result = await executeWorkflowStep(
+      adapter, step, dependencies.envelope, dependencies.capability, dependencies, env, dependencies.now,
+    );
+    if (result.type !== 'ok') {
+      return result;
     }
   }
+  return { type: 'ok' };
 }
 
 
 async function runWorkflowValidation(adapter, request, dependencies, env) {
   const validationSteps = request.validationSteps.slice(0, -1);
   for (const step of validationSteps) {
-    let credential = null;
-    try {
-      if (['fill', 'select'].includes(step.step)) {
-        credential = await resolveProtectedReference(
-          step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
-        );
-      }
-      const method = adapter?.[step.step];
-      if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
-      const result = await method.call(adapter, credential === null ? step : { ...step, credential });
-      if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
-    } finally {
-      credential = null;
+    const result = await executeWorkflowStep(
+      adapter, step, request.envelope, dependencies.capability, dependencies, env, dependencies.now,
+    );
+    if (result.type !== 'ok') {
+      return { outcome: 'OUTCOME_UNKNOWN', reasonCode: result.reasonCode };
     }
   }
   const inspect = request.validationSteps.at(-1);
-  const expected = await resolveProtectedReference(
-    inspect.expectedRef, dependencies, env, 'VALIDATION_REFERENCE_UNRESOLVED',
-  );
-  if (typeof adapter?.verify !== 'function') throw new Error('ADAPTER_VERIFY_UNAVAILABLE');
-  const result = await adapter.verify({ ...inspect, expected });
-  if (result?.expectRef !== inspect.expectRef) throw new Error('VALIDATION_REFERENCE_MISMATCH');
-  if (result?.status === 'met') return 'WORKFLOW_VALIDATED';
-  if (result?.status === 'not-met') return 'WORKFLOW_NOT_APPLIED';
-  throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+  const authorization = authorizeRunnerStep(inspect, request.envelope, dependencies.capability, dependencies.now);
+  if (!authorization.allowed) return { outcome: 'OUTCOME_UNKNOWN', reasonCode: authorization.reasonCode };
+  let expected;
+  try {
+    expected = await resolveProtectedReference(
+      inspect.expectedRef, dependencies, env, 'VALIDATION_REFERENCE_UNRESOLVED',
+    );
+  } catch (error) {
+    return { outcome: 'OUTCOME_UNKNOWN', reasonCode: runnerErrorReason(error, 'OUTCOME_UNKNOWN') };
+  }
+  try {
+    if (typeof adapter?.verify !== 'function') throw new Error('ADAPTER_VERIFY_UNAVAILABLE');
+    const result = await adapter.verify({ ...inspect, expected });
+    if (result?.expectRef !== inspect.expectRef) throw new Error('VALIDATION_REFERENCE_MISMATCH');
+    if (result?.status === 'met') return { outcome: 'WORKFLOW_VALIDATED' };
+    if (result?.status === 'not-met') return { outcome: 'WORKFLOW_NOT_APPLIED' };
+  } catch {
+    return { outcome: 'OUTCOME_UNKNOWN', reasonCode: 'OUTCOME_UNKNOWN' };
+  }
+  return { outcome: 'OUTCOME_UNKNOWN', reasonCode: 'OUTCOME_UNKNOWN' };
 }
 
 
@@ -494,7 +534,7 @@ function workflowOutput(status, reasonCode, operationId) {
     operationId,
     step: 'workflow',
     effect: 'SENSITIVE_READ',
-    validationRequired: false,
+    validationRequired: status === 'outcome-unknown',
     observation: null,
   });
 }
@@ -507,6 +547,13 @@ export async function executeBrowserWorkflow(request, dependencies = {}) {
   if (typeof sessionId !== 'string') {
     return workflowOutput('denied', 'SESSION_BINDING_MISSING', request?.operationId ?? null);
   }
+  const active = readActiveOperation(sessionId, request.operationId, env, now);
+  if (active) {
+    if (active.outcome === 'OUTCOME_UNKNOWN') return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+    if (active.outcome === 'APPLIED_CONFIRMED') return workflowOutput('denied', 'OPERATION_COMPLETE', request.operationId);
+  }
+  const pending = readPendingOperation(sessionId, request.operationId, env, now);
+  if (!pending) return workflowOutput('denied', 'OPERATION_NOT_ACTIVE', request.operationId);
 
   const detectedExecution = await resolveWorkflowAdapter(request, dependencies, env);
   if (!detectedExecution?.adapter || detectedExecution.state !== 'ACTIVE') {
@@ -522,58 +569,78 @@ export async function executeBrowserWorkflow(request, dependencies = {}) {
     return workflowOutput('denied', 'CAPABILITY_UNAVAILABLE', request.operationId);
   }
 
-  let activated = true;
-  let executionAmbiguous = false;
-  let executionAdapter = detectedExecution.adapter;
   try {
-    await executionAdapter.open?.();
+    let executionAmbiguous = false;
+    let executionAdapter = detectedExecution.adapter;
     try {
-      await runWorkflowSteps(executionAdapter, request.executionSteps, dependencies, env);
-    } catch (error) {
-      const effect = workflowStepEffect(request.executionSteps.find((step) =>
-        !['inspect', 'navigate', 'fill', 'select'].includes(step.step)) ?? request.executionSteps.at(-1));
-      executionAmbiguous = mutableWorkflow(effect);
-      if (executionAmbiguous) {
-        recordOutcomeUnknown(sessionId, request.operationId, {
-          reasonCode: 'ADAPTER_FAILURE',
-          action: request.executionSteps.find((step) => mutableWorkflow(workflowStepEffect(step)))?.step ?? request.executionSteps.at(-1).step,
-          effect,
-        }, env, now);
-      } else {
+      try {
+        await executionAdapter.open?.();
+      } catch {
         return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
       }
-    }
-  } finally {
-    await executionAdapter?.close?.();
-    executionAdapter = null;
-  }
-
-  const detectedValidation = await resolveWorkflowAdapter(request, dependencies, env);
-  if (!detectedValidation?.adapter || detectedValidation.state !== 'ACTIVE') {
-    return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
-  }
-
-  let validationAdapter = detectedValidation.adapter;
-  try {
-    await validationAdapter.open?.();
-    const outcome = await runWorkflowValidation(validationAdapter, request, dependencies, env);
-    if (outcome === 'WORKFLOW_VALIDATED') {
-      if (executionAmbiguous) {
-        reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'applied', env, now);
-      } else {
-        completeIndependentValidation(sessionId, request.operationId, request.envelope.validationRef, env, now);
+      const execution = await runWorkflowSteps(executionAdapter, request.executionSteps, {
+        ...dependencies,
+        envelope: request.envelope,
+        capability: effectiveCapability,
+        now,
+      }, env);
+      if (execution.type === 'denied') {
+        return workflowOutput('denied', execution.reasonCode, request.operationId);
       }
-      return workflowOutput('ok', 'WORKFLOW_VALIDATED', request.operationId);
+      if (execution.type === 'failure') {
+        executionAmbiguous = execution.ambiguous === true;
+        if (executionAmbiguous) {
+          recordOutcomeUnknown(sessionId, request.operationId, {
+            reasonCode: execution.reasonCode,
+            action: execution.step.step,
+            effect: execution.effect,
+          }, env, now);
+        } else {
+          return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+        }
+      }
+    } finally {
+      await executionAdapter?.close?.();
+      executionAdapter = null;
     }
-    if (executionAmbiguous) {
-      reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'not-applied', env, now);
+
+    const detectedValidation = await resolveWorkflowAdapter(request, dependencies, env);
+    if (!detectedValidation?.adapter || detectedValidation.state !== 'ACTIVE') {
+      return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
     }
-    return workflowOutput('ok', 'WORKFLOW_NOT_APPLIED', request.operationId);
-  } catch {
-    return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+
+    let validationAdapter = detectedValidation.adapter;
+    try {
+      try {
+        await validationAdapter.open?.();
+      } catch {
+        return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+      }
+      const validation = await runWorkflowValidation(validationAdapter, request, {
+        ...dependencies,
+        capability: effectiveCapability,
+        now,
+      }, env);
+      if (validation.outcome === 'WORKFLOW_VALIDATED') {
+        if (executionAmbiguous) {
+          reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'applied', env, now);
+        } else {
+          completeIndependentValidation(sessionId, request.operationId, request.envelope.validationRef, env, now);
+        }
+        return workflowOutput('ok', 'WORKFLOW_VALIDATED', request.operationId);
+      }
+      if (validation.outcome === 'WORKFLOW_NOT_APPLIED') {
+        if (executionAmbiguous) {
+          reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'not-applied', env, now);
+        }
+        return workflowOutput('ok', 'WORKFLOW_NOT_APPLIED', request.operationId);
+      }
+      return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+    } finally {
+      await validationAdapter?.close?.();
+    }
   } finally {
-    await validationAdapter?.close?.();
-    if (activated) invalidateOperation(sessionId, request.operationId, 'WORKFLOW_COMPLETE', env, now);
+    invalidateOperation(sessionId, request.operationId, 'WORKFLOW_COMPLETE', env, now);
   }
 }
 
