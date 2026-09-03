@@ -31,6 +31,8 @@ function playwrightRuntime() {
     getByRole(role, options) {
       return {
         async textContent() { state.locator = { role, ...options }; return 'untrusted page text'; },
+        async inputValue() { state.locator = { role, ...options }; return 'selected-value'; },
+        async isChecked() { state.locator = { role, ...options }; return true; },
         async fill(value) { state.fill = { role, ...options, value }; },
         async selectOption(value) { state.select = { role, ...options, value }; },
         async click() { state.click = { role, ...options }; },
@@ -64,6 +66,9 @@ function puppeteerRuntime() {
     getByRole(role, options) {
       return {
         async evaluate() { state.locator = { role, ...options }; return 'untrusted page text'; },
+        async textContent() { state.locator = { role, ...options }; return 'untrusted page text'; },
+        async inputValue() { state.locator = { role, ...options }; return 'selected-value'; },
+        async isChecked() { state.locator = { role, ...options }; return true; },
         async fill(value) { state.fill = { role, ...options, value }; },
         async select(value) { state.select = { role, ...options, value }; },
         async click() { state.click = { role, ...options }; },
@@ -188,4 +193,31 @@ test('adapter close remains idempotent after partial open failure', async () => 
   await assert.rejects(() => adapter.open(), /ADAPTER_OPEN_FAILED/u);
   await adapter.close();
   assert.equal(fake.state.closed, 1);
+});
+
+
+test('adapters verify predicates structurally without returning observed page values', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const adapter = await create(fake.runtime, {
+      id: create === createPlaywrightAdapter ? 'playwright' : 'puppeteer',
+      allowedOrigins: ['https://router.example.invalid:443'],
+    });
+    await adapter.open();
+    const cases = [
+      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'present', expected: 'ignored', expectRef: 'interface-state' }, 'met'],
+      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'untrusted page text', expectRef: 'interface-state' }, 'met'],
+      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'different', expectRef: 'interface-state' }, 'not-met'],
+      [{ locatorRole: 'combobox', locatorName: 'Mode', predicate: 'value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
+      [{ locatorRole: 'checkbox', locatorName: 'Enabled', predicate: 'checked', expected: 'true', expectRef: 'interface-state' }, 'met'],
+      [{ locatorRole: 'combobox', locatorName: 'Mode', predicate: 'selected-value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
+    ];
+    for (const [request, status] of cases) {
+      const result = await adapter.verify(request);
+      assert.deepEqual(result, { status, expectRef: 'interface-state' });
+      assert.equal(Object.hasOwn(result, 'observed'), false);
+      assert.doesNotMatch(JSON.stringify(result), /untrusted page text|selected-value/u);
+    }
+    await adapter.close();
+  }
 });

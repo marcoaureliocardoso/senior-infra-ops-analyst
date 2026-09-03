@@ -165,7 +165,13 @@ export async function startBrowserFixture({
       }
 
       if (route === '/router' && method === 'GET') {
-        protectedPage(response, 'Router', '<form action="/router/autosave" method="post"><label>WAN enabled<select aria-label="WAN enabled" name="enabled"><option>true</option><option>false</option></select></label><button type="submit">Save</button></form>');
+        protectedPage(response, 'Router', [
+          `<div role="status" aria-label="Saved state">wan-enabled:${state.routerEnabled}</div>`,
+          '<form action="/router/autosave" method="post"><label>WAN enabled<select aria-label="WAN enabled" name="enabled">',
+          `<option${state.routerEnabled ? ' selected' : ''}>true</option>`,
+          `<option${state.routerEnabled ? '' : ' selected'}>false</option>`,
+          '</select></label><button type="submit">Save</button></form>',
+        ].join(''));
       } else if (route === '/firewall' && method === 'GET') {
         protectedPage(response, 'Firewall', '<form action="/firewall/apply" method="post"><label>Mode<select aria-label="Mode" name="mode"><option>allow</option><option>deny</option></select></label><button type="submit">Apply</button></form>');
       } else if (route === '/service' && method === 'GET') {

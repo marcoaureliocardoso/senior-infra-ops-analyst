@@ -75,8 +75,15 @@ test('autosave submit change rollback upload and download expose independent str
       routerEnabled: false, firewallMode: 'deny', serviceVersion: 2,
       uploadCount: 1, revision: 3,
     });
+    const routerPage = await (await fetch(`${fixture.origin}/router`, { headers })).text();
+    assert.match(routerPage, /Saved state/u);
+    assert.match(routerPage, /wan-enabled:false/u);
     await post(`${fixture.origin}/rollback`, '', headers);
     assert.equal((await (await fetch(`${fixture.origin}/api/state`)).json()).revision, 0);
+    assert.match(
+      await (await fetch(`${fixture.origin}/router`, { headers })).text(),
+      /wan-enabled:true/u,
+    );
     const download = await fetch(`${fixture.origin}/download`, { headers });
     assert.equal(download.headers.get('content-disposition'), 'attachment; filename="fixture-config.json"');
     assert.ok(Number(download.headers.get('content-length')) < 1024);

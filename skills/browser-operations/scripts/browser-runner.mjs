@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 import {
+  activatePendingWorkflow,
   completeIndependentValidation,
   completeBrowserCall,
   invalidateOperation,
@@ -292,6 +293,12 @@ function stepEffect(request) {
 }
 
 
+function workflowStepEffect(request) {
+  if (request.step === 'inspect') return 'SENSITIVE_READ';
+  return stepEffect(request);
+}
+
+
 function effectRank(effect) {
   return ['PUBLIC_READ', 'SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE',
     'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE'].indexOf(effect);
@@ -350,6 +357,227 @@ async function selectedAdapter(active, dependencies, env) {
 }
 
 
+async function resolveWorkflowAdapter(request, dependencies, env) {
+  const factory = dependencies.adapterFactory ?? resolveBrowserAdapter;
+  try {
+    return await factory({
+      preference: env.OPS_BROWSER_ADAPTER ?? null,
+      options: {
+        allowedOrigins: [...request.envelope.serviceOrigins, ...request.envelope.authOrigins],
+        artifactManager: dependencies.artifactManager ?? null,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+
+function mutableWorkflow(effect) {
+  return ['LOW_RISK_CHANGE', 'DISRUPTIVE_CHANGE', 'DESTRUCTIVE_CHANGE'].includes(effect);
+}
+
+
+function builtInReferenceName(reference) {
+  if (typeof reference !== 'string' || !reference.startsWith('env:')) return null;
+  const name = reference.slice(4);
+  return /^OPS_BROWSER_VALUE_[A-Z0-9_]+$/u.test(name) ? name : null;
+}
+
+
+async function resolveProtectedReference(reference, dependencies, env, errorCode) {
+  const envName = builtInReferenceName(reference);
+  if (envName !== null) {
+    const value = env[envName];
+    if (typeof value !== 'string' || value.length < 1) {
+      throw new BrowserRunnerError(`BROWSER_RUNNER_${errorCode}`);
+    }
+    return value;
+  }
+  if (typeof dependencies.referenceResolver === 'function') {
+    const value = await dependencies.referenceResolver(reference);
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  throw new BrowserRunnerError(`BROWSER_RUNNER_${errorCode}`);
+}
+
+
+function effectiveWorkflowCapability(request, adapter, dependencies) {
+  const capabilities = adapter?.capabilities ?? {};
+  const effects = new Set(['SENSITIVE_READ']);
+  if (request.envelope.actions.some((action) => ['navigate', 'fill', 'select', 'click'].includes(action))) {
+    effects.add('INTERACTIVE_STATE');
+  }
+  if (request.envelope.expectedEffect === 'INTERACTIVE_STATE') effects.add('INTERACTIVE_STATE');
+  if (mutableWorkflow(request.envelope.expectedEffect) && capabilities.popups === true) {
+    effects.add(request.envelope.expectedEffect);
+  }
+  if (request.envelope.artifactPolicy.enabled && dependencies.artifactManager) {
+    effects.add('SENSITIVE_ARTIFACT');
+  }
+  return Object.freeze({
+    state: 'ACTIVE',
+    reasonCode: 'CAPABILITY_ACTIVE',
+    adapterId: 'protected-runner',
+    routeClass: 'PROTECTED_RUNNER',
+    settingsFingerprint: 'browser-runner-v1',
+    descriptorId: 'protected-runner-v1',
+    serverName: null,
+    toolPrefix: null,
+    effects: [...effects],
+    enforcement: {
+      preCall: capabilities.preCall === true,
+      topLevelOrigin: capabilities.topLevelOrigin === true,
+      redirects: capabilities.redirects === true,
+      popups: capabilities.popups === true,
+      artifacts: Boolean(request.envelope.artifactPolicy.enabled && dependencies.artifactManager),
+    },
+  });
+}
+
+
+async function runWorkflowSteps(adapter, steps, dependencies, env) {
+  for (const step of steps) {
+    let credential = null;
+    try {
+      if (['fill', 'select'].includes(step.step)) {
+        credential = await resolveProtectedReference(
+          step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
+        );
+      }
+      const method = adapter?.[step.step];
+      if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
+      const result = await method.call(adapter, credential === null ? step : { ...step, credential });
+      if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+    } finally {
+      credential = null;
+    }
+  }
+}
+
+
+async function runWorkflowValidation(adapter, request, dependencies, env) {
+  const validationSteps = request.validationSteps.slice(0, -1);
+  for (const step of validationSteps) {
+    let credential = null;
+    try {
+      if (['fill', 'select'].includes(step.step)) {
+        credential = await resolveProtectedReference(
+          step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
+        );
+      }
+      const method = adapter?.[step.step];
+      if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
+      const result = await method.call(adapter, credential === null ? step : { ...step, credential });
+      if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+    } finally {
+      credential = null;
+    }
+  }
+  const inspect = request.validationSteps.at(-1);
+  const expected = await resolveProtectedReference(
+    inspect.expectedRef, dependencies, env, 'VALIDATION_REFERENCE_UNRESOLVED',
+  );
+  if (typeof adapter?.verify !== 'function') throw new Error('ADAPTER_VERIFY_UNAVAILABLE');
+  const result = await adapter.verify({ ...inspect, expected });
+  if (result?.expectRef !== inspect.expectRef) throw new Error('VALIDATION_REFERENCE_MISMATCH');
+  if (result?.status === 'met') return 'WORKFLOW_VALIDATED';
+  if (result?.status === 'not-met') return 'WORKFLOW_NOT_APPLIED';
+  throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+}
+
+
+function workflowOutput(status, reasonCode, operationId) {
+  return freeze({
+    status,
+    reasonCode,
+    operationId,
+    step: 'workflow',
+    effect: 'SENSITIVE_READ',
+    validationRequired: false,
+    observation: null,
+  });
+}
+
+
+export async function executeBrowserWorkflow(request, dependencies = {}) {
+  const env = dependencies.env ?? process.env;
+  const now = dependencies.now ?? Date.now();
+  const sessionId = request?.envelope?.sessionId;
+  if (typeof sessionId !== 'string') {
+    return workflowOutput('denied', 'SESSION_BINDING_MISSING', request?.operationId ?? null);
+  }
+
+  const detectedExecution = await resolveWorkflowAdapter(request, dependencies, env);
+  if (!detectedExecution?.adapter || detectedExecution.state !== 'ACTIVE') {
+    return workflowOutput('denied', 'CAPABILITY_UNAVAILABLE', request.operationId);
+  }
+  const effectiveCapability = effectiveWorkflowCapability(request, detectedExecution.adapter, dependencies);
+  if (!activatePendingWorkflow({
+    sessionId,
+    operationId: request.operationId,
+    invocationFingerprint: request.invocationFingerprint,
+    effectiveCapability,
+  }, env, now)) {
+    return workflowOutput('denied', 'CAPABILITY_UNAVAILABLE', request.operationId);
+  }
+
+  let activated = true;
+  let executionAmbiguous = false;
+  let executionAdapter = detectedExecution.adapter;
+  try {
+    await executionAdapter.open?.();
+    try {
+      await runWorkflowSteps(executionAdapter, request.executionSteps, dependencies, env);
+    } catch (error) {
+      const effect = workflowStepEffect(request.executionSteps.find((step) =>
+        !['inspect', 'navigate', 'fill', 'select'].includes(step.step)) ?? request.executionSteps.at(-1));
+      executionAmbiguous = mutableWorkflow(effect);
+      if (executionAmbiguous) {
+        recordOutcomeUnknown(sessionId, request.operationId, {
+          reasonCode: 'ADAPTER_FAILURE',
+          action: request.executionSteps.find((step) => mutableWorkflow(workflowStepEffect(step)))?.step ?? request.executionSteps.at(-1).step,
+          effect,
+        }, env, now);
+      } else {
+        return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+      }
+    }
+  } finally {
+    await executionAdapter?.close?.();
+    executionAdapter = null;
+  }
+
+  const detectedValidation = await resolveWorkflowAdapter(request, dependencies, env);
+  if (!detectedValidation?.adapter || detectedValidation.state !== 'ACTIVE') {
+    return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+  }
+
+  let validationAdapter = detectedValidation.adapter;
+  try {
+    await validationAdapter.open?.();
+    const outcome = await runWorkflowValidation(validationAdapter, request, dependencies, env);
+    if (outcome === 'WORKFLOW_VALIDATED') {
+      if (executionAmbiguous) {
+        reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'applied', env, now);
+      } else {
+        completeIndependentValidation(sessionId, request.operationId, request.envelope.validationRef, env, now);
+      }
+      return workflowOutput('ok', 'WORKFLOW_VALIDATED', request.operationId);
+    }
+    if (executionAmbiguous) {
+      reconcileOutcomeUnknown(sessionId, request.operationId, request.envelope.validationRef, 'not-applied', env, now);
+    }
+    return workflowOutput('ok', 'WORKFLOW_NOT_APPLIED', request.operationId);
+  } catch {
+    return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+  } finally {
+    await validationAdapter?.close?.();
+    if (activated) invalidateOperation(sessionId, request.operationId, 'WORKFLOW_COMPLETE', env, now);
+  }
+}
+
+
 async function invokeAdapter(adapter, request, credential) {
   await adapter.open?.();
   if (typeof adapter.execute === 'function') return adapter.execute({ ...request, credential });
@@ -362,6 +590,7 @@ async function invokeAdapter(adapter, request, credential) {
 export async function executeRunnerStep(request, dependencies = {}) {
   const env = dependencies.env ?? process.env;
   const now = dependencies.now ?? Date.now();
+  if (request.step === 'workflow') return executeBrowserWorkflow(request, dependencies);
   if (request.step === 'open') {
     if (dependencies.proof) writePendingOperation(request.envelope, dependencies.proof, env, now);
     const pending = readPendingOperation(
@@ -475,7 +704,9 @@ export async function executeRunnerStep(request, dependencies = {}) {
 async function main() {
   try {
     const request = parseRunnerArgs(process.argv.slice(2));
-    const result = await executeRunnerStep(request);
+    const result = request.step === 'workflow'
+      ? await executeBrowserWorkflow(request)
+      : await executeRunnerStep(request);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return ['ok', 'pending', 'closed'].includes(result.status) ? 0 : 2;
   } catch {

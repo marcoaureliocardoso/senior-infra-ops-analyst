@@ -131,6 +131,29 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
     },
     async trace() { throw adapterError('TRACE_NOT_ACTIVE'); },
     async validate(request) { return adapter.inspect({ ...request, locatorRole: 'status' }); },
+    async verify(request) {
+      const selected = locator(request);
+      let met = false;
+      if (request.predicate === 'present') {
+        if (typeof selected.textContent === 'function') await selected.textContent();
+        else await selected.evaluate((element) => element.textContent);
+        met = true;
+      } else if (request.predicate === 'text-equals') {
+        const value = typeof selected.textContent === 'function'
+          ? await selected.textContent()
+          : await selected.evaluate((element) => element.textContent);
+        met = String(value ?? '') === request.expected;
+      } else if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
+        if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
+        met = String(await selected.inputValue()) === request.expected;
+      } else if (request.predicate === 'checked') {
+        if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
+        met = String(await selected.isChecked()) === request.expected;
+      } else {
+        throw adapterError('INVALID_PREDICATE');
+      }
+      return { status: met ? 'met' : 'not-met', expectRef: request.expectRef };
+    },
     async close() {
       const selectedPage = page; const selectedContext = context; const selectedBrowser = browser;
       page = null; context = null; browser = null; opened = false;

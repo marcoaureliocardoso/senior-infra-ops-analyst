@@ -1,15 +1,19 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import { resolveBrowserAdapter } from '../../skills/browser-operations/scripts/browser-adapters/index.mjs';
-import { parseRunnerArgs } from '../../skills/browser-operations/scripts/browser-runner.mjs';
+import { writePendingOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
+import { executeBrowserWorkflow, parseRunnerArgs } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 import { startBrowserFixture } from '../browser-fixture/server.mjs';
 
 
 export const REAL_BROWSER_MATRIX = Object.freeze([
   'public-read', 'authenticated-read', 'existing-session', 'password', 'totp', 'logout',
   'fill-without-submit', 'autosave', 'submit', 'state-changing-click', 'change',
-  'independent-validation', 'compensation', 'upload', 'download', 'screenshot', 'trace',
+  'independent-validation', 'persistent-one-shot', 'compensation', 'upload', 'download', 'screenshot', 'trace',
   'same-origin-redirect', 'cross-origin-redirect', 'same-origin-popup',
   'cross-origin-popup', 'new-tab', 'subresource-origin', 'ui-drift', 'missing-locator',
   'human-challenge', 'dom-injection', 'a11y-injection', 'console-injection',
@@ -19,13 +23,81 @@ export const REAL_BROWSER_MATRIX = Object.freeze([
 
 
 test('real-browser matrix inventory covers every approved scenario', () => {
-  assert.equal(REAL_BROWSER_MATRIX.length, 36);
+  assert.equal(REAL_BROWSER_MATRIX.length, 37);
   assert.equal(new Set(REAL_BROWSER_MATRIX).size, REAL_BROWSER_MATRIX.length);
   assert.equal(typeof parseRunnerArgs, 'function');
 });
 
 
-test('opt-in production adapter performs a loopback structural smoke', async (t) => {
+function workflowToken(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+
+function workflowArgs(origin) {
+  return [
+    '--step', 'workflow', '--operation-id', 'op-real-browser-001',
+    '--session-id', 'session-real-browser-001', '--role', 'network-edge-operator',
+    '--objective-ref', 'change-42', '--target', 'loopback-router',
+    '--environment', 'test', '--service-origin', origin,
+    '--identity-ref', 'vault:network-admin', '--credential-transport', 'vault',
+    '--permission-mode', 'normal', '--action', 'navigate', '--action', 'fill',
+    '--action', 'select', '--action', 'click', '--action', 'inspect',
+    '--effect', 'LOW_RISK_CHANGE', '--risk', 'LOW_RISK_CHANGE',
+    '--precondition-ref', 'fixture-ready', '--validation-ref', 'interface-state',
+    '--compensation-ref', 'fixture-rollback', '--expires-in-seconds', '600',
+    '--workflow-step', workflowToken({ step: 'navigate', origin: `${origin}/login` }),
+    '--workflow-step', workflowToken({
+      step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
+      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+    }),
+    '--workflow-step', workflowToken({
+      step: 'click', origin: `${origin}/login`, locatorRole: 'button',
+      locatorName: 'Continue', effect: 'INTERACTIVE_STATE',
+    }),
+    '--workflow-step', workflowToken({
+      step: 'fill', origin: `${origin}/totp`, locatorRole: 'textbox',
+      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP',
+    }),
+    '--workflow-step', workflowToken({
+      step: 'click', origin: `${origin}/totp`, locatorRole: 'button',
+      locatorName: 'Verify', effect: 'INTERACTIVE_STATE',
+    }),
+    '--workflow-step', workflowToken({
+      step: 'select', origin: `${origin}/router`, locatorRole: 'combobox',
+      locatorName: 'WAN enabled', valueRef: 'env:OPS_BROWSER_VALUE_DISABLED',
+    }),
+    '--workflow-step', workflowToken({
+      step: 'click', origin: `${origin}/router`, locatorRole: 'button',
+      locatorName: 'Save', effect: 'LOW_RISK_CHANGE',
+    }),
+    '--validation-step', workflowToken({ step: 'navigate', origin: `${origin}/login` }),
+    '--validation-step', workflowToken({
+      step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
+      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+    }),
+    '--validation-step', workflowToken({
+      step: 'click', origin: `${origin}/login`, locatorRole: 'button',
+      locatorName: 'Continue', effect: 'INTERACTIVE_STATE',
+    }),
+    '--validation-step', workflowToken({
+      step: 'fill', origin: `${origin}/totp`, locatorRole: 'textbox',
+      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP',
+    }),
+    '--validation-step', workflowToken({
+      step: 'click', origin: `${origin}/totp`, locatorRole: 'button',
+      locatorName: 'Verify', effect: 'INTERACTIVE_STATE',
+    }),
+    '--validation-step', workflowToken({
+      step: 'inspect', origin: `${origin}/router`, locatorRole: 'status',
+      locatorName: 'Saved state', predicate: 'text-equals',
+      expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+    }),
+  ];
+}
+
+
+test('opt-in production adapter completes a one-shot loopback workflow with fresh validation', async (t) => {
   if (process.env.P004B_RUN_REAL_BROWSER !== '1') {
     t.skip('CAPABILITY_UNAVAILABLE');
     return;
@@ -34,7 +106,7 @@ test('opt-in production adapter performs a loopback structural smoke', async (t)
     password: process.env.P004B_SYNTH_PASSWORD ?? 'SYNTH_SECRET_REAL_BROWSER',
     totp: process.env.P004B_SYNTH_TOTP ?? '246810',
   });
-  let adapter = null;
+  const stateDir = await mkdtemp(path.join(os.tmpdir(), 'browser-real-workflow-'));
   try {
     const selected = await resolveBrowserAdapter({
       preference: process.env.P004B_BROWSER_ADAPTER ?? 'playwright',
@@ -44,14 +116,31 @@ test('opt-in production adapter performs a loopback structural smoke', async (t)
       t.skip('CAPABILITY_UNAVAILABLE');
       return;
     }
-    adapter = selected.adapter;
-    await adapter.open();
-    assert.equal((await adapter.navigate({ origin: fixture.origin })).status, 'ok');
-    const observed = await adapter.inspect({ locatorRole: 'status', locatorName: 'Fixture ready' });
-    assert.equal(observed.observation, 'element-present');
-    assert.doesNotMatch(JSON.stringify(observed), /SYNTH_SECRET_/u);
+    const request = parseRunnerArgs(workflowArgs(fixture.origin), Date.now());
+    const env = {
+      ...process.env,
+      OPS_BROWSER_STATE_DIR: stateDir,
+      OPS_BROWSER_ADAPTER: process.env.P004B_BROWSER_ADAPTER ?? 'playwright',
+      OPS_BROWSER_VALUE_PASSWORD: process.env.P004B_SYNTH_PASSWORD ?? 'SYNTH_SECRET_REAL_BROWSER',
+      OPS_BROWSER_VALUE_TOTP: process.env.P004B_SYNTH_TOTP ?? '246810',
+      OPS_BROWSER_VALUE_DISABLED: 'false',
+      OPS_BROWSER_VALUE_EXPECTED: 'wan-enabled:false',
+    };
+    writePendingOperation(request.envelope, {
+      toolUseId: 'tool-real-browser-001',
+      adapterId: 'protected-runner',
+      routeClass: 'PROTECTED_RUNNER',
+      settingsFingerprint: 'browser-runner-v1',
+      permissionModes: ['normal'],
+      invocationFingerprint: request.invocationFingerprint,
+      capability: { state: 'PENDING_NATIVE_APPROVAL' },
+    }, env, Date.now());
+    const result = await executeBrowserWorkflow(request, { env, now: Date.now() });
+    assert.equal(result.reasonCode, 'WORKFLOW_VALIDATED');
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_/u);
+    assert.equal((await (await fetch(`${fixture.origin}/api/state`)).json()).routerEnabled, false);
   } finally {
-    await adapter?.close?.();
+    await rm(stateDir, { recursive: true, force: true });
     await fixture.close();
   }
 });
