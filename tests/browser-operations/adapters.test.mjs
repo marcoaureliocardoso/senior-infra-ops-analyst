@@ -51,7 +51,9 @@ function playwrightRuntime() {
     async close() { state.closed += 1; },
   };
   const runtime = { version: '1.2.3', chromium: { async launch(options) { state.launches.push(options); return browser; } } };
-  return { runtime, state, contextEvents, pageEvents };
+  return {
+    runtime, state, contextEvents, pageEvents, resources: { page, context, browser },
+  };
 }
 
 
@@ -86,7 +88,9 @@ function puppeteerRuntime() {
     async close() { state.closed += 1; },
   };
   const runtime = { version: '4.5.6', async launch(options) { state.launches.push(options); return browser; } };
-  return { runtime, state, browserEvents, pageEvents };
+  return {
+    runtime, state, browserEvents, pageEvents, resources: { page, context, browser },
+  };
 }
 
 
@@ -193,6 +197,26 @@ test('adapter close remains idempotent after partial open failure', async () => 
   await assert.rejects(() => adapter.open(), /ADAPTER_OPEN_FAILED/u);
   await adapter.close();
   assert.equal(fake.state.closed, 1);
+});
+
+
+test('built-in adapters aggregate close failures and remain idempotent', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const adapter = await create(fake.runtime, {
+      id: create === createPlaywrightAdapter ? 'playwright' : 'puppeteer',
+      allowedOrigins: ['https://router.example.invalid:443'],
+    });
+    await adapter.open();
+    const attempts = [];
+    fake.resources.page.close = async () => { attempts.push('page'); throw new Error('PAGE_CLOSE_FAILED'); };
+    fake.resources.context.close = async () => { attempts.push('context'); throw new Error('CONTEXT_CLOSE_FAILED'); };
+    fake.resources.browser.close = async () => { attempts.push('browser'); throw new Error('BROWSER_CLOSE_FAILED'); };
+    await assert.rejects(() => adapter.close(), /ADAPTER_CLOSE_FAILED/u);
+    assert.deepEqual(attempts, ['page', 'context', 'browser']);
+    await adapter.close();
+    assert.deepEqual(attempts, ['page', 'context', 'browser']);
+  }
 });
 
 

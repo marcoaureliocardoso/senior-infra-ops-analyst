@@ -1,5 +1,5 @@
 import {
-  ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl,
+  ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl, closeAdapterResources,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
 } from './common.mjs';
 
@@ -156,9 +156,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     async close() {
       const selectedPage = page; const selectedContext = context; const selectedBrowser = browser;
       page = null; context = null; browser = null; opened = false;
-      await selectedPage?.close?.().catch(() => {});
-      await selectedContext?.close?.().catch(() => {});
-      await selectedBrowser?.close?.().catch(() => {});
+      await closeAdapterResources([selectedPage, selectedContext, selectedBrowser]);
     },
   };
   return Object.freeze(adapter);

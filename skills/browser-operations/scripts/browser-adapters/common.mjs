@@ -75,3 +75,16 @@ export function locatorDescriptor(request) {
     name: typeof request.locatorName === 'string' ? request.locatorName : undefined,
   };
 }
+
+
+export async function closeAdapterResources(resources) {
+  let failed = false;
+  for (const resource of resources) {
+    try {
+      await resource?.close?.();
+    } catch {
+      failed = true;
+    }
+  }
+  if (failed) throw adapterError('ADAPTER_CLOSE_FAILED');
+}
