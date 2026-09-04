@@ -1076,6 +1076,46 @@ test('one-shot workflow invalidates the activation even when execution adapter o
 });
 
 
+test('one-shot workflow lets execution close failure take precedence over execution open failure', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs();
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    const syntheticPassword = 'SYNTH_SECRET_WORKFLOW_PASSWORD';
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env,
+        OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_PASSWORD: syntheticPassword,
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      adapterFactory: async () => ({
+        state: 'ACTIVE',
+        adapter: {
+          capabilities: {
+            preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+          },
+          async open() { calls.push('execution:open'); throw new Error('SYNTH_OPEN_FAILURE'); },
+          async close() {
+            calls.push('execution:close');
+            const error = new Error(syntheticPassword);
+            error.code = syntheticPassword;
+            throw error;
+          },
+        },
+      }),
+    });
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'ADAPTER_CLOSE_FAILED');
+    assert.equal(result.validationRequired, true);
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_PASSWORD/u);
+    assert.deepEqual(calls, ['execution:open', 'execution:close']);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
 test('one-shot workflow derives fresh validation capability before opening the validation adapter', async () => {
   await stateFixture(async (env) => {
     const args = workflowArgs();
@@ -1120,6 +1160,64 @@ test('one-shot workflow derives fresh validation capability before opening the v
       'execution:submit',
       'execution:close',
     ]);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
+test('one-shot workflow lets execution close failure take precedence over a denied execution path', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs({
+      effect: 'INTERACTIVE_STATE',
+      risk: 'LOW_RISK_CHANGE',
+      actions: ['navigate', 'click', 'inspect'],
+      executionSteps: [
+        { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+        {
+          step: 'click', origin: 'http://127.0.0.1:43111', locatorRole: 'button',
+          locatorName: 'Destroy', effect: 'DESTRUCTIVE_CHANGE',
+        },
+      ],
+      validationSteps: [
+        {
+          step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+          locatorName: 'Saved state', predicate: 'present',
+          expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+        },
+      ],
+    });
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    const syntheticExpected = 'SYNTH_SECRET_WORKFLOW_EXPECTED';
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env,
+        OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_EXPECTED: syntheticExpected,
+      },
+      now: NOW + 1,
+      adapterFactory: async () => ({
+        state: 'ACTIVE',
+        adapter: {
+          capabilities: {
+            preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+          },
+          async open() { calls.push('execution:open'); },
+          async navigate() { calls.push('execution:navigate'); return { status: 'ok', observation: 'execution-navigation' }; },
+          async close() {
+            calls.push('execution:close');
+            const error = new Error(syntheticExpected);
+            error.code = syntheticExpected;
+            throw error;
+          },
+        },
+      }),
+    });
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'ADAPTER_CLOSE_FAILED');
+    assert.equal(result.validationRequired, true);
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_EXPECTED/u);
+    assert.deepEqual(calls, ['execution:open', 'execution:navigate', 'execution:close']);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
   });
 });
@@ -1175,6 +1273,64 @@ test('one-shot workflow returns outcome unknown when execution close fails after
       'execution:fill:SYNTH_SECRET_WORKFLOW_PASSWORD',
       'execution:submit',
       'execution:close',
+    ]);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
+test('one-shot workflow lets validation close failure take precedence over validation open failure', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs();
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    const syntheticPassword = 'SYNTH_SECRET_WORKFLOW_PASSWORD';
+    const adapters = [
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('execution:open'); },
+        async navigate() { calls.push('execution:navigate'); return { status: 'ok', observation: 'execution-navigation' }; },
+        async fill(step) { calls.push(`execution:fill:${step.credential}`); return { status: 'ok', observation: 'execution-fill' }; },
+        async submit() { calls.push('execution:submit'); return { status: 'ok', observation: 'execution-submit' }; },
+        async close() { calls.push('execution:close'); },
+      },
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('validation:open'); throw new Error('SYNTH_VALIDATION_OPEN_FAILURE'); },
+        async close() {
+          calls.push('validation:close');
+          const error = new Error(syntheticPassword);
+          error.code = syntheticPassword;
+          throw error;
+        },
+      },
+    ];
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env,
+        OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_PASSWORD: syntheticPassword,
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
+    });
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'ADAPTER_CLOSE_FAILED');
+    assert.equal(result.validationRequired, true);
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_PASSWORD/u);
+    assert.deepEqual(calls, [
+      'execution:open',
+      'execution:navigate',
+      'execution:fill:SYNTH_SECRET_WORKFLOW_PASSWORD',
+      'execution:submit',
+      'execution:close',
+      'validation:open',
+      'validation:close',
     ]);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
   });

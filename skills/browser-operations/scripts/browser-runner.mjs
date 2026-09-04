@@ -657,32 +657,34 @@ export async function executeBrowserWorkflow(request, dependencies = {}) {
     let executionAdapter = detectedExecution.adapter;
     let executionCloseReason = null;
     let executionMutation = null;
+    let executionResult = null;
     try {
       try {
         await executionAdapter.open?.();
       } catch {
-        return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+        executionResult = workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
       }
-      const execution = await runWorkflowSteps(executionAdapter, request.executionSteps, {
-        ...dependencies,
-        envelope: request.envelope,
-        capability: effectiveCapability,
-        now,
-      }, env);
-      executionMutation = execution.lastMutation ?? null;
-      if (execution.type === 'denied') {
-        return workflowOutput('denied', execution.reasonCode, request.operationId);
-      }
-      if (execution.type === 'needs-validation') {
-        executionAmbiguous = true;
-        executionMutation = execution.outcomeObservation;
-        recordOutcomeUnknown(sessionId, request.operationId, {
-          reasonCode: execution.reasonCode,
-          action: execution.outcomeObservation.action,
-          effect: execution.outcomeObservation.effect,
-        }, env, now);
-      } else if (execution.type === 'failure') {
-        return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+      if (executionResult === null) {
+        const execution = await runWorkflowSteps(executionAdapter, request.executionSteps, {
+          ...dependencies,
+          envelope: request.envelope,
+          capability: effectiveCapability,
+          now,
+        }, env);
+        executionMutation = execution.lastMutation ?? null;
+        if (execution.type === 'denied') {
+          executionResult = workflowOutput('denied', execution.reasonCode, request.operationId);
+        } else if (execution.type === 'needs-validation') {
+          executionAmbiguous = true;
+          executionMutation = execution.outcomeObservation;
+          recordOutcomeUnknown(sessionId, request.operationId, {
+            reasonCode: execution.reasonCode,
+            action: execution.outcomeObservation.action,
+            effect: execution.outcomeObservation.effect,
+          }, env, now);
+        } else if (execution.type === 'failure') {
+          executionResult = workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+        }
       }
     } finally {
       executionCloseReason = await closeWorkflowAdapter(executionAdapter);
@@ -695,9 +697,11 @@ export async function executeBrowserWorkflow(request, dependencies = {}) {
           action: executionMutation.action,
           effect: executionMutation.effect,
         }, env, now);
-        return workflowOutput('outcome-unknown', executionCloseReason, request.operationId);
       }
-      return workflowOutput('denied', 'WORKFLOW_NOT_APPLIED', request.operationId);
+      return workflowOutput('outcome-unknown', executionCloseReason, request.operationId);
+    }
+    if (executionResult !== null) {
+      return executionResult;
     }
 
     const detectedValidation = await resolveWorkflowAdapter(request, dependencies, env);
@@ -718,23 +722,29 @@ export async function executeBrowserWorkflow(request, dependencies = {}) {
     let validationAdapter = detectedValidation.adapter;
     let validationResult = { outcome: 'OUTCOME_UNKNOWN', reasonCode: 'OUTCOME_UNKNOWN' };
     let validationCloseReason = null;
+    let validationOutput = null;
     try {
       try {
         await validationAdapter.open?.();
       } catch {
-        return workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
+        validationOutput = workflowOutput('outcome-unknown', 'OUTCOME_UNKNOWN', request.operationId);
       }
-      validationResult = await runWorkflowValidation(validationAdapter, request, {
-        ...dependencies,
-        capability: validationCapability,
-        now,
-      }, env);
+      if (validationOutput === null) {
+        validationResult = await runWorkflowValidation(validationAdapter, request, {
+          ...dependencies,
+          capability: validationCapability,
+          now,
+        }, env);
+      }
     } finally {
       validationCloseReason = await closeWorkflowAdapter(validationAdapter);
       validationAdapter = null;
     }
     if (validationCloseReason) {
       return workflowOutput('outcome-unknown', validationCloseReason, request.operationId);
+    }
+    if (validationOutput !== null) {
+      return validationOutput;
     }
     if (validationResult.outcome === 'WORKFLOW_VALIDATED') {
       if (executionAmbiguous) {
