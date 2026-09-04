@@ -29,6 +29,7 @@ const REPEATABLE = new Set([
   '--artifact-source-class', '--artifact-destination-class',
   '--workflow-step', '--validation-step',
 ]);
+const TRUSTED_REASON_CODES = new Set(['ADAPTER_CLOSE_FAILED']);
 const OPEN_FLAGS = new Set([
   '--step', '--operation-id', '--session-id', '--role', '--objective-ref', '--target',
   '--environment', '--service-origin', '--auth-origin', '--identity-ref',
@@ -383,8 +384,8 @@ function runnerErrorReason(error, fallback) {
       && error.code.startsWith('BROWSER_RUNNER_')) {
     return error.code.slice('BROWSER_RUNNER_'.length);
   }
-  if (typeof error?.code === 'string' && /^[A-Z0-9_]+$/u.test(error.code)) return error.code;
-  if (typeof error?.message === 'string' && /^[A-Z0-9_]+$/u.test(error.message)) return error.message;
+  if (typeof error?.code === 'string' && TRUSTED_REASON_CODES.has(error.code)) return error.code;
+  if (typeof error?.message === 'string' && TRUSTED_REASON_CODES.has(error.message)) return error.message;
   return fallback;
 }
 

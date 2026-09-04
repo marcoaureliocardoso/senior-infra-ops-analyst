@@ -670,6 +670,7 @@ test('one-shot workflow returns workflow not applied for exact not-met validatio
 
 test('one-shot workflow validates after a later non-mutable failure once a mutation already ran', async () => {
   await stateFixture(async (env) => {
+    const syntheticExpected = 'SYNTH_SECRET_WORKFLOW_EXPECTED';
     const args = workflowArgs({
       actions: ['navigate', 'submit', 'inspect'],
       executionSteps: [
@@ -701,7 +702,7 @@ test('one-shot workflow validates after a later non-mutable failure once a mutat
         async navigate() {
           calls.push('execution:navigate');
           if (calls.filter((entry) => entry === 'execution:navigate').length > 1) {
-            throw new Error('SYNTH_LATE_INTERACTIVE_FAILURE');
+            throw new Error(syntheticExpected);
           }
           return { status: 'ok', observation: 'execution-navigation' };
         },
@@ -725,20 +726,22 @@ test('one-shot workflow validates after a later non-mutable failure once a mutat
       env: {
         ...env,
         OPS_BROWSER_SESSION_ID: 'session-runner-001',
-        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-disabled',
+        OPS_BROWSER_VALUE_EXPECTED: syntheticExpected,
       },
       now: NOW + 1,
       adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
     });
     assert.equal(result.status, 'ok');
     assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_EXPECTED/u);
     assert.equal(observedDuringValidation?.outcome, 'OUTCOME_UNKNOWN');
     assert.deepEqual(observedDuringValidation?.outcomeObservation, {
-      reasonCode: 'SYNTH_LATE_INTERACTIVE_FAILURE',
+      reasonCode: 'ADAPTER_FAILURE',
       action: 'submit',
       effect: 'LOW_RISK_CHANGE',
       observedAt: NOW + 1,
     });
+    assert.doesNotMatch(JSON.stringify(observedDuringValidation), /SYNTH_SECRET_WORKFLOW_EXPECTED/u);
     assert.deepEqual(calls, [
       'execution:open',
       'execution:navigate',
@@ -1127,6 +1130,7 @@ test('one-shot workflow returns outcome unknown when execution close fails after
     const args = workflowArgs();
     const request = await stageWorkflowApproval(env, args, NOW);
     const calls = [];
+    const syntheticPassword = 'SYNTH_SECRET_WORKFLOW_PASSWORD';
     const adapters = [
       {
         capabilities: {
@@ -1138,8 +1142,8 @@ test('one-shot workflow returns outcome unknown when execution close fails after
         async submit() { calls.push('execution:submit'); return { status: 'ok', observation: 'execution-submit' }; },
         async close() {
           calls.push('execution:close');
-          const error = new Error('ADAPTER_CLOSE_FAILED');
-          error.code = 'ADAPTER_CLOSE_FAILED';
+          const error = new Error(syntheticPassword);
+          error.code = syntheticPassword;
           throw error;
         },
       },
@@ -1155,7 +1159,7 @@ test('one-shot workflow returns outcome unknown when execution close fails after
       env: {
         ...env,
         OPS_BROWSER_SESSION_ID: 'session-runner-001',
-        OPS_BROWSER_VALUE_PASSWORD: 'SYNTH_SECRET_WORKFLOW_PASSWORD',
+        OPS_BROWSER_VALUE_PASSWORD: syntheticPassword,
         OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
       },
       now: NOW + 1,
@@ -1164,6 +1168,7 @@ test('one-shot workflow returns outcome unknown when execution close fails after
     assert.equal(result.status, 'outcome-unknown');
     assert.equal(result.reasonCode, 'ADAPTER_CLOSE_FAILED');
     assert.equal(result.validationRequired, true);
+    assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_PASSWORD/u);
     assert.deepEqual(calls, [
       'execution:open',
       'execution:navigate',
@@ -1238,7 +1243,7 @@ test('one-shot workflow returns outcome unknown when validation close fails befo
     assert.equal(result.reasonCode, 'ADAPTER_CLOSE_FAILED');
     assert.equal(activeDuringValidationClose?.outcome, 'OUTCOME_UNKNOWN');
     assert.deepEqual(activeDuringValidationClose?.outcomeObservation, {
-      reasonCode: 'SYNTH_AMBIGUOUS_MUTATION',
+      reasonCode: 'ADAPTER_FAILURE',
       action: 'submit',
       effect: 'LOW_RISK_CHANGE',
       observedAt: NOW + 1,
