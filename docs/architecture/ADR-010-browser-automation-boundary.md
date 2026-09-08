@@ -18,10 +18,12 @@ Browser automation is an operational transport governed by the same operation
 envelope, authorization, effect, and evidence model as other protected routes.
 The main-session MCP route and the protected runner route both require a bound
 operation, per-call policy evaluation, current native authorization, and exact
-hook coverage. The packaged per-command runner is read-only because separate
+hook coverage. The legacy per-command runner is read-only because separate
 processes cannot truthfully claim one persistent browser session. Authentication
-and mutation require a recognized persistent route that proves confinement,
-independent validation, and cleanup for the whole bounded operation. The
+and mutation use one protected `--step workflow` process whose reference-only
+manifest receives native approval before exact fingerprint activation. Runtime
+capability must prove confinement for every step; execution closes before a
+fresh adapter performs independent validation. The
 package gives no generic MCP grants to subagents; all 12
 roles keep their declared tool boundaries and may use only an explicitly routed
 and proven capability.
@@ -35,11 +37,15 @@ structured deny proves runtime coverage before an operational call.
 
 Runtime capability detection yields `AVAILABLE_RECOGNIZED`,
 `AVAILABLE_UNRECOGNIZED`, `UNAVAILABLE`, or `CONFLICT`. Execution additionally
-stops on `GUARD_UNPROVEN` and `OUTCOME_UNKNOWN`. A recognized main-session MCP
+stops on `GUARD_UNPROVEN` and unresolved `OUTCOME_UNKNOWN`. A recognized main-session MCP
 has precedence, followed by a recognized protected runner; an ambiguous,
 conflicting, or unproven route fails closed.
 
-The runtime-detected adapters use fixed optional imports and do not install or
+Every mutable one-shot is `ALWAYS_ASK`, including in `bypassPermissions`.
+Approval stages only the canonical invocation fingerprint; it does not persist
+the decoded workflow. Requested steps are intersected with the effective
+runtime adapter before browser open or protected reference resolution. The
+runtime-detected adapters use fixed optional imports and do not install or
 download Playwright, Puppeteer, an MCP server, or a browser. Detection reports
 what is present rather than pinning Claude Code, Nori, provider, model, adapter,
 or browser versions.
@@ -74,14 +80,25 @@ classify the state as applied or not applied. Applied operations cannot repeat.
 
 Deterministic tests cover capability routing, MCP mapping, operation binding,
 hook decisions, transactional settings, protected runner behavior, optional
-adapter detection, origin restrictions, artifact handling, and a 36-scenario
+adapter detection, origin restrictions, artifact handling, and a 37-scenario
 loopback fixture matrix. The provider-free harness self-test and preflight prove
-bounded retention and an exact fail-closed deny. The hardened harness cannot
-report `ACTIVE` from zero calls or a deny-only probe and verifies cleanup only
-after deletion. On 2026-09-02 no recognized
-real-browser adapter or authenticated provider-backed browser session had yet
-been accepted as runtime evidence; those gates remain explicit and cannot be
-inferred from deterministic success.
+bounded retention and an exact fail-closed deny. Its aggregate distinguishes
+the legacy read-only multi-command route from the mutable persistent one-shot
+route. It cannot name `persistent-one-shot`, `ACTIVE`, completed authentication,
+mutation, or validation without one observed workflow tool call, matching
+Pre/Post hook events, and structural `WORKFLOW_VALIDATED`; cleanup becomes
+verified only after deletion. Provider-backed active-runtime acceptance remains
+a separate gate and cannot be inferred from deterministic or direct local
+evidence.
+
+On 2026-09-07 a provider-free one-shot loopback witness used the existing
+Playwright package and system Chrome channel. Eight execution steps and seven
+fresh-context validation steps returned structural `WORKFLOW_VALIDATED`; the
+disposable workflow state was absent afterward. A test-only fixed import and
+channel launcher supplied the already installed runtime without adding a
+production module-path interface or installing anything. This observation does
+not establish the complete real-browser matrix or provider-backed active-runtime
+acceptance.
 
 ## Alternatives rejected
 
@@ -112,6 +129,7 @@ ownership procedure. Pending operations and credential reuse are not restored.
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md`
+- One-shot workflow plan: `docs/superpowers/plans/2026-09-02-p0-04b-one-shot-workflow.md`
 - Canonical contract: `references/browser-operations.md`
 - Related authority boundary: `docs/architecture/ADR-009-global-prompt-injection-defense.md`
 - Related execution boundary: `docs/architecture/ADR-008-native-execution-boundary.md`

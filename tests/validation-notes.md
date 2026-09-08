@@ -773,3 +773,62 @@ Package metadata declares the pre-merge `0.15.0` state, 26 first-class skills,
 and 12 browser-aware subagent components at `1.2.0`. The changelog distinguishes
 deterministic/provider-free evidence from the still-pending real-browser and
 authenticated active-runtime gates.
+
+## P0-04B one-shot workflow Task 4 evidence (2026-09-07)
+
+Task 4 first added failing policy and harness tests. The RED run reported 17
+missing installed-document markers plus live-schema failures for absent route
+and workflow evidence, incomplete workflow promotion, and the missing canonical
+workflow test in the package gate. After the implementation, the focused source
+policy suite passed 4 tests and the live browser safety suite passed 18 tests
+with 2 host-dependent Bash tests skipped on Windows.
+
+The content-free aggregate now distinguishes
+`legacy-read-only-multi-command`, `workflow-incomplete`, and
+`persistent-one-shot`. It can report `persistent-one-shot`, `ACTIVE`, completed
+authentication, mutation, or validation only after one bounded workflow command
+is observed with a mutable execution manifest, final validation inspect,
+matching `PreToolUse` and `PostToolUse` identifiers, and structural
+`WORKFLOW_VALIDATED`. Retained fields are limited to runtime labels, route class,
+step counts, hook/tool counts, structural outcome, numeric context percentages,
+role count, and cleanup status.
+Arbitrary nested result content cannot imitate a tool or hook event; only the
+documented stream envelope positions contribute evidence.
+
+Provider-free runtime detection observed Node.js `v24.19.0`, Playwright
+`1.62.1`, and system Chrome `152.0.7977.76`. The default Playwright browser was
+unavailable, while the existing system Chrome channel launched. The opt-in
+loopback test used a test-only fixed Playwright module import and channel
+launcher; production adapter interfaces gained no arbitrary executable or
+module path. Its persistent one-shot route executed 8 steps, closed, resolved a
+fresh adapter, executed 7 validation steps, and returned structural
+`WORKFLOW_VALIDATED`. After adding the bounded override regression, the test
+file reported 3 passed, 0 failed, and 0 skipped.
+The temporary workflow-state count and remaining bundled-Node process count were
+both zero after the run. No prompt, page content, DOM/accessibility content,
+credential, cookie, profile, browser stream, or artifact body was retained.
+
+The first diagnostic attempt returned `WORKFLOW_NOT_APPLIED` before mutation.
+Structural tracing showed that step origins normalize to authority only, so the
+test's `/login` path became `/`; the corrected witness navigates to the bound
+origin and uses an authorized semantic `Login` click. No mutation retry was
+performed. No authenticated provider request occurred.
+
+This direct one-shot witness does not claim the complete 37-scenario real-browser
+matrix, 12-role/provider-backed active runtime, rollback, CI, Security,
+independent review, merge, or post-merge validation. P0-04B remains in validation.
+The existing unreleased package version `0.15.0`, browser component version
+`1.0.0`, and browser skill version `0.1.0` remain unchanged under the current
+release policy; only the skill's `last_updated` date changed.
+
+The bundled Node.js command-guard gate passed 303 of 304 tests with one
+Windows symlink-dependent skip, 100% line/branch/function coverage, and 86/86
+mutation witnesses killed. The full Debian WSL package gate then passed on
+Node.js `v24.17.0`, including 304/304 command-guard tests, the same 100%
+coverage and 86/86 mutation result, the focused browser workflow suites, 42
+release-history tests, archive inventory at 235 packaged files, content/schema/
+CI validation, and provider-free live parser self-tests. Its real-browser case
+remained intentionally skipped because the package gate does not opt into a
+browser launch; the separate bundled-Node opt-in run above supplies that direct
+witness. PowerShell syntax validation was skipped because PowerShell is absent
+inside Debian; no PowerShell syntax-pass claim is made for this run.

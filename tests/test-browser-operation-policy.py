@@ -64,6 +64,15 @@ REFERENCE_MARKERS = (
     "## Artifact handling",
     "HUMAN_CHALLENGE",
     "OUTCOME_UNKNOWN",
+    "legacy read-only multi-command",
+    "persistent one-shot",
+    "--step workflow",
+    "--workflow-step",
+    "--validation-step",
+    "base64url",
+    "env:OPS_BROWSER_VALUE_[A-Z0-9_]+",
+    "fresh validation context",
+    "Puppeteer",
 )
 SKILL_MARKERS = (
     "references/browser-operations.md",
@@ -73,6 +82,14 @@ SKILL_MARKERS = (
     "## Execute and validate",
     "## Close and clean up",
     "Do not assume that a browser route is available",
+    "legacy read-only multi-command",
+    "persistent one-shot",
+    "--step workflow",
+    "--workflow-step",
+    "--validation-step",
+    "env:OPS_BROWSER_VALUE_[A-Z0-9_]+",
+    "ALWAYS_ASK",
+    "fresh validation context",
 )
 
 

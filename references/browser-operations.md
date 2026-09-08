@@ -27,6 +27,51 @@ Use the most precise sufficient active route:
 
 A lower route is not selected merely to evade an unavailable guard or approval. Public read tools cannot perform authenticated UI work. The package does not silently enable, disable, install, or reconfigure an MCP or browser.
 
+## Protected runner workflows
+
+The protected runner has two distinct routes:
+
+- The legacy read-only multi-command route opens and operates through separate
+  CLI processes. It is suitable only for bounded reads because process-local
+  browser and authentication state cannot carry between commands.
+- The persistent one-shot route is one
+  `browser-runner.mjs --step workflow` invocation. It carries the complete
+  operation envelope plus 1-16 ordered `--workflow-step` records and 1-12
+  ordered `--validation-step` records. Each record is canonical unpadded
+  base64url of one bounded UTF-8 JSON object; the decoded manifest is never
+  persisted.
+
+Each step `origin` is an authority boundary and normalizes to scheme, host, and
+effective port rather than retaining a path. After navigating to that origin,
+use a separately authorized semantic click to enter a UI route below `/`.
+
+Workflow records contain references, never protected values. The built-in
+resolver accepts only `env:OPS_BROWSER_VALUE_[A-Z0-9_]+`; a dependency-injected
+resolver may recognize a reviewed vault or keychain helper without broadening
+the manifest grammar. The final validation step is one `inspect`, and its
+`expectRef` must equal the envelope `validationRef`.
+
+The native command guard parses the complete manifest, applies the highest
+declared effect, and marks every mutable workflow `ALWAYS_ASK`, including in
+`bypassPermissions`. It stores only the SHA-256 invocation fingerprint. Once
+the exact approved Bash process starts, the runner intersects every requested
+action, effect, origin, artifact, and popup guarantee with the runtime-observed
+adapter capability and activates only the same pending fingerprint. Activation
+precedes browser open, navigation, and protected-reference resolution.
+
+Execution uses one ephemeral adapter and stops at the first failure. The runner
+then closes it before resolving and opening a second adapter for the read-only
+validation sequence in a fresh validation context. A possible mutation followed
+by timeout, crash, interruption, close failure, or ambiguous response is never
+retried. Fresh validation may return `WORKFLOW_VALIDATED` or
+`WORKFLOW_NOT_APPLIED`; otherwise the result remains `OUTCOME_UNKNOWN`. Every
+exit invalidates the one-shot binding and attempts complete adapter, context,
+profile, artifact, and reference cleanup.
+
+Playwright may satisfy mutable workflow capability when its detected context
+proves pre-navigation popup containment. Puppeteer cannot currently prove that
+guarantee and therefore remains read-only for authentication and mutation.
+
 ## Effect taxonomy
 
 - `PUBLIC_READ`: bounded information intended for unauthenticated public access.
@@ -52,7 +97,7 @@ Operational browser executors are:
 - `release-cicd-operator`
 - `observability-sre`
 
-They use the protected runner only through existing guarded Bash and only inside their domain. The packaged CLI route activates only read effects because each invocation owns a new ephemeral browser; mutation requires a recognized persistent route that proves the whole bounded workflow and independent postcondition in one operation. `audit-evidence-collector` may collect bounded read-only browser evidence. `incident-commander`, `change-manager`, `rca-facilitator`, and `security-operations-reviewer` may request, coordinate, or review browser work but cannot execute it. No packaged subagent receives a generic browser MCP grant.
+They use the protected runner only through existing guarded Bash and only inside their domain. Legacy multi-command calls activate only read effects. Authentication and mutation require the persistent one-shot route, exact native approval, sufficient runtime capability, and the separate fresh-context postcondition. `audit-evidence-collector` may collect bounded read-only browser evidence. `incident-commander`, `change-manager`, `rca-facilitator`, and `security-operations-reviewer` may request, coordinate, or review browser work but cannot execute it. No packaged subagent receives a generic browser MCP grant.
 
 ## Operation envelope
 

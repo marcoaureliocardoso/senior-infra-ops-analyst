@@ -89,9 +89,15 @@ node skills/browser-operations/scripts/configure-browser-operations.mjs --remove
 Exact settings are not runtime proof: the current session must observe the
 expected structured guard deny before use. Every navigation and UI effect stays
 bound to one operation envelope, approved origins, and native authorization.
-The packaged per-command runner is currently read-only: separate processes do
-not share a browser session, so authentication or mutation requires a recognized
-persistent route with sufficient origin, popup, validation, and cleanup proof.
+The legacy read-only multi-command runner uses separate processes and does not
+share login state. Authentication or mutation instead requires one
+`browser-runner.mjs --step workflow` call with the complete operation envelope,
+reference-only base64url `--workflow-step` records, and fresh-context
+`--validation-step` records. Every mutable workflow is `ALWAYS_ASK`, even in
+`bypassPermissions`; the approved invocation fingerprint and the
+runtime-observed capability must match before browser open. Playwright may
+satisfy popup containment when detected; Puppeteer remains read-only because it
+cannot currently prove pre-navigation popup containment.
 Interactive authentication may use an existing protected session, a recognized
 vault/helper, or a credential requested from the operator; credentials remain
 authentication data and are never approval. A human-only challenge pauses for
@@ -101,7 +107,9 @@ Downloads, screenshots, traces, and other artifact classes are denied unless
 the envelope explicitly permits their type and limits; binary evidence also
 requires a reviewed redactor. Artifact retention is not implemented and is
 denied. An
-unknown mutating outcome is never retried automatically. The 12 subagents keep
+unknown mutating outcome is reconciled through the separate validation context
+and is never retried automatically. Every workflow exit invalidates the binding
+and cleans ephemeral browser and reference state. The 12 subagents keep
 their role-specific authority and receive no generic browser or MCP grant. See
 `references/browser-operations.md` and
 `docs/architecture/ADR-010-browser-automation-boundary.md`.

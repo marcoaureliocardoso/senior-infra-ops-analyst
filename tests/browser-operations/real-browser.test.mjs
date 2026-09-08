@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import { resolveBrowserAdapter } from '../../skills/browser-operations/scripts/browser-adapters/index.mjs';
 import { writePendingOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
@@ -48,6 +49,10 @@ function workflowArgs(origin) {
     '--compensation-ref', 'fixture-rollback', '--expires-in-seconds', '600',
     '--workflow-step', workflowToken({ step: 'navigate', origin: `${origin}/login` }),
     '--workflow-step', workflowToken({
+      step: 'click', origin, locatorRole: 'link', locatorName: 'Login',
+      effect: 'INTERACTIVE_STATE',
+    }),
+    '--workflow-step', workflowToken({
       step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
       locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
     }),
@@ -73,6 +78,10 @@ function workflowArgs(origin) {
     }),
     '--validation-step', workflowToken({ step: 'navigate', origin: `${origin}/login` }),
     '--validation-step', workflowToken({
+      step: 'click', origin, locatorRole: 'link', locatorName: 'Login',
+      effect: 'INTERACTIVE_STATE',
+    }),
+    '--validation-step', workflowToken({
       step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
       locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
     }),
@@ -97,6 +106,54 @@ function workflowArgs(origin) {
 }
 
 
+async function resolveTestAdapter(configuration) {
+  const modulePath = process.env.P004B_PLAYWRIGHT_TEST_MODULE;
+  if (!modulePath) return resolveBrowserAdapter(configuration);
+  const resolvedModulePath = path.resolve(modulePath);
+  const normalizedModulePath = resolvedModulePath.replaceAll('\\', '/');
+  const channel = process.env.P004B_BROWSER_TEST_CHANNEL;
+  if (!normalizedModulePath.endsWith('/node_modules/playwright/index.mjs')
+      || (channel !== undefined && !['chrome', 'msedge'].includes(channel))) {
+    return Object.freeze({ state: 'UNAVAILABLE', reasonCode: 'CAPABILITY_UNAVAILABLE', adapter: null });
+  }
+  const imported = await import(pathToFileURL(resolvedModulePath).href);
+  const runtime = imported?.chromium ? imported : imported?.default;
+  if (!runtime?.chromium || typeof runtime.chromium.launch !== 'function') {
+    return Object.freeze({ state: 'UNAVAILABLE', reasonCode: 'CAPABILITY_UNAVAILABLE', adapter: null });
+  }
+  const injectedRuntime = Object.freeze({
+    chromium: Object.freeze({
+      launch: (options = {}) => runtime.chromium.launch(
+        channel ? { ...options, channel } : options,
+      ),
+    }),
+  });
+  const importModule = async (specifier) => {
+    if (specifier === 'playwright') return injectedRuntime;
+    throw new Error('TEST_RUNTIME_UNAVAILABLE');
+  };
+  return resolveBrowserAdapter({ ...configuration, preference: 'playwright', importModule });
+}
+
+
+test('test-only real adapter override accepts only bounded Playwright module and browser channel', async () => {
+  const previousModule = process.env.P004B_PLAYWRIGHT_TEST_MODULE;
+  const previousChannel = process.env.P004B_BROWSER_TEST_CHANNEL;
+  process.env.P004B_PLAYWRIGHT_TEST_MODULE = path.join(os.tmpdir(), 'untrusted-runtime.mjs');
+  process.env.P004B_BROWSER_TEST_CHANNEL = 'arbitrary-browser';
+  try {
+    const selected = await resolveTestAdapter({ options: { allowedOrigins: ['http://127.0.0.1:43111'] } });
+    assert.equal(selected.state, 'UNAVAILABLE');
+    assert.equal(selected.reasonCode, 'CAPABILITY_UNAVAILABLE');
+  } finally {
+    if (previousModule === undefined) delete process.env.P004B_PLAYWRIGHT_TEST_MODULE;
+    else process.env.P004B_PLAYWRIGHT_TEST_MODULE = previousModule;
+    if (previousChannel === undefined) delete process.env.P004B_BROWSER_TEST_CHANNEL;
+    else process.env.P004B_BROWSER_TEST_CHANNEL = previousChannel;
+  }
+});
+
+
 test('opt-in production adapter completes a one-shot loopback workflow with fresh validation', async (t) => {
   if (process.env.P004B_RUN_REAL_BROWSER !== '1') {
     t.skip('CAPABILITY_UNAVAILABLE');
@@ -108,7 +165,7 @@ test('opt-in production adapter completes a one-shot loopback workflow with fres
   });
   const stateDir = await mkdtemp(path.join(os.tmpdir(), 'browser-real-workflow-'));
   try {
-    const selected = await resolveBrowserAdapter({
+    const selected = await resolveTestAdapter({
       preference: process.env.P004B_BROWSER_ADAPTER ?? 'playwright',
       options: { allowedOrigins: [fixture.origin] },
     });
@@ -135,10 +192,17 @@ test('opt-in production adapter completes a one-shot loopback workflow with fres
       invocationFingerprint: request.invocationFingerprint,
       capability: { state: 'PENDING_NATIVE_APPROVAL' },
     }, env, Date.now());
-    const result = await executeBrowserWorkflow(request, { env, now: Date.now() });
-    assert.equal(result.reasonCode, 'WORKFLOW_VALIDATED');
+    const result = await executeBrowserWorkflow(request, {
+      env, now: Date.now(), adapterFactory: resolveTestAdapter,
+    });
+    const structuralState = await (await fetch(`${fixture.origin}/api/state`)).json();
+    assert.equal(result.reasonCode, 'WORKFLOW_VALIDATED', JSON.stringify({
+      reasonCode: result.reasonCode,
+      routerEnabled: structuralState.routerEnabled,
+      revision: structuralState.revision,
+    }));
     assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_/u);
-    assert.equal((await (await fetch(`${fixture.origin}/api/state`)).json()).routerEnabled, false);
+    assert.equal(structuralState.routerEnabled, false);
   } finally {
     await rm(stateDir, { recursive: true, force: true });
     await fixture.close();

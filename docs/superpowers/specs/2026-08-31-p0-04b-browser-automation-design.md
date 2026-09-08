@@ -1,12 +1,11 @@
 # P0-04B Browser Automation Design
 
-> Implementation clarification (2026-09-02): independent review showed that
-> separate protected-runner CLI processes do not preserve one browser context.
-> The shipped runner therefore activates reads only. Authentication and mutation
-> remain contingent on a recognized persistent route, and acceptance must either
-> prove that route or explicitly amend the criterion. Adapter-self-reported
-> validation cannot clear `OUTCOME_UNKNOWN`; an independent reconciler must
-> classify the effect as applied or not applied.
+> Implementation clarification (2026-09-07): separate protected-runner CLI
+> processes remain the legacy read-only multi-command route. Authentication and
+> mutation use one `--step workflow` process with exact native approval,
+> reference-only steps, runtime capability intersection, pre-navigation popup
+> containment, and validation through a newly resolved fresh browser context.
+> An incomplete or ambiguous workflow cannot claim active runtime acceptance.
 
 Date: 2026-08-31
 
@@ -328,6 +327,22 @@ The runner supports bounded primitives needed for general infrastructure UIs:
 Adapters may use Playwright, Puppeteer, or an equivalent implementation. At
 least one actual adapter must pass the real-browser test matrix. An adapter
 that is detected but not validated for the current runtime cannot mutate.
+
+The protected runner exposes two non-interchangeable execution shapes. Legacy
+`open` plus later commands is read-only because process-local browser state is
+not persistent. The mutable persistent one-shot shape is a single
+`browser-runner.mjs --step workflow` invocation containing the full envelope,
+1-16 canonical unpadded base64url execution records, and 1-12 validation
+records. Production protected references are limited to
+`env:OPS_BROWSER_VALUE_[A-Z0-9_]+`; the decoded manifest is never persisted.
+The guard stages only the canonical SHA-256 invocation fingerprint and every
+mutable workflow is `ALWAYS_ASK` in all permission modes. The runner activates
+only the exact pending fingerprint after intersecting the requested operations
+with the observed adapter capability, then opens the browser. Execution closes
+before a newly resolved adapter opens the fresh validation context. Puppeteer
+remains read-only while it cannot prove pre-navigation popup containment. No
+ambiguous mutation is retried, and all exits invalidate the binding and clean
+ephemeral state.
 
 ### Settings configurator
 
