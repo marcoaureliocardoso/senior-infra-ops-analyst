@@ -2,10 +2,12 @@
 """Content-free parser for the opt-in P0-04B runtime harness."""
 from __future__ import annotations
 
-import base64
 import json
+import os
 import re
 import shlex
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,10 +41,16 @@ OBSERVATION_STATES = {"completed", "not-observed"}
 WORKFLOW_OUTCOMES = {
     "WORKFLOW_VALIDATED", "WORKFLOW_NOT_APPLIED", "OUTCOME_UNKNOWN", "NOT_OBSERVED",
 }
-MUTABLE_EFFECTS = {"LOW_RISK_CHANGE", "DISRUPTIVE_CHANGE", "DESTRUCTIVE_CHANGE"}
-WORKFLOW_REASON_CODES = {
-    "WORKFLOW_VALIDATED", "WORKFLOW_NOT_APPLIED", "OUTCOME_UNKNOWN",
+WORKFLOW_EVIDENCE_FIELDS = {
+    "operationId", "executionSteps", "validationSteps", "authenticationRequested",
+    "mutationRequested", "validationRequested",
 }
+SHELL_CONTROL = re.compile(r"[\r\n\0;&|<>`]|\$\(")
+EXPECTED_ASK_REASON = (
+    "ASK_SENSITIVE_OPERATION: stage 1 "
+    "BROWSER_PROTECTED_RUNNER/LOW_RISK_CHANGE. Operator confirmation is required "
+    "before execution. Sensitive values are redacted."
+)
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -153,72 +161,63 @@ def _stream_records(event: dict[str, Any]):
                         yield block
 
 
-def _decode_step(token: str) -> dict[str, Any] | None:
-    if not isinstance(token, str) or not 1 <= len(token) <= 2048:
-        return None
-    if "=" in token or not re.fullmatch(r"[A-Za-z0-9_-]+", token):
-        return None
-    try:
-        raw = base64.b64decode(
-            token + "=" * (-len(token) % 4), altchars=b"-_", validate=True,
-        )
-        if not 1 <= len(raw) <= 1536:
-            return None
-        if base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii") != token:
-            return None
-        value = json.loads(raw.decode("utf-8", errors="strict"))
-    except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
 def _workflow_command(command: Any) -> dict[str, Any] | None:
     if not isinstance(command, str) or not 1 <= len(command) <= 65536:
+        return None
+    if SHELL_CONTROL.search(command):
         return None
     try:
         tokens = shlex.split(command, posix=True)
     except ValueError:
         return None
-    runner_indexes = [
-        index for index, token in enumerate(tokens)
-        if token.replace("\\", "/").endswith(
-            "skills/browser-operations/scripts/browser-runner.mjs"
+    if len(tokens) < 6 or tokens[0] != "node":
+        return None
+    runner = Path(tokens[1])
+    expected_runner = Path(os.environ.get(
+        "P004B_EXPECTED_RUNNER_PATH",
+        Path(__file__).resolve().parents[1]
+        / "skills" / "browser-operations" / "scripts" / "browser-runner.mjs",
+    ))
+    if not runner.is_absolute() or not expected_runner.is_absolute():
+        return None
+    if os.path.normcase(str(runner.resolve())) != os.path.normcase(str(expected_runner.resolve())):
+        return None
+    args = tokens[2:]
+    if len(args) % 2 or any(
+        not isinstance(args[index], str) or not args[index].startswith("--")
+        for index in range(0, len(args), 2)
+    ):
+        return None
+    node_bin = os.environ.get("P004B_EVIDENCE_NODE_BIN") or shutil.which("node")
+    helper = Path(__file__).with_name("browser-workflow-evidence.mjs")
+    if not node_bin or not helper.is_file():
+        return None
+    try:
+        completed = subprocess.run(
+            [node_bin, str(helper), *args], capture_output=True, text=True,
+            timeout=5, check=False,
         )
-    ]
-    if len(runner_indexes) != 1:
+        if (completed.returncode != 0 or completed.stderr
+                or len(completed.stdout) > 4096):
+            return None
+        observed = _exact(json.loads(completed.stdout), WORKFLOW_EVIDENCE_FIELDS, "workflow evidence")
+    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
         return None
-    args = tokens[runner_indexes[0] + 1:]
-    if args.count("--step") != 1:
+    if (not isinstance(observed["operationId"], str)
+            or not LABEL.fullmatch(observed["operationId"])):
         return None
-    step_index = args.index("--step")
-    if step_index + 1 >= len(args) or args[step_index + 1] != "workflow":
+    for field, maximum in (("executionSteps", 16), ("validationSteps", 12)):
+        if (not isinstance(observed[field], int) or isinstance(observed[field], bool)
+                or not 1 <= observed[field] <= maximum):
+            return None
+    if any(not isinstance(observed[field], bool) for field in (
+        "authenticationRequested", "mutationRequested", "validationRequested",
+    )):
         return None
-    execution_tokens = [
-        args[index + 1] for index, token in enumerate(args[:-1])
-        if token == "--workflow-step"
-    ]
-    validation_tokens = [
-        args[index + 1] for index, token in enumerate(args[:-1])
-        if token == "--validation-step"
-    ]
-    execution = [_decode_step(token) for token in execution_tokens]
-    validation = [_decode_step(token) for token in validation_tokens]
-    if (not 1 <= len(execution) <= 16 or not 1 <= len(validation) <= 12
-            or any(step is None for step in execution + validation)):
-        return None
-    authenticated = any(step.get("step") == "fill" for step in execution)
-    mutable = any(step.get("effect") in MUTABLE_EFFECTS for step in execution)
-    independently_validated = validation[-1].get("step") == "inspect"
-    return {
-        "executionSteps": len(execution),
-        "validationSteps": len(validation),
-        "authenticationRequested": authenticated,
-        "mutationRequested": mutable,
-        "validationRequested": independently_validated,
-    }
+    return observed
 
 
-def _workflow_result(content: Any) -> str | None:
+def _workflow_result(content: Any, operation_id: str) -> str | None:
     candidates: list[str] = []
     if isinstance(content, str) and len(content) <= 4096:
         candidates.append(content)
@@ -228,26 +227,38 @@ def _workflow_result(content: Any) -> str | None:
             if isinstance(block, dict) and block.get("type") == "text"
             and isinstance(block.get("text"), str) and len(block["text"]) <= 4096
         )
-    for candidate in candidates:
-        try:
-            value = json.loads(candidate)
-        except json.JSONDecodeError:
-            continue
-        if (isinstance(value, dict)
-                and set(value) == {
-                    "status", "reasonCode", "operationId", "step", "effect",
-                    "validationRequired", "observation",
-                }
-                and value.get("step") == "workflow"
-                and value.get("reasonCode") in WORKFLOW_REASON_CODES):
-            return value["reasonCode"]
-    return None
+    if len(candidates) != 1:
+        return None
+    try:
+        value = json.loads(candidates[0])
+    except json.JSONDecodeError:
+        return None
+    if (not isinstance(value, dict)
+            or set(value) != {
+                "status", "reasonCode", "operationId", "step", "effect",
+                "validationRequired", "observation",
+            }
+            or value.get("operationId") != operation_id
+            or value.get("step") != "workflow"
+            or value.get("effect") != "SENSITIVE_READ"
+            or value.get("observation") is not None):
+        return None
+    coherent = {
+        "WORKFLOW_VALIDATED": ("ok", False),
+        "WORKFLOW_NOT_APPLIED": ("ok", False),
+        "OUTCOME_UNKNOWN": ("outcome-unknown", True),
+    }
+    expected = coherent.get(value.get("reasonCode"))
+    if expected is None or (value.get("status"), value.get("validationRequired")) != expected:
+        return None
+    return value["reasonCode"]
 
 
 def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     if not path.is_file() or path.stat().st_size > 5_000_000:
         return {"status": "inconclusive", "reasonCode": "STREAM_INVALID", "toolCalls": 0}
     tool_calls = 0
+    bash_tool_uses = 0
     result_seen = False
     canary_seen = False
     malformed = False
@@ -255,9 +266,10 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     hook_events = 0
     role_labels: set[str] = set()
     workflow_calls: dict[str, dict[str, Any]] = {}
-    workflow_results: dict[str, str] = {}
-    pre_hooks: set[str] = set()
-    post_hooks: set[str] = set()
+    active_call_id: str | None = None
+    hook_starts: dict[str, dict[str, str]] = {}
+    completed_hook_ids: set[str] = set()
+    orphan_expected_hook = False
 
     def inspect_structural(value: Any) -> None:
         if isinstance(value, dict):
@@ -269,6 +281,36 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
         elif isinstance(value, list):
             for child in value:
                 inspect_structural(child)
+
+    def hook_name_matches(value: Any, event: Any) -> bool:
+        return (
+            event in {"PreToolUse", "PostToolUse"}
+            and value == f"{event}:Bash"
+        )
+
+    def invalidate_active() -> None:
+        if active_call_id in workflow_calls:
+            workflow_calls[active_call_id]["invalid"] = True
+
+    def pre_decision(value: dict[str, Any]) -> str | None:
+        stdout = value.get("stdout")
+        if (not isinstance(stdout, str) or len(stdout) > 4096
+                or value.get("output") != stdout or value.get("stderr") != ""):
+            return None
+        try:
+            parsed = _exact(json.loads(stdout), {"hookSpecificOutput"}, "hook response")
+            hook = _exact(parsed["hookSpecificOutput"], {
+                "hookEventName", "permissionDecision", "permissionDecisionReason",
+            }, "hook decision")
+        except (ValueError, json.JSONDecodeError):
+            return None
+        reason = hook.get("permissionDecisionReason")
+        if (hook.get("hookEventName") != "PreToolUse"
+                or reason != EXPECTED_ASK_REASON):
+            return None
+        decision = hook.get("permissionDecision")
+        return decision if decision in {"allow", "ask", "deny"} else None
+
     with path.open("r", encoding="utf-8") as stream:
         for line in stream:
             if canary and canary in line:
@@ -286,40 +328,119 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                 event_type = value.get("type")
                 if event_type in {"tool_use", "tool_result"}:
                     tool_calls += 1
-                if value.get("hook_event_name") in {
-                    "PreToolUse", "PostToolUse", "PostToolUseFailure",
-                }:
-                    hook_events += 1
                 if (isinstance(value.get("agent_type"), str)
                         and LABEL.fullmatch(value["agent_type"])):
                     role_labels.add(value["agent_type"])
                 if event_type == "result":
                     result_seen = True
                 tool_use_id = value.get("id") if event_type == "tool_use" else value.get("tool_use_id")
-                if (event_type == "tool_use" and value.get("name") == "Bash"
-                        and isinstance(tool_use_id, str) and LABEL.fullmatch(tool_use_id)):
+                if event_type == "tool_use" and value.get("name") == "Bash":
+                    bash_tool_uses += 1
+                    if active_call_id is not None:
+                        invalidate_active()
                     tool_input = value.get("input")
                     observation = _workflow_command(
                         tool_input.get("command") if isinstance(tool_input, dict) else None
                     )
-                    if observation is not None:
-                        workflow_calls[tool_use_id] = observation
+                    if (observation is not None and isinstance(tool_use_id, str)
+                            and LABEL.fullmatch(tool_use_id)):
+                        if tool_use_id in workflow_calls:
+                            workflow_calls[tool_use_id]["invalid"] = True
+                        else:
+                            workflow_calls[tool_use_id] = {
+                                **observation, "phase": "tool-use",
+                                "invalid": orphan_expected_hook or bash_tool_uses != 1,
+                                "outcome": "NOT_OBSERVED",
+                            }
+                            active_call_id = tool_use_id
+                elif (event_type == "tool_use" and active_call_id is not None
+                      and workflow_calls[active_call_id]["phase"] != "post-success"):
+                    invalidate_active()
+
                 if (event_type == "tool_result" and isinstance(tool_use_id, str)
                         and tool_use_id in workflow_calls):
-                    outcome = _workflow_result(value.get("content"))
-                    if outcome is not None:
-                        workflow_results[tool_use_id] = outcome
-                if (value.get("hook_event_name") == "PreToolUse"
-                        and value.get("tool_name") == "Bash"
-                        and isinstance(value.get("tool_use_id"), str)):
-                    pre_hooks.add(value["tool_use_id"])
-                if (value.get("hook_event_name") == "PostToolUse"
-                        and value.get("tool_name") == "Bash"
-                        and isinstance(value.get("tool_use_id"), str)):
-                    post_hooks.add(value["tool_use_id"])
+                    call = workflow_calls[tool_use_id]
+                    outcome = _workflow_result(value.get("content"), call["operationId"])
+                    if call["phase"] != "pre-approved" or outcome is None:
+                        call["invalid"] = True
+                    else:
+                        call["phase"] = "tool-result"
+                        call["outcome"] = outcome
+                elif (event_type == "tool_result" and active_call_id is not None
+                      and workflow_calls[active_call_id]["phase"] != "post-success"):
+                    invalidate_active()
+
+                if (event_type == "system" and value.get("subtype") == "hook_started"
+                        and hook_name_matches(value.get("hook_name"), value.get("hook_event"))
+                        and value.get("hook_event") in {
+                            "PreToolUse", "PostToolUse", "PostToolUseFailure",
+                        }):
+                    hook_id = value.get("hook_id")
+                    hook_event = value.get("hook_event")
+                    session_id = value.get("session_id")
+                    if (not isinstance(hook_id, str) or not LABEL.fullmatch(hook_id)
+                            or not isinstance(session_id, str) or not LABEL.fullmatch(session_id)
+                            or hook_id in hook_starts or hook_id in completed_hook_ids):
+                        invalidate_active()
+                        orphan_expected_hook = active_call_id is None
+                    elif active_call_id is None:
+                        orphan_expected_hook = True
+                    else:
+                        call = workflow_calls[active_call_id]
+                        required_phase = "tool-use" if hook_event == "PreToolUse" else "tool-result"
+                        if call["phase"] != required_phase or hook_event == "PostToolUseFailure":
+                            call["invalid"] = True
+                        else:
+                            call["phase"] = (
+                                "pre-started" if hook_event == "PreToolUse" else "post-started"
+                            )
+                            hook_starts[hook_id] = {
+                                "callId": active_call_id, "event": hook_event,
+                                "name": value["hook_name"], "sessionId": session_id,
+                            }
+
+                if (event_type == "system" and value.get("subtype") == "hook_response"
+                        and hook_name_matches(value.get("hook_name"), value.get("hook_event"))
+                        and value.get("hook_event") in {
+                            "PreToolUse", "PostToolUse", "PostToolUseFailure",
+                        }):
+                    hook_events += 1
+                    hook_id = value.get("hook_id")
+                    started = hook_starts.pop(hook_id, None) if isinstance(hook_id, str) else None
+                    if started is None:
+                        invalidate_active()
+                        orphan_expected_hook = active_call_id is None
+                        continue
+                    completed_hook_ids.add(hook_id)
+                    call = workflow_calls[started["callId"]]
+                    response_matches = (
+                        value.get("hook_name") == started["name"]
+                        and value.get("hook_event") == started["event"]
+                        and value.get("session_id") == started["sessionId"]
+                        and value.get("outcome") == "success"
+                        and value.get("exit_code") in {None, 0}
+                    )
+                    if not response_matches:
+                        call["invalid"] = True
+                        continue
+                    if started["event"] == "PreToolUse":
+                        if call["phase"] != "pre-started" or pre_decision(value) != "ask":
+                            call["invalid"] = True
+                        else:
+                            call["phase"] = "pre-approved"
+                    elif started["event"] == "PostToolUse":
+                        if (call["phase"] != "post-started"
+                                or any(value.get(field) != "" for field in (
+                                    "stdout", "stderr", "output",
+                                ))):
+                            call["invalid"] = True
+                        else:
+                            call["phase"] = "post-success"
+                    else:
+                        call["invalid"] = True
     workflow_observation = {
         "routeClass": "legacy-read-only-multi-command",
-        "guardProof": "exact-bound-read" if pre_hooks & post_hooks else "exact-deny",
+        "guardProof": "exact-deny",
         "workflowExecutionSteps": 0,
         "workflowValidationSteps": 0,
         "workflowAuthentication": "not-observed",
@@ -328,12 +449,14 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
         "workflowOutcome": "NOT_OBSERVED",
     }
     if workflow_calls:
-        call_id, observed = next(iter(workflow_calls.items()))
-        outcome = workflow_results.get(call_id, "NOT_OBSERVED")
+        observed = next(iter(workflow_calls.values()))
+        outcome = observed["outcome"]
         complete = (
             len(workflow_calls) == 1
-            and call_id in pre_hooks
-            and call_id in post_hooks
+            and bash_tool_uses == 1
+            and not hook_starts
+            and not observed["invalid"]
+            and observed["phase"] == "post-success"
             and outcome == "WORKFLOW_VALIDATED"
             and observed["authenticationRequested"]
             and observed["mutationRequested"]
@@ -389,8 +512,8 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
     ]
     persistent = (
         statuses == {"pass"}
-        and bool(workflow_samples)
-        and len(completed_workflows) == len(workflow_samples)
+        and len(workflow_samples) == len(samples)
+        and len(completed_workflows) == len(samples)
     )
     route_class = (
         "persistent-one-shot" if persistent else

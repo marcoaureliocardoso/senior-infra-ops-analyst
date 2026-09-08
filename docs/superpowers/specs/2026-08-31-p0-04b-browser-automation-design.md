@@ -728,6 +728,9 @@ An opt-in disposable harness must:
   and adapter identities without pinning them;
 - install the current worktree through Nori;
 - activate project-local owned hooks without changing operator-global state;
+- use `default` permission mode and an operator-provided interactive MCP
+  permission handler for non-interactive mutable probes; the harness must not
+  install or auto-approve that handler;
 - use at least one real recognized browser implementation;
 - complete diagnosis, authentication, mutation, validation, and rollback on
   the local fixtures;
@@ -740,6 +743,14 @@ An opt-in disposable harness must:
   unsanitized browser artifacts before retaining the bounded aggregate result;
 - require a separate exact operator authorization before authenticated provider
   requests.
+
+An active claim additionally requires the exact installed runner command and
+the documented Claude Code `hook_started`/`hook_response` lifecycle for the
+configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers, including the
+exact native `ask` response produced by the installed command guard, coherent
+tool result, and successful post hook in order. The handler name alone, hook-input-shaped
+JSON, mixed legacy/workflow samples, and duplicate or reordered records are not
+approval evidence. Unknown lifecycle structure is inconclusive.
 
 The harness must report blocked prerequisites as blocked, not passed. A runtime
 compatibility observation supplements deterministic package guarantees and

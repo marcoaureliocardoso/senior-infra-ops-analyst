@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import unittest
@@ -50,6 +51,8 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             'rm -f -- "$prompt_path" "$stream_path"', 'rm -rf -- "$WORK_REAL"',
             "scripts/build_nori_staging.py", "--non-interactive", 'link "$STAGING"',
             'switch "$PROFILE_NAME"', 'configure-browser-operations.mjs',
+            'configure-native-execution-boundary.mjs',
+            'command-guard-launcher.sh',
             '"--apply" --root "$PROJECT"', '"--check" --root "$PROJECT"',
             'CONFIGURED_UNPROVEN',
         ):
@@ -78,6 +81,12 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         ):
             self.assertIn(marker, self.script)
         self.assertNotIn("--workflow-step ey", self.script)
+        self.assertNotIn("--permission-mode dontAsk", self.script)
+        self.assertIn('--permission-mode default', self.script)
+        self.assertIn('--permission-prompt-tool "$PERMISSION_PROMPT_TOOL"', self.script)
+        self.assertIn("P004B_PERMISSION_PROMPT_TOOL", self.script)
+        self.assertIn("Claude Code does not advertise --permission-prompt-tool", self.script)
+        self.assertIn("Claude Code does not advertise --include-hook-events", self.script)
 
     def test_package_gate_runs_only_provider_free_checks(self) -> None:
         gate = GATE.read_text(encoding="utf-8")
@@ -97,8 +106,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         )
         return encoded.rstrip(b"=").decode("ascii")
 
-    def _workflow_stream(self, path: Path, *, include_post: bool = True,
-                         reason_code: str = "WORKFLOW_VALIDATED") -> None:
+    def _workflow_command(self) -> str:
         origin = "http://127.0.0.1:43111"
         execution = [
             {"step": "navigate", "origin": f"{origin}/login"},
@@ -123,9 +131,21 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 "expectRef": "interface-state",
             },
         ]
-        command = " ".join([
-            "node", "skills/browser-operations/scripts/browser-runner.mjs",
-            "--step", "workflow",
+        runner = ROOT / "skills" / "browser-operations" / "scripts" / "browser-runner.mjs"
+        command = shlex.join([
+            "node", str(runner),
+            "--step", "workflow", "--operation-id", "op-live-browser-001",
+            "--session-id", "session-live-browser-001", "--role", "main",
+            "--objective-ref", "p004b-synthetic-probe", "--target", "router-fixture",
+            "--environment", "test", "--service-origin", origin,
+            "--auth-origin", origin, "--identity-ref",
+            "operator-provided-protected-channel:synthetic-admin",
+            "--credential-transport", "operator-provided-protected-channel",
+            "--permission-mode", "default",
+            "--action", "navigate", "--action", "fill", "--action", "submit",
+            "--action", "inspect", "--effect", "LOW_RISK_CHANGE", "--risk", "low",
+            "--precondition-ref", "synthetic-ready", "--validation-ref", "interface-state",
+            "--compensation-ref", "synthetic-rollback", "--expires-in-seconds", "600",
             *[
                 item
                 for step in execution
@@ -137,32 +157,86 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 for item in ("--validation-step", self._workflow_token(step))
             ],
         ])
+        return command
+
+    def _workflow_stream(self, path: Path, *, include_post: bool = True,
+                         reason_code: str = "WORKFLOW_VALIDATED",
+                         pre_decision: str = "ask", pre_outcome: str = "success",
+                         pre_reason: str = (
+                             "ASK_SENSITIVE_OPERATION: stage 1 "
+                             "BROWSER_PROTECTED_RUNNER/LOW_RISK_CHANGE. Operator "
+                             "confirmation is required before execution. Sensitive values "
+                             "are redacted."
+                         ),
+                         post_event: str = "PostToolUse", post_outcome: str = "success",
+                         extra_results: tuple[str, ...] = (), command: str | None = None,
+                         result_override: dict[str, object] | None = None) -> None:
+        command = command or self._workflow_command()
+        pre_output = (
+            "not-json" if pre_decision == "malformed" else json.dumps({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": pre_decision,
+                    "permissionDecisionReason": pre_reason,
+                },
+            })
+        )
         events: list[dict[str, object]] = [
             {
                 "type": "tool_use", "id": "workflow-tool-1", "name": "Bash",
                 "input": {"command": command},
             },
             {
-                "type": "hook_event", "hook_event_name": "PreToolUse",
-                "tool_use_id": "workflow-tool-1", "tool_name": "Bash",
+                "type": "system", "subtype": "hook_started",
+                "hook_id": "pre-hook-1", "hook_name": "PreToolUse:Bash",
+                "hook_event": "PreToolUse", "uuid": "pre-start-uuid",
+                "session_id": "session-live-browser-001",
+            },
+            {
+                "type": "system", "subtype": "hook_response",
+                "hook_id": "pre-hook-1", "hook_name": "PreToolUse:Bash",
+                "hook_event": "PreToolUse", "output": pre_output,
+                "stdout": pre_output, "stderr": "", "exit_code": 0,
+                "outcome": pre_outcome, "uuid": "pre-response-uuid",
+                "session_id": "session-live-browser-001",
             },
         ]
-        if include_post:
-            events.append({
-                "type": "hook_event", "hook_event_name": "PostToolUse",
-                "tool_use_id": "workflow-tool-1", "tool_name": "Bash",
-            })
+        workflow_result: dict[str, object] = {
+            "status": "ok" if reason_code in {
+                "WORKFLOW_VALIDATED", "WORKFLOW_NOT_APPLIED",
+            } else "outcome-unknown",
+            "reasonCode": reason_code, "step": "workflow",
+            "operationId": "op-live-browser-001",
+            "effect": "SENSITIVE_READ",
+            "validationRequired": reason_code == "OUTCOME_UNKNOWN",
+            "observation": None,
+        }
+        if result_override:
+            workflow_result.update(result_override)
         events.append({
             "type": "tool_result", "tool_use_id": "workflow-tool-1",
-            "content": json.dumps({
-                "status": "ok" if reason_code == "WORKFLOW_VALIDATED" else "outcome-unknown",
-                "reasonCode": reason_code, "step": "workflow",
-                "operationId": "op-live-browser-001",
-                "effect": "SENSITIVE_READ",
-                "validationRequired": reason_code != "WORKFLOW_VALIDATED",
-                "observation": None,
-            }),
+            "content": json.dumps(workflow_result),
         })
+        events.extend({
+            "type": "tool_result", "tool_use_id": "workflow-tool-1", "content": content,
+        } for content in extra_results)
+        if include_post:
+            events.extend((
+                {
+                    "type": "system", "subtype": "hook_started",
+                    "hook_id": "post-hook-1", "hook_name": "PostToolUse:Bash",
+                    "hook_event": post_event, "uuid": "post-start-uuid",
+                    "session_id": "session-live-browser-001",
+                },
+                {
+                    "type": "system", "subtype": "hook_response",
+                    "hook_id": "post-hook-1", "hook_name": "PostToolUse:Bash",
+                    "hook_event": post_event, "output": "", "stdout": "",
+                    "stderr": "", "exit_code": 0, "outcome": post_outcome,
+                    "uuid": "post-response-uuid",
+                    "session_id": "session-live-browser-001",
+                },
+            ))
         roles = [
             "audit-evidence-collector", "change-manager", "cloud-platform-operator",
             "database-operator", "diagnostic-operator", "incident-commander",
@@ -194,6 +268,30 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
         self.assertIn("I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES", result.stderr)
+
+    def test_live_mode_requires_one_bounded_operator_approval_handler_before_dependencies(self) -> None:
+        if shutil.which("bash") is None:
+            self.skipTest("bash is unavailable on this host")
+        environment = os.environ.copy()
+        environment.update({
+            "P004B_LIVE_AUTHORIZED": "1",
+            "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+        })
+        environment.pop("P004B_PERMISSION_PROMPT_TOOL", None)
+        missing = subprocess.run(
+            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("P004B_PERMISSION_PROMPT_TOOL", missing.stderr)
+
+        environment["P004B_PERMISSION_PROMPT_TOOL"] = "mcp__approval__ask --broad"
+        invalid = subprocess.run(
+            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        self.assertEqual(invalid.returncode, 2)
+        self.assertIn("P004B_PERMISSION_PROMPT_TOOL", invalid.stderr)
 
     def test_default_self_test_is_provider_free_and_content_free(self) -> None:
         if shutil.which("bash") is None:
@@ -284,13 +382,161 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertNotEqual(legacy_result["capabilityState"], "ACTIVE")
         self.assertNotEqual(legacy_result["status"], "pass")
 
+        mixed_result = aggregate_results(runtime, [sample, legacy])
+        self.assertEqual(mixed_result["routeClass"], "workflow-incomplete")
+        self.assertNotEqual(mixed_result["capabilityState"], "ACTIVE")
+        self.assertNotEqual(mixed_result["status"], "pass")
+
+    def test_workflow_evidence_accepts_only_the_exact_canonical_runner_command(self) -> None:
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import _workflow_command  # noqa: PLC0415
+
+        command = self._workflow_command()
+        self.assertIsNotNone(_workflow_command(command))
+        fake_runner = str(
+            ROOT / "tmp" / "skills" / "browser-operations" / "scripts" / "browser-runner.mjs"
+        )
+        for adversarial in (
+            f"echo harmless {command}",
+            f"{command} echo trailing",
+            f"{command} ; echo trailing",
+            f"{command} > result.json",
+            f"{command} --unknown x",
+            f"{command} --step workflow",
+            command.replace("--step workflow", "--step"),
+            command.replace(str(ROOT / "skills" / "browser-operations" / "scripts" / "browser-runner.mjs"), fake_runner),
+        ):
+            with self.subTest(command=adversarial[-80:]):
+                self.assertIsNone(_workflow_command(adversarial))
+
+    def test_workflow_completion_requires_ordered_successful_hooks_and_one_coherent_result(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream  # noqa: PLC0415
+
+        invalid_variants = (
+            {"pre_decision": "deny"},
+            {"pre_decision": "allow"},
+            {"pre_decision": "malformed"},
+            {"pre_reason": "P004B_SYNTHETIC_DECISION"},
+            {"pre_outcome": "error"},
+            {"post_event": "PostToolUseFailure"},
+            {"post_outcome": "error"},
+            {"extra_results": (json.dumps({
+                "status": "ok", "reasonCode": "WORKFLOW_VALIDATED",
+                "operationId": "op-live-browser-001", "step": "workflow",
+                "effect": "SENSITIVE_READ", "validationRequired": False,
+                "observation": None,
+            }),)},
+        )
+        for variant in invalid_variants:
+            with self.subTest(variant=variant):
+                with tempfile.TemporaryDirectory() as directory:
+                    stream = Path(directory) / "workflow.jsonl"
+                    self._workflow_stream(stream, **variant)
+                    sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+                self.assertEqual(sample["routeClass"], "workflow-incomplete")
+                self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
+        incoherent_results = (
+            {"status": "denied"},
+            {"operationId": "different-operation"},
+            {"step": "open"},
+            {"effect": "LOW_RISK_CHANGE"},
+            {"validationRequired": True},
+            {"observation": {"trust": "untrusted", "summary": "not content-free"}},
+        )
+        for result_override in incoherent_results:
+            with self.subTest(result_override=result_override):
+                with tempfile.TemporaryDirectory() as directory:
+                    stream = Path(directory) / "workflow.jsonl"
+                    self._workflow_stream(stream, result_override=result_override)
+                    sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+                self.assertEqual(sample["routeClass"], "workflow-incomplete")
+                self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
+        for mutation in (
+            "post-before-result", "duplicate-pre", "pre-before-tool-use",
+            "hook-input-schema", "wrong-hook-name",
+        ):
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory:
+                    stream = Path(directory) / "workflow.jsonl"
+                    self._workflow_stream(stream)
+                    events = [
+                        json.loads(line) for line in stream.read_text(encoding="utf-8").splitlines()
+                    ]
+                    if mutation == "post-before-result":
+                        events = events[:3] + events[4:6] + [events[3]] + events[6:]
+                    elif mutation == "duplicate-pre":
+                        events[3:3] = [dict(events[1]), dict(events[2])]
+                    elif mutation == "pre-before-tool-use":
+                        events = [dict(events[1]), dict(events[2]), events[0], *events[3:]]
+                    elif mutation == "wrong-hook-name":
+                        events[1]["hook_name"] = "PreToolUse:Write"
+                        events[2]["hook_name"] = "PreToolUse:Write"
+                    else:
+                        events = [
+                            event for event in events
+                            if not (event.get("type") == "system"
+                                    and event.get("subtype") in {
+                                        "hook_started", "hook_response",
+                                    })
+                        ]
+                        events.insert(1, {
+                            "type": "hook_event", "hook_event_name": "PreToolUse",
+                            "tool_use_id": "workflow-tool-1", "tool_name": "Bash",
+                            "outcome": "success", "permissionDecision": "ask",
+                        })
+                        events.insert(3, {
+                            "type": "hook_event", "hook_event_name": "PostToolUse",
+                            "tool_use_id": "workflow-tool-1", "tool_name": "Bash",
+                            "outcome": "success",
+                        })
+                    stream.write_text(
+                        "".join(json.dumps(event) + "\n" for event in events),
+                        encoding="utf-8",
+                    )
+                    sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+                self.assertEqual(sample["routeClass"], "workflow-incomplete")
+                self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
+    def test_outcome_unknown_cannot_be_overwritten_by_later_validated_result(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream  # noqa: PLC0415
+
+        validated = json.dumps({
+            "status": "ok", "reasonCode": "WORKFLOW_VALIDATED",
+            "operationId": "op-live-browser-001", "step": "workflow",
+            "effect": "SENSITIVE_READ", "validationRequired": False,
+            "observation": None,
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "workflow.jsonl"
+            self._workflow_stream(
+                stream, reason_code="OUTCOME_UNKNOWN", extra_results=(validated,),
+            )
+            sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+        self.assertEqual(sample["routeClass"], "workflow-incomplete")
+        self.assertEqual(sample["workflowOutcome"], "OUTCOME_UNKNOWN")
+        self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
     def test_workflow_evidence_rejects_noncanonical_base64url_records(self) -> None:
         import sys
 
         sys.path.insert(0, str(ROOT / "tests"))
-        from browser_operations_live import _decode_step  # noqa: PLC0415
+        from browser_operations_live import _workflow_command  # noqa: PLC0415
 
-        value: dict[str, object] = {"step": "navigate", "origin": "http://127.0.0.1:43111"}
+        value: dict[str, object] = {
+            "step": "navigate", "origin": "http://127.0.0.1:43111/login",
+        }
         token = self._workflow_token(value)
         while len(token) % 4 == 0:
             value["marker"] = str(value.get("marker", "")) + "x"
@@ -299,8 +545,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         replacement = alphabet[alphabet.index(token[-1]) ^ 1]
         noncanonical = token[:-1] + replacement
         self.assertNotEqual(noncanonical, token)
-        self.assertEqual(_decode_step(token), value)
-        self.assertIsNone(_decode_step(noncanonical))
+        command = self._workflow_command()
+        self.assertIsNotNone(_workflow_command(command))
+        self.assertIn(token, command)
+        self.assertIsNone(_workflow_command(command.replace(token, noncanonical, 1)))
 
     def test_nested_stream_events_count_the_observed_workflow_calls(self) -> None:
         import sys

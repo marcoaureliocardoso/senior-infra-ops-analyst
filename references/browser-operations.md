@@ -68,6 +68,17 @@ retried. Fresh validation may return `WORKFLOW_VALIDATED` or
 exit invalidates the one-shot binding and attempts complete adapter, context,
 profile, artifact, and reference cleanup.
 
+The opt-in non-interactive runtime harness can exercise this approval path only
+when the operator supplies an existing interactive MCP permission handler. It
+runs Claude Code in `default` mode with `--permission-prompt-tool`; it never
+installs or auto-approves the handler. Evidence is accepted only from the exact
+installed runner and the documented Claude Code `hook_started`/`hook_response`
+lifecycle for the configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers,
+including the exact `ask` response produced by the installed command guard,
+followed by the correlated tool result and successful post hook. Hook input objects, arbitrary nested
+content, mixed legacy/workflow samples, duplicate or reordered events, and a
+handler name by itself cannot establish `ACTIVE` or native approval.
+
 Playwright may satisfy mutable workflow capability when its detected context
 proves pre-navigation popup containment. Puppeteer cannot currently prove that
 guarantee and therefore remains read-only for authentication and mutation.

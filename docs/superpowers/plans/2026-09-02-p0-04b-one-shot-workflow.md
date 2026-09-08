@@ -199,7 +199,7 @@
 
 - [ ] **Step 1: Write failing policy and harness tests**
 
-  Require the installed documentation to distinguish the legacy read-only multi-command route from the mutable one-shot route; require the live aggregate to name `persistent-one-shot` only after observed workflow tool/hook events; and forbid `ACTIVE`, authentication, mutation, or validation claims when the real workflow did not complete.
+  Require the installed documentation to distinguish the legacy read-only multi-command route from the mutable one-shot route. The live aggregate may name `persistent-one-shot` only after the exact runner command, actual ordered Claude Code `hook_started`/`hook_response` lifecycle for the configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask` response produced by the installed command guard, coherent tool completion, successful post hook, and structural validated outcome are observed in every requested sample. Forbid `ACTIVE`, authentication, mutation, or validation claims when any real workflow did not complete. Non-interactive active mode uses `default` plus an operator-provided interactive MCP permission handler; the harness does not install or auto-approve it.
 
 - [ ] **Step 2: Verify RED**
 

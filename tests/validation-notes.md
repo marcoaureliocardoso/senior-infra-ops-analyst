@@ -788,12 +788,32 @@ The content-free aggregate now distinguishes
 `persistent-one-shot`. It can report `persistent-one-shot`, `ACTIVE`, completed
 authentication, mutation, or validation only after one bounded workflow command
 is observed with a mutable execution manifest, final validation inspect,
-matching `PreToolUse` and `PostToolUse` identifiers, and structural
-`WORKFLOW_VALIDATED`. Retained fields are limited to runtime labels, route class,
-step counts, hook/tool counts, structural outcome, numeric context percentages,
-role count, and cleanup status.
-Arbitrary nested result content cannot imitate a tool or hook event; only the
-documented stream envelope positions contribute evidence.
+the exact package-owned runner path, ordered Claude Code
+`hook_started`/`hook_response` pairs for the configured `PreToolUse:Bash` and
+`PostToolUse:Bash` matchers, the exact native `ask` response produced by the
+installed command guard, a coherent workflow tool result, a successful ordered post-hook
+pair, and structural `WORKFLOW_VALIDATED`. Every requested sample must complete
+that route; a mixed legacy/workflow matrix cannot be promoted. Retained fields
+are limited to runtime labels, route class, step counts, hook/tool counts,
+structural outcome, numeric context percentages, role count, and cleanup status.
+Arbitrary nested result content, hook-input-shaped JSON, duplicate results,
+denied or failed hooks, and reordered lifecycle records cannot imitate evidence;
+only the documented stream envelope positions and current SDK lifecycle schema
+contribute.
+
+The first independent Task 4 review reproduced a false-positive path through an
+`echo` command containing a runner-like suffix, incoherent and overwritten
+workflow results, unordered denied/failure hook records, and mixed legacy plus
+workflow samples. It also found that `dontAsk` necessarily denied the
+`ALWAYS_ASK` mutable path. The remediation reuses the production runner parser
+through a bounded structural helper, requires the exact expected runner and
+runner path, logical hook matcher identities, and exact guard response; implements
+an ordered lifecycle state machine; and changes
+the live invocation to `--permission-mode default` with an explicitly supplied
+`P004B_PERMISSION_PROMPT_TOOL`. The harness validates but does not install or
+auto-approve that operator-owned interactive handler, and the handler name is
+never evidence by itself. The remediated safety suite passed all 22 tests in
+Debian WSL; its provider-free harness self-test also passed.
 
 Provider-free runtime detection observed Node.js `v24.19.0`, Playwright
 `1.62.1`, and system Chrome `152.0.7977.76`. The default Playwright browser was
@@ -821,14 +841,18 @@ The existing unreleased package version `0.15.0`, browser component version
 `1.0.0`, and browser skill version `0.1.0` remain unchanged under the current
 release policy; only the skill's `last_updated` date changed.
 
-The bundled Node.js command-guard gate passed 303 of 304 tests with one
-Windows symlink-dependent skip, 100% line/branch/function coverage, and 86/86
-mutation witnesses killed. The full Debian WSL package gate then passed on
-Node.js `v24.17.0`, including 304/304 command-guard tests, the same 100%
-coverage and 86/86 mutation result, the focused browser workflow suites, 42
-release-history tests, archive inventory at 235 packaged files, content/schema/
-CI validation, and provider-free live parser self-tests. Its real-browser case
-remained intentionally skipped because the package gate does not opt into a
-browser launch; the separate bundled-Node opt-in run above supplies that direct
+The final command-guard gate used the bundled Node.js `v24.19.0` runtime. It
+passed 303 of 304 tests with one Windows symlink-dependent skip, 100% line,
+branch, and function coverage across the critical guard files, and all 86
+mutation witnesses killed. Debian WSL currently provides Node.js `v20.19.2`,
+which does not expose the coverage flags required by the command-guard gate, so
+the remaining package gate ran separately in a temporary Linux copy whose file
+modes were normalized to the Git index. That remainder reached
+`package validation passed`, including the browser workflow suites, all 22
+remediated live-browser safety tests with no host skip, 42 release-history and
+archive inventory checks, content/schema/CI validation, and provider-free live
+self-tests. Its real-browser case remained intentionally skipped because the
+package gate does not opt into a browser launch; the separate bundled-Node
+opt-in run above passed all 3 real-browser tests and supplies that direct
 witness. PowerShell syntax validation was skipped because PowerShell is absent
-inside Debian; no PowerShell syntax-pass claim is made for this run.
+inside Debian; no PowerShell syntax-pass claim is made for that run.

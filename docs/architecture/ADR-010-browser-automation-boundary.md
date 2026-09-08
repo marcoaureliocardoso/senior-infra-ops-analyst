@@ -86,10 +86,15 @@ bounded retention and an exact fail-closed deny. Its aggregate distinguishes
 the legacy read-only multi-command route from the mutable persistent one-shot
 route. It cannot name `persistent-one-shot`, `ACTIVE`, completed authentication,
 mutation, or validation without one observed workflow tool call, matching
-Pre/Post hook events, and structural `WORKFLOW_VALIDATED`; cleanup becomes
-verified only after deletion. Provider-backed active-runtime acceptance remains
-a separate gate and cannot be inferred from deterministic or direct local
-evidence.
+Claude Code `hook_started`/`hook_response` pairs for the configured
+`PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask`
+response produced by the installed command guard, coherent ordered tool and
+post-hook completion, and structural `WORKFLOW_VALIDATED`. Every requested sample must complete the
+same route; a mixed legacy/workflow matrix cannot be promoted. Cleanup becomes
+verified only after deletion. Provider-backed active-runtime acceptance uses
+`default` permission mode plus an operator-provided interactive MCP permission
+handler and remains a separate gate; the harness neither installs nor
+auto-approves that handler, and its configured name is not approval evidence.
 
 On 2026-09-07 a provider-free one-shot loopback witness used the existing
 Playwright package and system Chrome channel. Eight execution steps and seven

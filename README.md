@@ -98,6 +98,16 @@ reference-only base64url `--workflow-step` records, and fresh-context
 runtime-observed capability must match before browser open. Playwright may
 satisfy popup containment when detected; Puppeteer remains read-only because it
 cannot currently prove pre-navigation popup containment.
+The non-interactive live harness uses `--permission-mode default` and requires
+an operator-provided interactive MCP approval handler through
+`P004B_PERMISSION_PROMPT_TOOL`. It does not install or auto-approve that
+handler. A handler name is not approval evidence: an active result additionally
+requires the exact package runner, the actual Claude Code `hook_started` and
+`hook_response` lifecycle for the configured `PreToolUse:Bash` and
+`PostToolUse:Bash` matchers, the exact `ask` response produced by the installed
+command guard, successful tool completion, the matching successful post hook,
+and a coherent structural workflow result in that order. Missing or
+unrecognized runtime fields remain inconclusive.
 Interactive authentication may use an existing protected session, a recognized
 vault/helper, or a credential requested from the operator; credentials remain
 authentication data and are never approval. A human-only challenge pauses for
