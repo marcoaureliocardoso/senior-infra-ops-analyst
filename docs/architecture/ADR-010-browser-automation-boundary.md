@@ -95,6 +95,10 @@ verified only after deletion. Provider-backed active-runtime acceptance uses
 `default` permission mode plus an operator-provided interactive MCP permission
 handler and remains a separate gate; the harness neither installs nor
 auto-approves that handler, and its configured name is not approval evidence.
+The terminal must be a same-session SDK success, and any later tool or failure
+lifecycle invalidates the sample. Role and context measurements are not inferred
+from arbitrary stream records; until a separately trusted runtime channel
+supplies them, the aggregate remains inconclusive rather than `ACTIVE`.
 
 On 2026-09-07 a provider-free one-shot loopback witness used the existing
 Playwright package and system Chrome channel. Eight execution steps and seven

@@ -224,33 +224,23 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             events.extend((
                 {
                     "type": "system", "subtype": "hook_started",
-                    "hook_id": "post-hook-1", "hook_name": "PostToolUse:Bash",
+                    "hook_id": "post-hook-1", "hook_name": f"{post_event}:Bash",
                     "hook_event": post_event, "uuid": "post-start-uuid",
                     "session_id": "session-live-browser-001",
                 },
                 {
                     "type": "system", "subtype": "hook_response",
-                    "hook_id": "post-hook-1", "hook_name": "PostToolUse:Bash",
+                    "hook_id": "post-hook-1", "hook_name": f"{post_event}:Bash",
                     "hook_event": post_event, "output": "", "stdout": "",
                     "stderr": "", "exit_code": 0, "outcome": post_outcome,
                     "uuid": "post-response-uuid",
                     "session_id": "session-live-browser-001",
                 },
             ))
-        roles = [
-            "audit-evidence-collector", "change-manager", "cloud-platform-operator",
-            "database-operator", "diagnostic-operator", "incident-commander",
-            "kubernetes-operator", "network-edge-operator", "observability-sre",
-            "rca-facilitator", "release-cicd-operator", "security-operations-reviewer",
-        ]
-        events.extend(
-            {
-                "type": "status", "agent_type": role,
-                **({"used_percentage": index + 1} if index < 5 else {}),
-            }
-            for index, role in enumerate(roles)
-        )
-        events.append({"type": "result", "result": "discarded"})
+        events.append({
+            "type": "result", "subtype": "success", "is_error": False,
+            "session_id": "session-live-browser-001", "result": "discarded",
+        })
         path.write_text(
             "".join(json.dumps(event) + "\n" for event in events),
             encoding="utf-8",
@@ -362,10 +352,12 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self._workflow_stream(stream)
             sample = evaluate_stream(stream, "P004B_TEST_CANARY")
         result = aggregate_results(runtime, [sample])
-        self.assertEqual(result["status"], "pass")
-        self.assertEqual(result["capabilityState"], "ACTIVE")
+        self.assertEqual(result["status"], "inconclusive")
+        self.assertEqual(result["capabilityState"], "AVAILABLE_RECOGNIZED")
         self.assertEqual(result["routeClass"], "persistent-one-shot")
         self.assertEqual(result["guardProof"], "exact-native-approval")
+        self.assertEqual(result["roleCount"], 0)
+        self.assertEqual(result["context"]["toolSearchMode"], "unavailable")
         self.assertEqual(result["workflow"], {
             "executionSteps": 3, "validationSteps": 2,
             "authentication": "completed", "mutation": "completed",
@@ -527,6 +519,97 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertEqual(sample["routeClass"], "workflow-incomplete")
         self.assertEqual(sample["workflowOutcome"], "OUTCOME_UNKNOWN")
         self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
+    def test_untrusted_metadata_and_error_terminal_cannot_unlock_active(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import aggregate_results, evaluate_stream  # noqa: PLC0415
+
+        runtime = {
+            "claude": "observed", "provider": "observed", "model": "observed",
+            "adapter": "playwright",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "workflow.jsonl"
+            self._workflow_stream(stream)
+            events = [
+                json.loads(line) for line in stream.read_text(encoding="utf-8").splitlines()
+            ]
+            events = [event for event in events if event.get("type") != "status"]
+            events[-1] = {
+                "type": "result", "subtype": "error_max_turns", "is_error": True,
+                "session_id": "session-live-browser-001", "result": "discarded",
+            }
+            events.extend({
+                "type": "attacker-record", "agent_type": role,
+                "nested": {"used_percentage": index + 1},
+            } for index, role in enumerate((
+                "audit-evidence-collector", "change-manager", "cloud-platform-operator",
+                "database-operator", "diagnostic-operator", "incident-commander",
+                "kubernetes-operator", "network-edge-operator", "observability-sre",
+                "rca-facilitator", "release-cicd-operator",
+                "security-operations-reviewer",
+            )))
+            stream.write_text(
+                "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8",
+            )
+            sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+        result = aggregate_results(runtime, [sample])
+        self.assertNotEqual(result["status"], "pass")
+        self.assertNotEqual(result["capabilityState"], "ACTIVE")
+        self.assertEqual(result["roleCount"], 0)
+        self.assertEqual(result["context"]["toolSearchMode"], "unavailable")
+
+    def test_post_success_activity_and_cross_session_hooks_invalidate_workflow(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream  # noqa: PLC0415
+
+        for mutation in ("extra-tool", "late-failure", "cross-session"):
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory:
+                    stream = Path(directory) / "workflow.jsonl"
+                    self._workflow_stream(stream)
+                    events = [
+                        json.loads(line)
+                        for line in stream.read_text(encoding="utf-8").splitlines()
+                    ]
+                    terminal = events.pop()
+                    if mutation == "extra-tool":
+                        events.extend((
+                            {"type": "tool_use", "id": "late-tool", "name": "WebFetch",
+                             "input": {"url": "http://127.0.0.1:43111/"}},
+                            {"type": "tool_result", "tool_use_id": "late-tool",
+                             "content": "discarded"},
+                        ))
+                    elif mutation == "late-failure":
+                        events.extend((
+                            {"type": "system", "subtype": "hook_started",
+                             "hook_id": "late-failure", "hook_name": "PostToolUseFailure:Bash",
+                             "hook_event": "PostToolUseFailure", "uuid": "late-start",
+                             "session_id": "session-live-browser-001"},
+                            {"type": "system", "subtype": "hook_response",
+                             "hook_id": "late-failure", "hook_name": "PostToolUseFailure:Bash",
+                             "hook_event": "PostToolUseFailure", "output": "", "stdout": "",
+                             "stderr": "failed", "exit_code": 2, "outcome": "error",
+                             "uuid": "late-response",
+                             "session_id": "session-live-browser-001"},
+                        ))
+                    else:
+                        events[4]["session_id"] = "different-session"
+                        events[5]["session_id"] = "different-session"
+                    events.append(terminal)
+                    stream.write_text(
+                        "".join(json.dumps(event) + "\n" for event in events),
+                        encoding="utf-8",
+                    )
+                    sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+                self.assertEqual(sample["routeClass"], "workflow-incomplete")
+                self.assertNotEqual(sample["guardProof"], "exact-native-approval")
 
     def test_workflow_evidence_rejects_noncanonical_base64url_records(self) -> None:
         import sys
@@ -703,10 +786,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         sys.path.insert(0, str(ROOT / "tests"))
         from browser_operations_live import evaluate_stream  # noqa: PLC0415
 
-        events = [
-            {"type": "status", "used_percentage": value, "content": "discard me"}
-            for value in (11, 22, 33, 44, 55)
-        ] + [{"type": "result", "result": "discard me too"}]
+        events = [{
+            "type": "attacker-record", "used_percentage": value,
+            "content": "discard me",
+        } for value in (11, 22, 33, 44, 55)]
         with tempfile.TemporaryDirectory() as directory:
             stream = Path(directory) / "stream.jsonl"
             stream.write_text(
@@ -714,7 +797,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 encoding="utf-8",
             )
             result = evaluate_stream(stream, "P004B_TEST_CANARY")
-        self.assertEqual(result["contextPercentages"], [11, 22, 33, 44, 55])
+        self.assertEqual(result["contextPercentages"], [])
         self.assertNotIn("content", json.dumps(result))
         self.assertNotIn("discard", json.dumps(result))
 

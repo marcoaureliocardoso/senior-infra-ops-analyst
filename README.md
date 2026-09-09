@@ -108,6 +108,11 @@ requires the exact package runner, the actual Claude Code `hook_started` and
 command guard, successful tool completion, the matching successful post hook,
 and a coherent structural workflow result in that order. Missing or
 unrecognized runtime fields remain inconclusive.
+Arbitrary stream records cannot supply role or context measurements, and an
+error terminal, later tool activity, or any failure lifecycle invalidates the
+sample. Until role and context evidence is collected through a separately
+trusted runtime channel, the aggregate remains inconclusive even when the
+one-shot workflow itself is structurally observed.
 Interactive authentication may use an existing protected session, a recognized
 vault/helper, or a credential requested from the operator; credentials remain
 authentication data and are never approval. A human-only challenge pauses for

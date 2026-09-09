@@ -78,6 +78,10 @@ including the exact `ask` response produced by the installed command guard,
 followed by the correlated tool result and successful post hook. Hook input objects, arbitrary nested
 content, mixed legacy/workflow samples, duplicate or reordered events, and a
 handler name by itself cannot establish `ACTIVE` or native approval.
+An SDK error terminal, a different terminal session, later tool activity, or a
+failure lifecycle invalidates the sample. Role and context measurements require
+a separate trusted runtime channel and are never inferred from arbitrary stream
+records.
 
 Playwright may satisfy mutable workflow capability when its detected context
 proves pre-navigation popup containment. Puppeteer cannot currently prove that

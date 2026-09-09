@@ -796,8 +796,11 @@ pair, and structural `WORKFLOW_VALIDATED`. Every requested sample must complete
 that route; a mixed legacy/workflow matrix cannot be promoted. Retained fields
 are limited to runtime labels, route class, step counts, hook/tool counts,
 structural outcome, numeric context percentages, role count, and cleanup status.
+Role and context values are not derived from arbitrary stream records and remain
+unobserved until a separately trusted runtime channel supplies them.
 Arbitrary nested result content, hook-input-shaped JSON, duplicate results,
-denied or failed hooks, and reordered lifecycle records cannot imitate evidence;
+denied or failed hooks, reordered lifecycle records, error terminals, later tool
+activity, and cross-session hooks cannot imitate evidence;
 only the documented stream envelope positions and current SDK lifecycle schema
 contribute.
 
@@ -812,8 +815,17 @@ an ordered lifecycle state machine; and changes
 the live invocation to `--permission-mode default` with an explicitly supplied
 `P004B_PERMISSION_PROMPT_TOOL`. The harness validates but does not install or
 auto-approve that operator-owned interactive handler, and the handler name is
-never evidence by itself. The remediated safety suite passed all 22 tests in
+never evidence by itself. The first remediated safety suite passed all 22 tests in
 Debian WSL; its provider-free harness self-test also passed.
+
+The second independent review found that arbitrary records could still forge
+role and context measurements, non-Bash tool activity after a successful
+workflow was ignored, and correctly named `PostToolUseFailure:Bash` events plus
+cross-session post hooks were not correlated. The second remediation removed
+role/context inference from raw streams, requires one same-session successful
+SDK terminal, invalidates any later tool or failure lifecycle, and correlates
+the pre/post lifecycle to one session. Its expanded safety suite passes all 24
+tests in Debian WSL and all 24 on Windows with three honest Bash-host skips.
 
 Provider-free runtime detection observed Node.js `v24.19.0`, Playwright
 `1.62.1`, and system Chrome `152.0.7977.76`. The default Playwright browser was
@@ -848,7 +860,7 @@ mutation witnesses killed. Debian WSL currently provides Node.js `v20.19.2`,
 which does not expose the coverage flags required by the command-guard gate, so
 the remaining package gate ran separately in a temporary Linux copy whose file
 modes were normalized to the Git index. That remainder reached
-`package validation passed`, including the browser workflow suites, all 22
+`package validation passed`, including the browser workflow suites, the earlier 22-test
 remediated live-browser safety tests with no host skip, 42 release-history and
 archive inventory checks, content/schema/CI validation, and provider-free live
 self-tests. Its real-browser case remained intentionally skipped because the

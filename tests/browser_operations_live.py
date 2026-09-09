@@ -119,9 +119,7 @@ def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> di
         raise ValueError("active result lacks completed workflow")
     if (result["routeClass"] == "persistent-one-shot" or completed
             or "completed" in {workflow["authentication"], workflow["mutation"], workflow["validation"]}) and (
-        result["status"] != "pass"
-        or result["capabilityState"] != "ACTIVE"
-        or result["guardProof"] != "exact-native-approval"
+        result["guardProof"] != "exact-native-approval"
         or workflow["outcome"] != "WORKFLOW_VALIDATED"
         or not completed
     ):
@@ -260,31 +258,19 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     tool_calls = 0
     bash_tool_uses = 0
     result_seen = False
+    terminal_count = 0
     canary_seen = False
     malformed = False
-    context_percentages: list[int] = []
     hook_events = 0
-    role_labels: set[str] = set()
     workflow_calls: dict[str, dict[str, Any]] = {}
     active_call_id: str | None = None
     hook_starts: dict[str, dict[str, str]] = {}
     completed_hook_ids: set[str] = set()
     orphan_expected_hook = False
 
-    def inspect_structural(value: Any) -> None:
-        if isinstance(value, dict):
-            for key, child in value.items():
-                if key == "used_percentage" and isinstance(child, int) and not isinstance(child, bool) and 0 <= child <= 100:
-                    if len(context_percentages) < 32:
-                        context_percentages.append(child)
-                inspect_structural(child)
-        elif isinstance(value, list):
-            for child in value:
-                inspect_structural(child)
-
     def hook_name_matches(value: Any, event: Any) -> bool:
         return (
-            event in {"PreToolUse", "PostToolUse"}
+            event in {"PreToolUse", "PostToolUse", "PostToolUseFailure"}
             and value == f"{event}:Bash"
         )
 
@@ -323,16 +309,26 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
             if not isinstance(event, dict):
                 malformed = True
                 continue
-            inspect_structural(event)
             for value in _stream_records(event):
                 event_type = value.get("type")
                 if event_type in {"tool_use", "tool_result"}:
                     tool_calls += 1
-                if (isinstance(value.get("agent_type"), str)
-                        and LABEL.fullmatch(value["agent_type"])):
-                    role_labels.add(value["agent_type"])
                 if event_type == "result":
-                    result_seen = True
+                    terminal_count += 1
+                    terminal_valid = (
+                        terminal_count == 1
+                        and value.get("subtype") == "success"
+                        and value.get("is_error") is False
+                        and active_call_id in workflow_calls
+                        and workflow_calls[active_call_id]["phase"] == "post-success"
+                        and value.get("session_id")
+                        == workflow_calls[active_call_id].get("sessionId")
+                    )
+                    if terminal_valid:
+                        result_seen = True
+                    else:
+                        malformed = True
+                        invalidate_active()
                 tool_use_id = value.get("id") if event_type == "tool_use" else value.get("tool_use_id")
                 if event_type == "tool_use" and value.get("name") == "Bash":
                     bash_tool_uses += 1
@@ -353,8 +349,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                                 "outcome": "NOT_OBSERVED",
                             }
                             active_call_id = tool_use_id
-                elif (event_type == "tool_use" and active_call_id is not None
-                      and workflow_calls[active_call_id]["phase"] != "post-success"):
+                elif event_type == "tool_use" and active_call_id is not None:
                     invalidate_active()
 
                 if (event_type == "tool_result" and isinstance(tool_use_id, str)
@@ -366,8 +361,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                     else:
                         call["phase"] = "tool-result"
                         call["outcome"] = outcome
-                elif (event_type == "tool_result" and active_call_id is not None
-                      and workflow_calls[active_call_id]["phase"] != "post-success"):
+                elif event_type == "tool_result" and active_call_id is not None:
                     invalidate_active()
 
                 if (event_type == "system" and value.get("subtype") == "hook_started"
@@ -388,7 +382,10 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                     else:
                         call = workflow_calls[active_call_id]
                         required_phase = "tool-use" if hook_event == "PreToolUse" else "tool-result"
-                        if call["phase"] != required_phase or hook_event == "PostToolUseFailure":
+                        if (call["phase"] != required_phase
+                                or hook_event == "PostToolUseFailure"
+                                or (hook_event == "PostToolUse"
+                                    and call.get("sessionId") != session_id)):
                             call["invalid"] = True
                         else:
                             call["phase"] = (
@@ -428,6 +425,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                             call["invalid"] = True
                         else:
                             call["phase"] = "pre-approved"
+                            call["sessionId"] = started["sessionId"]
                     elif started["event"] == "PostToolUse":
                         if (call["phase"] != "post-started"
                                 or any(value.get(field) != "" for field in (
@@ -473,10 +471,10 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
             "workflowOutcome": outcome,
         }
     if canary_seen:
-        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": sorted(role_labels), "contextPercentages": context_percentages, **workflow_observation}
+        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
     if malformed or not result_seen:
-        return {"status": "inconclusive", "reasonCode": "STREAM_INCONCLUSIVE", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": sorted(role_labels), "contextPercentages": context_percentages, **workflow_observation}
-    return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": sorted(role_labels), "contextPercentages": context_percentages, **workflow_observation}
+        return {"status": "inconclusive", "reasonCode": "STREAM_INCONCLUSIVE", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
+    return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
 
 
 def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) -> dict[str, Any]:
