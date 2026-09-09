@@ -50,6 +50,21 @@ export function assertAllowedUrl(value, allowedOrigins) {
 }
 
 
+export function assertCurrentOrigin(page, expectedOrigin) {
+  if (!page || typeof page.url !== 'function') throw adapterError('ORIGIN_UNPROVEN');
+  let current;
+  let expected;
+  try {
+    current = normalizeOrigin(page.url());
+    expected = normalizeOrigin(expectedOrigin);
+  } catch {
+    throw adapterError('ORIGIN_UNPROVEN');
+  }
+  if (current !== expected) throw adapterError('ORIGIN_ESCAPE');
+  return current;
+}
+
+
 export function observedVersion(runtime) {
   for (const candidate of [runtime?.version, runtime?.default?.version]) {
     if (typeof candidate === 'string' && /^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$/u.test(candidate)) {

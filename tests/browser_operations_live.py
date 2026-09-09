@@ -42,7 +42,7 @@ WORKFLOW_OUTCOMES = {
     "WORKFLOW_VALIDATED", "WORKFLOW_NOT_APPLIED", "OUTCOME_UNKNOWN", "NOT_OBSERVED",
 }
 WORKFLOW_EVIDENCE_FIELDS = {
-    "operationId", "executionSteps", "validationSteps", "authenticationRequested",
+    "operationId", "expectedEffect", "executionSteps", "validationSteps", "authenticationRequested",
     "mutationRequested", "validationRequested",
 }
 SHELL_CONTROL = re.compile(r"[\r\n\0;&|<>`]|\$\(")
@@ -208,6 +208,11 @@ def _workflow_command(command: Any) -> dict[str, Any] | None:
     if (not isinstance(observed["operationId"], str)
             or not LABEL.fullmatch(observed["operationId"])):
         return None
+    if observed["expectedEffect"] not in {
+        "PUBLIC_READ", "SENSITIVE_READ", "INTERACTIVE_STATE", "LOW_RISK_CHANGE",
+        "DISRUPTIVE_CHANGE", "DESTRUCTIVE_CHANGE",
+    }:
+        return None
     for field, maximum in (("executionSteps", 16), ("validationSteps", 12)):
         if (not isinstance(observed[field], int) or isinstance(observed[field], bool)
                 or not 1 <= observed[field] <= maximum):
@@ -219,7 +224,7 @@ def _workflow_command(command: Any) -> dict[str, Any] | None:
     return observed
 
 
-def _workflow_result(content: Any, operation_id: str) -> str | None:
+def _workflow_result(content: Any, operation_id: str, expected_effect: str) -> str | None:
     candidates: list[str] = []
     if isinstance(content, str) and len(content) <= 4096:
         candidates.append(content)
@@ -242,7 +247,7 @@ def _workflow_result(content: Any, operation_id: str) -> str | None:
             }
             or value.get("operationId") != operation_id
             or value.get("step") != "workflow"
-            or value.get("effect") != "SENSITIVE_READ"
+            or value.get("effect") != expected_effect
             or value.get("observation") is not None):
         return None
     coherent = {
@@ -375,7 +380,9 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                 if (event_type == "tool_result" and isinstance(tool_use_id, str)
                         and tool_use_id in workflow_calls):
                     call = workflow_calls[tool_use_id]
-                    outcome = _workflow_result(value.get("content"), call["operationId"])
+                    outcome = _workflow_result(
+                        value.get("content"), call["operationId"], call["expectedEffect"],
+                    )
                     identity = record_identity(provenance)
                     if (call["phase"] != "pre-approved" or outcome is None
                             or identity != (

@@ -826,8 +826,10 @@ role/context inference from raw streams, requires one same-session successful
 SDK terminal, invalidates any later tool or failure lifecycle, and correlates
 the pre/post lifecycle to one session. A final review finding additionally made
 the extracted tool-use and tool-result envelopes retain and match their SDK
-session and parent tool identities. Its expanded safety suite passes all 24
-tests in Debian WSL and all 24 on Windows with three honest Bash-host skips.
+session and parent tool identities. The preceding 24-test version passed in
+Debian WSL; after the envelope-provenance refinement the current suite passed
+all 24 on Windows with three honest Bash-host skips. A final-head WSL repeat is
+still required and is not claimed here.
 
 Provider-free runtime detection observed Node.js `v24.19.0`, Playwright
 `1.62.1`, and system Chrome `152.0.7977.76`. The default Playwright browser was
@@ -870,3 +872,38 @@ package gate does not opt into a browser launch; the separate bundled-Node
 opt-in run above passed all 3 real-browser tests and supplies that direct
 witness. PowerShell syntax validation was skipped because PowerShell is absent
 inside Debian; no PowerShell syntax-pass claim is made for that run.
+
+## P0-04B broad independent review remediation (2026-09-09)
+
+The broad review after Task 4 rejected acceptance. It found that potentially
+autosaving interactive failures could be labeled not applied without
+validation; protected values and semantic actions were not bound to the actual
+current page origin; persisted configurator ownership could imitate `ACTIVE`;
+pre-activation capability failures left reusable pending approval; injected
+artifact managers were not workflow-owned cleanup; and workflow results
+hard-coded `SENSITIVE_READ` instead of the envelope effect.
+
+The remediation began with failing regressions and then introduced explicit
+`credential` and `configuration` value classes, authentication-origin-only
+credential entry, service-origin-only configuration entry, and actual
+top-level-origin checks before adapter actions. Interactive failures now enter
+fresh-context validation, every attempted pending one-shot is invalidated even
+when capability activation fails, persisted settings remain
+`CONFIGURED_UNPROVEN`, injected artifact managers close on every workflow exit,
+and structural results report the requested maximum effect. The focused
+browser suite then passed 122 of 125 tests with three intentional capability or
+Windows symlink skips; the 24-test live-evidence safety suite passed on Windows
+with three host-dependent skips; and the 51 focused command-guard tests passed.
+No provider request occurred. Full final-head package, real-browser matrix,
+trusted role/context runtime evidence, re-review, CI, Security, and delivery
+gates remain pending.
+
+The focused provider-free real-browser witness was then repeated with bundled
+Node.js `v24.19.0`, the existing Playwright `1.62.1`, and system Chrome. Its
+three tests passed, including the corrected authenticated one-shot flow and
+fresh validation. The first post-remediation attempt stopped before mutation
+because a same-origin service/authentication envelope produced a duplicate
+effective adapter origin; deduplicating only the adapter allowlist preserved
+the two semantic origin classes and the repeat passed. No provider request or
+automatic mutation retry occurred. This remains one witness, not the complete
+37-scenario real-browser matrix.

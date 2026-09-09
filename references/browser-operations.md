@@ -68,6 +68,16 @@ retried. Fresh validation may return `WORKFLOW_VALIDATED` or
 exit invalidates the one-shot binding and attempts complete adapter, context,
 profile, artifact, and reference cleanup.
 
+Each protected workflow input declares `valueClass: credential` or
+`valueClass: configuration`. Credential-class references are valid only on an
+explicit authentication origin; configuration-class references are valid only
+on a service origin. The adapter compares the actual current top-level origin
+with the exact step origin immediately before locate, fill, select, click,
+submit, upload, capture, or verification. Membership in the combined allowed
+origin set is insufficient. A failed potentially autosaving interactive step
+is outcome-ambiguous and requires the same independent validation as a failed
+declared mutation.
+
 The opt-in non-interactive runtime harness can exercise this approval path only
 when the operator supplies an existing interactive MCP permission handler. It
 runs Claude Code in `default` mode with `--permission-prompt-tool`; it never
@@ -83,6 +93,9 @@ tool identity. An SDK error terminal, a different terminal session, later tool a
 failure lifecycle invalidates the sample. Role and context measurements require
 a separate trusted runtime channel and are never inferred from arbitrary stream
 records.
+Project settings and their ownership record remain
+`CONFIGURED_UNPROVEN`; persisted structure is never accepted as a current
+runtime proof.
 
 Playwright may satisfy mutable workflow capability when its detected context
 proves pre-navigation popup containment. Puppeteer cannot currently prove that

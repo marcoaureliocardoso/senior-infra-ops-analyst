@@ -59,6 +59,11 @@ bounded UTF-8 JSON object. Execution records may contain references but no
 values; production `valueRef` and `expectedRef` fields use only
 `env:OPS_BROWSER_VALUE_[A-Z0-9_]+`. The final validation record is exactly one
 `inspect` whose `expectRef` matches the envelope validation reference.
+Every `fill` or `select` also declares `valueClass` as `credential` or
+`configuration`: credential input is bound only to explicit authentication
+origins, while configuration input is bound only to service origins. The
+adapter rechecks the actual current top-level origin before every semantic
+action.
 Step `origin` values normalize to scheme, host, and effective port; use a
 bounded semantic click after navigation when the UI route begins below `/`.
 

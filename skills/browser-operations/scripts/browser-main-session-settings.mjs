@@ -102,9 +102,7 @@ function validateOwnership(ownership) {
       || !Array.isArray(ownership.entries)
       || (ownership.configurationIdentity !== null
         && !/^[a-f0-9]{64}$/u.test(ownership.configurationIdentity ?? ''))
-      || (ownership.liveProof !== null
-        && (!ownership.liveProof || typeof ownership.liveProof !== 'object'
-          || Array.isArray(ownership.liveProof)))
+      || ownership.liveProof !== null
       || typeof ownership.createdSettingsFile !== 'boolean') throw new Error('OWNERSHIP_CONFLICT');
   const seen = new Set();
   for (const entry of ownership.entries) {
@@ -214,13 +212,5 @@ export function inspectBrowserSettings({ current, desired, ownership }) {
   if (!configured.every(Boolean) || !ownershipExact) {
     return { state: 'CONFLICT', reasonCode: 'OWNERSHIP_DRIFT', hookCount, liveProof: false };
   }
-  const proof = ownership.liveProof;
-  const proofExact = proof?.configurationIdentity === desired.configurationIdentity
-    && proof?.capabilityState === 'ACTIVE'
-    && ['allow', 'ask', 'deny'].includes(proof?.decision)
-    && typeof proof?.reasonCode === 'string' && proof.reasonCode.length <= 128;
-  if (!proofExact) {
-    return { state: 'CONFIGURED_UNPROVEN', reasonCode: 'EXACT_SETTINGS_ONLY', hookCount, liveProof: false };
-  }
-  return { state: 'ACTIVE', reasonCode: 'EXACT_LIVE_PROOF', hookCount, liveProof: true };
+  return { state: 'CONFIGURED_UNPROVEN', reasonCode: 'EXACT_SETTINGS_ONLY', hookCount, liveProof: false };
 }

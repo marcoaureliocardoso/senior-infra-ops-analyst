@@ -89,6 +89,8 @@ node skills/browser-operations/scripts/configure-browser-operations.mjs --remove
 Exact settings are not runtime proof: the current session must observe the
 expected structured guard deny before use. Every navigation and UI effect stays
 bound to one operation envelope, approved origins, and native authorization.
+Persisted settings or ownership data can never promote the configurator to
+`ACTIVE`; only current correlated runtime evidence can establish that state.
 The legacy read-only multi-command runner uses separate processes and does not
 share login state. Authentication or mutation instead requires one
 `browser-runner.mjs --step workflow` call with the complete operation envelope,
@@ -98,6 +100,11 @@ reference-only base64url `--workflow-step` records, and fresh-context
 runtime-observed capability must match before browser open. Playwright may
 satisfy popup containment when detected; Puppeteer remains read-only because it
 cannot currently prove pre-navigation popup containment.
+Every `fill` or `select` record declares `valueClass` as `credential` or
+`configuration`. Credential values are accepted only on an explicit
+authentication origin; configuration values are accepted only on a service
+origin. Immediately before every semantic action, the adapter verifies that
+the browser's actual top-level origin equals the record's bound origin.
 The non-interactive live harness uses `--permission-mode default` and requires
 an operator-provided interactive MCP approval handler through
 `P004B_PERMISSION_PROMPT_TOOL`. It does not install or auto-approve that
@@ -121,10 +128,11 @@ the operator.
 Downloads, screenshots, traces, and other artifact classes are denied unless
 the envelope explicitly permits their type and limits; binary evidence also
 requires a reviewed redactor. Artifact retention is not implemented and is
-denied. An
-unknown mutating outcome is reconciled through the separate validation context
+denied. An unknown mutating or potentially autosaving interactive outcome is
+reconciled through the separate validation context
 and is never retried automatically. Every workflow exit invalidates the binding
-and cleans ephemeral browser and reference state. The 12 subagents keep
+and cleans ephemeral browser, artifact, and reference state. Workflow results
+report the envelope's actual maximum effect. The 12 subagents keep
 their role-specific authority and receive no generic browser or MCP grant. See
 `references/browser-operations.md` and
 `docs/architecture/ADR-010-browser-automation-boundary.md`.

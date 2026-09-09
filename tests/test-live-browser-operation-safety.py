@@ -114,6 +114,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 "step": "fill", "origin": f"{origin}/login",
                 "locatorRole": "textbox", "locatorName": "Password",
                 "valueRef": "env:OPS_BROWSER_VALUE_PASSWORD",
+                "valueClass": "credential",
             },
             {
                 "step": "submit", "origin": f"{origin}/router",
@@ -208,7 +209,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             } else "outcome-unknown",
             "reasonCode": reason_code, "step": "workflow",
             "operationId": "op-live-browser-001",
-            "effect": "SENSITIVE_READ",
+            "effect": "LOW_RISK_CHANGE",
             "validationRequired": reason_code == "OUTCOME_UNKNOWN",
             "observation": None,
         }
@@ -423,7 +424,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             {"extra_results": (json.dumps({
                 "status": "ok", "reasonCode": "WORKFLOW_VALIDATED",
                 "operationId": "op-live-browser-001", "step": "workflow",
-                "effect": "SENSITIVE_READ", "validationRequired": False,
+                "effect": "LOW_RISK_CHANGE", "validationRequired": False,
                 "observation": None,
             }),)},
         )
@@ -440,7 +441,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             {"status": "denied"},
             {"operationId": "different-operation"},
             {"step": "open"},
-            {"effect": "LOW_RISK_CHANGE"},
+            {"effect": "SENSITIVE_READ"},
             {"validationRequired": True},
             {"observation": {"trust": "untrusted", "summary": "not content-free"}},
         )
@@ -509,7 +510,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         validated = json.dumps({
             "status": "ok", "reasonCode": "WORKFLOW_VALIDATED",
             "operationId": "op-live-browser-001", "step": "workflow",
-            "effect": "SENSITIVE_READ", "validationRequired": False,
+            "effect": "LOW_RISK_CHANGE", "validationRequired": False,
             "observation": None,
         })
         with tempfile.TemporaryDirectory() as directory:

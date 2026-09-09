@@ -41,6 +41,7 @@ function workflowArgs(origin) {
     '--session-id', 'session-real-browser-001', '--role', 'network-edge-operator',
     '--objective-ref', 'change-42', '--target', 'loopback-router',
     '--environment', 'test', '--service-origin', origin,
+    '--auth-origin', origin,
     '--identity-ref', 'vault:network-admin', '--credential-transport', 'vault',
     '--permission-mode', 'normal', '--action', 'navigate', '--action', 'fill',
     '--action', 'select', '--action', 'click', '--action', 'inspect',
@@ -54,7 +55,7 @@ function workflowArgs(origin) {
     }),
     '--workflow-step', workflowToken({
       step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
-      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential',
     }),
     '--workflow-step', workflowToken({
       step: 'click', origin: `${origin}/login`, locatorRole: 'button',
@@ -62,7 +63,7 @@ function workflowArgs(origin) {
     }),
     '--workflow-step', workflowToken({
       step: 'fill', origin: `${origin}/totp`, locatorRole: 'textbox',
-      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP',
+      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP', valueClass: 'credential',
     }),
     '--workflow-step', workflowToken({
       step: 'click', origin: `${origin}/totp`, locatorRole: 'button',
@@ -70,7 +71,7 @@ function workflowArgs(origin) {
     }),
     '--workflow-step', workflowToken({
       step: 'select', origin: `${origin}/router`, locatorRole: 'combobox',
-      locatorName: 'WAN enabled', valueRef: 'env:OPS_BROWSER_VALUE_DISABLED',
+      locatorName: 'WAN enabled', valueRef: 'env:OPS_BROWSER_VALUE_DISABLED', valueClass: 'configuration',
     }),
     '--workflow-step', workflowToken({
       step: 'click', origin: `${origin}/router`, locatorRole: 'button',
@@ -83,7 +84,7 @@ function workflowArgs(origin) {
     }),
     '--validation-step', workflowToken({
       step: 'fill', origin: `${origin}/login`, locatorRole: 'textbox',
-      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+      locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential',
     }),
     '--validation-step', workflowToken({
       step: 'click', origin: `${origin}/login`, locatorRole: 'button',
@@ -91,7 +92,7 @@ function workflowArgs(origin) {
     }),
     '--validation-step', workflowToken({
       step: 'fill', origin: `${origin}/totp`, locatorRole: 'textbox',
-      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP',
+      locatorName: 'Code', valueRef: 'env:OPS_BROWSER_VALUE_TOTP', valueClass: 'credential',
     }),
     '--validation-step', workflowToken({
       step: 'click', origin: `${origin}/totp`, locatorRole: 'button',

@@ -14,6 +14,7 @@ const PROTECTED_REFERENCE = /^env:OPS_BROWSER_VALUE_[A-Z0-9_]+$/u;
 const PREDICATES = new Set([
   'present', 'text-equals', 'value-equals', 'checked', 'selected-value-equals',
 ]);
+const VALUE_CLASSES = new Set(['credential', 'configuration']);
 const EXECUTION_STEPS = new Set([
   'inspect', 'navigate', 'fill', 'select', 'click', 'submit',
   'upload', 'download', 'screenshot', 'trace',
@@ -241,11 +242,12 @@ function normalizedStep(record) {
     return freeze(Object.assign(Object.create(null), { step, origin: normalizedOrigin(record.origin) }));
   }
   if (['fill', 'select'].includes(step)) {
-    optionalKeys(record, ['step', 'origin', 'locatorRole', 'valueRef'], ['locatorName']);
+    optionalKeys(record, ['step', 'origin', 'locatorRole', 'valueRef', 'valueClass'], ['locatorName']);
+    if (!VALUE_CLASSES.has(record.valueClass)) fail('INVALID_VALUE_CLASS');
     return freeze(Object.assign(Object.create(null), {
       step, origin: normalizedOrigin(record.origin), locatorRole: action(record.locatorRole),
       ...(Object.hasOwn(record, 'locatorName') ? { locatorName: text(record.locatorName) } : {}),
-      valueRef: protectedReference(record.valueRef),
+      valueRef: protectedReference(record.valueRef), valueClass: record.valueClass,
     }));
   }
   if (['click', 'submit'].includes(step)) {

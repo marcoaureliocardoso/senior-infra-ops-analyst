@@ -32,6 +32,7 @@ const WORKFLOW = [
   '--session-id', 'session-runner-001', '--role', 'network-edge-operator',
   '--objective-ref', 'change-42', '--target', 'edge-router-1',
   '--environment', 'production', '--service-origin', 'http://127.0.0.1:43111',
+  '--auth-origin', 'http://127.0.0.1:43111',
   '--identity-ref', 'vault:network-admin', '--credential-transport', 'vault',
   '--permission-mode', 'normal', '--action', 'navigate', '--action', 'fill',
   '--action', 'submit', '--action', 'inspect', '--effect', 'LOW_RISK_CHANGE',
@@ -39,7 +40,7 @@ const WORKFLOW = [
   '--validation-ref', 'interface-state', '--compensation-ref', 'restore-interface',
   '--expires-in-seconds', '600',
   '--workflow-step', 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
-  '--workflow-step', 'eyJzdGVwIjoiZmlsbCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InRleHRib3giLCJsb2NhdG9yTmFtZSI6IlBhc3N3b3JkIiwidmFsdWVSZWYiOiJlbnY6T1BTX0JST1dTRVJfVkFMVUVfUEFTU1dPUkQifQ',
+  '--workflow-step', 'eyJzdGVwIjoiZmlsbCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InRleHRib3giLCJsb2NhdG9yTmFtZSI6IlBhc3N3b3JkIiwidmFsdWVSZWYiOiJlbnY6T1BTX0JST1dTRVJfVkFMVUVfUEFTU1dPUkQiLCJ2YWx1ZUNsYXNzIjoiY3JlZGVudGlhbCJ9',
   '--workflow-step', 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwibG9jYXRvck5hbWUiOiJTYXZlIiwiZWZmZWN0IjoiTE9XX1JJU0tfQ0hBTkdFIn0',
   '--validation-step', 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsImxvY2F0b3JOYW1lIjoiU2F2ZWQgc3RhdGUiLCJwcmVkaWNhdGUiOiJ0ZXh0LWVxdWFscyIsImV4cGVjdGVkUmVmIjoiZW52Ok9QU19CUk9XU0VSX1ZBTFVFX0VYUEVDVEVEIiwiZXhwZWN0UmVmIjoiaW50ZXJmYWNlLXN0YXRlIn0',
 ];
@@ -64,6 +65,7 @@ function workflowArgs(overrides = {}) {
     {
       step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox',
       locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+      valueClass: 'credential',
     },
     {
       step: 'submit', origin: 'http://127.0.0.1:43111', locatorRole: 'button',
@@ -75,6 +77,7 @@ function workflowArgs(overrides = {}) {
     {
       step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox',
       locatorName: 'Password', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD',
+      valueClass: 'credential',
     },
     {
       step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
@@ -93,6 +96,9 @@ function workflowArgs(overrides = {}) {
     '--precondition-ref', 'router-reachable', '--validation-ref', 'interface-state',
     '--compensation-ref', 'restore-interface', '--expires-in-seconds', '600',
   ];
+  for (const authOrigin of overrides.authOrigins ?? ['http://127.0.0.1:43111']) {
+    args.push('--auth-origin', authOrigin);
+  }
   for (const action of overrides.actions ?? ['navigate', 'fill', 'submit', 'inspect']) {
     args.push('--action', action);
   }
@@ -972,7 +978,140 @@ test('one-shot workflow rejects mutable execution before open when runtime popup
     assert.equal(result.reasonCode, 'CAPABILITY_UNAVAILABLE');
     assert.equal(opened, false);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
-    assert.notEqual(readPendingOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+    assert.equal(readPendingOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
+test('workflow binds credential values only to explicit authentication origins', () => {
+  const accepted = parseRunnerArgs(workflowArgs({
+    authOrigins: ['https://login.example.invalid'],
+    executionSteps: [
+      { step: 'navigate', origin: 'https://login.example.invalid' },
+      {
+        step: 'fill', origin: 'https://login.example.invalid', locatorRole: 'textbox',
+        valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential',
+      },
+    ],
+    validationSteps: [{
+      step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+      predicate: 'present', expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED',
+      expectRef: 'interface-state',
+    }],
+    actions: ['navigate', 'fill', 'inspect'],
+  }), NOW);
+  assert.equal(accepted.executionSteps[1].valueClass, 'credential');
+  assert.throws(() => parseRunnerArgs(workflowArgs({
+    authOrigins: ['https://login.example.invalid'],
+    executionSteps: [
+      { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+      {
+        step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox',
+        valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential',
+      },
+    ],
+    validationSteps: [{
+      step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+      predicate: 'present', expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED',
+      expectRef: 'interface-state',
+    }],
+    actions: ['navigate', 'fill', 'inspect'],
+  }), NOW), /WORKFLOW_CREDENTIAL_ORIGIN_NOT_BOUND/u);
+});
+
+
+test('one-shot workflow validates an ambiguous autosaving fill failure', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs({
+      effect: 'INTERACTIVE_STATE', risk: 'LOW_RISK_CHANGE',
+      executionSteps: [
+        { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+        {
+          step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox',
+          valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential',
+        },
+      ],
+      validationSteps: [{
+        step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+        predicate: 'text-equals', expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED',
+        expectRef: 'interface-state',
+      }],
+      actions: ['navigate', 'fill', 'inspect'],
+    });
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    const adapters = [
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('execution:open'); },
+        async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
+        async fill() { calls.push('execution:fill'); throw new Error('SYNTH_AUTOSAVE_TIMEOUT'); },
+        async close() { calls.push('execution:close'); },
+      },
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('validation:open'); },
+        async verify() { calls.push('validation:verify'); return { status: 'met', expectRef: 'interface-state' }; },
+        async close() { calls.push('validation:close'); },
+      },
+    ];
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env, OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_PASSWORD: 'SYNTH_SECRET_WORKFLOW_PASSWORD',
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
+    });
+    assert.equal(result.reasonCode, 'WORKFLOW_VALIDATED');
+    assert.deepEqual(calls, [
+      'execution:open', 'execution:navigate', 'execution:fill', 'execution:close',
+      'validation:open', 'validation:verify', 'validation:close',
+    ]);
+  });
+});
+
+
+test('workflow closes its injected artifact manager and reports the requested effect', async () => {
+  await stateFixture(async (env) => {
+    const request = await stageWorkflowApproval(env, workflowArgs(), NOW);
+    let artifactCloses = 0;
+    const adapters = [
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() {}, async navigate() { return { status: 'ok' }; },
+        async fill() { return { status: 'ok' }; }, async submit() { return { status: 'ok' }; },
+        async close() {},
+      },
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() {}, async navigate() { return { status: 'ok' }; },
+        async fill() { return { status: 'ok' }; },
+        async verify() { return { status: 'met', expectRef: 'interface-state' }; },
+        async close() {},
+      },
+    ];
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env, OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_PASSWORD: 'SYNTH_SECRET_WORKFLOW_PASSWORD',
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      artifactManager: { async close() { artifactCloses += 1; } },
+      adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
+    });
+    assert.equal(result.effect, 'LOW_RISK_CHANGE');
+    assert.equal(artifactCloses, 1);
   });
 });
 

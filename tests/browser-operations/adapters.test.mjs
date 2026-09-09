@@ -13,10 +13,14 @@ import {
 
 
 function playwrightRuntime() {
-  const state = { launches: [], contexts: [], pages: [], closed: 0, popupClosed: 0 };
+  const state = {
+    launches: [], contexts: [], pages: [], closed: 0, popupClosed: 0,
+    currentUrl: 'about:blank',
+  };
   const pageEvents = new Map();
   const contextEvents = new Map();
   const page = {
+    url() { return state.currentUrl; },
     on(name, handler) { pageEvents.set(name, handler); },
     async goto(url) {
       let outcome = 'continued';
@@ -27,6 +31,7 @@ function playwrightRuntime() {
       });
       if (outcome === 'aborted') throw new Error('REQUEST_BLOCKED');
       state.goto = url;
+      state.currentUrl = url;
     },
     getByRole(role, options) {
       return {
@@ -58,13 +63,14 @@ function playwrightRuntime() {
 
 
 function puppeteerRuntime() {
-  const state = { launches: [], closed: 0 };
+  const state = { launches: [], closed: 0, currentUrl: 'about:blank' };
   const pageEvents = new Map();
   const browserEvents = new Map();
   const page = {
+    url() { return state.currentUrl; },
     async setRequestInterception(value) { state.interception = value; },
     on(name, handler) { pageEvents.set(name, handler); },
-    async goto(url) { state.goto = url; },
+    async goto(url) { state.goto = url; state.currentUrl = url; },
     getByRole(role, options) {
       return {
         async evaluate() { state.locator = { role, ...options }; return 'untrusted page text'; },
@@ -127,7 +133,9 @@ test('resolver requires deterministic preference when both recognized runtimes e
 test('Playwright adapter enforces origins requests popups and ephemeral context', async () => {
   const fake = playwrightRuntime();
   const adapter = await createPlaywrightAdapter(fake.runtime, {
-    id: 'playwright', allowedOrigins: ['https://router.example.invalid:443'],
+    id: 'playwright', allowedOrigins: [
+      'https://router.example.invalid:443', 'https://login.example.invalid:443',
+    ],
   });
   assert.equal(Object.hasOwn(adapter, 'evaluate'), false);
   await adapter.open();
@@ -157,7 +165,15 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
   await fake.contextEvents.get('page')(popup);
   assert.equal(popupRequestAborted, 1);
   assert.equal(fake.state.popupClosed, 1);
-  await adapter.fill({ locatorRole: 'textbox', locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER' });
+  await adapter.fill({
+    origin: 'https://router.example.invalid:443', locatorRole: 'textbox',
+    locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER',
+  });
+  fake.state.currentUrl = 'https://login.example.invalid/auth';
+  await assert.rejects(() => adapter.fill({
+    origin: 'https://router.example.invalid:443', locatorRole: 'textbox',
+    locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER',
+  }), /ORIGIN_ESCAPE/u);
   await adapter.close();
   assert.equal(fake.state.closed, 3);
 });
@@ -166,7 +182,9 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
 test('Puppeteer adapter does not claim pre-navigation popup containment', async () => {
   const fake = puppeteerRuntime();
   const adapter = await createPuppeteerAdapter(fake.runtime, {
-    id: 'puppeteer', allowedOrigins: ['https://router.example.invalid:443'],
+    id: 'puppeteer', allowedOrigins: [
+      'https://router.example.invalid:443', 'https://login.example.invalid:443',
+    ],
   });
   await adapter.open();
   assert.equal(adapter.capabilities.popups, false);
@@ -180,6 +198,10 @@ test('Puppeteer adapter does not claim pre-navigation popup containment', async 
   const targetPage = { async close() { fake.state.closed += 1; } };
   await fake.browserEvents.get('targetcreated')({ type: () => 'page', page: async () => targetPage });
   assert.equal(fake.state.closed, 1);
+  fake.state.currentUrl = 'https://login.example.invalid/auth';
+  await assert.rejects(() => adapter.click({
+    origin: 'https://router.example.invalid:443', locatorRole: 'button',
+  }), /ORIGIN_ESCAPE/u);
   await adapter.close();
   assert.equal(fake.state.closed, 4);
 });
@@ -228,13 +250,14 @@ test('adapters verify predicates structurally without returning observed page va
       allowedOrigins: ['https://router.example.invalid:443'],
     });
     await adapter.open();
+    await adapter.navigate({ origin: 'https://router.example.invalid:443' });
     const cases = [
-      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'present', expected: 'ignored', expectRef: 'interface-state' }, 'met'],
-      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'untrusted page text', expectRef: 'interface-state' }, 'met'],
-      [{ locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'different', expectRef: 'interface-state' }, 'not-met'],
-      [{ locatorRole: 'combobox', locatorName: 'Mode', predicate: 'value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
-      [{ locatorRole: 'checkbox', locatorName: 'Enabled', predicate: 'checked', expected: 'true', expectRef: 'interface-state' }, 'met'],
-      [{ locatorRole: 'combobox', locatorName: 'Mode', predicate: 'selected-value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'status', locatorName: 'Saved state', predicate: 'present', expected: 'ignored', expectRef: 'interface-state' }, 'met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'untrusted page text', expectRef: 'interface-state' }, 'met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'status', locatorName: 'Saved state', predicate: 'text-equals', expected: 'different', expectRef: 'interface-state' }, 'not-met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'combobox', locatorName: 'Mode', predicate: 'value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'checkbox', locatorName: 'Enabled', predicate: 'checked', expected: 'true', expectRef: 'interface-state' }, 'met'],
+      [{ origin: 'https://router.example.invalid:443', locatorRole: 'combobox', locatorName: 'Mode', predicate: 'selected-value-equals', expected: 'selected-value', expectRef: 'interface-state' }, 'met'],
     ];
     for (const [request, status] of cases) {
       const result = await adapter.verify(request);

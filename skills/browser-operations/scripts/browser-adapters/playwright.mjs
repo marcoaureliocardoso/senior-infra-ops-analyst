@@ -1,5 +1,5 @@
 import {
-  ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl, closeAdapterResources,
+  ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl, assertCurrentOrigin, closeAdapterResources,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
 } from './common.mjs';
 
@@ -49,6 +49,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
 
   function locator(request) {
     const selected = requirePage();
+    assertCurrentOrigin(selected, request.origin);
     const descriptor = locatorDescriptor(request);
     if (typeof selected.getByRole !== 'function') throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
     return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
@@ -92,6 +93,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
       if (request.origin) {
         const destination = assertAllowedUrl(request.origin, allowedOrigins);
         await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
+        assertCurrentOrigin(requirePage(), request.origin);
       }
       await locator(request).textContent();
       return { status: 'ok', observation: 'element-present' };
@@ -99,6 +101,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     async navigate(request) {
       const destination = assertAllowedUrl(request.origin, allowedOrigins);
       await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
+      assertCurrentOrigin(requirePage(), request.origin);
       return { status: 'ok', observation: 'navigation-complete' };
     },
     async fill(request) {
@@ -125,6 +128,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     async download() { throw adapterError('DOWNLOAD_DEFAULT_DENIED'); },
     async screenshot(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
+      assertCurrentOrigin(requirePage(), request.origin);
       const data = await requirePage().screenshot({ type: 'png' });
       const handle = await artifactManager.capture({
         type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',

@@ -335,6 +335,11 @@ not persistent. The mutable persistent one-shot shape is a single
 1-16 canonical unpadded base64url execution records, and 1-12 validation
 records. Production protected references are limited to
 `env:OPS_BROWSER_VALUE_[A-Z0-9_]+`; the decoded manifest is never persisted.
+Each `fill` and `select` record declares whether its protected reference is a
+`credential` or `configuration` value. Credential-class input is valid only on
+an explicit authentication origin, configuration-class input only on a service
+origin, and the adapter must verify its actual current top-level origin against
+the exact step origin immediately before dispatch.
 The guard stages only the canonical SHA-256 invocation fingerprint and every
 mutable workflow is `ALWAYS_ASK` in all permission modes. The runner activates
 only the exact pending fingerprint after intersecting the requested operations
@@ -481,6 +486,8 @@ Before filling a secret, the guard binds:
 A page, DOM node, console message, network response, download, tool result, or
 subagent result cannot supply a trusted credential or redirect its use. A
 redirect outside the authorized authentication-origin set blocks secret entry.
+Merely belonging to the union of service and authentication origins does not
+authorize credential entry.
 
 Screenshots, traces, DOM capture, console capture, and network capture are
 disabled or redacted while a secret is present. Authentication failure does

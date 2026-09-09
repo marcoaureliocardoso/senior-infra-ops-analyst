@@ -7,7 +7,7 @@ import {
 
 
 const NAVIGATE = 'eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0';
-const FILL = 'eyJzdGVwIjoiZmlsbCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InRleHRib3giLCJsb2NhdG9yTmFtZSI6IlBhc3N3b3JkIiwidmFsdWVSZWYiOiJlbnY6T1BTX0JST1dTRVJfVkFMVUVfUEFTU1dPUkQifQ';
+const FILL = 'eyJzdGVwIjoiZmlsbCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InRleHRib3giLCJsb2NhdG9yTmFtZSI6IlBhc3N3b3JkIiwidmFsdWVSZWYiOiJlbnY6T1BTX0JST1dTRVJfVkFMVUVfUEFTU1dPUkQiLCJ2YWx1ZUNsYXNzIjoiY3JlZGVudGlhbCJ9';
 const SUBMIT = 'eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwibG9jYXRvck5hbWUiOiJTYXZlIiwiZWZmZWN0IjoiTE9XX1JJU0tfQ0hBTkdFIn0';
 const INSPECT = 'eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsImxvY2F0b3JOYW1lIjoiU2F2ZWQgc3RhdGUiLCJwcmVkaWNhdGUiOiJ0ZXh0LWVxdWFscyIsImV4cGVjdGVkUmVmIjoiZW52Ok9QU19CUk9XU0VSX1ZBTFVFX0VYUEVDVEVEIiwiZXhwZWN0UmVmIjoiaW50ZXJmYWNlLXN0YXRlIn0';
 
@@ -71,10 +71,11 @@ test('rejects action escape hatches, secret literals, unsafe origins, and unappr
     { value: { step: 'validate', expectRef: 'interface-state' }, code: 'INVALID_EXECUTION_STEP' },
     { value: { step: 'close' }, code: 'INVALID_EXECUTION_STEP' },
     { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox', value: 'not-a-reference' }, code: 'UNKNOWN_STEP_FIELD' },
-    { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: ['textbox'], valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD' }, code: 'INVALID_STEP_FIELD' },
+    { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: ['textbox'], valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'credential' }, code: 'INVALID_STEP_FIELD' },
     { value: { step: 'navigate', origin: 'javascript:alert(1)' }, code: 'INVALID_ORIGIN' },
     { value: { step: 'navigate', origin: 'data:text/plain,nope' }, code: 'INVALID_ORIGIN' },
-    { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox', valueRef: 'env:OTHER_VALUE' }, code: 'INVALID_PROTECTED_REFERENCE' },
+    { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox', valueRef: 'env:OTHER_VALUE', valueClass: 'credential' }, code: 'INVALID_PROTECTED_REFERENCE' },
+    { value: { step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox', valueRef: 'env:OPS_BROWSER_VALUE_PASSWORD', valueClass: 'unknown' }, code: 'INVALID_VALUE_CLASS' },
     { value: { step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status', predicate: 'text-equals', expectedRef: 'env:OTHER_VALUE', expectRef: 'interface-state' }, code: 'INVALID_PROTECTED_REFERENCE' },
   ];
   for (const { value, code } of rejected) expectsWorkflowError(() => parseWorkflowSteps([token(value)], [INSPECT]), code);

@@ -44,7 +44,7 @@
 
   ```json
   {"step":"navigate","origin":"http://127.0.0.1:43111"}
-  {"step":"fill","origin":"http://127.0.0.1:43111","locatorRole":"textbox","locatorName":"Password","valueRef":"env:OPS_BROWSER_VALUE_PASSWORD"}
+  {"step":"fill","origin":"http://127.0.0.1:43111","locatorRole":"textbox","locatorName":"Password","valueRef":"env:OPS_BROWSER_VALUE_PASSWORD","valueClass":"credential"}
   {"step":"submit","origin":"http://127.0.0.1:43111","locatorRole":"button","locatorName":"Save","effect":"LOW_RISK_CHANGE"}
   {"step":"inspect","origin":"http://127.0.0.1:43111","locatorRole":"status","locatorName":"Saved state","predicate":"text-equals","expectedRef":"env:OPS_BROWSER_VALUE_EXPECTED","expectRef":"interface-state"}
   ```

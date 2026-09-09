@@ -88,7 +88,7 @@ test('merge and removal preserve all operator settings and hook order', () => {
 });
 
 
-test('inspection distinguishes not configured, unproven, conflict, and active', () => {
+test('inspection never treats persisted proof structure as current runtime evidence', () => {
   const desired = desiredBrowserHooks({ skillRoot: SKILL_ROOT, platform: process.platform });
   const empty = emptyBrowserOwnership();
   assert.equal(inspectBrowserSettings({ current: {}, desired, ownership: empty }).state, 'NOT_CONFIGURED');
@@ -106,9 +106,9 @@ test('inspection distinguishes not configured, unproven, conflict, and active', 
     configurationIdentity: desired.configurationIdentity,
     capabilityState: 'ACTIVE', decision: 'deny', reasonCode: 'DENY_ORIGIN_ESCAPE',
   };
-  assert.equal(inspectBrowserSettings({
+  assert.throws(() => inspectBrowserSettings({
     current: applied.settings, desired, ownership: proved,
-  }).state, 'ACTIVE');
+  }), /OWNERSHIP_CONFLICT/u);
 });
 
 

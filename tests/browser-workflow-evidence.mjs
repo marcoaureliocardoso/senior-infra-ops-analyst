@@ -12,6 +12,7 @@ try {
   if (request.step !== 'workflow') process.exit(2);
   const result = {
     operationId: request.operationId,
+    expectedEffect: request.envelope.expectedEffect,
     executionSteps: request.executionSteps.length,
     validationSteps: request.validationSteps.length,
     authenticationRequested: request.executionSteps.some(({ step }) => step === 'fill'),
