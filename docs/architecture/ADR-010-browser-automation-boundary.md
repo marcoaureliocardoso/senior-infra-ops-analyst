@@ -95,7 +95,8 @@ verified only after deletion. Provider-backed active-runtime acceptance uses
 `default` permission mode plus an operator-provided interactive MCP permission
 handler and remains a separate gate; the harness neither installs nor
 auto-approves that handler, and its configured name is not approval evidence.
-The terminal must be a same-session SDK success, and any later tool or failure
+The tool-use and tool-result envelopes must share the hook session and parent
+tool identity. The terminal must be a same-session SDK success, and any later tool or failure
 lifecycle invalidates the sample. Role and context measurements are not inferred
 from arbitrary stream records; until a separately trusted runtime channel
 supplies them, the aggregate remains inconclusive rather than `ACTIVE`.

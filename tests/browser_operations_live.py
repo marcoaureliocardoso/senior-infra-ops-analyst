@@ -147,8 +147,12 @@ def _stream_records(event: dict[str, Any]):
     wrapped = event.get("event")
     if event.get("type") == "stream" and isinstance(wrapped, dict):
         records.append(wrapped)
-    yield from records
     for record in records:
+        provenance = {
+            "sessionId": record.get("session_id"),
+            "parentToolUseId": record.get("parent_tool_use_id"),
+        }
+        yield record, provenance
         message = record.get("message")
         if record.get("type") in {"assistant", "user"} and isinstance(message, dict):
             content = message.get("content")
@@ -156,7 +160,7 @@ def _stream_records(event: dict[str, Any]):
                 for block in content:
                     if (isinstance(block, dict)
                             and block.get("type") in {"tool_use", "tool_result"}):
-                        yield block
+                        yield block, provenance
 
 
 def _workflow_command(command: Any) -> dict[str, Any] | None:
@@ -278,6 +282,16 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
         if active_call_id in workflow_calls:
             workflow_calls[active_call_id]["invalid"] = True
 
+    def record_identity(provenance: dict[str, Any]) -> tuple[str, str | None] | None:
+        session_id = provenance.get("sessionId")
+        parent_tool_use_id = provenance.get("parentToolUseId")
+        if (not isinstance(session_id, str) or not LABEL.fullmatch(session_id)
+                or (parent_tool_use_id is not None
+                    and (not isinstance(parent_tool_use_id, str)
+                         or not LABEL.fullmatch(parent_tool_use_id)))):
+            return None
+        return session_id, parent_tool_use_id
+
     def pre_decision(value: dict[str, Any]) -> str | None:
         stdout = value.get("stdout")
         if (not isinstance(stdout, str) or len(stdout) > 4096
@@ -309,7 +323,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
             if not isinstance(event, dict):
                 malformed = True
                 continue
-            for value in _stream_records(event):
+            for value, provenance in _stream_records(event):
                 event_type = value.get("type")
                 if event_type in {"tool_use", "tool_result"}:
                     tool_calls += 1
@@ -338,6 +352,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                     observation = _workflow_command(
                         tool_input.get("command") if isinstance(tool_input, dict) else None
                     )
+                    identity = record_identity(provenance)
                     if (observation is not None and isinstance(tool_use_id, str)
                             and LABEL.fullmatch(tool_use_id)):
                         if tool_use_id in workflow_calls:
@@ -345,8 +360,13 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                         else:
                             workflow_calls[tool_use_id] = {
                                 **observation, "phase": "tool-use",
-                                "invalid": orphan_expected_hook or bash_tool_uses != 1,
+                                "invalid": (
+                                    orphan_expected_hook or bash_tool_uses != 1
+                                    or identity is None
+                                ),
                                 "outcome": "NOT_OBSERVED",
+                                "toolSessionId": identity[0] if identity else None,
+                                "parentToolUseId": identity[1] if identity else None,
                             }
                             active_call_id = tool_use_id
                 elif event_type == "tool_use" and active_call_id is not None:
@@ -356,7 +376,11 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                         and tool_use_id in workflow_calls):
                     call = workflow_calls[tool_use_id]
                     outcome = _workflow_result(value.get("content"), call["operationId"])
-                    if call["phase"] != "pre-approved" or outcome is None:
+                    identity = record_identity(provenance)
+                    if (call["phase"] != "pre-approved" or outcome is None
+                            or identity != (
+                                call["toolSessionId"], call["parentToolUseId"],
+                            )):
                         call["invalid"] = True
                     else:
                         call["phase"] = "tool-result"
@@ -384,6 +408,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                         required_phase = "tool-use" if hook_event == "PreToolUse" else "tool-result"
                         if (call["phase"] != required_phase
                                 or hook_event == "PostToolUseFailure"
+                                or session_id != call.get("toolSessionId")
                                 or (hook_event == "PostToolUse"
                                     and call.get("sessionId") != session_id)):
                             call["invalid"] = True

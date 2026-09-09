@@ -184,6 +184,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         events: list[dict[str, object]] = [
             {
                 "type": "tool_use", "id": "workflow-tool-1", "name": "Bash",
+                "session_id": "session-live-browser-001", "parent_tool_use_id": None,
                 "input": {"command": command},
             },
             {
@@ -215,6 +216,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             workflow_result.update(result_override)
         events.append({
             "type": "tool_result", "tool_use_id": "workflow-tool-1",
+            "session_id": "session-live-browser-001", "parent_tool_use_id": None,
             "content": json.dumps(workflow_result),
         })
         events.extend({
@@ -569,7 +571,9 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         sys.path.insert(0, str(ROOT / "tests"))
         from browser_operations_live import evaluate_stream  # noqa: PLC0415
 
-        for mutation in ("extra-tool", "late-failure", "cross-session"):
+        for mutation in (
+            "extra-tool", "late-failure", "cross-session", "tool-envelope-session",
+        ):
             with self.subTest(mutation=mutation):
                 with tempfile.TemporaryDirectory() as directory:
                     stream = Path(directory) / "workflow.jsonl"
@@ -599,9 +603,20 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                              "uuid": "late-response",
                              "session_id": "session-live-browser-001"},
                         ))
-                    else:
+                    elif mutation == "cross-session":
                         events[4]["session_id"] = "different-session"
                         events[5]["session_id"] = "different-session"
+                    else:
+                        for index, message_type in ((0, "assistant"), (3, "user")):
+                            block = {
+                                key: value for key, value in events[index].items()
+                                if key not in {"session_id", "parent_tool_use_id"}
+                            }
+                            events[index] = {
+                                "type": message_type, "session_id": "different-session",
+                                "parent_tool_use_id": "different-parent",
+                                "message": {"content": [block]},
+                            }
                     events.append(terminal)
                     stream.write_text(
                         "".join(json.dumps(event) + "\n" for event in events),
@@ -670,7 +685,13 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             for event in events:
                 if event.get("type") in {"tool_use", "tool_result"}:
                     message_type = "assistant" if event["type"] == "tool_use" else "user"
-                    event = {"type": message_type, "message": {"content": [event]}}
+                    session_id = event.pop("session_id")
+                    parent_tool_use_id = event.pop("parent_tool_use_id")
+                    event = {
+                        "type": message_type, "session_id": session_id,
+                        "parent_tool_use_id": parent_tool_use_id,
+                        "message": {"content": [event]},
+                    }
                 wrapped.append({"type": "stream", "event": event})
             nested.write_text(
                 "".join(json.dumps(event) + "\n" for event in wrapped),

@@ -102,11 +102,11 @@ The non-interactive live harness uses `--permission-mode default` and requires
 an operator-provided interactive MCP approval handler through
 `P004B_PERMISSION_PROMPT_TOOL`. It does not install or auto-approve that
 handler. A handler name is not approval evidence: an active result additionally
-requires the exact package runner, the actual Claude Code `hook_started` and
+requires the exact package runner and same-session SDK tool envelope, the actual Claude Code `hook_started` and
 `hook_response` lifecycle for the configured `PreToolUse:Bash` and
 `PostToolUse:Bash` matchers, the exact `ask` response produced by the installed
 command guard, successful tool completion, the matching successful post hook,
-and a coherent structural workflow result in that order. Missing or
+the same parent tool identity, and a coherent structural workflow result in that order. Missing or
 unrecognized runtime fields remain inconclusive.
 Arbitrary stream records cannot supply role or context measurements, and an
 error terminal, later tool activity, or any failure lifecycle invalidates the

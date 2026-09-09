@@ -751,8 +751,10 @@ exact native `ask` response produced by the installed command guard, coherent
 tool result, and successful post hook in order. The handler name alone, hook-input-shaped
 JSON, mixed legacy/workflow samples, and duplicate or reordered records are not
 approval evidence. Unknown lifecycle structure is inconclusive.
-The terminal result must be a same-session SDK success. Any later tool activity
-or failure lifecycle invalidates the workflow sample. Role and context values
+Tool-use and tool-result SDK envelopes must match the hook session and each
+other's parent tool identity. The terminal result must be a same-session SDK
+success. Any later tool activity or failure lifecycle invalidates the workflow
+sample. Role and context values
 are not accepted from arbitrary stream records; they require a separately
 trusted measurement channel before the aggregate can become `ACTIVE`.
 

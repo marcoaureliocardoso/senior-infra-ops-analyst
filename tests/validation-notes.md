@@ -824,7 +824,9 @@ workflow was ignored, and correctly named `PostToolUseFailure:Bash` events plus
 cross-session post hooks were not correlated. The second remediation removed
 role/context inference from raw streams, requires one same-session successful
 SDK terminal, invalidates any later tool or failure lifecycle, and correlates
-the pre/post lifecycle to one session. Its expanded safety suite passes all 24
+the pre/post lifecycle to one session. A final review finding additionally made
+the extracted tool-use and tool-result envelopes retain and match their SDK
+session and parent tool identities. Its expanded safety suite passes all 24
 tests in Debian WSL and all 24 on Windows with three honest Bash-host skips.
 
 Provider-free runtime detection observed Node.js `v24.19.0`, Playwright
