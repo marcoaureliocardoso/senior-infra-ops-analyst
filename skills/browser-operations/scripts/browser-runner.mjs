@@ -397,6 +397,13 @@ function possiblyStateChanging(effect) {
 }
 
 
+function successfulStepMayPersist(step, effect) {
+  return mutableWorkflow(effect)
+    || (effect === 'INTERACTIVE_STATE'
+      && ['fill', 'select', 'click', 'submit'].includes(step.step));
+}
+
+
 function runnerErrorReason(error, fallback) {
   if (error instanceof BrowserRunnerError && typeof error.code === 'string'
       && error.code.startsWith('BROWSER_RUNNER_')) {
@@ -562,7 +569,9 @@ async function runWorkflowSteps(adapter, steps, dependencies, env) {
     );
     if (result.type === 'ok') {
       const effect = stepEffect(step);
-      if (mutableWorkflow(effect)) lastMutation = outcomeObservationForStep(step, effect);
+      if (successfulStepMayPersist(step, effect)) {
+        lastMutation = outcomeObservationForStep(step, effect);
+      }
       continue;
     }
     if (lastMutation !== null) {
@@ -851,6 +860,14 @@ export async function executeRunnerStep(request, dependencies = {}) {
   }
   const active = readActiveOperation(sessionId, request.operationId, env, now);
   if (!active) return output('denied', 'OPERATION_NOT_ACTIVE', request.operationId, request.step, stepEffect(request), false);
+  if (active.invocationFingerprint !== null) {
+    try {
+      invalidateOperation(sessionId, request.operationId, 'INTERRUPTED_WORKFLOW_QUARANTINED', env, now);
+    } catch {
+      return output('denied', 'WORKFLOW_BINDING_QUARANTINE_FAILED', request.operationId, request.step, stepEffect(request), true);
+    }
+    return output('denied', 'WORKFLOW_BINDING_QUARANTINED', request.operationId, request.step, stepEffect(request), true);
+  }
   if (active.outcome === 'APPLIED_CONFIRMED' && request.step !== 'close') {
     return output('denied', 'OPERATION_COMPLETE', request.operationId, request.step, stepEffect(request), false);
   }

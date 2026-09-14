@@ -66,17 +66,22 @@ by timeout, crash, interruption, close failure, or ambiguous response is never
 retried. Fresh validation may return `WORKFLOW_VALIDATED` or
 `WORKFLOW_NOT_APPLIED`; otherwise the result remains `OUTCOME_UNKNOWN`. Every
 exit invalidates the one-shot binding and attempts complete adapter, context,
-profile, artifact, and reference cleanup.
+profile, artifact, and reference cleanup. If interruption leaves a one-shot
+fingerprint active, a later legacy step quarantines and invalidates it before
+adapter dispatch.
 
 Each protected workflow input declares `valueClass: credential` or
 `valueClass: configuration`. Credential-class references are valid only on an
 explicit authentication origin; configuration-class references are valid only
-on a service origin. The adapter compares the actual current top-level origin
-with the exact step origin immediately before locate, fill, select, click,
-submit, upload, capture, or verification. Membership in the combined allowed
-origin set is insufficient. A failed potentially autosaving interactive step
-is outcome-ambiguous and requires the same independent validation as a failed
-declared mutation.
+on a service origin. Navigation holds an exact destination-origin lock through
+redirect completion. Page-bound locate, fill, select, click, submit, upload,
+capture, and verification actions compare the actual current top-level origin
+with the exact step origin before and after dispatch while holding the same
+lock. In both forms, top-level navigation to another allowed origin is denied;
+membership in the combined allowed origin set is insufficient. A failed
+potentially autosaving interactive step, or any later failure after a successful
+fill, select, click, submit, or declared mutation, requires the same independent
+validation as a failed declared mutation.
 
 The opt-in non-interactive runtime harness can exercise this approval path only
 when the operator supplies an existing interactive MCP permission handler. It

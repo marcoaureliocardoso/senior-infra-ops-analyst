@@ -8,7 +8,7 @@ import {
   authorizeRunnerStep, executeBrowserWorkflow, executeRunnerStep, parseRunnerArgs,
 } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 import {
-  activateOperation, readActiveOperation, readPendingOperation,
+  activateOperation, activatePendingWorkflow, readActiveOperation, readPendingOperation,
 } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 import { NOW, capabilityFixture } from './helpers.mjs';
 import { evaluateApprovalHook } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
@@ -1073,6 +1073,181 @@ test('one-shot workflow validates an ambiguous autosaving fill failure', async (
       'execution:open', 'execution:navigate', 'execution:fill', 'execution:close',
       'validation:open', 'validation:verify', 'validation:close',
     ]);
+  });
+});
+
+
+test('one-shot workflow validates after a successful autosaving interaction and a later read failure', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs({
+      effect: 'INTERACTIVE_STATE',
+      risk: 'LOW_RISK_CHANGE',
+      actions: ['navigate', 'fill', 'inspect'],
+      executionSteps: [
+        { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+        {
+          step: 'fill', origin: 'http://127.0.0.1:43111', locatorRole: 'textbox',
+          locatorName: 'Hostname', valueRef: 'env:OPS_BROWSER_VALUE_HOSTNAME',
+          valueClass: 'configuration',
+        },
+        {
+          step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+          locatorName: 'Transient status', predicate: 'present',
+          expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+        },
+      ],
+      validationSteps: [
+        { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+        {
+          step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+          locatorName: 'Saved state', predicate: 'text-equals',
+          expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+        },
+      ],
+    });
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    const adapters = [
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('execution:open'); },
+        async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
+        async fill(step) { calls.push(`execution:fill:${step.credential}`); return { status: 'ok' }; },
+        async inspect() { calls.push('execution:inspect'); throw new Error('SYNTH_READ_FAILURE'); },
+        async close() { calls.push('execution:close'); },
+      },
+      {
+        capabilities: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+        async open() { calls.push('validation:open'); },
+        async navigate() { calls.push('validation:navigate'); return { status: 'ok' }; },
+        async verify() { calls.push('validation:verify'); return { status: 'not-met', expectRef: 'interface-state' }; },
+        async close() { calls.push('validation:close'); },
+      },
+    ];
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env,
+        OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_HOSTNAME: 'synthetic-hostname',
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
+    });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.deepEqual(calls, [
+      'execution:open', 'execution:navigate', 'execution:fill:synthetic-hostname',
+      'execution:inspect', 'execution:close', 'validation:open', 'validation:navigate',
+      'validation:verify', 'validation:close',
+    ]);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
+test('one-shot workflow does not treat successful navigation alone as persisted state', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs({
+      effect: 'INTERACTIVE_STATE',
+      risk: 'LOW_RISK_CHANGE',
+      actions: ['navigate', 'inspect'],
+      executionSteps: [
+        { step: 'navigate', origin: 'http://127.0.0.1:43111' },
+        {
+          step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+          locatorName: 'Transient status', predicate: 'present',
+          expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+        },
+      ],
+      validationSteps: [
+        {
+          step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+          locatorName: 'Saved state', predicate: 'present',
+          expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state',
+        },
+      ],
+    });
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const calls = [];
+    let resolutions = 0;
+    const result = await executeBrowserWorkflow(request, {
+      env: {
+        ...env,
+        OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled',
+      },
+      now: NOW + 1,
+      adapterFactory: async () => {
+        resolutions += 1;
+        return {
+          state: 'ACTIVE',
+          adapter: {
+            capabilities: {
+              preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+            },
+            async open() { calls.push('execution:open'); },
+            async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
+            async inspect() { calls.push('execution:inspect'); throw new Error('SYNTH_READ_FAILURE'); },
+            async close() { calls.push('execution:close'); },
+          },
+        };
+      },
+    });
+    assert.equal(result.status, 'denied');
+    assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.equal(result.validationRequired, false);
+    assert.equal(resolutions, 1);
+    assert.deepEqual(calls, [
+      'execution:open', 'execution:navigate', 'execution:inspect', 'execution:close',
+    ]);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
+  });
+});
+
+
+test('legacy steps quarantine an interrupted active one-shot workflow binding', async () => {
+  await stateFixture(async (env) => {
+    const args = workflowArgs();
+    const request = await stageWorkflowApproval(env, args, NOW);
+    const pending = readPendingOperation('session-runner-001', request.operationId, env, NOW);
+    assert.equal(activatePendingWorkflow({
+      sessionId: 'session-runner-001',
+      operationId: request.operationId,
+      invocationFingerprint: request.invocationFingerprint,
+      effectiveCapability: {
+        state: 'ACTIVE', reasonCode: 'CAPABILITY_ACTIVE',
+        adapterId: pending.adapterId, routeClass: 'PROTECTED_RUNNER',
+        settingsFingerprint: pending.settingsFingerprint,
+        descriptorId: 'protected-runner-v1', serverName: null, toolPrefix: null,
+        effects: ['SENSITIVE_READ', 'INTERACTIVE_STATE', 'LOW_RISK_CHANGE'],
+        enforcement: {
+          preCall: true, topLevelOrigin: true, redirects: true, popups: true, artifacts: false,
+        },
+      },
+    }, env, NOW + 1), true);
+
+    let dispatched = false;
+    const submit = parseRunnerArgs([
+      '--operation-id', request.operationId, '--step', 'submit',
+      '--origin', 'http://127.0.0.1:43111', '--locator-role', 'button',
+      '--locator-name', 'Save', '--effect', 'LOW_RISK_CHANGE',
+    ], NOW + 2);
+    const result = await executeRunnerStep(submit, {
+      env, now: NOW + 2, sessionId: 'session-runner-001',
+      adapter: {
+        async execute() { dispatched = true; return { status: 'ok' }; },
+        async close() {},
+      },
+    });
+    assert.equal(result.status, 'denied');
+    assert.equal(result.reasonCode, 'WORKFLOW_BINDING_QUARANTINED');
+    assert.equal(dispatched, false);
+    assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 3), null);
   });
 });
 

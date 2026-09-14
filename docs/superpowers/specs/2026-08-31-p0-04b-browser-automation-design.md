@@ -338,8 +338,11 @@ records. Production protected references are limited to
 Each `fill` and `select` record declares whether its protected reference is a
 `credential` or `configuration` value. Credential-class input is valid only on
 an explicit authentication origin, configuration-class input only on a service
-origin, and the adapter must verify its actual current top-level origin against
-the exact step origin immediately before dispatch.
+origin. Navigation must hold an exact destination-origin lock through redirect
+completion. Page-bound semantic actions must verify the actual current
+top-level origin against the exact step origin before and after dispatch while
+holding the same lock. Both forms must block an in-flight top-level transition
+to another allowed origin.
 The guard stages only the canonical SHA-256 invocation fingerprint and every
 mutable workflow is `ALWAYS_ASK` in all permission modes. The runner activates
 only the exact pending fingerprint after intersecting the requested operations
@@ -347,7 +350,10 @@ with the observed adapter capability, then opens the browser. Execution closes
 before a newly resolved adapter opens the fresh validation context. Puppeteer
 remains read-only while it cannot prove pre-navigation popup containment. No
 ambiguous mutation is retried, and all exits invalidate the binding and clean
-ephemeral state.
+ephemeral state. A later failure after a successful potentially autosaving
+interaction also requires fresh validation. A one-shot fingerprint left active
+by process interruption is invalidated rather than accepted by the legacy
+multi-command route.
 
 ### Settings configurator
 

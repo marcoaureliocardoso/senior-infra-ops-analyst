@@ -103,8 +103,12 @@ cannot currently prove pre-navigation popup containment.
 Every `fill` or `select` record declares `valueClass` as `credential` or
 `configuration`. Credential values are accepted only on an explicit
 authentication origin; configuration values are accepted only on a service
-origin. Immediately before every semantic action, the adapter verifies that
-the browser's actual top-level origin equals the record's bound origin.
+origin. Navigation holds an exact destination-origin lock from request through
+redirect completion. Page-bound semantic actions verify the actual top-level
+origin before and after dispatch and hold the same lock while in flight. Both
+forms block a top-level transition to another allowed origin. An interrupted
+one-shot binding is quarantined instead of being reusable through the legacy
+multi-command route.
 The non-interactive live harness uses `--permission-mode default` and requires
 an operator-provided interactive MCP approval handler through
 `P004B_PERMISSION_PROMPT_TOOL`. It does not install or auto-approve that
@@ -129,8 +133,10 @@ Downloads, screenshots, traces, and other artifact classes are denied unless
 the envelope explicitly permits their type and limits; binary evidence also
 requires a reviewed redactor. Artifact retention is not implemented and is
 denied. An unknown mutating or potentially autosaving interactive outcome is
-reconciled through the separate validation context
-and is never retried automatically. Every workflow exit invalidates the binding
+reconciled through the separate validation context and is never retried
+automatically. A later failure also triggers that validation when a preceding
+fill, select, click, or submit may already have persisted state. Every workflow
+exit invalidates the binding
 and cleans ephemeral browser, artifact, and reference state. Workflow results
 report the envelope's actual maximum effect. The 12 subagents keep
 their role-specific authority and receive no generic browser or MCP grant. See

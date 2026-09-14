@@ -43,6 +43,7 @@ function playwrightRuntime() {
         async click() { state.click = { role, ...options }; },
       };
     },
+    async screenshot() { state.screenshot = true; return Buffer.from('synthetic-image'); },
     async close() { state.closed += 1; },
   };
   const context = {
@@ -82,6 +83,7 @@ function puppeteerRuntime() {
         async click() { state.click = { role, ...options }; },
       };
     },
+    async screenshot() { state.screenshot = true; return Buffer.from('synthetic-image'); },
     async close() { state.closed += 1; },
   };
   const context = {
@@ -204,6 +206,148 @@ test('Puppeteer adapter does not claim pre-navigation popup containment', async 
   }), /ORIGIN_ESCAPE/u);
   await adapter.close();
   assert.equal(fake.state.closed, 4);
+});
+
+
+test('semantic actions block an allowed-origin navigation race before applying protected values', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const adapter = await create(fake.runtime, {
+      id: create === createPlaywrightAdapter ? 'playwright' : 'puppeteer',
+      allowedOrigins: [
+        'https://router.example.invalid:443', 'https://login.example.invalid:443',
+      ],
+    });
+    await adapter.open();
+    await adapter.navigate({ origin: 'https://login.example.invalid:443' });
+
+    let protectedValueApplied = false;
+    fake.resources.page.getByRole = () => {
+      fake.state.currentUrl = 'https://router.example.invalid/dashboard';
+      return {
+        async fill() { protectedValueApplied = true; },
+      };
+    };
+
+    await assert.rejects(() => adapter.fill({
+      origin: 'https://login.example.invalid:443', locatorRole: 'textbox',
+      locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER',
+    }), /ORIGIN_ESCAPE/u);
+    assert.equal(protectedValueApplied, false);
+
+    fake.state.currentUrl = 'https://login.example.invalid/auth';
+    fake.resources.page.getByRole = () => ({
+      async fill() {
+        let aborted = false;
+        const syntheticNavigation = {
+          url: () => 'https://router.example.invalid/dashboard',
+          isNavigationRequest: () => true,
+          frame: () => fake.resources.page,
+          abort: async () => { aborted = true; },
+          continue: async () => {},
+        };
+        if (create === createPlaywrightAdapter) {
+          await fake.state.contextRoute({
+            request: () => ({
+              url: syntheticNavigation.url,
+              isNavigationRequest: syntheticNavigation.isNavigationRequest,
+              frame: () => ({ page: () => fake.resources.page }),
+            }),
+            abort: syntheticNavigation.abort,
+            continue: syntheticNavigation.continue,
+          });
+        } else {
+          await fake.pageEvents.get('request')(syntheticNavigation);
+        }
+        if (aborted) throw new Error('REQUEST_BLOCKED');
+        fake.state.currentUrl = 'https://router.example.invalid/dashboard';
+        protectedValueApplied = true;
+      },
+    });
+    await assert.rejects(() => adapter.fill({
+      origin: 'https://login.example.invalid:443', locatorRole: 'textbox',
+      locatorName: 'Password', credential: 'SYNTH_SECRET_ADAPTER',
+    }));
+    assert.equal(protectedValueApplied, false);
+    await adapter.close();
+  }
+});
+
+
+test('navigation blocks a redirect to another envelope-allowed origin before crossing', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const adapter = await create(fake.runtime, {
+      id: create === createPlaywrightAdapter ? 'playwright' : 'puppeteer',
+      allowedOrigins: [
+        'https://router.example.invalid:443', 'https://login.example.invalid:443',
+      ],
+    });
+    await adapter.open();
+    let crossedOrigin = false;
+    fake.resources.page.goto = async (url) => {
+      async function dispatch(requestUrl) {
+        let aborted = false;
+        const syntheticNavigation = {
+          url: () => requestUrl,
+          isNavigationRequest: () => true,
+          frame: () => fake.resources.page,
+          abort: async () => { aborted = true; },
+          continue: async () => {},
+        };
+        if (create === createPlaywrightAdapter) {
+          await fake.state.contextRoute({
+            request: () => ({
+              url: syntheticNavigation.url,
+              isNavigationRequest: syntheticNavigation.isNavigationRequest,
+              frame: () => ({ page: () => fake.resources.page }),
+            }),
+            abort: syntheticNavigation.abort,
+            continue: syntheticNavigation.continue,
+          });
+        } else {
+          await fake.pageEvents.get('request')(syntheticNavigation);
+        }
+        return aborted;
+      }
+      if (await dispatch(url)) throw new Error('REQUEST_BLOCKED');
+      if (await dispatch('https://login.example.invalid/redirected')) {
+        throw new Error('REDIRECT_BLOCKED');
+      }
+      crossedOrigin = true;
+      fake.state.currentUrl = 'https://login.example.invalid/redirected';
+    };
+
+    await assert.rejects(() => adapter.navigate({
+      origin: 'https://router.example.invalid:443',
+    }));
+    assert.equal(crossedOrigin, false);
+    await adapter.close();
+  }
+});
+
+
+test('page-bound screenshot actions enforce origin without requiring a semantic locator', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const captures = [];
+    const adapter = await create(fake.runtime, {
+      id: create === createPlaywrightAdapter ? 'playwright' : 'puppeteer',
+      allowedOrigins: ['https://router.example.invalid:443'],
+      artifactManager: {
+        async capture(value) { captures.push(value); return { artifactId: 'artifact-opaque-1' }; },
+      },
+    });
+    await adapter.open();
+    await adapter.navigate({ origin: 'https://router.example.invalid:443' });
+    const result = await adapter.screenshot({
+      origin: 'https://router.example.invalid:443', artifactRef: 'operation-artifact-1',
+    });
+    assert.deepEqual(result, { status: 'ok', observation: 'artifact-opaque-1' });
+    assert.equal(fake.state.screenshot, true);
+    assert.equal(captures.length, 1);
+    await adapter.close();
+  }
 });
 
 

@@ -76,17 +76,23 @@ Mutating calls that time out or lose confirmation become `OUTCOME_UNKNOWN`.
 They are not retried automatically; an independent validator must first
 classify the state as applied or not applied. Applied operations cannot repeat.
 The same rule applies to a failed fill, select, navigation, or interactive
-control that might have triggered autosave. Credential-class references are
-bound only to explicit authentication origins, configuration-class references
-only to service origins, and every adapter action rechecks the browser's actual
-top-level origin against the step origin immediately before dispatch.
+control that might have triggered autosave, and to a later failure after a
+successful fill, select, click, submit, or declared mutation. Credential-class
+references are bound only to explicit authentication origins and
+configuration-class references only to service origins. Navigation holds an
+exact destination-origin lock through redirect completion. Page-bound adapter
+actions check the actual top-level origin before and after dispatch while
+holding the same lock. Both deny a top-level transition to another allowed
+origin while the action is in flight.
 
 Installed settings and ownership records establish only
 `CONFIGURED_UNPROVEN`; no persisted proof object can represent current-session
 hook or tool lifecycle. One-shot pending state is consumed on every attempted
 workflow, including capability failure before activation. The workflow owns
 and closes any injected artifact manager, and its structural result reports the
-envelope's actual maximum effect.
+envelope's actual maximum effect. If a process ends after one-shot activation,
+any legacy step for that active fingerprint quarantines and invalidates the
+binding before adapter dispatch.
 
 ## Validation evidence
 

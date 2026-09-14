@@ -907,3 +907,33 @@ effective adapter origin; deduplicating only the adapter allowlist preserved
 the two semantic origin classes and the repeat passed. No provider request or
 automatic mutation retry occurred. This remains one witness, not the complete
 37-scenario real-browser matrix.
+
+## P0-04B interrupted-workflow and origin-race remediation (2026-09-14)
+
+A second broad independent review found three remaining fail-open paths. A
+successful fill or select could be forgotten when a later read failed, an
+allowed-origin navigation could race between locator construction and a
+semantic action, and an active one-shot fingerprint left by interruption could
+be reused by the legacy multi-command route.
+
+Three failing regressions reproduced those paths before implementation. The
+runner now retains successful fill, select, click, submit, and declared mutation
+effects for later fresh-context validation. Playwright and Puppeteer hold an
+exact destination-origin lock through navigation redirects; page-bound actions
+check the actual page origin before locator dispatch and after completion while
+holding the same lock. Both abort a top-level transition to another allowed
+origin while an action is in flight. A legacy call that encounters an active
+one-shot fingerprint invalidates it before any adapter dispatch and returns
+`WORKFLOW_BINDING_QUARANTINED`.
+
+On the final uncommitted remediation tree, the browser Node suite covered 131
+cases: 128 passed and three declared capability or Windows symlink cases were
+skipped. The focused command-guard suite covered 304 cases: 303 passed and one
+Windows symlink case was skipped. The live browser safety suite covered 24
+cases: 21 passed and three host-dependent cases were skipped; the four browser
+policy tests passed. The provider-free Chrome-channel witness passed all three
+tests, including the authenticated one-shot workflow with fresh validation.
+No provider request occurred. Final-head package validation, complete
+37-scenario real-browser execution, trusted role/context evidence,
+provider-backed acceptance, independent re-review, CI, Security, PR approval,
+merge, and post-merge validation remain separate gates.

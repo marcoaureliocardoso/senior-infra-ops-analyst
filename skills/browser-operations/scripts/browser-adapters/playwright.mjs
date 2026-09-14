@@ -2,6 +2,7 @@ import {
   ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl, assertCurrentOrigin, closeAdapterResources,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
 } from './common.mjs';
+import { normalizeOrigin } from '../browser-contract.mjs';
 
 
 const SPECIFIERS = Object.freeze(['playwright', 'playwright-core']);
@@ -41,18 +42,61 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
   let context = null;
   let page = null;
   let opened = false;
+  let activeStepOrigin = null;
 
   function requirePage() {
     if (!opened || !page) throw adapterError('ADAPTER_NOT_OPEN');
     return page;
   }
 
-  function locator(request) {
-    const selected = requirePage();
-    assertCurrentOrigin(selected, request.origin);
+  function locator(selected, request) {
     const descriptor = locatorDescriptor(request);
     if (typeof selected.getByRole !== 'function') throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
     return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
+  }
+
+  function topLevelNavigation(runtimeRequest) {
+    if (typeof runtimeRequest?.isNavigationRequest === 'function'
+        && runtimeRequest.isNavigationRequest() !== true) return false;
+    const frame = runtimeRequest?.frame?.();
+    if (frame && typeof frame.page === 'function' && frame.page() !== page) return false;
+    if (frame && typeof page?.mainFrame === 'function' && frame !== page.mainFrame()) return false;
+    return true;
+  }
+
+  async function withBoundPageOrigin(request, action) {
+    if (activeStepOrigin !== null) throw adapterError('ADAPTER_OPERATION_IN_PROGRESS');
+    const selected = requirePage();
+    activeStepOrigin = assertCurrentOrigin(selected, request.origin);
+    try {
+      const result = await action(selected);
+      assertCurrentOrigin(selected, request.origin);
+      return result;
+    } finally {
+      activeStepOrigin = null;
+    }
+  }
+
+  async function withBoundOrigin(request, action) {
+    return withBoundPageOrigin(request, async (selected) => {
+      const selectedLocator = locator(selected, request);
+      assertCurrentOrigin(selected, request.origin);
+      return action(selectedLocator, selected);
+    });
+  }
+
+  async function withNavigationOrigin(request, action) {
+    if (activeStepOrigin !== null) throw adapterError('ADAPTER_OPERATION_IN_PROGRESS');
+    const selected = requirePage();
+    const destination = assertAllowedUrl(request.origin, allowedOrigins);
+    activeStepOrigin = normalizeOrigin(destination);
+    try {
+      const result = await action(selected, destination);
+      assertCurrentOrigin(selected, request.origin);
+      return result;
+    } finally {
+      activeStepOrigin = null;
+    }
   }
 
   const adapter = {
@@ -65,13 +109,17 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
         browser = await runtime.chromium.launch({ headless: true });
         context = await browser.newContext({ acceptDownloads: false, storageState: undefined });
         await context.route('**/*', async (route) => {
-          const requestUrl = route.request().url();
+          const runtimeRequest = route.request();
+          const requestUrl = runtimeRequest.url();
           try {
-            if (!page || route.request().frame().page() !== page) {
+            if (!page || runtimeRequest.frame().page() !== page) {
               await route.abort();
               return;
             }
             assertAllowedUrl(requestUrl, allowedOrigins);
+            if (activeStepOrigin !== null && topLevelNavigation(runtimeRequest)) {
+              assertAllowedUrl(requestUrl, new Set([activeStepOrigin]));
+            }
             await route.continue();
           } catch {
             await route.abort();
@@ -91,45 +139,44 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     },
     async inspect(request) {
       if (request.origin) {
-        const destination = assertAllowedUrl(request.origin, allowedOrigins);
-        await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
-        assertCurrentOrigin(requirePage(), request.origin);
+        await withNavigationOrigin(request, (selected, destination) =>
+          selected.goto(destination, { waitUntil: 'domcontentloaded' }));
       }
-      await locator(request).textContent();
+      await withBoundOrigin(request, (selected) => selected.textContent());
       return { status: 'ok', observation: 'element-present' };
     },
     async navigate(request) {
-      const destination = assertAllowedUrl(request.origin, allowedOrigins);
-      await requirePage().goto(destination, { waitUntil: 'domcontentloaded' });
-      assertCurrentOrigin(requirePage(), request.origin);
+      await withNavigationOrigin(request, (selected, destination) =>
+        selected.goto(destination, { waitUntil: 'domcontentloaded' }));
       return { status: 'ok', observation: 'navigation-complete' };
     },
     async fill(request) {
-      await locator(request).fill(request.credential);
+      await withBoundOrigin(request, (selected) => selected.fill(request.credential));
       return { status: 'ok', observation: 'field-filled' };
     },
     async select(request) {
-      await locator(request).selectOption(request.credential);
+      await withBoundOrigin(request, (selected) => selected.selectOption(request.credential));
       return { status: 'ok', observation: 'option-selected' };
     },
     async click(request) {
-      await locator(request).click();
+      await withBoundOrigin(request, (selected) => selected.click());
       return { status: 'ok', observation: 'control-clicked' };
     },
     async submit(request) {
-      await locator(request).click();
+      await withBoundOrigin(request, (selected) => selected.click());
       return { status: 'ok', observation: 'form-submitted' };
     },
     async upload(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
-      await locator(request).setInputFiles(artifactManager.materialize(request.artifactRef));
+      await withBoundOrigin(request, (selected) =>
+        selected.setInputFiles(artifactManager.materialize(request.artifactRef)));
       return { status: 'ok', observation: 'upload-staged' };
     },
     async download() { throw adapterError('DOWNLOAD_DEFAULT_DENIED'); },
     async screenshot(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
-      assertCurrentOrigin(requirePage(), request.origin);
-      const data = await requirePage().screenshot({ type: 'png' });
+      const data = await withBoundPageOrigin(request, (selectedPage) =>
+        selectedPage.screenshot({ type: 'png' }));
       const handle = await artifactManager.capture({
         type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
         mimeType: 'image/png', data,
@@ -139,27 +186,29 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     async trace() { throw adapterError('TRACE_NOT_ACTIVE'); },
     async validate(request) { return adapter.inspect({ ...request, locatorRole: 'status' }); },
     async verify(request) {
-      const selected = locator(request);
-      let met = false;
-      if (request.predicate === 'present') {
-        await selected.textContent();
-        met = true;
-      } else if (request.predicate === 'text-equals') {
-        met = String(await selected.textContent() ?? '') === request.expected;
-      } else if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
-        if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-        met = String(await selected.inputValue()) === request.expected;
-      } else if (request.predicate === 'checked') {
-        if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-        met = String(await selected.isChecked()) === request.expected;
-      } else {
+      const met = await withBoundOrigin(request, async (selected) => {
+        if (request.predicate === 'present') {
+          await selected.textContent();
+          return true;
+        }
+        if (request.predicate === 'text-equals') {
+          return String(await selected.textContent() ?? '') === request.expected;
+        }
+        if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
+          if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
+          return String(await selected.inputValue()) === request.expected;
+        }
+        if (request.predicate === 'checked') {
+          if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
+          return String(await selected.isChecked()) === request.expected;
+        }
         throw adapterError('INVALID_PREDICATE');
-      }
+      });
       return { status: met ? 'met' : 'not-met', expectRef: request.expectRef };
     },
     async close() {
       const selectedPage = page; const selectedContext = context; const selectedBrowser = browser;
-      page = null; context = null; browser = null; opened = false;
+      page = null; context = null; browser = null; opened = false; activeStepOrigin = null;
       await closeAdapterResources([selectedPage, selectedContext, selectedBrowser]);
     },
   };
