@@ -83,6 +83,29 @@ potentially autosaving interactive step, or any later failure after a successful
 fill, select, click, submit, or declared mutation, requires the same independent
 validation as a failed declared mutation.
 
+The Playwright adapter fetches top-level responses with automatic redirect
+following disabled, validates any `Location` against the exact active origin,
+rejects attachment responses, and only then fulfills the response to the page.
+The intercepted response is disposed on every success or failure path. This
+closes retention but does not claim a streaming byte cap: `route.fetch()` has
+already acquired the response, so transient memory remains a documented runtime
+risk. The ephemeral context blocks service workers so they cannot bypass
+routing; popup/new-tab requests without the primary page frame and forbidden
+subresources are aborted by the context route before dispatch. Runner-expressible
+declared artifact clicks and submits are denied before dispatch; a direct adapter
+navigation can do the same, but the protected-runner navigation grammar does not
+carry an effect. Unexpected attachment responses are aborted and disposed after
+the initial allowed-origin request. Navigation and semantic-action failures
+cross the adapter boundary only as truthful content-free reason codes such as
+`ORIGIN_ESCAPE`, `ADAPTER_NAVIGATION_FAILED`, `ADAPTER_ACTION_FAILED`,
+`UI_DRIFT`, or `DOWNLOAD_DEFAULT_DENIED`; browser error text and hostile
+destinations are not retained.
+
+Activation requires a detected Playwright interface that supports
+`route.fetch({maxRedirects: 0})`; older or unversioned candidates remain
+`AVAILABLE_UNRECOGNIZED`. This is a capability floor, not a pinned runtime
+version.
+
 The opt-in non-interactive runtime harness can exercise this approval path only
 when the operator supplies an existing interactive MCP permission handler. It
 runs Claude Code in `default` mode with `--permission-prompt-tool`; it never

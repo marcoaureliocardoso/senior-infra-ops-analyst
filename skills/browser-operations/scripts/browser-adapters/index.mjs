@@ -3,13 +3,22 @@ import { createPuppeteerAdapter, detectPuppeteer } from './puppeteer.mjs';
 
 
 export async function resolveBrowserAdapter({
-  importModule = (specifier) => import(specifier), preference = null, options = {},
+  importModule = (specifier, importOptions) => import(specifier, importOptions),
+  preference = null, options = {},
 } = {}) {
   const [playwright, puppeteer] = await Promise.all([
     detectPlaywright(importModule), detectPuppeteer(importModule),
   ]);
   const available = [playwright, puppeteer].filter((candidate) => candidate.state === 'AVAILABLE_RECOGNIZED');
   if (available.length === 0) {
+    const unrecognized = [playwright, puppeteer]
+      .find((candidate) => candidate.state === 'AVAILABLE_UNRECOGNIZED');
+    if (unrecognized) {
+      return Object.freeze({
+        state: 'AVAILABLE_UNRECOGNIZED', reasonCode: 'CAPABILITY_UNRECOGNIZED',
+        observedVersion: unrecognized.observedVersion, adapter: null,
+      });
+    }
     return Object.freeze({ state: 'UNAVAILABLE', reasonCode: 'CAPABILITY_UNAVAILABLE', adapter: null });
   }
   const family = preference === 'playwright' ? 'playwright'

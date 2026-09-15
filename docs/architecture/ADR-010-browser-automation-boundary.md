@@ -128,6 +128,42 @@ production module-path interface or installing anything. This observation does
 not establish the complete real-browser matrix or provider-backed active-runtime
 acceptance.
 
+On 2026-09-15 the expanded provider-free matrix executed all 37 named scenarios
+with the existing Playwright package and system Chrome. The matrix classifies
+each scenario as production-adapter, protected-runner, or fixture-only support;
+the public-read scenario also has a separately labelled deterministic HTTP
+fallback check that does not claim native `WebFetch` behavior. Existing-session
+and human-challenge pages remain fixture-only because the protected adapter
+neither accepts persisted state nor interprets page content as authority.
+
+Production-boundary tests cover password/TOTP/logout, autosave and submitted
+changes, fresh validation, compensation, upload, screenshot redaction, explicit
+download/trace denial, real drift between successful inspection and attempted
+execution, hostile browser channels, ambiguous outcomes, and cleanup. A second
+forbidden loopback server counts requests: cross-origin redirect `Location` is
+validated with redirect following disabled, and popup/new-tab/subresource
+requests are aborted before that server observes any access. Only structural
+reason codes and opaque artifact handles cross the adapter boundary; the
+redirect and screenshot canaries are absent from retained results and the
+temporary sanitized screenshot. The profile-named scenario proves the actual
+implemented boundary--an ephemeral context created with no storage state,
+downloads and service workers disabled, intercepted top-level responses disposed
+on every path, browser/context closure, and operation-state removal--and does not
+claim cleanup of a persistent profile that was never created. The adapter is
+active only when the detected Playwright interface supports redirect-disabled
+route fetching; earlier or unversioned candidates fail closed as unrecognized.
+Declared artifact clicks and submits are denied before the protected runner can
+dispatch them. Direct adapter navigation also accepts that classification, while
+the current protected-runner navigation grammar does not; an unexpected
+attachment response is therefore aborted and disposed after its initial
+allowed-origin request. Disposal closes retention, not transient acquisition:
+Playwright `route.fetch()` does not expose a streaming byte cap, so no effective
+response-memory limit is claimed.
+
+The matrix produced 40 passing test records including its inventory binding and
+runtime-selection controls. Provider-backed role/context evidence and
+CI/Security remain separate acceptance gates.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

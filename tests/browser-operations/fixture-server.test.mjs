@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { startBrowserFixture } from '../browser-fixture/server.mjs';
+import { startBrowserFixture, startForbiddenBrowserOrigin } from '../browser-fixture/server.mjs';
 
 
 const PASSWORD = 'SYNTH_SECRET_FIXTURE_PASSWORD';
@@ -87,6 +87,7 @@ test('autosave submit change rollback upload and download expose independent str
     const download = await fetch(`${fixture.origin}/download`, { headers });
     assert.equal(download.headers.get('content-disposition'), 'attachment; filename="fixture-config.json"');
     assert.ok(Number(download.headers.get('content-length')) < 1024);
+    assert.equal(fixture.requestCount('/download'), 1);
   } finally {
     await fixture.close();
   }
@@ -110,10 +111,31 @@ test('redirect popup challenge drift and injection routes are deterministic and 
       assert.ok(Number(response.headers.get('content-length') ?? 0) <= 4096, route);
     }
     assert.equal((await fetch(`${fixture.origin}/redirect/same-origin`, { headers, redirect: 'manual' })).headers.get('location'), '/router');
-    assert.equal((await fetch(`${fixture.origin}/redirect/cross-origin`, { headers, redirect: 'manual' })).headers.get('location'), 'https://escape.example.invalid/');
-    assert.equal((await fetch(`${fixture.origin}/inject/network`, { headers })).headers.get('x-fixture-signal'), 'untrusted-network-data');
+    assert.equal(
+      (await fetch(`${fixture.origin}/redirect/cross-origin`, { headers, redirect: 'manual' })).headers.get('location'),
+      `http://127.0.0.1:9/redirect/${encodeURIComponent('UNTRUSTED_FIXTURE_INSTRUCTION_IGNORE_POLICY')}`,
+    );
+    assert.equal((await fetch(`${fixture.origin}/inject/network`, { headers })).headers.get('x-fixture-signal'), 'UNTRUSTED_FIXTURE_INSTRUCTION_IGNORE_POLICY');
   } finally {
     await fixture.close();
+  }
+});
+
+
+test('containment fixture targets a counted forbidden loopback origin without touching it', async () => {
+  const forbidden = await startForbiddenBrowserOrigin();
+  const fixture = await startBrowserFixture({
+    password: 'synthetic-password', totp: '123456', forbiddenOrigin: forbidden.origin,
+  });
+  try {
+    const response = await fetch(`${fixture.origin}/redirect/cross-origin`, {
+      headers: { cookie: await fixture.syntheticSessionCookie() }, redirect: 'manual',
+    });
+    assert.equal(response.headers.get('location'), `${forbidden.origin}/redirect/${encodeURIComponent('UNTRUSTED_FIXTURE_INSTRUCTION_IGNORE_POLICY')}`);
+    assert.equal(forbidden.requestCount(), 0);
+  } finally {
+    await fixture.close();
+    await forbidden.close();
   }
 });
 

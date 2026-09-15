@@ -937,3 +937,69 @@ No provider request occurred. Final-head package validation, complete
 37-scenario real-browser execution, trusted role/context evidence,
 provider-backed acceptance, independent re-review, CI, Security, PR approval,
 merge, and post-merge validation remain separate gates.
+
+## P0-04B complete provider-free real-browser matrix (2026-09-15)
+
+The 37-scenario list is now bound exactly to 37 executable assertion functions;
+the inventory check fails for a missing, extra, duplicated, or non-callable
+scenario. With bundled Node.js `v24.19.0`, the existing Playwright `1.62.1`,
+and system Chrome, the opt-in provider-free run produced 40 passing test
+records: two harness controls, the matrix parent, and all 37 named scenarios.
+
+Each name is classified in the executable test as production-adapter,
+protected-runner, or fixture-only support. Password, TOTP, logout, fill without
+submit, autosave, submit, state-changing click, upload, screenshot redaction,
+download/trace denial, UI drift, missing locator, hostile DOM/accessibility/
+console/network channels, and cleanup cross the production adapter. Change,
+fresh validation, compensation, timeout/crash reconciliation, and validation
+before retry cross the protected runner. Existing-session and human-challenge
+pages are fixture-only support and are not represented as adapter enforcement.
+
+Containment used a second forbidden loopback server with a request counter.
+Cross-origin redirect, popup/new-tab, and subresource scenarios left the count
+at zero; redirect following was stopped and `Location` checked before network
+access. The redirect path carried a hostile canary, but the production result
+retained only `ORIGIN_ESCAPE`. The screenshot page also carried the canary; the
+injected reviewed redactor produced a bounded sanitized artifact, and both that
+file and the structural handle excluded the canary before deletion. Real UI
+drift occurred after a successful adapter inspection and before the adapter
+click, which failed closed as content-free `UI_DRIFT`.
+
+The profile-named scenario checks the implemented boundary: every observed
+production adapter created one ephemeral context with `storageState` undefined
+and `acceptDownloads` false, closed that context and browser, and removed
+operation state. It does not claim deletion of a persistent profile because no
+persistent profile is created or accepted. The public-read scenario includes a
+separate deterministic HTTP request as fallback evidence; it does not claim a
+native `WebFetch` invocation or browser enforcement. The fixture remained
+loopback-only, no runtime was installed, and no provider request occurred.
+
+The hardened Playwright route also blocks service workers, disables automatic
+redirect following, rejects attachment responses, and disposes each intercepted
+response on success and failure. The route activates only for a detected
+Playwright interface supporting `maxRedirects: 0`; older or unversioned
+candidates remain unrecognized. Runner-expressible declared artifact clicks and
+submits are rejected before dispatch. Direct adapter navigation supports the
+same classification, but protected-runner navigation currently does not carry
+an effect; an unexpected attachment is aborted and disposed after the initial
+allowed-origin request without creating a browser download. `route.fetch()` does
+not expose a streaming cap, so disposal closes retention but this evidence does
+not claim an effective transient response-memory limit. Deterministic adapter
+tests distinguish policy escapes,
+ordinary navigation failures, semantic action failures, timeouts, and trusted
+artifact errors without retaining raw browser errors.
+
+This closes only the provider-free real-browser matrix gate. Trusted native
+role/context measurements, provider-backed active-runtime evidence, final-head
+package validation, CI, Security, PR approval, merge, and post-merge validation
+remain pending.
+
+Independent review initially rejected false-positive origin containment,
+adapter bypasses, incomplete hostile channels, weak drift/profile claims,
+service-worker and indirect-download gaps, misleading error classification,
+undisposed responses, and an unproved version interface. Each finding received
+a deterministic regression or an explicit evidence reclassification. The final
+review passed with no findings after the resolver proved a compatible
+redirect-fetch interface from fixed package metadata and rejected prerelease,
+older, or unversioned candidates. The remaining transient-memory risk of
+Playwright `route.fetch()` is documented and is not presented as bounded.
