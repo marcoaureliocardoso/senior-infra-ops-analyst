@@ -116,8 +116,15 @@ auto-approves that handler, and its configured name is not approval evidence.
 The tool-use and tool-result envelopes must share the hook session and parent
 tool identity. The terminal must be a same-session SDK success, and any later tool or failure
 lifecycle invalidates the sample. Role and context measurements are not inferred
-from arbitrary stream records; until a separately trusted runtime channel
-supplies them, the aggregate remains inconclusive rather than `ACTIVE`.
+from arbitrary stream records. In the POSIX/WSL harness, a separately retained,
+content-free sidecar is accepted only when its exact schema, private regular-file mode, random run nonce,
+and workflow session set match; it must contain the canonical 12-role sequence,
+five ordered same-session context stages, coherent tool-search state, and
+structural MCP discovery and use. Missing, malformed, oversized, symlinked,
+permission-unsafe, cross-run, cross-session, incomplete, or extra-field evidence
+leaves the aggregate inconclusive rather than `ACTIVE`. Native Windows loading
+also remains inconclusive because the parser does not claim equivalent portable
+no-follow and ACL proof there.
 
 On 2026-09-07 a provider-free one-shot loopback witness used the existing
 Playwright package and system Chrome channel. Eight execution steps and seven
@@ -161,8 +168,10 @@ Playwright `route.fetch()` does not expose a streaming byte cap, so no effective
 response-memory limit is claimed.
 
 The matrix produced 40 passing test records including its inventory binding and
-runtime-selection controls. Provider-backed role/context evidence and
-CI/Security remain separate acceptance gates.
+runtime-selection controls. The deterministic trusted-sidecar contract passed
+28 safety tests in Debian WSL on 2026-09-15; no provider request occurred.
+Provider-backed population of that sidecar, CI/Security, and delivery remain
+separate acceptance gates.
 
 ## Alternatives rejected
 

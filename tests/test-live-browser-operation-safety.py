@@ -19,6 +19,13 @@ GATE = ROOT / "tests" / "validate-package.sh"
 
 
 class LiveBrowserOperationSafetyTests(unittest.TestCase):
+    ROLES = (
+        "audit-evidence-collector", "change-manager", "cloud-platform-operator",
+        "database-operator", "diagnostic-operator", "incident-commander",
+        "kubernetes-operator", "network-edge-operator", "observability-sre",
+        "rca-facilitator", "release-cicd-operator", "security-operations-reviewer",
+    )
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.script = HARNESS.read_text(encoding="utf-8") if HARNESS.is_file() else ""
@@ -159,6 +166,38 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             ],
         ])
         return command
+
+    @classmethod
+    def _trusted_measurement(cls, nonce: str = "p004b-run-001") -> dict[str, object]:
+        context_session = "context-main-001"
+        return {
+            "schemaVersion": 1,
+            "runNonce": nonce,
+            "workflowSessionIds": ["session-live-browser-001"],
+            "roleProbes": [
+                {
+                    "role": role, "sessionId": f"role-session-{index + 1}",
+                    "contextObserved": True,
+                }
+                for index, role in enumerate(cls.ROLES)
+            ],
+            "contextStages": [
+                {"stage": stage, "sessionId": context_session, "usedPercentage": percent}
+                for stage, percent in zip(
+                    ("before", "afterSkill", "afterSubagent", "afterDiscovery", "afterUse"),
+                    (1, 2, 3, 4, 5), strict=True,
+                )
+            ],
+            "toolSearch": {
+                "sessionId": context_session, "mode": "available-used",
+                "discovered": True, "used": True,
+            },
+            "mcp": {
+                "sessionId": context_session, "connected": True,
+                "toolsListed": True, "visibleToolCount": 1,
+                "discoveryObserved": True, "useObserved": True,
+            },
+        }
 
     def _workflow_stream(self, path: Path, *, include_post: bool = True,
                          reason_code: str = "WORKFLOW_VALIDATED",
@@ -381,6 +420,200 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertEqual(mixed_result["routeClass"], "workflow-incomplete")
         self.assertNotEqual(mixed_result["capabilityState"], "ACTIVE")
         self.assertNotEqual(mixed_result["status"], "pass")
+
+    def test_only_nonce_and_session_bound_trusted_measurement_can_unlock_active(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import aggregate_results, evaluate_stream  # noqa: PLC0415
+
+        runtime = {
+            "claude": "observed", "provider": "observed", "model": "observed",
+            "adapter": "playwright",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "workflow.jsonl"
+            self._workflow_stream(stream)
+            sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+        self.assertEqual(sample["workflowSessionIds"], ["session-live-browser-001"])
+
+        without_measurement = aggregate_results(runtime, [sample])
+        self.assertEqual(without_measurement["status"], "inconclusive")
+        self.assertEqual(without_measurement["roleCount"], 0)
+        self.assertEqual(without_measurement["context"]["toolSearchMode"], "unavailable")
+
+        measurement = self._trusted_measurement()
+        active = aggregate_results(
+            runtime, [sample], measurement=measurement, expected_nonce="p004b-run-001",
+        )
+        self.assertEqual(active["status"], "pass")
+        self.assertEqual(active["capabilityState"], "ACTIVE")
+        self.assertEqual(active["roleCount"], 12)
+        self.assertEqual(active["context"], {
+            "before": 1, "afterSkill": 2, "afterSubagent": 3,
+            "afterDiscovery": 4, "afterUse": 5,
+            "toolSearchMode": "available-used",
+        })
+
+        forged = dict(sample)
+        forged["roleLabels"] = list(self.ROLES)
+        forged["contextPercentages"] = [91, 92, 93, 94, 95]
+        forged_result = aggregate_results(runtime, [forged])
+        self.assertEqual(forged_result["status"], "inconclusive")
+        self.assertEqual(forged_result["roleCount"], 0)
+        self.assertEqual(forged_result["context"]["before"], 0)
+
+        repeated_session = aggregate_results(
+            runtime, [sample, sample], measurement=measurement,
+            expected_nonce="p004b-run-001",
+        )
+        self.assertEqual(repeated_session["status"], "inconclusive")
+        self.assertEqual(repeated_session["roleCount"], 0)
+
+    def test_trusted_measurement_schema_is_exact_and_fail_closed(self) -> None:
+        import copy
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import validate_trusted_measurement  # noqa: PLC0415
+
+        valid = self._trusted_measurement()
+        self.assertEqual(
+            validate_trusted_measurement(
+                valid, "p004b-run-001", {"session-live-browser-001"},
+            ),
+            valid,
+        )
+        mutations: list[dict[str, object]] = []
+        for key, value in (
+            ("rawPrompt", "forbidden"), ("transcript", "forbidden"),
+            ("secret", "forbidden"),
+        ):
+            mutation = copy.deepcopy(valid)
+            mutation[key] = value
+            mutations.append(mutation)
+        wrong_nonce = copy.deepcopy(valid)
+        wrong_nonce["runNonce"] = "different-run"
+        mutations.append(wrong_nonce)
+        boolean_version = copy.deepcopy(valid)
+        boolean_version["schemaVersion"] = True
+        mutations.append(boolean_version)
+        wrong_session = copy.deepcopy(valid)
+        wrong_session["workflowSessionIds"] = ["different-session"]
+        mutations.append(wrong_session)
+        reversed_stages = copy.deepcopy(valid)
+        reversed_stages["contextStages"] = list(reversed(reversed_stages["contextStages"]))
+        mutations.append(reversed_stages)
+        duplicate_role = copy.deepcopy(valid)
+        duplicate_role["roleProbes"][1]["role"] = duplicate_role["roleProbes"][0]["role"]
+        mutations.append(duplicate_role)
+        false_role = copy.deepcopy(valid)
+        false_role["roleProbes"][0]["contextObserved"] = False
+        mutations.append(false_role)
+        boolean_percent = copy.deepcopy(valid)
+        boolean_percent["contextStages"][0]["usedPercentage"] = True
+        mutations.append(boolean_percent)
+        cross_session = copy.deepcopy(valid)
+        cross_session["contextStages"][4]["sessionId"] = "different-main-session"
+        mutations.append(cross_session)
+        incoherent_search = copy.deepcopy(valid)
+        incoherent_search["toolSearch"]["used"] = False
+        mutations.append(incoherent_search)
+        incoherent_mcp = copy.deepcopy(valid)
+        incoherent_mcp["mcp"]["useObserved"] = False
+        mutations.append(incoherent_mcp)
+        for mutation in mutations:
+            with self.subTest(keys=sorted(mutation)):
+                with self.assertRaises(ValueError):
+                    validate_trusted_measurement(
+                        mutation, "p004b-run-001", {"session-live-browser-001"},
+                    )
+
+    def test_trusted_measurement_file_rejects_symlinks_size_and_unsafe_permissions(self) -> None:
+        import os
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import load_trusted_measurement  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            valid = root / "measurement.json"
+            valid.write_text(json.dumps(self._trusted_measurement()), encoding="utf-8")
+            if os.name == "nt":
+                self.assertIsNone(load_trusted_measurement(
+                    valid, "p004b-run-001", {"session-live-browser-001"},
+                ))
+                return
+            valid.chmod(0o600)
+            self.assertIsNotNone(load_trusted_measurement(
+                valid, "p004b-run-001", {"session-live-browser-001"},
+            ))
+
+            oversized = root / "oversized.json"
+            oversized.write_bytes(b"{" + (b" " * 32768) + b"}")
+            if os.name != "nt":
+                oversized.chmod(0o600)
+            self.assertIsNone(load_trusted_measurement(
+                oversized, "p004b-run-001", {"session-live-browser-001"},
+            ))
+
+            link = root / "measurement-link.json"
+            try:
+                link.symlink_to(valid)
+            except OSError:
+                pass
+            else:
+                self.assertIsNone(load_trusted_measurement(
+                    link, "p004b-run-001", {"session-live-browser-001"},
+                ))
+
+            if os.name != "nt":
+                valid.chmod(0o644)
+                self.assertIsNone(load_trusted_measurement(
+                    valid, "p004b-run-001", {"session-live-browser-001"},
+                ))
+
+    def test_aggregate_cli_consumes_the_private_trusted_sidecar(self) -> None:
+        import sys
+        import tempfile
+
+        if os.name == "nt":
+            self.skipTest("trusted sidecar files are accepted only by the POSIX/WSL harness")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stream = root / "workflow.jsonl"
+            sample_path = root / "sample.json"
+            measurement_path = root / "measurement.json"
+            self._workflow_stream(stream)
+            evaluated = subprocess.run(
+                [
+                    sys.executable, str(PARSER), "--evaluate-stream", str(stream),
+                    "P004B_TEST_CANARY", str(sample_path),
+                ],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(evaluated.returncode, 0, evaluated.stderr)
+            measurement_path.write_text(
+                json.dumps(self._trusted_measurement()), encoding="utf-8",
+            )
+            if os.name != "nt":
+                measurement_path.chmod(0o600)
+            aggregated = subprocess.run(
+                [
+                    sys.executable, str(PARSER), "--aggregate", str(measurement_path),
+                    "p004b-run-001", "observed", "observed", "observed",
+                    "playwright", str(sample_path),
+                ],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(aggregated.returncode, 0, aggregated.stderr)
+            result = json.loads(aggregated.stdout)
+            self.assertEqual(result["status"], "pass")
+            self.assertEqual(result["roleCount"], 12)
 
     def test_workflow_evidence_accepts_only_the_exact_canonical_runner_command(self) -> None:
         import sys

@@ -767,9 +767,16 @@ approval evidence. Unknown lifecycle structure is inconclusive.
 Tool-use and tool-result SDK envelopes must match the hook session and each
 other's parent tool identity. The terminal result must be a same-session SDK
 success. Any later tool activity or failure lifecycle invalidates the workflow
-sample. Role and context values
-are not accepted from arbitrary stream records; they require a separately
-trusted measurement channel before the aggregate can become `ACTIVE`.
+sample. Role and context values are not accepted from arbitrary stream records;
+they require a separately trusted measurement channel before the aggregate can
+become `ACTIVE`. In the POSIX/WSL harness, that channel is a private, bounded, content-free sidecar bound
+to one random run nonce and the exact observed workflow session set. Its schema
+admits only the canonical 12-role `/context` observations, five ordered
+same-session numeric context stages, coherent bounded tool-search state, and
+structural MCP connection, discovery, and use. Any missing, extra, malformed,
+unsafe-mode, symlinked, cross-run, or cross-session evidence is inconclusive.
+Native Windows sidecar loading is also inconclusive unless an equivalent
+no-follow and ACL proof is implemented.
 
 The harness must report blocked prerequisites as blocked, not passed. A runtime
 compatibility observation supplements deterministic package guarantees and

@@ -69,15 +69,21 @@ RESULT_DIR="$WORK/results"
 STAGING="$WORK/staging"
 mkdir -p "$HOME" "$PROJECT/.claude" "$INSTALL_ROOT" "$PROMPT_DIR" "$STREAM_DIR" "$RESULT_DIR"
 export HOME
+RUN_NONCE="p004b-$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+TRUSTED_MEASUREMENT="$RESULT_DIR/trusted-measurement.json"
+RESULTS=()
 
 aggregate_results() {
   python3 "$ROOT/tests/browser_operations_live.py" --aggregate \
-    "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" "$RESULT_DIR"/*.json
+    "$TRUSTED_MEASUREMENT" "$RUN_NONCE" \
+    "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" \
+    "${RESULTS[@]}"
 }
 
 self_test() {
   python3 "$ROOT/tests/browser_operations_live.py" --self-test
   printf '{"status":"pass","reasonCode":"STRUCTURAL_RESULT","toolCalls":0,"hookEvents":0,"roleLabels":[],"contextPercentages":[1,2,3,4,5]}\n' >"$RESULT_DIR/sample.json"
+  RESULTS=("$RESULT_DIR/sample.json")
   CLAUDE_LABEL=observed
   PROVIDER_LABEL=observed
   MODEL_LABEL=observed
@@ -226,7 +232,6 @@ case "$ADAPTER_LABEL" in
 esac
 
 CANARY='P004B_LIVE_CANARY_DO_NOT_REPEAT'
-RESULTS=()
 START_SECONDS=$SECONDS
 export P004B_EVIDENCE_NODE_BIN="$NODE_BIN"
 export P004B_EXPECTED_RUNNER_PATH="$RUNNER"

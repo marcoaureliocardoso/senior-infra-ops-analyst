@@ -7,6 +7,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -51,6 +52,27 @@ EXPECTED_ASK_REASON = (
     "BROWSER_PROTECTED_RUNNER/LOW_RISK_CHANGE. Operator confirmation is required "
     "before execution. Sensitive values are redacted."
 )
+TRUSTED_MEASUREMENT_FIELDS = {
+    "schemaVersion", "runNonce", "workflowSessionIds", "roleProbes",
+    "contextStages", "toolSearch", "mcp",
+}
+ROLE_PROBE_FIELDS = {"role", "sessionId", "contextObserved"}
+CONTEXT_STAGE_FIELDS = {"stage", "sessionId", "usedPercentage"}
+TOOL_SEARCH_FIELDS = {"sessionId", "mode", "discovered", "used"}
+MCP_FIELDS = {
+    "sessionId", "connected", "toolsListed", "visibleToolCount",
+    "discoveryObserved", "useObserved",
+}
+EXPECTED_ROLES = (
+    "audit-evidence-collector", "change-manager", "cloud-platform-operator",
+    "database-operator", "diagnostic-operator", "incident-commander",
+    "kubernetes-operator", "network-edge-operator", "observability-sre",
+    "rca-facilitator", "release-cicd-operator", "security-operations-reviewer",
+)
+EXPECTED_CONTEXT_STAGES = (
+    "before", "afterSkill", "afterSubagent", "afterDiscovery", "afterUse",
+)
+MAX_TRUSTED_MEASUREMENT_BYTES = 32 * 1024
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -63,6 +85,119 @@ def _label(value: Any) -> str:
     if not isinstance(value, str) or not LABEL.fullmatch(value):
         raise ValueError("invalid observed label")
     return value
+
+
+def validate_trusted_measurement(
+    value: Any, expected_nonce: str, expected_workflow_sessions: set[str],
+) -> dict[str, Any]:
+    measurement = _exact(value, TRUSTED_MEASUREMENT_FIELDS, "trusted measurement")
+    if type(measurement["schemaVersion"]) is not int or measurement["schemaVersion"] != 1:
+        raise ValueError("invalid trusted measurement version")
+    if _label(measurement["runNonce"]) != _label(expected_nonce):
+        raise ValueError("trusted measurement nonce mismatch")
+    workflow_sessions = measurement["workflowSessionIds"]
+    if (not isinstance(workflow_sessions, list)
+            or not 1 <= len(workflow_sessions) <= 13
+            or any(_label(item) != item for item in workflow_sessions)
+            or len(set(workflow_sessions)) != len(workflow_sessions)
+            or set(workflow_sessions) != expected_workflow_sessions):
+        raise ValueError("trusted measurement workflow sessions mismatch")
+
+    role_probes = measurement["roleProbes"]
+    if not isinstance(role_probes, list) or len(role_probes) != len(EXPECTED_ROLES):
+        raise ValueError("invalid trusted role probes")
+    observed_roles: list[str] = []
+    role_sessions: list[str] = []
+    for item in role_probes:
+        probe = _exact(item, ROLE_PROBE_FIELDS, "trusted role probe")
+        observed_roles.append(_label(probe["role"]))
+        role_sessions.append(_label(probe["sessionId"]))
+        if probe["contextObserved"] is not True:
+            raise ValueError("trusted role context not observed")
+    if tuple(observed_roles) != EXPECTED_ROLES or len(set(role_sessions)) != len(role_sessions):
+        raise ValueError("trusted role coverage mismatch")
+
+    context_stages = measurement["contextStages"]
+    if not isinstance(context_stages, list) or len(context_stages) != 5:
+        raise ValueError("invalid trusted context stages")
+    observed_stages: list[str] = []
+    context_sessions: list[str] = []
+    for item in context_stages:
+        stage = _exact(item, CONTEXT_STAGE_FIELDS, "trusted context stage")
+        observed_stages.append(stage["stage"])
+        context_sessions.append(_label(stage["sessionId"]))
+        percent = stage["usedPercentage"]
+        if (not isinstance(percent, int) or isinstance(percent, bool)
+                or not 0 <= percent <= 100):
+            raise ValueError("invalid trusted context percentage")
+    if tuple(observed_stages) != EXPECTED_CONTEXT_STAGES or len(set(context_sessions)) != 1:
+        raise ValueError("trusted context sequence mismatch")
+    context_session = context_sessions[0]
+
+    tool_search = _exact(measurement["toolSearch"], TOOL_SEARCH_FIELDS, "tool search")
+    if _label(tool_search["sessionId"]) != context_session:
+        raise ValueError("tool search session mismatch")
+    if tool_search["mode"] not in TOOL_SEARCH_MODES:
+        raise ValueError("invalid tool search mode")
+    if type(tool_search["discovered"]) is not bool or type(tool_search["used"]) is not bool:
+        raise ValueError("invalid tool search observation")
+    expected_search = {
+        "available-used": (True, True),
+        "available-unused": (True, False),
+        "unavailable": (False, False),
+    }[tool_search["mode"]]
+    if (tool_search["discovered"], tool_search["used"]) != expected_search:
+        raise ValueError("incoherent tool search observation")
+
+    mcp = _exact(measurement["mcp"], MCP_FIELDS, "mcp measurement")
+    if _label(mcp["sessionId"]) != context_session:
+        raise ValueError("mcp session mismatch")
+    for field in ("connected", "toolsListed", "discoveryObserved", "useObserved"):
+        if mcp[field] is not True:
+            raise ValueError("incomplete mcp observation")
+    if (not isinstance(mcp["visibleToolCount"], int)
+            or isinstance(mcp["visibleToolCount"], bool)
+            or not 1 <= mcp["visibleToolCount"] <= 4096):
+        raise ValueError("invalid mcp tool count")
+    return measurement
+
+
+def load_trusted_measurement(
+    path: Path, expected_nonce: str, expected_workflow_sessions: set[str],
+) -> dict[str, Any] | None:
+    if os.name == "nt" or not hasattr(os, "O_NOFOLLOW"):
+        return None
+    descriptor: int | None = None
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode)
+                or not 1 <= metadata.st_size <= MAX_TRUSTED_MEASUREMENT_BYTES):
+            return None
+        if os.name != "nt" and stat.S_IMODE(metadata.st_mode) & 0o077:
+            return None
+        chunks: list[bytes] = []
+        remaining = MAX_TRUSTED_MEASUREMENT_BYTES + 1
+        while remaining > 0:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        if len(payload) != metadata.st_size or len(payload) > MAX_TRUSTED_MEASUREMENT_BYTES:
+            return None
+        value = json.loads(payload.decode("utf-8"))
+        return validate_trusted_measurement(
+            value, expected_nonce, expected_workflow_sessions,
+        )
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        return None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> dict[str, Any]:
@@ -502,31 +637,60 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
             "workflowValidation": "completed" if complete else "not-observed",
             "workflowOutcome": outcome,
         }
+    workflow_session_ids = []
+    if workflow_observation["routeClass"] == "persistent-one-shot":
+        session_id = next(iter(workflow_calls.values())).get("sessionId")
+        if isinstance(session_id, str) and LABEL.fullmatch(session_id):
+            workflow_session_ids = [session_id]
     if canary_seen:
-        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
+        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
     if malformed or not result_seen:
-        return {"status": "inconclusive", "reasonCode": "STREAM_INCONCLUSIVE", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
-    return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], **workflow_observation}
+        return {"status": "inconclusive", "reasonCode": "STREAM_INCONCLUSIVE", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
+    return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": workflow_session_ids, **workflow_observation}
 
 
-def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) -> dict[str, Any]:
+def _exact_workflow_sessions(samples: list[dict[str, Any]]) -> set[str] | None:
+    observed: list[str] = []
+    for sample in samples:
+        sessions = sample.get("workflowSessionIds")
+        if (not isinstance(sessions, list) or len(sessions) != 1
+                or not isinstance(sessions[0], str)
+                or not LABEL.fullmatch(sessions[0])):
+            return None
+        observed.append(sessions[0])
+    return set(observed) if len(set(observed)) == len(observed) else None
+
+
+def aggregate_results(
+    runtime: dict[str, str], samples: list[dict[str, Any]], *,
+    measurement: dict[str, Any] | None = None, expected_nonce: str | None = None,
+) -> dict[str, Any]:
     for value in runtime.values():
         _label(value)
     if not 1 <= len(samples) <= 13:
         raise ValueError("invalid sample count")
     statuses = {sample.get("status") for sample in samples}
-    percentages = [
-        value
-        for sample in samples
-        for value in sample.get("contextPercentages", [])
-        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 100
-    ]
     tool_calls = sum(sample.get("toolCalls", 0) for sample in samples)
     hook_events = sum(sample.get("hookEvents", 0) for sample in samples)
-    role_labels = {
-        role for sample in samples for role in sample.get("roleLabels", [])
-        if isinstance(role, str) and LABEL.fullmatch(role)
-    }
+    workflow_session_ids = _exact_workflow_sessions(samples)
+    trusted_measurement = None
+    if (measurement is not None and expected_nonce is not None
+            and workflow_session_ids is not None):
+        try:
+            trusted_measurement = validate_trusted_measurement(
+                measurement, expected_nonce, workflow_session_ids,
+            )
+        except ValueError:
+            trusted_measurement = None
+    percentages = (
+        [stage["usedPercentage"] for stage in trusted_measurement["contextStages"]]
+        if trusted_measurement is not None else []
+    )
+    role_count = len(trusted_measurement["roleProbes"]) if trusted_measurement is not None else 0
+    tool_search_mode = (
+        trusted_measurement["toolSearch"]["mode"]
+        if trusted_measurement is not None else "unavailable"
+    )
     workflow_samples = [
         sample for sample in samples
         if sample.get("routeClass") in {"persistent-one-shot", "workflow-incomplete"}
@@ -578,7 +742,7 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
     if "fail" in statuses:
         status, reason, capability = "fail", "BOUNDARY_FAILURE", "OUTCOME_UNKNOWN"
     elif (not persistent or "inconclusive" in statuses or len(percentages) < 5 or tool_calls < 2
-          or hook_events < 2 or len(role_labels) != 12):
+          or hook_events < 2 or role_count != 12):
         reason = "LEGACY_READ_ONLY_ONLY" if not workflow_samples else "RUNTIME_INCONCLUSIVE"
         status, capability = "inconclusive", (
             "OUTCOME_UNKNOWN" if workflow_outcome == "OUTCOME_UNKNOWN" else
@@ -594,7 +758,7 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
         "guardProof": guard_proof,
         "routeClass": route_class,
         "workflow": workflow,
-        "roleCount": len(role_labels),
+        "roleCount": role_count,
         "toolCalls": tool_calls,
         "hookEvents": hook_events,
         "context": {
@@ -603,7 +767,7 @@ def aggregate_results(runtime: dict[str, str], samples: list[dict[str, Any]]) ->
             "afterSubagent": percentages[2] if len(percentages) >= 5 else 0,
             "afterDiscovery": percentages[3] if len(percentages) >= 5 else 0,
             "afterUse": percentages[4] if len(percentages) >= 5 else 0,
-            "toolSearchMode": "available-used" if len(percentages) >= 5 else "unavailable",
+            "toolSearchMode": tool_search_mode,
         },
         "cleanup": "pending",
     }, allow_pending_cleanup=True)
@@ -640,12 +804,18 @@ def main(argv: list[str]) -> int:
         result = evaluate_stream(Path(argv[1]), argv[2])
         Path(argv[3]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
         return 0
-    if len(argv) >= 6 and argv[0] == "--aggregate":
+    if len(argv) >= 8 and argv[0] == "--aggregate":
         runtime = {
-            "claude": argv[1], "provider": argv[2], "model": argv[3], "adapter": argv[4],
+            "claude": argv[3], "provider": argv[4], "model": argv[5], "adapter": argv[6],
         }
-        samples = [json.loads(Path(name).read_text(encoding="utf-8")) for name in argv[5:]]
-        print(json.dumps(aggregate_results(runtime, samples), separators=(",", ":")))
+        samples = [json.loads(Path(name).read_text(encoding="utf-8")) for name in argv[7:]]
+        workflow_sessions = _exact_workflow_sessions(samples)
+        measurement = load_trusted_measurement(
+            Path(argv[1]), argv[2], workflow_sessions,
+        ) if workflow_sessions is not None else None
+        print(json.dumps(aggregate_results(
+            runtime, samples, measurement=measurement, expected_nonce=argv[2],
+        ), separators=(",", ":")))
         return 0
     if len(argv) == 3 and argv[0] == "--finalize-cleanup":
         value = json.loads(argv[1])

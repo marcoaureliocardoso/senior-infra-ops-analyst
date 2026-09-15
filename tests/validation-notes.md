@@ -1003,3 +1003,30 @@ review passed with no findings after the resolver proved a compatible
 redirect-fetch interface from fixed package metadata and rejected prerelease,
 older, or unversioned candidates. The remaining transient-memory risk of
 Playwright `route.fetch()` is documented and is not presented as bounded.
+
+## P0-04B trusted role/context sidecar contract (2026-09-15)
+
+The live aggregate no longer has an unfillable role/context placeholder and
+still does not trust arbitrary Claude stream records for those claims. A new
+exact POSIX/WSL sidecar contract accepts only a private regular file no larger
+than 32 KiB, bound to the harness-generated run nonce and the exact successful workflow
+session set. It contains only structural identifiers, booleans, bounded counts,
+and numeric percentages: the canonical ordered 12-role table, five ordered
+same-session context stages, coherent tool-search availability/use, and MCP
+connection, discovery, and use.
+
+Tests first demonstrated that the old parser had no sidecar validator or
+session binding. The implementation then made missing, extra-field, wrong-nonce,
+wrong-session, reordered, duplicated, incomplete, nonnumeric, cross-session,
+oversized, symlinked, and unsafe-permission evidence remain inconclusive.
+`roleLabels` and `contextPercentages` injected into an evaluated stream sample
+remain ignored. Only the exact sidecar plus an otherwise complete persistent
+one-shot workflow can produce `ACTIVE`.
+
+On 2026-09-15 the final focused Debian WSL check passed all 28 live-browser
+safety tests, shell syntax validation, and the provider-free harness self-test.
+No authenticated provider request occurred. Runtime population of the sidecar,
+provider-backed acceptance, final package validation, CI, Security, PR approval,
+merge, and post-merge validation remain separate gates.
+Native Windows sidecar loading fails closed as inconclusive because this change
+does not claim equivalent portable no-follow and ACL validation there.
