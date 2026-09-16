@@ -168,8 +168,18 @@ Playwright `route.fetch()` does not expose a streaming byte cap, so no effective
 response-memory limit is claimed.
 
 The matrix produced 40 passing test records including its inventory binding and
-runtime-selection controls. The deterministic trusted-sidecar contract passed
-28 safety tests in Debian WSL on 2026-09-15; no provider request occurred.
+runtime-selection controls. The deterministic trusted-sidecar contract and its
+parent-controlled producer passed 46 focused Python tests in Debian WSL on
+2026-09-16; no provider request occurred. The producer assigns UUID sessions,
+reduces only exact SDK tool/result pairs and nonce-bound native status-line
+`context_window.used_percentage` observations, requires one exact
+`context-continuity` skill call, one prospectively guarded
+`diagnostic-operator` subagent call, coherent ToolSearch discovery/use, and one
+ordered nonce-bound MCP call. It supplies strict minimal MCP configurations,
+exposes the fixture only to its measurement stages, and restricts workflow
+model tools to Bash. It removes temporary MCP configs, the disposable Claude
+session store, prompts, streams, PTY captures, and transcripts before sidecar
+construction.
 Provider-backed population of that sidecar, CI/Security, and delivery remain
 separate acceptance gates.
 

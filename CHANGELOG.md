@@ -30,6 +30,21 @@ tag. Tagged versions correspond to repository tags.
   covers fallback semantics without claiming native `WebFetch`. All 40 records
   passed; provider-backed role/context evidence, CI/Security, merge, and
   post-merge validation remain separate.
+- Added the POSIX/WSL parent-controlled producer for trusted role and context
+  evidence. It assigns explicit UUID sessions; accepts only exact successful SDK
+  tool/result pairs and nonce-bound native status-line percentages; proves the
+  canonical 12 roles, exact `context-continuity`, prospectively one-call-guarded
+  `diagnostic-operator`, exact ToolSearch query, and one ordered nonce-bound MCP
+  call; and restricts browser workflows to Bash. Every Claude invocation uses a
+  strict minimal MCP configuration; the fixture is disabled before workflows.
+  Raw prompts, streams, captures, transcripts, temporary MCP configs, and the
+  disposable Claude session store are removed before sidecar construction. Live
+  authorization is bound to four measurement invocations plus the requested
+  workflow count and a computed maximum model-turn bound. The 46-test focused
+  WSL gate, shell syntax check, and provider-free self-test passed on 2026-09-16;
+  the complete provider-free package gate and independent review also passed.
+  No authenticated request occurred, so active-runtime acceptance remains
+  pending.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

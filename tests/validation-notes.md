@@ -1023,10 +1023,50 @@ oversized, symlinked, and unsafe-permission evidence remain inconclusive.
 remain ignored. Only the exact sidecar plus an otherwise complete persistent
 one-shot workflow can produce `ACTIVE`.
 
-On 2026-09-15 the final focused Debian WSL check passed all 28 live-browser
+On 2026-09-15 the initial focused Debian WSL check passed all 28 live-browser
 safety tests, shell syntax validation, and the provider-free harness self-test.
-No authenticated provider request occurred. Runtime population of the sidecar,
-provider-backed acceptance, final package validation, CI, Security, PR approval,
-merge, and post-merge validation remain separate gates.
+No authenticated provider request occurred. Provider-backed acceptance, final
+package validation, CI, Security, PR approval, merge, and post-merge validation
+remain separate gates.
 Native Windows sidecar loading fails closed as inconclusive because this change
 does not claim equivalent portable no-follow and ACL validation there.
+
+## P0-04B trusted sidecar producer (2026-09-16)
+
+The POSIX/WSL harness now populates the trusted sidecar through a parent-owned
+pipeline. It assigns the main, role, and workflow UUIDs; obtains native
+status-line `context_window.used_percentage` observations for all 12 canonical
+roles; reduces four temporary SDK streams to content-free structural samples;
+and builds the final sidecar atomically. Each expected tool use must have its
+exact stage-specific input and one successful same-session result. The skill
+and subagent observations require exactly one call to `context-continuity` and
+`diagnostic-operator`; an atomic PreToolUse guard prospectively permits only the
+first exact diagnostic call. ToolSearch availability is read only from the
+top-level SDK init envelope and its exact query/result must match that
+capability. The MCP stage requires one run-nonce-bound call after the same
+fixture process initializes and lists tools, with `callCount == 1`. Unexpected,
+duplicate, failed, missing, nested, late, wrong-target, or wrong-session tool
+events and malformed source evidence fail closed.
+
+Each measurement invocation exposes only its required built-in tool and exact
+allow rule; browser workflow invocations expose only Bash. The active harness
+stops on an unrecognized adapter before authenticated measurement, selects only
+the exact approval server from the external operator-owned MCP config, adds the
+fixture only to a separate measurement config, and passes `--strict-mcp-config`
+everywhere. Authorization values must equal four measurement invocations plus
+the requested workflow count and a maximum of
+`32 + 4 * workflow_count` model turns. It never retries automatically. The
+fixture is snapshotted and disabled before browser workflows. Prompts, SDK
+streams, PTY captures, transcripts, temporary MCP configs, and the disposable
+Claude session store are removed before the source is reduced.
+
+The provider-free focused check passed 46 Python tests in Debian WSL: 36 live
+browser safety tests, three native status-line recorder tests, two ordered MCP
+fixture tests, three one-call guard tests, and two strict MCP minimizer tests.
+Shell syntax validation and the harness self-test also passed. Windows passed
+the portable logic with declared POSIX/WSL skips. No authenticated provider
+request occurred. The authenticated population run and its observed result
+remain pending. The complete provider-free package gate then passed in Debian
+WSL with Node.js `v24.17.0`; PowerShell-only syntax checks remained the existing
+documented platform skip. An independent final review reported no remaining
+actionable P0, P1, or P2 finding in the producer scope.

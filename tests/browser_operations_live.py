@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shlex
 import shutil
 import stat
@@ -73,6 +74,19 @@ EXPECTED_CONTEXT_STAGES = (
     "before", "afterSkill", "afterSubagent", "afterDiscovery", "afterUse",
 )
 MAX_TRUSTED_MEASUREMENT_BYTES = 32 * 1024
+MEASUREMENT_SAMPLE_FIELDS = {
+    "sessionId", "terminalSuccess", "skillCalls", "subagentCalls",
+    "toolSearchAvailable", "toolSearchCalls", "mcpCalls", "unexpectedToolCalls",
+}
+MEASUREMENT_STAGES = {"skill", "subagent", "discovery", "use"}
+MEASUREMENT_MCP_FIELDS = {
+    "connected", "toolsListed", "visibleToolCount", "called", "callCount",
+    "runNonce",
+}
+MEASUREMENT_SOURCE_FIELDS = {
+    "runNonce", "workflowSessionIds", "roleProbes", "contextStages",
+    "stageSamples", "mcpSignal",
+}
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -162,9 +176,7 @@ def validate_trusted_measurement(
     return measurement
 
 
-def load_trusted_measurement(
-    path: Path, expected_nonce: str, expected_workflow_sessions: set[str],
-) -> dict[str, Any] | None:
+def _load_private_json(path: Path, maximum_bytes: int) -> Any | None:
     if os.name == "nt" or not hasattr(os, "O_NOFOLLOW"):
         return None
     descriptor: int | None = None
@@ -174,12 +186,12 @@ def load_trusted_measurement(
         descriptor = os.open(path, flags)
         metadata = os.fstat(descriptor)
         if (not stat.S_ISREG(metadata.st_mode)
-                or not 1 <= metadata.st_size <= MAX_TRUSTED_MEASUREMENT_BYTES):
+                or not 1 <= metadata.st_size <= maximum_bytes):
             return None
         if os.name != "nt" and stat.S_IMODE(metadata.st_mode) & 0o077:
             return None
         chunks: list[bytes] = []
-        remaining = MAX_TRUSTED_MEASUREMENT_BYTES + 1
+        remaining = maximum_bytes + 1
         while remaining > 0:
             chunk = os.read(descriptor, remaining)
             if not chunk:
@@ -187,17 +199,321 @@ def load_trusted_measurement(
             chunks.append(chunk)
             remaining -= len(chunk)
         payload = b"".join(chunks)
-        if len(payload) != metadata.st_size or len(payload) > MAX_TRUSTED_MEASUREMENT_BYTES:
+        if len(payload) != metadata.st_size or len(payload) > maximum_bytes:
             return None
-        value = json.loads(payload.decode("utf-8"))
-        return validate_trusted_measurement(
-            value, expected_nonce, expected_workflow_sessions,
-        )
+        return json.loads(payload.decode("utf-8"))
     except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
         return None
     finally:
         if descriptor is not None:
             os.close(descriptor)
+
+
+def load_trusted_measurement(
+    path: Path, expected_nonce: str, expected_workflow_sessions: set[str],
+) -> dict[str, Any] | None:
+    value = _load_private_json(path, MAX_TRUSTED_MEASUREMENT_BYTES)
+    if value is None:
+        return None
+    try:
+        return validate_trusted_measurement(
+            value, expected_nonce, expected_workflow_sessions,
+        )
+    except ValueError:
+        return None
+
+
+def evaluate_measurement_stream(
+    path: Path, expected_session: str, expected_stage: str, run_nonce: str,
+) -> dict[str, Any]:
+    _label(expected_session)
+    _label(run_nonce)
+    expected_calls: dict[str, tuple[str, dict[str, str], str]] = {
+        "skill": (
+            "Skill", {"skill": "context-continuity"}, "skillCalls",
+        ),
+        "subagent": (
+            "Agent", {
+                "description": "P004B_SUBAGENT_ACK",
+                "prompt": "P004B_SUBAGENT_ACK",
+                "subagent_type": "diagnostic-operator",
+            }, "subagentCalls",
+        ),
+        "discovery": (
+            "ToolSearch",
+            {"query": "select:mcp__p004b-context__context_fixture_ping"},
+            "toolSearchCalls",
+        ),
+        "use": (
+            "mcp__p004b-context__context_fixture_ping",
+            {"nonce": run_nonce}, "mcpCalls",
+        ),
+    }
+    if expected_stage not in expected_calls:
+        raise ValueError("invalid measurement stage")
+    expected_name, expected_input, expected_count = expected_calls[expected_stage]
+    empty = {
+        "sessionId": expected_session, "terminalSuccess": False,
+        "skillCalls": 0, "subagentCalls": 0,
+        "toolSearchAvailable": False, "toolSearchCalls": 0,
+        "mcpCalls": 0, "unexpectedToolCalls": 0,
+    }
+    try:
+        if (not path.is_file() or path.stat().st_size > 5_000_000
+                or path.stat().st_size < 1):
+            return empty
+        init_seen = False
+        terminal_seen = False
+        malformed = False
+        tools: set[str] = set()
+        calls: dict[str, bool] = {}
+        call_counts = {
+            "skillCalls": 0, "subagentCalls": 0, "toolSearchCalls": 0,
+            "mcpCalls": 0, "unexpectedToolCalls": 0,
+        }
+        with path.open("r", encoding="utf-8") as stream:
+            for line in stream:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    malformed = True
+                    continue
+                if not isinstance(event, dict):
+                    malformed = True
+                    continue
+                event_type = event.get("type")
+                session_id = event.get("session_id")
+                if event_type == "system" and event.get("subtype") == "init":
+                    advertised = event.get("tools")
+                    if (init_seen or session_id != expected_session
+                            or not isinstance(advertised, list)
+                            or len(advertised) > 4096
+                            or any(not isinstance(name, str) or not LABEL.fullmatch(name)
+                                   for name in advertised)):
+                        malformed = True
+                    else:
+                        init_seen = True
+                        tools.update(advertised)
+                elif event_type in {"assistant", "user"}:
+                    message = event.get("message")
+                    content = message.get("content") if isinstance(message, dict) else None
+                    if not isinstance(content, list) or len(content) > 64:
+                        malformed = True
+                        continue
+                    tool_blocks = [
+                        block for block in content
+                        if isinstance(block, dict)
+                        and block.get("type") in {"tool_use", "tool_result"}
+                    ]
+                    if tool_blocks and session_id != expected_session:
+                        malformed = True
+                    for block in tool_blocks:
+                        if terminal_seen or event.get("parent_tool_use_id") is not None:
+                            malformed = True
+                        if block.get("type") == "tool_use":
+                            name = block.get("name")
+                            identifier = block.get("id")
+                            tool_input = block.get("input")
+                            if (not isinstance(name, str) or not LABEL.fullmatch(name)
+                                    or not isinstance(identifier, str)
+                                    or not LABEL.fullmatch(identifier)
+                                    or identifier in calls):
+                                malformed = True
+                                continue
+                            if name != expected_name or tool_input != expected_input:
+                                call_counts["unexpectedToolCalls"] += 1
+                                malformed = True
+                                continue
+                            call_counts[expected_count] += 1
+                            calls[identifier] = False
+                        else:
+                            identifier = block.get("tool_use_id")
+                            is_error = block.get("is_error")
+                            if (not isinstance(identifier, str)
+                                    or not LABEL.fullmatch(identifier)
+                                    or identifier not in calls or calls.get(identifier) is True
+                                    or (is_error is not None and is_error is not False)):
+                                malformed = True
+                                continue
+                            calls[identifier] = True
+                elif event_type == "result":
+                    if (terminal_seen or session_id != expected_session
+                            or event.get("subtype") != "success"
+                            or event.get("is_error") is not False
+                            or not calls or not all(calls.values())):
+                        malformed = True
+                    else:
+                        terminal_seen = True
+        if malformed or not init_seen or not terminal_seen:
+            return empty
+        return {
+            "sessionId": expected_session, "terminalSuccess": True,
+            "skillCalls": call_counts["skillCalls"],
+            "subagentCalls": call_counts["subagentCalls"],
+            "toolSearchAvailable": "ToolSearch" in tools,
+            "toolSearchCalls": call_counts["toolSearchCalls"],
+            "mcpCalls": call_counts["mcpCalls"],
+            "unexpectedToolCalls": call_counts["unexpectedToolCalls"],
+        }
+    except (OSError, UnicodeError):
+        return empty
+
+
+def status_context_observation(
+    path: Path, run_nonce: str, session_id: str, output_stage: str,
+) -> dict[str, Any]:
+    _label(run_nonce)
+    _label(session_id)
+    if output_stage not in EXPECTED_CONTEXT_STAGES:
+        raise ValueError("invalid output context stage")
+    if not path.is_file() or not 1 <= path.stat().st_size <= 64 * 1024:
+        raise ValueError("invalid status event file")
+    observations: list[tuple[int, int]] = []
+    with path.open("r", encoding="utf-8") as stream:
+        for line in stream:
+            event = _exact(
+                json.loads(line),
+                {"kind", "percent", "windowTokens", "runNonce", "stage"},
+                "status context event",
+            )
+            percent = event["percent"]
+            window = event["windowTokens"]
+            if (event["kind"] != "status-context"
+                    or event["runNonce"] != run_nonce
+                    or event["stage"] != output_stage
+                    or not isinstance(percent, int) or isinstance(percent, bool)
+                    or not 0 <= percent <= 100
+                    or not isinstance(window, int) or isinstance(window, bool)
+                    or not 0 < window <= 10_000_000):
+                raise ValueError("invalid status context event")
+            observations.append((percent, window))
+    if not observations or len({window for _, window in observations}) != 1:
+        raise ValueError("native status context not observed coherently")
+    return {
+        "stage": output_stage, "sessionId": session_id,
+        "usedPercentage": observations[-1][0],
+    }
+
+
+def build_trusted_measurement(
+    run_nonce: str, workflow_sessions: list[str], role_probes: Any,
+    context_stages: Any, stage_samples: Any, mcp_signal: Any,
+) -> dict[str, Any]:
+    if not isinstance(stage_samples, dict) or set(stage_samples) != MEASUREMENT_STAGES:
+        raise ValueError("invalid measurement stage set")
+    normalized: dict[str, dict[str, Any]] = {}
+    for stage, value in stage_samples.items():
+        sample = _exact(value, MEASUREMENT_SAMPLE_FIELDS, f"{stage} measurement")
+        _label(sample["sessionId"])
+        if type(sample["terminalSuccess"]) is not bool or type(sample["toolSearchAvailable"]) is not bool:
+            raise ValueError("invalid measurement boolean")
+        for field in MEASUREMENT_SAMPLE_FIELDS - {
+            "sessionId", "terminalSuccess", "toolSearchAvailable",
+        }:
+            if (not isinstance(sample[field], int) or isinstance(sample[field], bool)
+                    or not 0 <= sample[field] <= 64):
+                raise ValueError("invalid measurement call count")
+        if sample["terminalSuccess"] is not True:
+            raise ValueError("measurement stage did not complete")
+        normalized[stage] = sample
+    context_sessions = {
+        item.get("sessionId") for item in context_stages if isinstance(item, dict)
+    } if isinstance(context_stages, list) else set()
+    if (len(context_sessions) != 1
+            or any(sample["sessionId"] not in context_sessions for sample in normalized.values())):
+        raise ValueError("measurement stages are not same-session")
+    expected_calls = {
+        "skill": {"skillCalls": 1},
+        "subagent": {"subagentCalls": 1},
+        "use": {"mcpCalls": 1},
+    }
+    count_fields = {
+        "skillCalls", "subagentCalls", "toolSearchCalls", "mcpCalls",
+        "unexpectedToolCalls",
+    }
+    for stage, requirements in expected_calls.items():
+        for field in count_fields:
+            expected = requirements.get(field, 0)
+            if normalized[stage][field] != expected:
+                raise ValueError(f"unexpected {stage} tool calls")
+    available = normalized["discovery"]["toolSearchAvailable"]
+    search_calls = normalized["discovery"]["toolSearchCalls"]
+    searched = search_calls == 1
+    if (search_calls != (1 if available else 0)
+            or any(normalized["discovery"][field] != 0 for field in count_fields - {"toolSearchCalls"})):
+        raise ValueError("tool search measurement is incoherent")
+    mcp = _exact(mcp_signal, MEASUREMENT_MCP_FIELDS, "measurement mcp signal")
+    if any(mcp[field] is not True for field in ("connected", "toolsListed", "called")):
+        raise ValueError("mcp lifecycle incomplete")
+    if (not isinstance(mcp["visibleToolCount"], int)
+            or isinstance(mcp["visibleToolCount"], bool)
+            or not 1 <= mcp["visibleToolCount"] <= 4096):
+        raise ValueError("invalid measurement mcp tool count")
+    if (mcp["callCount"] != 1 or mcp["runNonce"] != run_nonce):
+        raise ValueError("measurement mcp call is not uniquely nonce-bound")
+    tool_mode = (
+        "available-used" if searched else
+        "available-unused" if available else
+        "unavailable"
+    )
+    context_session = next(iter(context_sessions))
+    result = {
+        "schemaVersion": 1,
+        "runNonce": run_nonce,
+        "workflowSessionIds": workflow_sessions,
+        "roleProbes": role_probes,
+        "contextStages": context_stages,
+        "toolSearch": {
+            "sessionId": context_session, "mode": tool_mode,
+            "discovered": available, "used": searched,
+        },
+        "mcp": {
+            "sessionId": context_session, "connected": True,
+            "toolsListed": True, "visibleToolCount": mcp["visibleToolCount"],
+            "discoveryObserved": True, "useObserved": True,
+        },
+    }
+    return validate_trusted_measurement(result, run_nonce, set(workflow_sessions))
+
+
+def build_trusted_measurement_from_source(value: Any) -> dict[str, Any]:
+    source = _exact(value, MEASUREMENT_SOURCE_FIELDS, "measurement source")
+    return build_trusted_measurement(
+        source["runNonce"], source["workflowSessionIds"], source["roleProbes"],
+        source["contextStages"], source["stageSamples"], source["mcpSignal"],
+    )
+
+
+def write_private_measurement(path: Path, value: dict[str, Any]) -> None:
+    if os.name == "nt" or not hasattr(os, "O_NOFOLLOW") or not path.is_absolute():
+        raise ValueError("private measurement output requires POSIX absolute path")
+    payload = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    if not 1 <= len(payload) <= MAX_TRUSTED_MEASUREMENT_BYTES:
+        raise ValueError("invalid private measurement size")
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(12)}.tmp")
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW"),
+            0o600,
+        )
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("private measurement write made no progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        os.replace(temporary, path)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> dict[str, Any]:
@@ -509,7 +825,8 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                                 "parentToolUseId": identity[1] if identity else None,
                             }
                             active_call_id = tool_use_id
-                elif event_type == "tool_use" and active_call_id is not None:
+                elif event_type == "tool_use":
+                    malformed = True
                     invalidate_active()
 
                 if (event_type == "tool_result" and isinstance(tool_use_id, str)
@@ -527,7 +844,8 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                     else:
                         call["phase"] = "tool-result"
                         call["outcome"] = outcome
-                elif event_type == "tool_result" and active_call_id is not None:
+                elif event_type == "tool_result":
+                    malformed = True
                     invalidate_active()
 
                 if (event_type == "system" and value.get("subtype") == "hook_started"
@@ -645,6 +963,13 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     if canary_seen:
         return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
     if malformed or not result_seen:
+        if workflow_observation["routeClass"] == "persistent-one-shot":
+            workflow_observation.update({
+                "routeClass": "workflow-incomplete", "guardProof": "exact-deny",
+                "workflowAuthentication": "not-observed",
+                "workflowMutation": "not-observed",
+                "workflowValidation": "not-observed",
+            })
         return {"status": "inconclusive", "reasonCode": "STREAM_INCONCLUSIVE", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
     return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": workflow_session_ids, **workflow_observation}
 
@@ -803,6 +1128,24 @@ def main(argv: list[str]) -> int:
     if len(argv) == 4 and argv[0] == "--evaluate-stream":
         result = evaluate_stream(Path(argv[1]), argv[2])
         Path(argv[3]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
+        return 0
+    if len(argv) == 6 and argv[0] == "--evaluate-measurement-stream":
+        result = evaluate_measurement_stream(
+            Path(argv[1]), argv[2], argv[3], argv[4],
+        )
+        Path(argv[5]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
+        return 0
+    if len(argv) == 5 and argv[0] == "--status-context":
+        print(json.dumps(status_context_observation(
+            Path(argv[1]), argv[2], argv[3], argv[4],
+        ), separators=(",", ":")))
+        return 0
+    if len(argv) == 3 and argv[0] == "--build-measurement":
+        source = _load_private_json(Path(argv[1]), MAX_TRUSTED_MEASUREMENT_BYTES)
+        if source is None:
+            raise ValueError("trusted measurement source rejected")
+        value = build_trusted_measurement_from_source(source)
+        write_private_measurement(Path(argv[2]), value)
         return 0
     if len(argv) >= 8 and argv[0] == "--aggregate":
         runtime = {

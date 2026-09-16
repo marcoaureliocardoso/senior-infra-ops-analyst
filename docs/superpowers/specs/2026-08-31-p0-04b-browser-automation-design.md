@@ -778,6 +778,22 @@ unsafe-mode, symlinked, cross-run, or cross-session evidence is inconclusive.
 Native Windows sidecar loading is also inconclusive unless an equivalent
 no-follow and ACL proof is implemented.
 
+The POSIX/WSL producer is controlled by the harness parent. It assigns explicit
+UUID sessions and reduces temporary SDK streams only when exact stage-specific
+inputs have one same-session successful tool result. A one-call atomic hook
+prospectively bounds the diagnostic subagent, while browser workflows expose
+only Bash. Native status-line events provide nonce-bound
+`context_window.used_percentage`; generic PTY percentages are not evidence.
+The fixture accepts one nonce-bound call only after that process has initialized
+and listed tools, and its exact call count is snapshotted before workflows. Every
+Claude invocation uses a strict minimal MCP configuration containing only the
+operator approval server and, only where needed, the disposable fixture. Raw
+prompts, temporary SDK streams, captures, transcripts, temporary MCP configs,
+and the disposable Claude session store are deleted before sidecar construction.
+The live authorization must match four measurement invocations plus the
+requested browser workflow invocations and the computed maximum model-turn
+bound; no retry is automatic.
+
 The harness must report blocked prerequisites as blocked, not passed. A runtime
 compatibility observation supplements deterministic package guarantees and
 does not rewrite an observed failure into success.

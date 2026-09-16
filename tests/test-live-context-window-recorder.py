@@ -48,6 +48,23 @@ class LiveContextWindowRecorderTests(unittest.TestCase):
                 self.assertEqual(result.stdout, "ctx --\n")
                 self.assertFalse(destination.exists())
 
+    def test_bound_mode_records_parent_nonce_and_stage_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "events.jsonl"
+            result = subprocess.run(
+                [sys.executable, str(RECORDER), str(destination),
+                 "p004b-run-001", "afterSkill"],
+                input=json.dumps({"context_window": {
+                    "context_window_size": 1_000_000, "used_percentage": 12.4,
+                }}), text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(json.loads(destination.read_text(encoding="utf-8")), {
+                "kind": "status-context", "percent": 12,
+                "windowTokens": 1_000_000, "runNonce": "p004b-run-001",
+                "stage": "afterSkill",
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

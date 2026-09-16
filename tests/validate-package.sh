@@ -31,6 +31,8 @@ python3 tests/test-prompt-injection-live.py
 python3 tests/test-prompt-injection-deny-tool.py
 python3 tests/test-live-prompt-injection-safety.py
 python3 tests/test-live-browser-operation-safety.py
+python3 tests/test-browser-measurement-guard.py
+python3 tests/test-browser-mcp-config.py
 python3 tests/test-native-execution-boundary-pty.py
 python3 tests/test-native-execution-boundary-lifecycle.py
 python3 tests/test-context-continuity-install-policy.py

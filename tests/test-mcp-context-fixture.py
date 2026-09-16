@@ -19,7 +19,7 @@ class McpContextFixtureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             signal = Path(directory) / "connected.json"
             process = subprocess.Popen(
-                [sys.executable, str(SERVER), str(signal)],
+                [sys.executable, str(SERVER), str(signal), "p004b-run-001"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True,
             )
@@ -45,6 +45,28 @@ class McpContextFixtureTests(unittest.TestCase):
             listed = json.loads(process.stdout.readline())
             self.assertEqual(len(listed["result"]["tools"]), 1)
             self.assertEqual(listed["result"]["tools"][0]["name"], "context_fixture_ping")
+            self.assertEqual(
+                listed["result"]["tools"][0]["inputSchema"]["properties"]["nonce"]["const"],
+                "p004b-run-001",
+            )
+            process.stdin.write(json.dumps({
+                "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                "params": {"name": "context_fixture_ping", "arguments": {
+                    "nonce": "p004b-run-001",
+                }},
+            }) + "\n")
+            process.stdin.flush()
+            called = json.loads(process.stdout.readline())
+            self.assertEqual(called["id"], 3)
+            process.stdin.write(json.dumps({
+                "jsonrpc": "2.0", "id": 4, "method": "initialize", "params": {},
+            }) + "\n")
+            process.stdin.write(json.dumps({
+                "jsonrpc": "2.0", "id": 5, "method": "tools/list", "params": {},
+            }) + "\n")
+            process.stdin.flush()
+            self.assertEqual(json.loads(process.stdout.readline())["id"], 4)
+            self.assertEqual(json.loads(process.stdout.readline())["id"], 5)
             process.stdin.close()
             process.wait(timeout=5)
             process.stdout.close()
@@ -54,8 +76,27 @@ class McpContextFixtureTests(unittest.TestCase):
             evidence = json.loads(signal.read_text(encoding="utf-8"))
             self.assertEqual(evidence, {
                 "connected": True, "toolsListed": True, "visibleToolCount": 1,
+                "called": True, "callCount": 1, "runNonce": "p004b-run-001",
             })
             self.assertNotIn("SYNTH_SECRET", signal.read_text(encoding="utf-8"))
+
+    def test_list_or_call_without_prior_lifecycle_stays_incomplete(self) -> None:
+        requests = (
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+                "name": "context_fixture_ping", "arguments": {"nonce": "p004b-run-001"},
+            }},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for index, request in enumerate(requests):
+                signal = Path(directory) / f"signal-{index}.json"
+                completed = subprocess.run(
+                    [sys.executable, str(SERVER), str(signal), "p004b-run-001"],
+                    input=json.dumps(request) + "\n", text=True,
+                    capture_output=True, check=False,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertFalse(signal.exists())
 
 
 if __name__ == "__main__":

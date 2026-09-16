@@ -4,18 +4,20 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 
 MAX_INPUT_BYTES = 64 * 1024
 MAX_WINDOW_TOKENS = 10_000_000
+LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+@-]{0,95}$")
 
 
 def main() -> int:
     rendered = "ctx --"
     try:
-        if len(sys.argv) != 2:
+        if len(sys.argv) not in {2, 4}:
             raise ValueError("destination required")
         payload = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
         if len(payload) > MAX_INPUT_BYTES:
@@ -29,9 +31,15 @@ def main() -> int:
                 or not 0 <= percent <= 100):
             raise ValueError("context metadata unavailable")
         rounded = round(percent)
-        event = json.dumps({
+        event_value = {
             "kind": "status-context", "percent": rounded, "windowTokens": window,
-        }, sort_keys=True, separators=(",", ":")) + "\n"
+        }
+        if len(sys.argv) == 4:
+            nonce, stage = sys.argv[2:]
+            if not LABEL.fullmatch(nonce) or not LABEL.fullmatch(stage):
+                raise ValueError("invalid binding")
+            event_value.update({"runNonce": nonce, "stage": stage})
+        event = json.dumps(event_value, sort_keys=True, separators=(",", ":")) + "\n"
         destination = Path(sys.argv[1])
         descriptor = os.open(destination, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:

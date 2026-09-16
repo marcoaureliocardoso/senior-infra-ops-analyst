@@ -43,11 +43,20 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "--self-test", "--preflight", "--run-live", "P004B_LIVE_AUTHORIZED",
             "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES", "REQUEST_COUNT",
             "TOTAL_TIMEOUT_SECONDS", "REQUEST_COUNT -ge 1", "REQUEST_COUNT -le 13",
-            "TOTAL_TIMEOUT_SECONDS -le 1800", 'timeout "$PER_REQUEST_TIMEOUT_SECONDS"',
+            "TOTAL_TIMEOUT_SECONDS -le 1800", 'timeout "$request_limit"',
+            "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS",
+            "P004B_AUTHORIZED_MAX_MODEL_TURNS",
+            "MEASUREMENT_TOP_LEVEL_INVOCATIONS=4",
+            "MEASUREMENT_MAX_MODEL_TURNS=32",
+            "P004B_PERMISSION_MCP_CONFIG", "browser-mcp-config.py",
+            '--strict-mcp-config --mcp-config "$APPROVAL_MCP_CONFIG"',
+            '--strict-mcp-config --mcp-config "$stage_mcp_config"',
+            'stage_mcp_config="$MEASUREMENT_MCP_CONFIG"',
         ):
             self.assertIn(marker, self.script)
         self.assertNotIn("--retry", self.script)
         self.assertNotIn("for attempt", self.script)
+        self.assertNotIn(" mcp add ", self.script)
 
     def test_disposable_install_loopback_and_cleanup_are_mandatory(self) -> None:
         for marker in (
@@ -78,6 +87,34 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "OUTCOME_UNKNOWN", "HUMAN_CHALLENGE", "no automatic retry",
         ):
             self.assertIn(marker, self.script)
+        self.assertLess(
+            self.script.index('rm -f -- "$APPROVAL_MCP_CONFIG"'),
+            self.script.index('MEASUREMENT_SOURCE="$MEASUREMENT_DIR/source.json"'),
+        )
+        self.assertLess(
+            self.script.index('rm -rf -- "$SESSION_STORE"'),
+            self.script.index('MEASUREMENT_SOURCE="$MEASUREMENT_DIR/source.json"'),
+        )
+
+    def test_trusted_measurement_is_parent_reduced_and_session_bound(self) -> None:
+        for marker in (
+            "--evaluate-measurement-stream", "--status-context",
+            "--build-measurement", "MAIN_MEASUREMENT_SESSION",
+            "ROLE_SESSIONS", "--session-id", "--resume",
+            "context_fixture_ping", "ToolSearch", "Invoke Skill",
+            "Invoke Agent", 'grep -R -l -E', '"$WORK_REAL"',
+            "live-context-window-recorder.py", "--status-context",
+            "browser-measurement-guard.py", "subagent.claim",
+        ):
+            self.assertIn(marker, self.script)
+        self.assertLess(
+            self.script.index('rm -f -- "$prompt_path" "$stream_path"'),
+            self.script.index('--build-measurement'),
+        )
+        self.assertLess(
+            self.script.index('--build-measurement'),
+            self.script.index('aggregate_json="$(aggregate_results)"'),
+        )
 
     def test_live_probe_requests_the_protected_one_shot_route_with_references_only(self) -> None:
         for marker in (
@@ -91,6 +128,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertNotIn("--permission-mode dontAsk", self.script)
         self.assertIn('--permission-mode default', self.script)
         self.assertIn('--permission-prompt-tool "$PERMISSION_PROMPT_TOOL"', self.script)
+        self.assertIn('--tools Bash --allowedTools Bash', self.script)
         self.assertIn("P004B_PERMISSION_PROMPT_TOOL", self.script)
         self.assertIn("Claude Code does not advertise --permission-prompt-tool", self.script)
         self.assertIn("Claude Code does not advertise --include-hook-events", self.script)
@@ -324,6 +362,15 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         )
         self.assertEqual(invalid.returncode, 2)
         self.assertIn("P004B_PERMISSION_PROMPT_TOOL", invalid.stderr)
+
+        environment["P004B_PERMISSION_PROMPT_TOOL"] = "mcp__approval__ask"
+        environment.pop("P004B_PERMISSION_MCP_CONFIG", None)
+        missing_config = subprocess.run(
+            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        self.assertEqual(missing_config.returncode, 2)
+        self.assertIn("P004B_PERMISSION_MCP_CONFIG", missing_config.stderr)
 
     def test_default_self_test_is_provider_free_and_content_free(self) -> None:
         if shutil.which("bash") is None:
@@ -615,6 +662,308 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertEqual(result["status"], "pass")
             self.assertEqual(result["roleCount"], 12)
 
+    def test_parent_parser_reduces_measurement_streams_to_structural_signals(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_measurement_stream  # noqa: PLC0415
+
+        session = "context-main-001"
+        nonce = "p004b-run-001"
+        cases = {
+            "skill": ("Skill", {"skill": "context-continuity"}, "skillCalls"),
+            "subagent": ("Agent", {
+                "description": "P004B_SUBAGENT_ACK", "prompt": "P004B_SUBAGENT_ACK",
+                "subagent_type": "diagnostic-operator",
+            }, "subagentCalls"),
+            "discovery": ("ToolSearch", {
+                "query": "select:mcp__p004b-context__context_fixture_ping",
+            }, "toolSearchCalls"),
+            "use": ("mcp__p004b-context__context_fixture_ping", {
+                "nonce": nonce,
+            }, "mcpCalls"),
+        }
+        for stage, (name, tool_input, count_field) in cases.items():
+            events = [
+                {"type": "system", "subtype": "init", "session_id": session,
+                 "tools": [name, "ToolSearch"]},
+                {"type": "assistant", "session_id": session,
+                 "message": {"content": [{
+                     "type": "tool_use", "id": f"tool-{stage}",
+                     "name": name, "input": tool_input,
+                 }]}},
+                {"type": "user", "session_id": session,
+                 "message": {"content": [{
+                     "type": "tool_result", "tool_use_id": f"tool-{stage}",
+                     "content": "discarded tool content",
+                 }]}},
+                {"type": "result", "subtype": "success", "is_error": False,
+                 "session_id": session, "result": "discarded model content"},
+            ]
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as directory:
+                stream = Path(directory) / "measurement.jsonl"
+                stream.write_text(
+                    "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8",
+                )
+                result = evaluate_measurement_stream(stream, session, stage, nonce)
+                self.assertTrue(result["terminalSuccess"])
+                self.assertEqual(result[count_field], 1)
+                self.assertEqual(result["unexpectedToolCalls"], 0)
+                self.assertNotIn("content", json.dumps(result))
+                self.assertNotIn("discarded", json.dumps(result))
+
+    def test_measurement_parser_ignores_nested_forgery_and_wrong_sessions(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_measurement_stream  # noqa: PLC0415
+
+        session = "context-main-001"
+        for events in (
+            [{
+                "type": "attacker-record", "session_id": session,
+                "nested": {"type": "tool_use", "name": "ToolSearch"},
+            }, {
+                "type": "result", "subtype": "success", "is_error": False,
+                "session_id": session,
+            }],
+            [{
+                "type": "system", "subtype": "init", "session_id": "wrong-session",
+                "tools": ["ToolSearch"],
+            }, {
+                "type": "result", "subtype": "success", "is_error": False,
+                "session_id": "wrong-session",
+            }],
+        ):
+            with self.subTest(events=events[0]["type"]):
+                with tempfile.TemporaryDirectory() as directory:
+                    stream = Path(directory) / "measurement.jsonl"
+                    stream.write_text(
+                        "".join(json.dumps(event) + "\n" for event in events),
+                        encoding="utf-8",
+                    )
+                    result = evaluate_measurement_stream(
+                        stream, session, "discovery", "p004b-run-001",
+                    )
+                self.assertFalse(result["terminalSuccess"])
+                self.assertFalse(result["toolSearchAvailable"])
+                self.assertEqual(result["toolSearchCalls"], 0)
+
+    def test_measurement_parser_requires_exact_input_and_successful_tool_result(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_measurement_stream  # noqa: PLC0415
+
+        session = "context-main-001"
+        nonce = "p004b-run-001"
+        base = [
+            {"type": "system", "subtype": "init", "session_id": session,
+             "tools": ["ToolSearch"]},
+            {"type": "assistant", "session_id": session, "message": {"content": [{
+                "type": "tool_use", "id": "tool-search", "name": "ToolSearch",
+                "input": {"query": "select:mcp__p004b-context__context_fixture_ping"},
+            }]}},
+            {"type": "user", "session_id": session, "message": {"content": [{
+                "type": "tool_result", "tool_use_id": "tool-search", "content": "discarded",
+            }]}},
+            {"type": "result", "subtype": "success", "is_error": False,
+             "session_id": session},
+        ]
+        mutations = []
+        missing = json.loads(json.dumps(base))
+        del missing[2]
+        mutations.append(missing)
+        duplicate = json.loads(json.dumps(base))
+        duplicate.insert(3, json.loads(json.dumps(duplicate[2])))
+        mutations.append(duplicate)
+        wrong_session = json.loads(json.dumps(base))
+        wrong_session[2]["session_id"] = "wrong-session"
+        mutations.append(wrong_session)
+        failed = json.loads(json.dumps(base))
+        failed[2]["message"]["content"][0]["is_error"] = True
+        mutations.append(failed)
+        nested = json.loads(json.dumps(base))
+        nested[2]["parent_tool_use_id"] = "agent-parent"
+        mutations.append(nested)
+        smuggled = json.loads(json.dumps(base))
+        smuggled[1]["message"]["content"][0]["input"] = {"query": "other"}
+        mutations.append(smuggled)
+        late = json.loads(json.dumps(base))
+        late.append(json.loads(json.dumps(late[1])))
+        mutations.append(late)
+        with tempfile.TemporaryDirectory() as directory:
+            for index, events in enumerate(mutations):
+                stream = Path(directory) / f"measurement-{index}.jsonl"
+                stream.write_text(
+                    "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8",
+                )
+                with self.subTest(index=index):
+                    result = evaluate_measurement_stream(
+                        stream, session, "discovery", nonce,
+                    )
+                    self.assertFalse(result["terminalSuccess"])
+
+    def test_parent_builder_requires_coherent_stage_and_mcp_evidence(self) -> None:
+        import copy
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import build_trusted_measurement  # noqa: PLC0415
+
+        session = "context-main-001"
+        stages = [
+            {"stage": stage, "sessionId": session, "usedPercentage": percent}
+            for stage, percent in zip(
+                ("before", "afterSkill", "afterSubagent", "afterDiscovery", "afterUse"),
+                (1, 2, 3, 4, 5), strict=True,
+            )
+        ]
+        base_signal = {
+            "sessionId": session, "terminalSuccess": True,
+            "skillCalls": 0, "subagentCalls": 0,
+            "toolSearchAvailable": False, "toolSearchCalls": 0,
+            "mcpCalls": 0, "unexpectedToolCalls": 0,
+        }
+        samples = {
+            "skill": {**base_signal, "skillCalls": 1},
+            "subagent": {**base_signal, "subagentCalls": 1},
+            "discovery": {
+                **base_signal, "toolSearchAvailable": True, "toolSearchCalls": 1,
+            },
+            "use": {**base_signal, "mcpCalls": 1},
+        }
+        mcp = {
+            "connected": True, "toolsListed": True,
+            "visibleToolCount": 1, "called": True,
+            "callCount": 1, "runNonce": "p004b-run-001",
+        }
+        result = build_trusted_measurement(
+            "p004b-run-001", ["session-live-browser-001"],
+            self._trusted_measurement()["roleProbes"], stages, samples, mcp,
+        )
+        self.assertEqual(result, self._trusted_measurement())
+
+        for mutation in (
+            {**samples, "skill": {**samples["skill"], "terminalSuccess": False}},
+            {**samples, "subagent": {**samples["subagent"], "sessionId": "wrong"}},
+            {**samples, "discovery": {
+                **samples["discovery"], "toolSearchAvailable": False,
+            }},
+            {**samples, "use": {**samples["use"], "mcpCalls": 0}},
+            {**samples, "skill": {**samples["skill"], "skillCalls": 2}},
+            {**samples, "use": {**samples["use"], "unexpectedToolCalls": 1}},
+        ):
+            with self.assertRaises(ValueError):
+                build_trusted_measurement(
+                    "p004b-run-001", ["session-live-browser-001"],
+                    self._trusted_measurement()["roleProbes"], stages, mutation, mcp,
+                )
+        incomplete_mcp = copy.deepcopy(mcp)
+        incomplete_mcp["called"] = False
+        with self.assertRaises(ValueError):
+            build_trusted_measurement(
+                "p004b-run-001", ["session-live-browser-001"],
+                self._trusted_measurement()["roleProbes"], stages, samples, incomplete_mcp,
+            )
+        duplicate_mcp = copy.deepcopy(mcp)
+        duplicate_mcp["callCount"] = 2
+        with self.assertRaises(ValueError):
+            build_trusted_measurement(
+                "p004b-run-001", ["session-live-browser-001"],
+                self._trusted_measurement()["roleProbes"], stages, samples, duplicate_mcp,
+            )
+
+    def test_status_reducer_uses_only_nonce_bound_native_percentage(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import status_context_observation  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "status.jsonl"
+            events.write_text("".join((
+                json.dumps({
+                    "kind": "status-context", "percent": 7,
+                    "windowTokens": 1_000_000, "runNonce": "p004b-run-001",
+                    "stage": "before",
+                }) + "\n",
+                json.dumps({
+                    "kind": "status-context", "percent": 8,
+                    "windowTokens": 1_000_000, "runNonce": "p004b-run-001",
+                    "stage": "before",
+                }) + "\n",
+            )), encoding="utf-8")
+            self.assertEqual(status_context_observation(
+                events, "p004b-run-001", "context-main-001", "before",
+            ), {
+                "stage": "before", "sessionId": "context-main-001",
+                "usedPercentage": 8,
+            })
+            forged = json.loads(events.read_text(encoding="utf-8").splitlines()[0])
+            forged["runNonce"] = "wrong"
+            events.write_text(json.dumps(forged) + "\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                status_context_observation(
+                    events, "p004b-run-001", "context-main-001", "before",
+                )
+
+    def test_parent_builder_cli_writes_one_owner_only_atomic_sidecar(self) -> None:
+        import stat
+        import sys
+        import tempfile
+
+        if os.name == "nt":
+            self.skipTest("trusted sidecar files are accepted only by the POSIX/WSL harness")
+        expected = self._trusted_measurement()
+        session = "context-main-001"
+        base = {
+            "sessionId": session, "terminalSuccess": True,
+            "skillCalls": 0, "subagentCalls": 0,
+            "toolSearchAvailable": False, "toolSearchCalls": 0,
+            "mcpCalls": 0, "unexpectedToolCalls": 0,
+        }
+        source = {
+            "runNonce": expected["runNonce"],
+            "workflowSessionIds": expected["workflowSessionIds"],
+            "roleProbes": expected["roleProbes"],
+            "contextStages": expected["contextStages"],
+            "stageSamples": {
+                "skill": {**base, "skillCalls": 1},
+                "subagent": {**base, "subagentCalls": 1},
+                "discovery": {
+                    **base, "toolSearchAvailable": True, "toolSearchCalls": 1,
+                },
+                "use": {**base, "mcpCalls": 1},
+            },
+            "mcpSignal": {
+                "connected": True, "toolsListed": True,
+                "visibleToolCount": 1, "called": True,
+                "callCount": 1, "runNonce": expected["runNonce"],
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.json"
+            output_path = root / "measurement.json"
+            source_path.write_text(json.dumps(source), encoding="utf-8")
+            source_path.chmod(0o600)
+            result = subprocess.run(
+                [
+                    sys.executable, str(PARSER), "--build-measurement",
+                    str(source_path), str(output_path),
+                ],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(output_path.read_text(encoding="utf-8")), expected)
+            self.assertEqual(stat.S_IMODE(output_path.stat().st_mode), 0o600)
+            self.assertEqual(list(root.glob("*.tmp")), [])
+
     def test_workflow_evidence_accepts_only_the_exact_canonical_runner_command(self) -> None:
         import sys
 
@@ -859,6 +1208,33 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                     sample = evaluate_stream(stream, "P004B_TEST_CANARY")
                 self.assertEqual(sample["routeClass"], "workflow-incomplete")
                 self.assertNotEqual(sample["guardProof"], "exact-native-approval")
+
+    def test_tool_activity_before_workflow_is_rejected(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "workflow.jsonl"
+            self._workflow_stream(stream)
+            events = [
+                json.loads(line) for line in stream.read_text(encoding="utf-8").splitlines()
+            ]
+            events.insert(0, {
+                "type": "assistant", "session_id": "session-live-browser-001",
+                "parent_tool_use_id": None, "message": {"content": [{
+                    "type": "tool_use", "id": "pre-agent", "name": "Agent",
+                    "input": {"subagent_type": "diagnostic-operator"},
+                }]},
+            })
+            stream.write_text(
+                "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8",
+            )
+            sample = evaluate_stream(stream, "P004B_TEST_CANARY")
+        self.assertEqual(sample["routeClass"], "workflow-incomplete")
+        self.assertNotEqual(sample["guardProof"], "exact-native-approval")
 
     def test_workflow_evidence_rejects_noncanonical_base64url_records(self) -> None:
         import sys
