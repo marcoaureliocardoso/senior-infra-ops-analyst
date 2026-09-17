@@ -91,6 +91,7 @@ test('allow phase accepts only the exact synthetic change workflow', () => {
   const request = { tool_name: 'Bash', input: { command: command('allow-session', 'allow-operation', 'allow') } };
   const result = verifyPermissionRequest(request, {
     phase: 'allow', decision: 'allow', runnerPath: RUNNER,
+    operationId: 'allow-operation',
     sessionId: 'allow-session', runNonce: 'p004b-run-001', origin: ORIGIN,
   }, NOW);
   assert.deepEqual({
@@ -121,7 +122,7 @@ Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `browser-permission-verifier.mjs`
 
 - [ ] **Step 3: Implement the minimal closed verifier**
 
-Implement the exact public function and a CLI that accepts six fixed arguments (`phase`, `runnerPath`, `sessionId`, `runNonce`, `origin`, `decision`), reads at most 65,536 bytes from stdin, and writes one JSON line. Core parsing must use the production components:
+Implement the exact public function and a CLI that accepts seven fixed arguments (`phase`, `runnerPath`, `operationId`, `sessionId`, `runNonce`, `origin`, `decision`), reads at most 65,536 bytes from stdin, and writes one JSON line. Binding the expected operation ID prevents a structurally valid command for a different operation from inheriting the decision. Core parsing must use the production components:
 
 ```js
 const lexed = lexBash(command);
@@ -207,7 +208,7 @@ Expected: FAIL because `tests/browser-permission-mcp.py` does not exist.
 
 - [ ] **Step 3: Implement the minimal stdio server**
 
-Follow the existing `mcp-context-fixture.py` protocol shape. Accept exactly ten arguments after the script: verifier, Node binary, runner, phase, decision, session, nonce, origin, claim, and signal. Reject Windows, relative paths, links, invalid labels, or any phase/decision pair other than `allow/allow` and `deny/deny`.
+Follow the existing `mcp-context-fixture.py` protocol shape. Accept exactly eleven arguments after the script: verifier, Node binary, runner, phase, decision, operation ID, session, nonce, origin, claim, and signal. Reject Windows, relative paths, links, invalid labels, or any phase/decision pair other than `allow/allow` and `deny/deny`.
 
 For `tools/call`, require this exact outer shape:
 
@@ -267,6 +268,7 @@ self.assertEqual(set(deny["mcpServers"]), {"p004b-permission"})
 self.assertEqual(allow_server["command"], sys.executable)
 self.assertEqual(allow_server["args"][4:6], ["allow", "allow"])
 self.assertEqual(deny_server["args"][4:6], ["deny", "deny"])
+self.assertNotEqual(allow_server["args"][6], deny_server["args"][6])
 ```
 
 Assert all four files are `0600`; handler/verifier/runner/fixture paths are canonical regular non-symlinks; output directory is canonical, private, and absolute; allow and deny sessions differ; claims and signals differ; no environment map, external MCP server, token, or secret field is emitted. Reject links, relative paths, duplicate sessions, invalid origins, unbounded labels, unsafe output directories, and pre-existing output targets.
