@@ -125,6 +125,10 @@ tool identity. An SDK error terminal, a different terminal session, later tool a
 failure lifecycle invalidates the sample. Role and context measurements require
 a separate trusted runtime channel and are never inferred from arbitrary stream
 records.
+The separately authorized acceptance run is fixed at six top-level invocations
+and at most 40 model turns, with no automatic retry. Until that provider-backed
+run observes the exact ordered allow/effect/validation/deny/no-effect sequence,
+the active-runtime result remains pending.
 Project settings and their ownership record remain
 `CONFIGURED_UNPROVEN`; persisted structure is never accepted as a current
 runtime proof.

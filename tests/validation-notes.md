@@ -1086,7 +1086,54 @@ navigation. The expanded focused check passed 47 Python tests in Debian WSL:
 37 live browser safety tests, three native status-line recorder tests, two
 ordered MCP fixture tests, three one-call guard tests, and two strict MCP
 minimizer tests. Independent re-review found no remaining actionable P0, P1,
-or P2 issue in the runtime wiring. No provider request occurred. No operator
-permission MCP server is currently present in the inspected Claude
-configuration, so the authenticated gate still requires an external exact
-approval tool/config.
+or P2 issue in the runtime wiring. No authenticated provider request occurred
+in this inventory or preflight.
+
+## P0-04B disposable permission decision boundary (2026-09-17)
+
+The acceptance harness now owns a test-only, phase-specific stdio MCP boundary
+instead of requiring an operator-provided permission MCP. A closed Node.js
+verifier reuses the production Bash lexer, composition builder, and protected
+browser-runner parser. It accepts only one exact synthetic loopback change in
+the allow phase and one exact, observably different rollback attempt in the deny
+phase. The Python handler uses private, bounded, no-follow, single-use claims and
+signals; preserves the exact verified input only on allow; emits a fixed planned
+denial for the exact deny probe; and generically denies every mismatch.
+
+Measurement, allow, and deny invocations receive separate strict MCP configs.
+The allow and deny workflows have distinct sessions, operations, fingerprints,
+claims, and signals. The aggregate requires the ordered allow decision, observed
+mutation and fresh validation, then the fresh-session deny decision and an
+independent unchanged-state observation. Duplicate, reordered, cross-session,
+cross-operation, later-event, malformed, or partially cleaned evidence remains
+inconclusive. The handler, verifier, configs, claims, signals, raw prompts and
+streams, fixture state, and disposable session store are removed before the
+content-free aggregate. Staging and archive tests prove the handler and verifier
+do not enter Nori artifacts or installed skill roots.
+
+Production behavior is unchanged: no permission MCP is installed, and mutable
+operations use the native interactive Claude Code prompt for every `ask`. Test
+evidence is labelled `synthetic-deterministic`, never human approval. The live
+budget is exactly six top-level invocations and at most 40 model turns, with
+120 seconds per workflow, 1,800 seconds total, and no automatic retry.
+
+Provider-free verification passed on 2026-09-17. Windows portable checks passed
+the verifier's five tests, the 40 live-safety tests with eight declared POSIX
+skips, 17 staging tests with four declared platform skips, seven archive tests
+with three declared platform skips, content validation, and 13 architecture
+tests. Debian WSL passed all executable permission-server checks (five pass and
+one declared non-POSIX test skip), all three MCP-config tests, all 40 live-safety
+tests, and the 40-record Playwright/Chromium matrix covering its 37 scenarios.
+The provider-free preflight observed Claude Code `2.1.274`, adapter
+`playwright`, `AVAILABLE_RECOGNIZED`, exact guard deny, and verified cleanup.
+The complete Debian WSL package gate then passed with Node.js `v24.17.0`,
+including 304 command-guard tests, 100% reported command-guard coverage, and all
+86 declared mutation witnesses killed.
+
+An inline security and specification review covered parser reuse, first-call
+confusion, phase and fingerprint binding, exact input preservation, generic
+denial, private one-use evidence, strict MCP separation, independent fixture
+observations, cleanup, staging exclusion, and production/native-prompt
+separation. It found no actionable P0, P1, or P2 issue. No authenticated
+provider request has occurred for this boundary, so `ACTIVE`, completed
+mutation, and completed denial are not claimed.

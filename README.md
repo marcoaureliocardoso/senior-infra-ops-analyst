@@ -109,16 +109,25 @@ origin before and after dispatch and hold the same lock while in flight. Both
 forms block a top-level transition to another allowed origin. An interrupted
 one-shot binding is quarantined instead of being reusable through the legacy
 multi-command route.
-The non-interactive live harness uses `--permission-mode default` and requires
-an operator-provided interactive MCP approval handler through
-`P004B_PERMISSION_PROMPT_TOOL`. It does not install or auto-approve that
-handler. A handler name is not approval evidence: an active result additionally
-requires the exact package runner and same-session SDK tool envelope, the actual Claude Code `hook_started` and
+The non-interactive acceptance harness uses `--permission-mode default` with
+phase-specific disposable test permission servers. One server permits only the
+exact synthetic loopback change; a fresh-session server denies only the exact
+synthetic rollback attempt. Their evidence is labelled
+`synthetic-deterministic`, never human approval. The servers, verifier, configs,
+claims, and signals are excluded from Nori staging and installed skill roots and
+are deleted before aggregation. Production does not install a permission server:
+mutable work uses the native interactive Claude Code prompt for every `ask`.
+The acceptance run is fixed at six top-level invocations and at most 40 model
+turns, with no automatic retry. A decision record alone is not approval
+evidence: an active result additionally requires the exact package runner and
+same-session SDK tool envelope, the actual Claude Code `hook_started` and
 `hook_response` lifecycle for the configured `PreToolUse:Bash` and
 `PostToolUse:Bash` matchers, the exact `ask` response produced by the installed
 command guard, successful tool completion, the matching successful post hook,
 the same parent tool identity, and a coherent structural workflow result in that order. Missing or
-unrecognized runtime fields remain inconclusive.
+unrecognized runtime fields remain inconclusive. The authenticated acceptance
+result remains pending until a separately authorized run observes this complete
+sequence.
 Arbitrary stream records cannot supply role or context measurements, and an
 error terminal, later tool activity, or any failure lifecycle invalidates the
 sample. Until role and context evidence is collected through a separately

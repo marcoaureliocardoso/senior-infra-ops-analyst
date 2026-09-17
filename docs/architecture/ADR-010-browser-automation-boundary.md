@@ -208,6 +208,12 @@ the denied phase caused no additional fixture effect. Evidence calls this
 configs, signals, claims, and raw requests are removed with the disposable
 runtime and are excluded from Nori staging. Production mutable operations still
 use the native interactive Claude Code permission prompt for every `ask`.
+The acceptance budget is exactly six top-level invocations and at most 40 model
+turns, with no automatic retry. Provider-backed observation of the complete
+ordered allow/effect/validation/deny/no-effect sequence remains pending.
+Provider-free verification on 2026-09-17 passed the complete package gate and
+the 40-record real-browser matrix; a fresh preflight observed Claude Code
+`2.1.274`, Playwright recognized, exact guard deny, and verified cleanup.
 
 ## Alternatives rejected
 
