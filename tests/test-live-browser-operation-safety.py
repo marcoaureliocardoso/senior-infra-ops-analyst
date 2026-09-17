@@ -41,15 +41,15 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
         for marker in (
             "--self-test", "--preflight", "--run-live", "P004B_LIVE_AUTHORIZED",
-            "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES", "REQUEST_COUNT",
-            "TOTAL_TIMEOUT_SECONDS", "REQUEST_COUNT -ge 1", "REQUEST_COUNT -le 13",
-            "TOTAL_TIMEOUT_SECONDS -le 1800", 'timeout "$request_limit"',
+            "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+            "TOTAL_TIMEOUT_SECONDS=1800", 'timeout "$request_limit"',
             "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS",
             "P004B_AUTHORIZED_MAX_MODEL_TURNS",
             "MEASUREMENT_TOP_LEVEL_INVOCATIONS=4",
             "MEASUREMENT_MAX_MODEL_TURNS=32",
-            "P004B_PERMISSION_MCP_CONFIG", "browser-mcp-config.py",
-            '--strict-mcp-config --mcp-config "$APPROVAL_MCP_CONFIG"',
+            "EXPECTED_TOP_LEVEL_INVOCATIONS=6", "EXPECTED_MAX_MODEL_TURNS=40",
+            "browser-mcp-config.py", "ALLOW_MCP_CONFIG", "DENY_MCP_CONFIG",
+            '--strict-mcp-config --mcp-config "$EMPTY_MCP_CONFIG"',
             '--strict-mcp-config --mcp-config "$stage_mcp_config"',
             'stage_mcp_config="$MEASUREMENT_MCP_CONFIG"',
         ):
@@ -108,7 +108,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         ):
             self.assertIn(marker, self.script)
         self.assertLess(
-            self.script.index('rm -f -- "$APPROVAL_MCP_CONFIG"'),
+            self.script.index('rm -f -- "$EMPTY_MCP_CONFIG"'),
             self.script.index('MEASUREMENT_SOURCE="$MEASUREMENT_DIR/source.json"'),
         )
         self.assertLess(
@@ -140,8 +140,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         for marker in (
             'OPS_BROWSER_VALUE_PASSWORD="$P004B_SYNTH_PASSWORD"',
             'OPS_BROWSER_VALUE_TOTP="$P004B_SYNTH_TOTP"',
-            'OPS_BROWSER_VALUE_DISABLED=', 'OPS_BROWSER_VALUE_EXPECTED=',
-            "persistent one-shot", "--step workflow",
+            'OPS_BROWSER_VALUE_DISABLED=', 'OPS_BROWSER_VALUE_EXPECTED_FALSE=',
+            'OPS_BROWSER_VALUE_EXPECTED_TRUE=', "synthetic deterministic", "--step workflow",
+            'mcp__p004b-permission__approval_prompt', '"--evaluate-$phase-stream"',
+            '/api/summary', '--aggregate-pair',
         ):
             self.assertIn(marker, self.script)
         self.assertNotIn("--workflow-step ey", self.script)
@@ -589,38 +591,30 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES", result.stderr)
 
-    def test_live_mode_requires_one_bounded_operator_approval_handler_before_dependencies(self) -> None:
+    def test_live_mode_rejects_external_permission_inputs_before_dependencies(self) -> None:
         if shutil.which("bash") is None:
             self.skipTest("bash is unavailable on this host")
         environment = os.environ.copy()
         environment.update({
             "P004B_LIVE_AUTHORIZED": "1",
             "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+            "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+            "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
         })
-        environment.pop("P004B_PERMISSION_PROMPT_TOOL", None)
-        missing = subprocess.run(
-            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
-            capture_output=True, text=True, timeout=10, check=False,
-        )
-        self.assertEqual(missing.returncode, 2)
-        self.assertIn("P004B_PERMISSION_PROMPT_TOOL", missing.stderr)
-
-        environment["P004B_PERMISSION_PROMPT_TOOL"] = "mcp__approval__ask --broad"
-        invalid = subprocess.run(
-            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
-            capture_output=True, text=True, timeout=10, check=False,
-        )
-        self.assertEqual(invalid.returncode, 2)
-        self.assertIn("P004B_PERMISSION_PROMPT_TOOL", invalid.stderr)
-
-        environment["P004B_PERMISSION_PROMPT_TOOL"] = "mcp__approval__ask"
-        environment.pop("P004B_PERMISSION_MCP_CONFIG", None)
-        missing_config = subprocess.run(
-            ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=environment,
-            capture_output=True, text=True, timeout=10, check=False,
-        )
-        self.assertEqual(missing_config.returncode, 2)
-        self.assertIn("P004B_PERMISSION_MCP_CONFIG", missing_config.stderr)
+        for name, value in (
+            ("P004B_PERMISSION_PROMPT_TOOL", "mcp__approval__ask"),
+            ("P004B_PERMISSION_MCP_CONFIG", "/tmp/operator.json"),
+            ("P004B_REQUEST_COUNT", "2"),
+        ):
+            with self.subTest(name=name):
+                selected = environment.copy()
+                selected[name] = value
+                result = subprocess.run(
+                    ["bash", str(HARNESS), "--run-live"], cwd=ROOT, env=selected,
+                    capture_output=True, text=True, timeout=10, check=False,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("external permission handlers", result.stderr)
 
     def test_default_self_test_is_provider_free_and_content_free(self) -> None:
         if shutil.which("bash") is None:

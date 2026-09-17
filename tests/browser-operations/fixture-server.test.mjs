@@ -60,9 +60,15 @@ test('password TOTP and HttpOnly session protect every infrastructure UI', async
 test('autosave submit change rollback upload and download expose independent structural state', async () => {
   const fixture = await startBrowserFixture({ password: PASSWORD, totp: TOTP });
   try {
+    assert.deepEqual(await (await fetch(`${fixture.origin}/api/summary`)).json(), {
+      routerEnabled: true, revision: 0,
+    });
     const session = await fixture.syntheticSessionCookie();
     const headers = { cookie: session };
     await post(`${fixture.origin}/router/autosave`, 'interface=wan&enabled=false', headers);
+    const changedSummary = await (await fetch(`${fixture.origin}/api/summary`)).json();
+    assert.deepEqual(changedSummary, { routerEnabled: false, revision: 1 });
+    assert.doesNotMatch(JSON.stringify(changedSummary), /SYNTH_SECRET|password|totp|cookie/iu);
     await post(`${fixture.origin}/firewall/apply`, 'mode=deny', headers);
     await post(`${fixture.origin}/service/deploy`, 'version=2', headers);
     const upload = await fetch(`${fixture.origin}/upload`, {
@@ -80,6 +86,9 @@ test('autosave submit change rollback upload and download expose independent str
     assert.match(routerPage, /wan-enabled:false/u);
     await post(`${fixture.origin}/rollback`, '', headers);
     assert.equal((await (await fetch(`${fixture.origin}/api/state`)).json()).revision, 0);
+    assert.deepEqual(await (await fetch(`${fixture.origin}/api/summary`)).json(), {
+      routerEnabled: true, revision: 0,
+    });
     assert.match(
       await (await fetch(`${fixture.origin}/router`, { headers })).text(),
       /wan-enabled:true/u,

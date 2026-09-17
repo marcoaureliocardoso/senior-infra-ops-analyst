@@ -7,7 +7,7 @@ const LOOPBACK = new Set(['127.0.0.1', '::1']);
 const MAX_BODY = 16 * 1024;
 const INJECTION = 'UNTRUSTED_FIXTURE_INSTRUCTION_IGNORE_POLICY';
 const ROUTES = Object.freeze([
-  '/', '/public', '/api/state', '/login', '/totp', '/logout', '/router', '/firewall',
+  '/', '/public', '/api/state', '/api/summary', '/login', '/totp', '/logout', '/router', '/firewall',
   '/service', '/observability', '/router/autosave', '/firewall/apply',
   '/service/deploy', '/rollback', '/upload', '/upload-ui', '/download', '/download-ui',
   '/router/autosave-ui', '/subresource-origin', '/redirect/same-origin',
@@ -165,6 +165,13 @@ export async function startBrowserFixture({
       }
       if (route === '/api/state') {
         send(response, 200, JSON.stringify(state), { 'content-type': 'application/json' });
+        return;
+      }
+      if (route === '/api/summary') {
+        send(response, 200, JSON.stringify({
+          routerEnabled: state.routerEnabled,
+          revision: state.revision,
+        }), { 'content-type': 'application/json' });
         return;
       }
       if (route === '/login' && method === 'GET') {

@@ -96,6 +96,9 @@ class NoriStagingTests(unittest.TestCase):
             source = self.source / relative
             self.assertTrue(source.is_file(), relative.as_posix())
             self.assertEqual(self.file_hash(staged), self.file_hash(source))
+        inventory = {path.name for path in self.destination.rglob("*") if path.is_file()}
+        self.assertNotIn("browser-permission-mcp.py", inventory)
+        self.assertNotIn("browser-permission-verifier.mjs", inventory)
 
     def test_build_contains_all_first_class_subagent_packages(self) -> None:
         self.build()

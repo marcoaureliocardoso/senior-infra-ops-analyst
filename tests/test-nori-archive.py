@@ -67,6 +67,12 @@ class NoriArchiveTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as archive:
             self.assertEqual(archive.namelist(), expected)
             self.assertNotIn("operator-stale.txt", archive.namelist())
+            self.assertFalse(any(
+                Path(name).name in {
+                    "browser-permission-mcp.py", "browser-permission-verifier.mjs",
+                }
+                for name in archive.namelist()
+            ))
             self.assertEqual(
                 len(
                     [
