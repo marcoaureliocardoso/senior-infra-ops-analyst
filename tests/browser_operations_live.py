@@ -18,7 +18,7 @@ from typing import Any
 AGGREGATE_FIELDS = {
     "status", "reasonCode", "observedRuntime", "capabilityState", "guardProof",
     "routeClass", "workflow", "roleCount", "toolCalls", "hookEvents", "context",
-    "cleanup",
+    "cleanup", "permission",
 }
 RUNTIME_FIELDS = {"claude", "provider", "model", "adapter"}
 WORKFLOW_FIELDS = {
@@ -38,15 +38,22 @@ CAPABILITY_STATES = {
 TOOL_SEARCH_MODES = {"available-used", "available-unused", "unavailable"}
 ROUTE_CLASSES = {
     "legacy-read-only-multi-command", "workflow-incomplete", "persistent-one-shot",
+    "workflow-denied",
 }
 OBSERVATION_STATES = {"completed", "not-observed"}
 WORKFLOW_OUTCOMES = {
     "WORKFLOW_VALIDATED", "WORKFLOW_NOT_APPLIED", "OUTCOME_UNKNOWN", "NOT_OBSERVED",
 }
 WORKFLOW_EVIDENCE_FIELDS = {
-    "operationId", "expectedEffect", "executionSteps", "validationSteps", "authenticationRequested",
+    "operationId", "sessionId", "invocationFingerprint", "expectedEffect", "executionSteps", "validationSteps", "authenticationRequested",
     "mutationRequested", "validationRequested",
 }
+PERMISSION_FIELDS = {"mode", "allow", "deny", "callCount"}
+PERMISSION_SIGNAL_FIELDS = {
+    "schemaVersion", "runNonce", "phase", "decision", "callCount",
+    "invocationFingerprint", "verified", "inputUnchanged",
+}
+FIXTURE_OBSERVATION_FIELDS = {"enabled", "revision"}
 SHELL_CONTROL = re.compile(r"[\r\n\0;&|<>`]|\$\(")
 EXPECTED_ASK_REASON = (
     "ASK_SENSITIVE_OPERATION: stage 1 "
@@ -543,6 +550,19 @@ def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> di
             raise ValueError("invalid workflow observation")
     if workflow["outcome"] not in WORKFLOW_OUTCOMES:
         raise ValueError("invalid workflow outcome")
+    permission = _exact(result["permission"], PERMISSION_FIELDS, "permission")
+    if (permission["mode"] != "synthetic-deterministic"
+            or permission["allow"] not in {"completed", "not-observed"}
+            or permission["deny"] not in {"completed", "not-observed"}
+            or not isinstance(permission["callCount"], int)
+            or isinstance(permission["callCount"], bool)
+            or not 0 <= permission["callCount"] <= 2):
+        raise ValueError("invalid permission evidence")
+    expected_permission_calls = sum(
+        permission[field] == "completed" for field in ("allow", "deny")
+    )
+    if permission["callCount"] != expected_permission_calls:
+        raise ValueError("incoherent permission call count")
     if (not isinstance(result["roleCount"], int) or isinstance(result["roleCount"], bool)
             or not 0 <= result["roleCount"] <= 12):
         raise ValueError("invalid role count")
@@ -562,8 +582,12 @@ def validate_aggregate(value: Any, *, allow_pending_cleanup: bool = False) -> di
         or workflow["validationSteps"] < 1
         or workflow["outcome"] != "WORKFLOW_VALIDATED"
         or not completed
-        or result["toolCalls"] < 2
-        or result["hookEvents"] < 2
+        or result["toolCalls"] < 4
+        or result["hookEvents"] < 3
+        or permission != {
+            "mode": "synthetic-deterministic", "allow": "completed",
+            "deny": "completed", "callCount": 2,
+        }
     ):
         raise ValueError("passing result lacks active runtime proof")
     if result["capabilityState"] == "ACTIVE" and result["status"] != "pass":
@@ -658,6 +682,11 @@ def _workflow_command(command: Any) -> dict[str, Any] | None:
         return None
     if (not isinstance(observed["operationId"], str)
             or not LABEL.fullmatch(observed["operationId"])):
+        return None
+    if (not isinstance(observed["sessionId"], str)
+            or not LABEL.fullmatch(observed["sessionId"])
+            or not isinstance(observed["invocationFingerprint"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", observed["invocationFingerprint"])):
         return None
     if observed["expectedEffect"] not in {
         "PUBLIC_READ", "SENSITIVE_READ", "INTERACTIVE_STATE", "LOW_RISK_CHANGE",
@@ -819,6 +848,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                                 "invalid": (
                                     orphan_expected_hook or bash_tool_uses != 1
                                     or identity is None
+                                    or observation["sessionId"] != (identity[0] if identity else None)
                                 ),
                                 "outcome": "NOT_OBSERVED",
                                 "toolSessionId": identity[0] if identity else None,
@@ -930,6 +960,8 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
         "workflowMutation": "not-observed",
         "workflowValidation": "not-observed",
         "workflowOutcome": "NOT_OBSERVED",
+        "operationId": None,
+        "invocationFingerprint": None,
     }
     if workflow_calls:
         observed = next(iter(workflow_calls.values()))
@@ -954,6 +986,8 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
             "workflowMutation": "completed" if complete else "not-observed",
             "workflowValidation": "completed" if complete else "not-observed",
             "workflowOutcome": outcome,
+            "operationId": observed["operationId"],
+            "invocationFingerprint": observed["invocationFingerprint"],
         }
     workflow_session_ids = []
     if workflow_observation["routeClass"] == "persistent-one-shot":
@@ -974,6 +1008,220 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     return {"status": "pass", "reasonCode": "STRUCTURAL_RESULT", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": workflow_session_ids, **workflow_observation}
 
 
+def load_permission_signal(
+    path: Path, expected_phase: str, expected_nonce: str,
+    expected_fingerprint: str,
+) -> dict[str, Any] | None:
+    value = _load_private_json(path, 4096)
+    if value is None:
+        return None
+    try:
+        signal = _exact(value, PERMISSION_SIGNAL_FIELDS, "permission signal")
+        if (signal["schemaVersion"] != 1 or isinstance(signal["schemaVersion"], bool)
+                or signal["runNonce"] != _label(expected_nonce)
+                or signal["phase"] != expected_phase
+                or signal["decision"] != expected_phase
+                or signal["callCount"] != 1 or isinstance(signal["callCount"], bool)
+                or signal["invocationFingerprint"] != expected_fingerprint
+                or not re.fullmatch(r"[0-9a-f]{64}", expected_fingerprint)
+                or signal["verified"] is not True
+                or signal["inputUnchanged"] is not True):
+            return None
+        return signal
+    except ValueError:
+        return None
+
+
+def _invalid_permission_sample(sample: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **sample,
+        "status": "inconclusive",
+        "reasonCode": "PERMISSION_INCONCLUSIVE",
+        "routeClass": "workflow-incomplete",
+        "guardProof": "exact-deny",
+        "workflowAuthentication": "not-observed",
+        "workflowMutation": "not-observed",
+        "workflowValidation": "not-observed",
+        "workflowSessionIds": [],
+        "permissionPhase": None,
+        "permissionDecision": None,
+        "permissionCallCount": 0,
+    }
+
+
+def evaluate_allowed_stream(
+    path: Path, canary: str, signal_path: Path,
+    expected_nonce: str, expected_session: str,
+) -> dict[str, Any]:
+    sample = evaluate_stream(path, canary)
+    fingerprint = sample.get("invocationFingerprint")
+    if (sample.get("status") != "pass"
+            or sample.get("routeClass") != "persistent-one-shot"
+            or sample.get("workflowSessionIds") != [_label(expected_session)]
+            or not isinstance(fingerprint, str)
+            or load_permission_signal(
+                signal_path, "allow", expected_nonce, fingerprint,
+            ) is None):
+        return _invalid_permission_sample(sample)
+    return {
+        **sample,
+        "permissionPhase": "allow",
+        "permissionDecision": "allow",
+        "permissionCallCount": 1,
+    }
+
+
+def _permission_pre_decision(value: dict[str, Any]) -> str | None:
+    stdout = value.get("stdout")
+    if (not isinstance(stdout, str) or len(stdout) > 4096
+            or value.get("output") != stdout or value.get("stderr") != ""):
+        return None
+    try:
+        parsed = _exact(json.loads(stdout), {"hookSpecificOutput"}, "hook response")
+        hook = _exact(parsed["hookSpecificOutput"], {
+            "hookEventName", "permissionDecision", "permissionDecisionReason",
+        }, "hook decision")
+    except (ValueError, json.JSONDecodeError):
+        return None
+    if (hook.get("hookEventName") != "PreToolUse"
+            or hook.get("permissionDecisionReason") != EXPECTED_ASK_REASON):
+        return None
+    decision = hook.get("permissionDecision")
+    return decision if decision in {"allow", "ask", "deny"} else None
+
+
+def evaluate_denied_stream(
+    path: Path, canary: str, signal_path: Path,
+    expected_nonce: str, expected_session: str,
+) -> dict[str, Any]:
+    empty = {
+        "status": "inconclusive", "reasonCode": "DENY_STREAM_INCONCLUSIVE",
+        "toolCalls": 0, "hookEvents": 0, "roleLabels": [],
+        "contextPercentages": [], "workflowSessionIds": [],
+        "routeClass": "workflow-incomplete", "guardProof": "exact-deny",
+        "workflowExecutionSteps": 0, "workflowValidationSteps": 0,
+        "workflowAuthentication": "not-observed", "workflowMutation": "not-observed",
+        "workflowValidation": "not-observed", "workflowOutcome": "NOT_OBSERVED",
+        "operationId": None, "invocationFingerprint": None,
+        "permissionPhase": None, "permissionDecision": None, "permissionCallCount": 0,
+    }
+    try:
+        _label(expected_session)
+        _label(expected_nonce)
+        if not path.is_file() or not 1 <= path.stat().st_size <= 5_000_000:
+            return empty
+        state = "before"
+        call_id = None
+        hook_id = None
+        observation = None
+        tool_calls = 0
+        hook_events = 0
+        malformed = False
+        with path.open("r", encoding="utf-8") as stream:
+            for line in stream:
+                if canary and canary in line:
+                    return {**empty, "status": "fail", "reasonCode": "CANARY_EXPOSED"}
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    malformed = True
+                    continue
+                if not isinstance(event, dict):
+                    malformed = True
+                    continue
+                for value, provenance in _stream_records(event):
+                    event_type = value.get("type")
+                    if event_type == "system" and value.get("subtype") == "init" and state == "before":
+                        continue
+                    if event_type == "tool_use":
+                        tool_calls += 1
+                        identity = (provenance.get("sessionId"), provenance.get("parentToolUseId"))
+                        tool_input = value.get("input")
+                        parsed = _workflow_command(
+                            tool_input.get("command") if isinstance(tool_input, dict) else None
+                        )
+                        if (state != "before" or value.get("name") != "Bash"
+                                or not isinstance(value.get("id"), str)
+                                or not LABEL.fullmatch(value["id"])
+                                or identity != (expected_session, None)
+                                or parsed is None or parsed["sessionId"] != expected_session):
+                            malformed = True
+                        else:
+                            call_id = value["id"]
+                            observation = parsed
+                            state = "tool-use"
+                    elif event_type == "system" and value.get("subtype") == "hook_started":
+                        if (state != "tool-use" or value.get("hook_event") != "PreToolUse"
+                                or value.get("hook_name") != "PreToolUse:Bash"
+                                or value.get("session_id") != expected_session
+                                or not isinstance(value.get("hook_id"), str)
+                                or not LABEL.fullmatch(value["hook_id"])):
+                            malformed = True
+                        else:
+                            hook_id = value["hook_id"]
+                            state = "pre-started"
+                    elif event_type == "system" and value.get("subtype") == "hook_response":
+                        hook_events += 1
+                        if (state != "pre-started" or value.get("hook_id") != hook_id
+                                or value.get("hook_event") != "PreToolUse"
+                                or value.get("hook_name") != "PreToolUse:Bash"
+                                or value.get("session_id") != expected_session
+                                or value.get("outcome") != "success"
+                                or value.get("exit_code") not in {None, 0}
+                                or _permission_pre_decision(value) != "ask"):
+                            malformed = True
+                        else:
+                            state = "asked"
+                    elif event_type == "tool_result":
+                        tool_calls += 1
+                        content = value.get("content")
+                        identity = (provenance.get("sessionId"), provenance.get("parentToolUseId"))
+                        structured = None
+                        if isinstance(content, str) and len(content) <= 4096:
+                            try:
+                                structured = json.loads(content)
+                            except json.JSONDecodeError:
+                                pass
+                        if (state != "asked" or value.get("tool_use_id") != call_id
+                                or value.get("is_error") is not True
+                                or identity != (expected_session, None)
+                                or not isinstance(content, str) or not 1 <= len(content) <= 4096
+                                or isinstance(structured, (dict, list))):
+                            malformed = True
+                        else:
+                            state = "denied"
+                    elif event_type == "result":
+                        if (state != "denied" or value.get("subtype") != "success"
+                                or value.get("is_error") is not False
+                                or value.get("session_id") != expected_session):
+                            malformed = True
+                        else:
+                            state = "terminal"
+                    elif state == "terminal" or event_type in {"tool_use", "tool_result"}:
+                        malformed = True
+        if (malformed or state != "terminal" or observation is None
+                or tool_calls != 2 or hook_events != 1):
+            return {**empty, "toolCalls": tool_calls, "hookEvents": hook_events}
+        fingerprint = observation["invocationFingerprint"]
+        if load_permission_signal(signal_path, "deny", expected_nonce, fingerprint) is None:
+            return {**empty, "toolCalls": tool_calls, "hookEvents": hook_events}
+        return {
+            **empty,
+            "status": "pass", "reasonCode": "STRUCTURAL_DENIAL",
+            "toolCalls": tool_calls, "hookEvents": hook_events,
+            "workflowSessionIds": [expected_session],
+            "routeClass": "workflow-denied", "guardProof": "exact-native-denial",
+            "workflowExecutionSteps": observation["executionSteps"],
+            "workflowValidationSteps": observation["validationSteps"],
+            "operationId": observation["operationId"],
+            "invocationFingerprint": fingerprint,
+            "permissionPhase": "deny", "permissionDecision": "deny",
+            "permissionCallCount": 1,
+        }
+    except (OSError, UnicodeError, ValueError):
+        return empty
+
+
 def _exact_workflow_sessions(samples: list[dict[str, Any]]) -> set[str] | None:
     observed: list[str] = []
     for sample in samples:
@@ -989,6 +1237,8 @@ def _exact_workflow_sessions(samples: list[dict[str, Any]]) -> set[str] | None:
 def aggregate_results(
     runtime: dict[str, str], samples: list[dict[str, Any]], *,
     measurement: dict[str, Any] | None = None, expected_nonce: str | None = None,
+    fixture_before: dict[str, Any] | None = None,
+    fixture_after: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     for value in runtime.values():
         _label(value)
@@ -1016,35 +1266,96 @@ def aggregate_results(
         trusted_measurement["toolSearch"]["mode"]
         if trusted_measurement is not None else "unavailable"
     )
-    workflow_samples = [
-        sample for sample in samples
-        if sample.get("routeClass") in {"persistent-one-shot", "workflow-incomplete"}
-    ]
-    completed_workflows = [
-        sample for sample in workflow_samples
-        if sample.get("routeClass") == "persistent-one-shot"
+    workflow_samples = [sample for sample in samples if sample.get("routeClass") in {
+        "persistent-one-shot", "workflow-incomplete", "workflow-denied",
+    }]
+    completed_workflows = [sample for sample in workflow_samples if (
+        sample.get("routeClass") == "persistent-one-shot"
         and sample.get("guardProof") == "exact-native-approval"
         and sample.get("workflowOutcome") == "WORKFLOW_VALIDATED"
         and all(sample.get(field) == "completed" for field in (
             "workflowAuthentication", "workflowMutation", "workflowValidation",
         ))
-    ]
-    persistent = (
-        statuses == {"pass"}
-        and len(workflow_samples) == len(samples)
-        and len(completed_workflows) == len(samples)
+    )]
+    permission = {
+        "mode": "synthetic-deterministic",
+        "allow": "completed" if sum(
+            sample.get("permissionPhase") == "allow"
+            and sample.get("permissionDecision") == "allow"
+            and sample.get("permissionCallCount") == 1 for sample in samples
+        ) == 1 else "not-observed",
+        "deny": "completed" if sum(
+            sample.get("permissionPhase") == "deny"
+            and sample.get("permissionDecision") == "deny"
+            and sample.get("permissionCallCount") == 1 for sample in samples
+        ) == 1 else "not-observed",
+        "callCount": 0,
+    }
+    permission["callCount"] = sum(
+        permission[field] == "completed" for field in ("allow", "deny")
     )
+
+    def fixture_observation(value: Any) -> dict[str, Any] | None:
+        try:
+            observed = _exact(value, FIXTURE_OBSERVATION_FIELDS, "fixture observation")
+        except ValueError:
+            return None
+        if (type(observed["enabled"]) is not bool
+                or not isinstance(observed["revision"], int)
+                or isinstance(observed["revision"], bool)
+                or not 0 <= observed["revision"] <= 1_000_000):
+            return None
+        return observed
+
+    before = fixture_observation(fixture_before)
+    after = fixture_observation(fixture_after)
+    allow_sample = samples[0] if len(samples) == 2 else None
+    deny_sample = samples[1] if len(samples) == 2 else None
+    distinct_bindings = bool(
+        allow_sample and deny_sample
+        and allow_sample.get("workflowSessionIds") != deny_sample.get("workflowSessionIds")
+        and allow_sample.get("operationId") != deny_sample.get("operationId")
+        and allow_sample.get("invocationFingerprint") != deny_sample.get("invocationFingerprint")
+        and all(isinstance(sample.get("operationId"), str) for sample in (allow_sample, deny_sample))
+        and all(re.fullmatch(r"[0-9a-f]{64}", sample.get("invocationFingerprint", "")) for sample in (allow_sample, deny_sample))
+    )
+    permission_pair = bool(
+        statuses == {"pass"}
+        and allow_sample and deny_sample
+        and allow_sample.get("permissionPhase") == "allow"
+        and allow_sample.get("permissionDecision") == "allow"
+        and allow_sample.get("permissionCallCount") == 1
+        and allow_sample in completed_workflows
+        and deny_sample.get("permissionPhase") == "deny"
+        and deny_sample.get("permissionDecision") == "deny"
+        and deny_sample.get("permissionCallCount") == 1
+        and deny_sample.get("routeClass") == "workflow-denied"
+        and deny_sample.get("guardProof") == "exact-native-denial"
+        and deny_sample.get("workflowOutcome") == "NOT_OBSERVED"
+        and all(deny_sample.get(field) == "not-observed" for field in (
+            "workflowAuthentication", "workflowMutation", "workflowValidation",
+        ))
+        and distinct_bindings
+        and before is not None and before == after
+        and permission == {
+            "mode": "synthetic-deterministic", "allow": "completed",
+            "deny": "completed", "callCount": 2,
+        }
+    )
+    persistent = permission_pair
     route_class = (
-        "persistent-one-shot" if persistent else
+        "persistent-one-shot" if persistent or (
+            len(samples) == 1 and len(completed_workflows) == 1
+        ) else
         "workflow-incomplete" if workflow_samples else
         "legacy-read-only-multi-command"
     )
     guard_proof = (
-        "exact-native-approval" if persistent else
+        "exact-native-approval" if persistent or completed_workflows else
         "exact-bound-read" if any(sample.get("guardProof") == "exact-bound-read" for sample in samples)
         else "exact-deny"
     )
-    workflow_outcome = "WORKFLOW_VALIDATED" if persistent else (
+    workflow_outcome = "WORKFLOW_VALIDATED" if completed_workflows else (
         "OUTCOME_UNKNOWN" if workflow_samples and (
             statuses != {"pass"} or any(
                 sample.get("workflowOutcome") == "OUTCOME_UNKNOWN"
@@ -1052,22 +1363,23 @@ def aggregate_results(
             )
         ) else "NOT_OBSERVED"
     )
+    completed = completed_workflows[0] if len(completed_workflows) == 1 else None
     workflow = {
-        "executionSteps": sum(
+        "executionSteps": completed.get("workflowExecutionSteps", 0) if completed else sum(
             sample.get("workflowExecutionSteps", 0) for sample in workflow_samples
         ),
-        "validationSteps": sum(
+        "validationSteps": completed.get("workflowValidationSteps", 0) if completed else sum(
             sample.get("workflowValidationSteps", 0) for sample in workflow_samples
         ),
-        "authentication": "completed" if persistent else "not-observed",
-        "mutation": "completed" if persistent else "not-observed",
-        "validation": "completed" if persistent else "not-observed",
+        "authentication": "completed" if completed else "not-observed",
+        "mutation": "completed" if completed else "not-observed",
+        "validation": "completed" if completed else "not-observed",
         "outcome": workflow_outcome,
     }
     if "fail" in statuses:
         status, reason, capability = "fail", "BOUNDARY_FAILURE", "OUTCOME_UNKNOWN"
-    elif (not persistent or "inconclusive" in statuses or len(percentages) < 5 or tool_calls < 2
-          or hook_events < 2 or role_count != 12):
+    elif (not persistent or "inconclusive" in statuses or len(percentages) < 5 or tool_calls < 4
+          or hook_events < 3 or role_count != 12):
         reason = "LEGACY_READ_ONLY_ONLY" if not workflow_samples else "RUNTIME_INCONCLUSIVE"
         status, capability = "inconclusive", (
             "OUTCOME_UNKNOWN" if workflow_outcome == "OUTCOME_UNKNOWN" else
@@ -1095,6 +1407,7 @@ def aggregate_results(
             "toolSearchMode": tool_search_mode,
         },
         "cleanup": "pending",
+        "permission": permission,
     }, allow_pending_cleanup=True)
 
 
@@ -1129,6 +1442,16 @@ def main(argv: list[str]) -> int:
         result = evaluate_stream(Path(argv[1]), argv[2])
         Path(argv[3]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
         return 0
+    if len(argv) == 7 and argv[0] in {"--evaluate-allow-stream", "--evaluate-deny-stream"}:
+        evaluator = (
+            evaluate_allowed_stream if argv[0] == "--evaluate-allow-stream"
+            else evaluate_denied_stream
+        )
+        result = evaluator(
+            Path(argv[1]), argv[2], Path(argv[3]), argv[4], argv[5],
+        )
+        Path(argv[6]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
+        return 0
     if len(argv) == 6 and argv[0] == "--evaluate-measurement-stream":
         result = evaluate_measurement_stream(
             Path(argv[1]), argv[2], argv[3], argv[4],
@@ -1158,6 +1481,22 @@ def main(argv: list[str]) -> int:
         ) if workflow_sessions is not None else None
         print(json.dumps(aggregate_results(
             runtime, samples, measurement=measurement, expected_nonce=argv[2],
+        ), separators=(",", ":")))
+        return 0
+    if len(argv) == 11 and argv[0] == "--aggregate-pair":
+        runtime = {
+            "claude": argv[5], "provider": argv[6], "model": argv[7], "adapter": argv[8],
+        }
+        samples = [json.loads(Path(name).read_text(encoding="utf-8")) for name in argv[9:11]]
+        workflow_sessions = _exact_workflow_sessions(samples)
+        measurement = load_trusted_measurement(
+            Path(argv[1]), argv[2], workflow_sessions,
+        ) if workflow_sessions is not None else None
+        before = _load_private_json(Path(argv[3]), 4096)
+        after = _load_private_json(Path(argv[4]), 4096)
+        print(json.dumps(aggregate_results(
+            runtime, samples, measurement=measurement, expected_nonce=argv[2],
+            fixture_before=before, fixture_after=after,
         ), separators=(",", ":")))
         return 0
     if len(argv) == 3 and argv[0] == "--finalize-cleanup":

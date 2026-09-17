@@ -226,12 +226,15 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         return command
 
     @classmethod
-    def _trusted_measurement(cls, nonce: str = "p004b-run-001") -> dict[str, object]:
+    def _trusted_measurement(
+        cls, nonce: str = "p004b-run-001",
+        workflow_sessions: list[str] | None = None,
+    ) -> dict[str, object]:
         context_session = "context-main-001"
         return {
             "schemaVersion": 1,
             "runNonce": nonce,
-            "workflowSessionIds": ["session-live-browser-001"],
+            "workflowSessionIds": workflow_sessions or ["session-live-browser-001"],
             "roleProbes": [
                 {
                     "role": role, "sessionId": f"role-session-{index + 1}",
@@ -346,6 +349,233 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def _denied_stream(self, path: Path, command: str) -> None:
+        session = "session-live-browser-deny-001"
+        pre_output = json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse", "permissionDecision": "ask",
+                "permissionDecisionReason": (
+                    "ASK_SENSITIVE_OPERATION: stage 1 "
+                    "BROWSER_PROTECTED_RUNNER/LOW_RISK_CHANGE. Operator confirmation "
+                    "is required before execution. Sensitive values are redacted."
+                ),
+            },
+        })
+        events = [
+            {"type": "tool_use", "id": "workflow-deny-tool-1", "name": "Bash",
+             "session_id": session, "parent_tool_use_id": None,
+             "input": {"command": command}},
+            {"type": "system", "subtype": "hook_started", "hook_id": "deny-pre-hook-1",
+             "hook_name": "PreToolUse:Bash", "hook_event": "PreToolUse",
+             "uuid": "deny-pre-start", "session_id": session},
+            {"type": "system", "subtype": "hook_response", "hook_id": "deny-pre-hook-1",
+             "hook_name": "PreToolUse:Bash", "hook_event": "PreToolUse",
+             "output": pre_output, "stdout": pre_output, "stderr": "", "exit_code": 0,
+             "outcome": "success", "uuid": "deny-pre-response", "session_id": session},
+            {"type": "tool_result", "tool_use_id": "workflow-deny-tool-1",
+             "session_id": session, "parent_tool_use_id": None,
+             "is_error": True, "content": "Permission denied"},
+            {"type": "result", "subtype": "success", "is_error": False,
+             "session_id": session, "result": "discarded"},
+        ]
+        path.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
+
+    @staticmethod
+    def _permission_signal(
+        path: Path, phase: str, fingerprint: str, operation_id: str,
+    ) -> None:
+        del operation_id
+        path.write_text(json.dumps({
+            "schemaVersion": 1, "runNonce": "p004b-run-001", "phase": phase,
+            "decision": phase, "callCount": 1,
+            "invocationFingerprint": fingerprint,
+            "verified": True, "inputUnchanged": True,
+        }, separators=(",", ":")) + "\n", encoding="utf-8")
+        os.chmod(path, 0o600)
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_ordered_allow_then_deny_unlocks_active_without_claiming_human_approval(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import (  # noqa: PLC0415
+            _workflow_command, aggregate_results, evaluate_allowed_stream,
+            evaluate_denied_stream,
+        )
+
+        runtime = {"claude": "observed", "provider": "observed", "model": "observed", "adapter": "playwright"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            allow_stream, deny_stream = root / "allow.jsonl", root / "deny.jsonl"
+            allow_signal, deny_signal = root / "allow.signal", root / "deny.signal"
+            allow_command = self._workflow_command()
+            deny_command = allow_command.replace("op-live-browser-001", "op-live-browser-deny-001").replace(
+                "session-live-browser-001", "session-live-browser-deny-001",
+            )
+            self._workflow_stream(allow_stream, command=allow_command)
+            self._denied_stream(deny_stream, deny_command)
+            allow_evidence = _workflow_command(allow_command)
+            deny_evidence = _workflow_command(deny_command)
+            assert allow_evidence is not None and deny_evidence is not None
+            self._permission_signal(allow_signal, "allow", allow_evidence["invocationFingerprint"], allow_evidence["operationId"])
+            self._permission_signal(deny_signal, "deny", deny_evidence["invocationFingerprint"], deny_evidence["operationId"])
+            allow = evaluate_allowed_stream(allow_stream, "P004B_TEST_CANARY", allow_signal, "p004b-run-001", "session-live-browser-001")
+            deny = evaluate_denied_stream(deny_stream, "P004B_TEST_CANARY", deny_signal, "p004b-run-001", "session-live-browser-deny-001")
+            wrong_allow_signal = root / "allow-wrong-phase.signal"
+            self._permission_signal(
+                wrong_allow_signal, "deny", allow_evidence["invocationFingerprint"],
+                allow_evidence["operationId"],
+            )
+            self.assertNotEqual(evaluate_allowed_stream(
+                allow_stream, "P004B_TEST_CANARY", wrong_allow_signal,
+                "p004b-run-001", "session-live-browser-001",
+            )["status"], "pass")
+            result = aggregate_results(
+                runtime, [allow, deny],
+                measurement=self._trusted_measurement(workflow_sessions=[
+                    "session-live-browser-001", "session-live-browser-deny-001",
+                ]),
+                expected_nonce="p004b-run-001",
+                fixture_before={"enabled": False, "revision": 1},
+                fixture_after={"enabled": False, "revision": 1},
+            )
+        self.assertEqual(result["permission"], {
+            "mode": "synthetic-deterministic", "allow": "completed",
+            "deny": "completed", "callCount": 2,
+        })
+        self.assertEqual(result["capabilityState"], "ACTIVE")
+        self.assertEqual(result["workflow"]["outcome"], "WORKFLOW_VALIDATED")
+        self.assertNotIn("human", json.dumps(result).lower())
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_permission_pair_rejects_reordering_reuse_and_changed_state(self) -> None:
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import aggregate_results  # noqa: PLC0415
+
+        runtime = {"claude": "observed", "provider": "observed", "model": "observed", "adapter": "playwright"}
+        allow = {
+            "status": "pass", "permissionPhase": "allow", "permissionDecision": "allow",
+            "permissionCallCount": 1, "invocationFingerprint": "a" * 64,
+            "operationId": "allow-op", "workflowSessionIds": ["allow-session"],
+            "routeClass": "persistent-one-shot", "guardProof": "exact-native-approval",
+            "workflowOutcome": "WORKFLOW_VALIDATED", "workflowExecutionSteps": 8,
+            "workflowValidationSteps": 7, "workflowAuthentication": "completed",
+            "workflowMutation": "completed", "workflowValidation": "completed",
+            "toolCalls": 4, "hookEvents": 3,
+        }
+        deny = {
+            "status": "pass", "permissionPhase": "deny", "permissionDecision": "deny",
+            "permissionCallCount": 1, "invocationFingerprint": "b" * 64,
+            "operationId": "deny-op", "workflowSessionIds": ["deny-session"],
+            "routeClass": "workflow-denied", "guardProof": "exact-native-denial",
+            "workflowOutcome": "NOT_OBSERVED", "workflowExecutionSteps": 7,
+            "workflowValidationSteps": 7, "workflowAuthentication": "not-observed",
+            "workflowMutation": "not-observed", "workflowValidation": "not-observed",
+            "toolCalls": 2, "hookEvents": 1,
+        }
+        measurement = self._trusted_measurement(workflow_sessions=["allow-session", "deny-session"])
+        variants = [
+            ([deny, allow], 1),
+            ([allow, {**deny, "workflowSessionIds": ["allow-session"]}], 1),
+            ([allow, {**deny, "operationId": "allow-op"}], 1),
+            ([allow, {**deny, "invocationFingerprint": "a" * 64}], 1),
+            ([allow, {**deny, "permissionDecision": "allow"}], 1),
+            ([allow, {**deny, "permissionCallCount": 2}], 1),
+            ([allow, deny], 2),
+            ([allow, deny], None),
+        ]
+        for samples, final_revision in variants:
+            with self.subTest(samples=samples, final_revision=final_revision):
+                result = aggregate_results(
+                    runtime, samples, measurement=measurement,
+                    expected_nonce="p004b-run-001",
+                    fixture_before={"enabled": False, "revision": 1},
+                    fixture_after=(
+                        {"enabled": False, "revision": final_revision}
+                        if final_revision is not None else None
+                    ),
+                )
+                self.assertNotEqual(result["capabilityState"], "ACTIVE")
+                self.assertNotEqual(result["status"], "pass")
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_denied_stream_rejects_post_hooks_runner_output_later_activity_and_bad_signals(self) -> None:
+        import copy
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import _workflow_command, evaluate_denied_stream  # noqa: PLC0415
+
+        command = self._workflow_command().replace("op-live-browser-001", "op-live-browser-deny-001").replace(
+            "session-live-browser-001", "session-live-browser-deny-001",
+        )
+        session = "session-live-browser-deny-001"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base = root / "base.jsonl"
+            signal = root / "deny.signal"
+            self._denied_stream(base, command)
+            evidence = _workflow_command(command)
+            assert evidence is not None
+            self._permission_signal(signal, "deny", evidence["invocationFingerprint"], evidence["operationId"])
+            events = [json.loads(line) for line in base.read_text(encoding="utf-8").splitlines()]
+            mutations: dict[str, list[dict[str, object]]] = {}
+            post = copy.deepcopy(events)
+            post.insert(-1, {
+                "type": "system", "subtype": "hook_started", "hook_id": "late-post",
+                "hook_name": "PostToolUse:Bash", "hook_event": "PostToolUse",
+                "session_id": session,
+            })
+            mutations["post-hook"] = post
+            runner = copy.deepcopy(events)
+            runner.insert(-1, {
+                "type": "tool_result", "tool_use_id": "workflow-deny-tool-1",
+                "session_id": session, "parent_tool_use_id": None, "is_error": False,
+                "content": json.dumps({"reasonCode": "WORKFLOW_VALIDATED"}),
+            })
+            mutations["runner-output"] = runner
+            late = copy.deepcopy(events)
+            late.insert(-1, {
+                "type": "tool_use", "id": "late-bash", "name": "Bash",
+                "session_id": session, "parent_tool_use_id": None,
+                "input": {"command": command},
+            })
+            mutations["later-bash"] = late
+            for name, mutated in mutations.items():
+                with self.subTest(name=name):
+                    stream = root / f"{name}.jsonl"
+                    stream.write_text("".join(json.dumps(event) + "\n" for event in mutated), encoding="utf-8")
+                    result = evaluate_denied_stream(
+                        stream, "P004B_TEST_CANARY", signal, "p004b-run-001", session,
+                    )
+                    self.assertNotEqual(result["status"], "pass")
+
+            bad_signal = root / "bad.signal"
+            self._permission_signal(bad_signal, "allow", evidence["invocationFingerprint"], evidence["operationId"])
+            self.assertNotEqual(evaluate_denied_stream(
+                base, "P004B_TEST_CANARY", bad_signal, "p004b-run-001", session,
+            )["status"], "pass")
+            wrong_fingerprint = root / "wrong.signal"
+            self._permission_signal(wrong_fingerprint, "deny", "f" * 64, evidence["operationId"])
+            self.assertNotEqual(evaluate_denied_stream(
+                base, "P004B_TEST_CANARY", wrong_fingerprint, "p004b-run-001", session,
+            )["status"], "pass")
+            malformed = root / "malformed.signal"
+            malformed.write_text("{}\n", encoding="utf-8")
+            os.chmod(malformed, 0o600)
+            self.assertNotEqual(evaluate_denied_stream(
+                base, "P004B_TEST_CANARY", malformed, "p004b-run-001", session,
+            )["status"], "pass")
+            linked = root / "linked.signal"
+            linked.symlink_to(signal)
+            self.assertNotEqual(evaluate_denied_stream(
+                base, "P004B_TEST_CANARY", linked, "p004b-run-001", session,
+            )["status"], "pass")
+
     def test_active_mode_without_authorization_stops_before_dependencies(self) -> None:
         if shutil.which("bash") is None:
             self.skipTest("bash is unavailable on this host")
@@ -423,12 +653,16 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 "authentication": "completed", "mutation": "completed",
                 "validation": "completed", "outcome": "WORKFLOW_VALIDATED",
             },
-            "toolCalls": 2, "hookEvents": 2,
+            "toolCalls": 4, "hookEvents": 3,
             "context": {
                 "before": 1, "afterSkill": 2, "afterSubagent": 3,
                 "afterDiscovery": 4, "afterUse": 5, "toolSearchMode": "available-used",
             },
             "cleanup": "verified",
+            "permission": {
+                "mode": "synthetic-deterministic", "allow": "completed",
+                "deny": "completed", "callCount": 2,
+            },
         }
         self.assertEqual(validate_aggregate(value), value)
         for mutation in (
@@ -514,8 +748,8 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         active = aggregate_results(
             runtime, [sample], measurement=measurement, expected_nonce="p004b-run-001",
         )
-        self.assertEqual(active["status"], "pass")
-        self.assertEqual(active["capabilityState"], "ACTIVE")
+        self.assertEqual(active["status"], "inconclusive")
+        self.assertNotEqual(active["capabilityState"], "ACTIVE")
         self.assertEqual(active["roleCount"], 12)
         self.assertEqual(active["context"], {
             "before": 1, "afterSkill": 2, "afterSubagent": 3,
@@ -679,7 +913,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             )
             self.assertEqual(aggregated.returncode, 0, aggregated.stderr)
             result = json.loads(aggregated.stdout)
-            self.assertEqual(result["status"], "pass")
+            self.assertEqual(result["status"], "inconclusive")
             self.assertEqual(result["roleCount"], 12)
 
     def test_parent_parser_reduces_measurement_streams_to_structural_signals(self) -> None:

@@ -12,6 +12,8 @@ try {
   if (request.step !== 'workflow') process.exit(2);
   const result = {
     operationId: request.operationId,
+    sessionId: request.envelope.sessionId,
+    invocationFingerprint: request.invocationFingerprint,
     expectedEffect: request.envelope.expectedEffect,
     executionSteps: request.executionSteps.length,
     validationSteps: request.validationSteps.length,
