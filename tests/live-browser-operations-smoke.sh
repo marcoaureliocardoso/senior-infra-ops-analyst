@@ -219,8 +219,15 @@ fi
 
 python3 "$ROOT/scripts/build_nori_staging.py" --source "$ROOT" --destination "$STAGING"
 LINK_NAME='p0-04b-live'
-PROFILE_NAME='personal/p0-04b-live'
 "$NORI_BIN" --non-interactive link "$STAGING" --name "$LINK_NAME"
+if [[ -e "$HOME/.nori/profiles/$LINK_NAME" || -L "$HOME/.nori/profiles/$LINK_NAME" ]]; then
+  PROFILE_NAME="$LINK_NAME"
+elif [[ -e "$HOME/.nori/profiles/personal/$LINK_NAME" \
+    || -L "$HOME/.nori/profiles/personal/$LINK_NAME" ]]; then
+  PROFILE_NAME="personal/$LINK_NAME"
+else
+  blocked 'Nori linked profile layout is unrecognized'
+fi
 "$NORI_BIN" --non-interactive --install-dir "$HOME" --agent claude-code \
   switch "$PROFILE_NAME"
 

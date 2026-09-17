@@ -75,6 +75,17 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertIn(marker, self.script)
         self.assertNotIn('rm -rf -- "$HOME"', self.script)
 
+    def test_nori_profile_selection_accepts_only_closed_runtime_layouts(self) -> None:
+        direct = '"$HOME/.nori/profiles/$LINK_NAME"'
+        namespaced = '"$HOME/.nori/profiles/personal/$LINK_NAME"'
+        self.assertIn(direct, self.script)
+        self.assertIn(namespaced, self.script)
+        self.assertIn("PROFILE_NAME=\"$LINK_NAME\"", self.script)
+        self.assertIn("PROFILE_NAME=\"personal/$LINK_NAME\"", self.script)
+        self.assertIn("Nori linked profile layout is unrecognized", self.script)
+        self.assertNotIn("PROFILE_NAME='personal/p0-04b-live'", self.script)
+        self.assertNotIn('find "$HOME/.nori/profiles"', self.script)
+
     def test_existing_browser_runtime_is_linked_only_inside_disposable_roots(self) -> None:
         for marker in (
             "P004B_BROWSER_NODE_MODULES", "P004B_PLAYWRIGHT_BROWSERS_PATH",

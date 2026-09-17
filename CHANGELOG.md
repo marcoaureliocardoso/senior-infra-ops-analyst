@@ -64,6 +64,12 @@ tag. Tagged versions correspond to repository tags.
   Code `2.1.274`, Playwright recognized, exact guard deny, and verified cleanup.
   Inline security/spec review found no actionable P0, P1, or P2 issue. No
   authenticated request occurred, so active-runtime acceptance remains pending.
+- Made disposable Nori profile selection tolerate only the two observed closed
+  link layouts: direct `p0-04b-live` and namespaced `personal/p0-04b-live`.
+  Nori `0.27.0` passed a provider-free disposable link, switch, and install
+  probe without becoming a package requirement. Two authorized live launches
+  stopped before any provider request while exposing the missing WSL CLI path
+  and the earlier fixed namespace; neither is counted as active-runtime evidence.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

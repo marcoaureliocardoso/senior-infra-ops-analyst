@@ -1137,3 +1137,24 @@ observations, cleanup, staging exclusion, and production/native-prompt
 separation. It found no actionable P0, P1, or P2 issue. No authenticated
 provider request has occurred for this boundary, so `ACTIVE`, completed
 mutation, and completed denial are not claimed.
+
+Two authorized launch attempts on 2026-09-17 stopped before provider-backed
+measurement. The first reported `Nori CLI not found` because the Debian WSL
+PATH did not contain the operator's Windows-installed wrapper. After the
+validated wrapper was supplied explicitly, Nori `0.27.0` linked the disposable
+skillset as `p0-04b-live`, while the harness still assumed the newer
+`personal/p0-04b-live` profile namespace. The second attempt therefore stopped
+at profile selection. Neither attempt reached a Claude prompt or consumed any
+of the six authorized provider-backed invocations, and the disposable roots
+were removed by the existing trap.
+
+The harness now selects only one of two exact post-link layouts:
+`profiles/p0-04b-live` or `profiles/personal/p0-04b-live`. It does not enumerate
+or accept any other profile. A regression test first failed against the fixed
+namespace and then passed after the closed detection was added. The complete
+41-test live-browser safety suite passed on Windows with the eight declared
+POSIX skips and in Debian WSL without skips. A provider-free disposable Nori
+`0.27.0` probe then built staging, linked and switched the direct profile, and
+installed the expected 20 commands, 12 subagents, and 26 skills. This is runtime
+compatibility evidence, not a Nori version pin. A fresh authorization remains
+required before another provider-backed attempt.
