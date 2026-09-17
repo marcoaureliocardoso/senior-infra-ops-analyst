@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import shutil
 import subprocess
 import sys
@@ -99,6 +100,25 @@ class NoriStagingTests(unittest.TestCase):
         inventory = {path.name for path in self.destination.rglob("*") if path.is_file()}
         self.assertNotIn("browser-permission-mcp.py", inventory)
         self.assertNotIn("browser-permission-verifier.mjs", inventory)
+
+    @unittest.skipIf(os.name == "nt", "POSIX execute modes are unavailable")
+    def test_build_normalizes_and_validates_package_file_modes(self) -> None:
+        self.build()
+        launcher = (
+            self.destination / "skills" / "browser-operations" / "scripts"
+            / "browser-hook-launcher.sh"
+        )
+        manifest = self.destination / "nori.json"
+        self.assertEqual(stat.S_IMODE(launcher.stat().st_mode), 0o755)
+        self.assertEqual(stat.S_IMODE(manifest.stat().st_mode), 0o644)
+
+        launcher.chmod(0o644)
+        errors, _ = validate_staging(self.source, self.destination)
+        self.assertIn(
+            "mode differs from package policy: "
+            "skills/browser-operations/scripts/browser-hook-launcher.sh",
+            errors,
+        )
 
     def test_build_contains_all_first_class_subagent_packages(self) -> None:
         self.build()

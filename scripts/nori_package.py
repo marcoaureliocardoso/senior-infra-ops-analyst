@@ -7,6 +7,7 @@ import hashlib
 import os
 import re
 import shutil
+import stat
 import tempfile
 import uuid
 from dataclasses import asdict, dataclass
@@ -49,6 +50,11 @@ SENSITIVE_SUFFIXES = (
 SENSITIVE_NAMES = frozenset(
     {".env", ".netrc", ".my.cnf", "credentials", "credentials.json"}
 )
+
+
+def package_file_mode(path: str | Path) -> int:
+    """Return the deterministic POSIX mode for one packaged regular file."""
+    return 0o755 if Path(path).suffix.lower() == ".sh" else 0o644
 
 
 @dataclass(frozen=True, order=True)
@@ -652,6 +658,10 @@ def validate_staging(
         staged_path = destination / relative
         if not staged_path.is_file() or is_link_or_reparse(staged_path):
             continue
+        if (os.name != "nt"
+                and stat.S_IMODE(staged_path.stat().st_mode)
+                != package_file_mode(relative)):
+            errors.append(f"mode differs from package policy: {relative}")
         staged_entry = _inventory_entry(destination, staged_path)
         inventory.append(staged_entry)
         source_entry = _inventory_entry(source, source_path)
@@ -694,6 +704,7 @@ def build_staging(
             staged_path = temporary / relative
             staged_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source_path, staged_path, follow_symlinks=False)
+            staged_path.chmod(package_file_mode(relative))
 
         staged_errors, inventory = validate_staging(source, temporary)
         if staged_errors:

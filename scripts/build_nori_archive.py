@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.nori_package import (  # noqa: E402
     InventoryEntry,
     is_link_or_reparse,
+    package_file_mode,
     validate_staging,
 )
 
@@ -61,7 +62,7 @@ def build_archive(
                 data = (staging / entry.path).read_bytes()
                 info = zipfile.ZipInfo(entry.path, date_time=(1980, 1, 1, 0, 0, 0))
                 info.compress_type = zipfile.ZIP_DEFLATED
-                info.external_attr = 0o100644 << 16
+                info.external_attr = (0o100000 | package_file_mode(entry.path)) << 16
                 archive.writestr(info, data, compresslevel=9)
 
         with zipfile.ZipFile(temporary) as archive:

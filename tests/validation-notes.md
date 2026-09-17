@@ -1158,3 +1158,22 @@ POSIX skips and in Debian WSL without skips. A provider-free disposable Nori
 installed the expected 20 commands, 12 subagents, and 26 skills. This is runtime
 compatibility evidence, not a Nori version pin. A fresh authorization remains
 required before another provider-backed attempt.
+
+A third authorized launch reached the disposable Nori installation but stopped
+before provider-backed measurement because the installed browser hook launcher
+was not executable. Reproduction proved that the cross-platform staging builder
+copied every file as `0644`, and the deterministic ZIP also fixed every entry at
+`100644`. This made direct POSIX hook launchers unusable even though their source
+files were executable. No Claude prompt was submitted and the disposable root
+was removed.
+
+The canonical package policy now normalizes `.sh` files to `0755` and all other
+regular files to `0644`, validates those modes on POSIX staging, and records the
+matching `100755` or `100644` metadata in the ZIP. Tests first failed with the
+launcher at `0644` and ZIP mode `100644`, then passed after the implementation.
+The full staging/archive suites passed on Windows (18 staging tests with five
+declared platform skips and eight archive tests with three skips) and Debian WSL
+without skips. A fresh disposable Nori `0.27.0` installation retained `0755` for
+both browser and command-guard launchers. This fixes package behavior rather
+than adding an acceptance-only chmod workaround. Provider-backed acceptance
+remains pending and requires another fresh authorization.

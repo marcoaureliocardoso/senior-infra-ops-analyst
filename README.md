@@ -526,6 +526,10 @@ python3 scripts/build_nori_staging.py \
   --check
 ```
 
+The builder normalizes packaged shell scripts to POSIX mode `0755` and other
+regular files to `0644`. The archive builder records the corresponding
+deterministic ZIP modes so installed hook launchers remain executable on POSIX.
+
 The staging root contains only `AGENTS.md`, `LICENSE`, `nori.json`,
 `skills.json`, `references/`, `skills/`, `slashcommands/`, and `subagents/`.
 The `subagents/` tree contains 12 first-class packages, each with

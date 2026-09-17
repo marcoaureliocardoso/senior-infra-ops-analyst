@@ -102,6 +102,17 @@ class NoriArchiveTests(unittest.TestCase):
             )
         self.assertEqual(len(expected), 235)
 
+    def test_archive_records_deterministic_package_file_modes(self) -> None:
+        result = self.run_archiver()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with zipfile.ZipFile(self.output) as archive:
+            launcher = archive.getinfo(
+                "skills/browser-operations/scripts/browser-hook-launcher.sh"
+            )
+            manifest = archive.getinfo("nori.json")
+            self.assertEqual(launcher.external_attr >> 16, 0o100755)
+            self.assertEqual(manifest.external_attr >> 16, 0o100644)
+
     def test_drifted_staging_is_rejected_without_replacing_archive(self) -> None:
         self.output.write_bytes(b"operator archive")
         (self.staging / "AGENTS.md").write_text("drift\n", encoding="utf-8")

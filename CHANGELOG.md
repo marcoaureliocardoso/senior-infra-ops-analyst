@@ -70,6 +70,11 @@ tag. Tagged versions correspond to repository tags.
   probe without becoming a package requirement. Two authorized live launches
   stopped before any provider request while exposing the missing WSL CLI path
   and the earlier fixed namespace; neither is counted as active-runtime evidence.
+- Fixed deterministic package modes so shell launchers are staged and archived
+  as executable (`0755`/`100755`) while other regular files remain
+  `0644`/`100644`. A disposable Nori `0.27.0` installation retained the corrected
+  launcher modes. A third authorized launch had stopped before any provider
+  request when the earlier `0644` launcher exposed this packaging defect.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
