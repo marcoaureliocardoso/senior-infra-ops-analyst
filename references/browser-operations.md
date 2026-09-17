@@ -106,10 +106,14 @@ Activation requires a detected Playwright interface that supports
 `AVAILABLE_UNRECOGNIZED`. This is a capability floor, not a pinned runtime
 version.
 
-The opt-in non-interactive runtime harness can exercise this approval path only
-when the operator supplies an existing interactive MCP permission handler. It
-runs Claude Code in `default` mode with `--permission-prompt-tool`; it never
-installs or auto-approves the handler. Evidence is accepted only from the exact
+The opt-in non-interactive acceptance harness uses a disposable test-only MCP
+permission handler in `default` mode with `--permission-prompt-tool`. The
+handler deterministically permits one structurally exact synthetic loopback
+workflow and denies a second different workflow in a fresh session. This is
+labelled `synthetic-deterministic`, never human approval. The handler and its
+state are excluded from Nori staging and removed before the final aggregate;
+production uses the native interactive Claude Code permission prompt. Evidence
+is accepted only from the exact
 installed runner and the documented Claude Code `hook_started`/`hook_response`
 lifecycle for the configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers,
 including the exact `ask` response produced by the installed command guard,

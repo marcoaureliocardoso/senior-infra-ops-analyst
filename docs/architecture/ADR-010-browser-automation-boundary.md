@@ -107,12 +107,14 @@ mutation, or validation without one observed workflow tool call, matching
 Claude Code `hook_started`/`hook_response` pairs for the configured
 `PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask`
 response produced by the installed command guard, coherent ordered tool and
-post-hook completion, and structural `WORKFLOW_VALIDATED`. Every requested sample must complete the
-same route; a mixed legacy/workflow matrix cannot be promoted. Cleanup becomes
-verified only after deletion. Provider-backed active-runtime acceptance uses
-`default` permission mode plus an operator-provided interactive MCP permission
-handler and remains a separate gate; the harness neither installs nor
-auto-approves that handler, and its configured name is not approval evidence.
+post-hook completion, and structural `WORKFLOW_VALIDATED`. The allowed sample
+must complete that route; a separate exact denied sample must prove that no
+runner execution or additional fixture effect occurred. A mixed
+legacy/workflow result cannot be promoted. Cleanup becomes verified only after
+deletion. Provider-backed active-runtime acceptance uses `default` permission
+mode plus phase-specific disposable test permission servers. Their decisions
+are deterministic test policy, not human approval, and they remain a separate
+gate excluded from staged or installed artifacts.
 The tool-use and tool-result envelopes must share the hook session and parent
 tool identity. The terminal must be a same-session SDK success, and any later tool or failure
 lifecycle invalidates the sample. Role and context measurements are not inferred
@@ -198,6 +200,15 @@ passed on the same date.
 Provider-backed population of that sidecar, CI/Security, and delivery remain
 separate acceptance gates.
 
+The automated active-runtime gate uses a disposable test-only permission MCP,
+not a production authority service. It structurally permits one exact synthetic
+loopback workflow, denies one different workflow in a fresh session, and proves
+the denied phase caused no additional fixture effect. Evidence calls this
+`synthetic-deterministic`; it cannot claim observed human approval. The server,
+configs, signals, claims, and raw requests are removed with the disposable
+runtime and are excluded from Nori staging. Production mutable operations still
+use the native interactive Claude Code permission prompt for every `ask`.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between
@@ -226,6 +237,7 @@ ownership procedure. Pending operations and credential reuse are not restored.
 ## Links
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
+- Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md`
 - One-shot workflow plan: `docs/superpowers/plans/2026-09-02-p0-04b-one-shot-workflow.md`
 - Canonical contract: `references/browser-operations.md`

@@ -741,9 +741,10 @@ An opt-in disposable harness must:
   and adapter identities without pinning them;
 - install the current worktree through Nori;
 - activate project-local owned hooks without changing operator-global state;
-- use `default` permission mode and an operator-provided interactive MCP
-  permission handler for non-interactive mutable probes; the harness must not
-  install or auto-approve that handler;
+- use `default` permission mode and disposable phase-specific MCP permission
+  servers for non-interactive mutable probes; one exact synthetic workflow is
+  allowed and validated, then one different fresh-session workflow is denied
+  and independently proved to have no effect;
 - use at least one real recognized browser implementation;
 - complete diagnosis, authentication, mutation, validation, and rollback on
   the local fixtures;
@@ -786,13 +787,19 @@ only Bash. Native status-line events provide nonce-bound
 `context_window.used_percentage`; generic PTY percentages are not evidence.
 The fixture accepts one nonce-bound call only after that process has initialized
 and listed tools, and its exact call count is snapshotted before workflows. Every
-Claude invocation uses a strict minimal MCP configuration containing only the
-operator approval server and, only where needed, the disposable fixture. Raw
+Claude invocation uses a strict minimal MCP configuration. Trusted measurements
+receive only their required disposable fixture, while each browser workflow
+receives only its phase-specific test permission server. Raw
 prompts, temporary SDK streams, captures, transcripts, temporary MCP configs,
 and the disposable Claude session store are deleted before sidecar construction.
-The live authorization must match four measurement invocations plus the
-requested browser workflow invocations and the computed maximum model-turn
-bound; no retry is automatic.
+The acceptance run uses a test-only deterministic handler: it permits one exact
+synthetic loopback mutation and denies a second observably different mutation
+in a fresh session. Evidence labels this `synthetic-deterministic`, never human
+approval. Production continues to use the native interactive Claude Code
+permission prompt, and no permission server is packaged or installed. The live
+authorization must match exactly six top-level invocations and a maximum of 40
+model turns; no retry is automatic. The detailed contract is specified in
+`2026-09-17-p0-04b-disposable-permission-handler-design.md`.
 
 An acceptance harness may consume explicit absolute operator paths to an
 already installed Playwright module root and browser cache. It must validate the
