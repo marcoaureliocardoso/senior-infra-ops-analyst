@@ -180,6 +180,21 @@ exposes the fixture only to its measurement stages, and restricts workflow
 model tools to Bash. It removes temporary MCP configs, the disposable Claude
 session store, prompts, streams, PTY captures, and transcripts before sidecar
 construction.
+
+The live harness may receive explicit absolute paths to an existing operator
+Playwright module root and browser cache. It validates the current packages and
+an executable cached Chromium, links only `playwright` and `playwright-core`
+at the nearest module-resolution location inside its disposable probe and
+installed-skill roots, rejects any pre-existing skill-local package root, and
+still uses the fixed production adapter imports. The probe and installed copy
+must report the same adapter ID and observed version and must each open and
+close successfully without navigation. The harness neither downloads nor
+installs a runtime and the links disappear with the disposable root. A
+provider-free preflight on
+2026-09-17 observed Claude Code `2.1.273`, the existing Playwright `1.62.1`
+package, and `AVAILABLE_RECOGNIZED` through that route after opening and closing
+one browser/context without navigation. The expanded 47-test focused WSL gate
+passed on the same date.
 Provider-backed population of that sidecar, CI/Security, and delivery remain
 separate acceptance gates.
 

@@ -75,6 +75,26 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertIn(marker, self.script)
         self.assertNotIn('rm -rf -- "$HOME"', self.script)
 
+    def test_existing_browser_runtime_is_linked_only_inside_disposable_roots(self) -> None:
+        for marker in (
+            "P004B_BROWSER_NODE_MODULES", "P004B_PLAYWRIGHT_BROWSERS_PATH",
+            'PROBE_NODE_MODULES="$PROBE_SKILL_ROOT/node_modules"',
+            'INSTALLED_NODE_MODULES="$HOME/.claude/skills/browser-operations/node_modules"',
+            '[[ ! -e "$PROBE_NODE_MODULES" && ! -L "$PROBE_NODE_MODULES" ]]',
+            '[[ ! -e "$INSTALLED_NODE_MODULES" && ! -L "$INSTALLED_NODE_MODULES" ]]',
+            'ln -s -- "$BROWSER_NODE_MODULES/playwright"',
+            'ln -s -- "$BROWSER_NODE_MODULES/playwright-core"',
+            'export PLAYWRIGHT_BROWSERS_PATH="$BROWSER_CACHE"',
+            "await adapter.open()", "await adapter.close()",
+            "observed.observedVersion",
+            '"$installed_adapter_identity" == "$ADAPTER_IDENTITY"',
+            "browser runtime package root must be an absolute regular directory",
+            "existing Playwright browser cache is unavailable",
+        ):
+            self.assertIn(marker, self.script)
+        for forbidden in ("npm install", "npx ", "playwright install"):
+            self.assertNotIn(forbidden, self.script)
+
     def test_raw_deletion_precedes_aggregation_and_no_installers_exist(self) -> None:
         self.assertLess(
             self.script.index('rm -f -- "$prompt_path" "$stream_path"'),

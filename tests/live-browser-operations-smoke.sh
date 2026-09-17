@@ -124,6 +124,33 @@ CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude || true)}"
 NORI_BIN="${NORI_BIN:-$(command -v sks || command -v nori-skillsets || true)}"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 [[ -n "$NODE_BIN" ]] || blocked 'Node.js not found'
+BROWSER_NODE_MODULES="${P004B_BROWSER_NODE_MODULES:-}"
+BROWSER_CACHE="${P004B_PLAYWRIGHT_BROWSERS_PATH:-}"
+if [[ -n "$BROWSER_NODE_MODULES" || -n "$BROWSER_CACHE" ]]; then
+  [[ -n "$BROWSER_NODE_MODULES" && -n "$BROWSER_CACHE" ]] || \
+    blocked 'existing browser runtime requires both module and browser cache paths'
+  [[ "$BROWSER_NODE_MODULES" == /* && -d "$BROWSER_NODE_MODULES" \
+    && ! -L "$BROWSER_NODE_MODULES" \
+    && "$(readlink -f "$BROWSER_NODE_MODULES")" == "$BROWSER_NODE_MODULES" \
+    && -d "$BROWSER_NODE_MODULES/playwright" \
+    && -d "$BROWSER_NODE_MODULES/playwright-core" \
+    && ! -L "$BROWSER_NODE_MODULES/playwright" \
+    && ! -L "$BROWSER_NODE_MODULES/playwright-core" \
+    && -f "$BROWSER_NODE_MODULES/playwright/package.json" \
+    && ! -L "$BROWSER_NODE_MODULES/playwright/package.json" \
+    && -f "$BROWSER_NODE_MODULES/playwright-core/package.json" \
+    && ! -L "$BROWSER_NODE_MODULES/playwright-core/package.json" ]] || \
+    blocked 'browser runtime package root must be an absolute regular directory'
+  [[ "$BROWSER_CACHE" == /* && -d "$BROWSER_CACHE" && ! -L "$BROWSER_CACHE" \
+    && "$(readlink -f "$BROWSER_CACHE")" == "$BROWSER_CACHE" ]] || \
+    blocked 'existing Playwright browser cache is unavailable'
+  browser_executable="$(find "$BROWSER_CACHE" -maxdepth 4 -type f -perm -0100 \
+    \( -path '*/chrome-linux*/chrome' -o -path '*/chrome-headless-shell-linux*/headless_shell' \) \
+    -print -quit 2>/dev/null)"
+  [[ -n "$browser_executable" ]] || blocked 'existing Playwright browser cache is unavailable'
+  unset browser_executable
+  export PLAYWRIGHT_BROWSERS_PATH="$BROWSER_CACHE"
+fi
 
 label() {
   local value="$1"
@@ -136,16 +163,46 @@ label() {
 CLAUDE_LABEL="$(label "${CLAUDE_BIN:+$($CLAUDE_BIN --version 2>/dev/null | head -n 1 || true)}")"
 PROVIDER_LABEL="$(label "${ANTHROPIC_BASE_URL:+configured-provider}")"
 MODEL_LABEL="$(label "${ANTHROPIC_MODEL:-observed-at-runtime}")"
-ADAPTER_LABEL="$($NODE_BIN --input-type=module - "$ROOT" <<'NODE'
+ADAPTER_ROOT="$ROOT/skills/browser-operations"
+if [[ -n "$BROWSER_NODE_MODULES" ]]; then
+  PROBE_SKILL_ROOT="$WORK/runtime-probe/skills/browser-operations"
+  mkdir -p "$PROBE_SKILL_ROOT"
+  cp -R -- "$ROOT/skills/browser-operations/." "$PROBE_SKILL_ROOT/"
+  PROBE_NODE_MODULES="$PROBE_SKILL_ROOT/node_modules"
+  [[ ! -e "$PROBE_NODE_MODULES" && ! -L "$PROBE_NODE_MODULES" ]] || \
+    blocked 'source browser skill contains an untrusted node_modules directory'
+  mkdir -p "$PROBE_NODE_MODULES"
+  ln -s -- "$BROWSER_NODE_MODULES/playwright" "$PROBE_NODE_MODULES/playwright"
+  ln -s -- "$BROWSER_NODE_MODULES/playwright-core" "$PROBE_NODE_MODULES/playwright-core"
+  ADAPTER_ROOT="$PROBE_SKILL_ROOT"
+fi
+ADAPTER_IDENTITY="$($NODE_BIN --input-type=module - "$ADAPTER_ROOT" <<'NODE'
 const root = process.argv[2].replaceAll('\\', '/');
-const { detectPlaywright } = await import(`file://${root}/skills/browser-operations/scripts/browser-adapters/playwright.mjs`);
-const { detectPuppeteer } = await import(`file://${root}/skills/browser-operations/scripts/browser-adapters/puppeteer.mjs`);
+const { detectPlaywright, createPlaywrightAdapter } = await import(`file://${root}/scripts/browser-adapters/playwright.mjs`);
+const { detectPuppeteer, createPuppeteerAdapter } = await import(`file://${root}/scripts/browser-adapters/puppeteer.mjs`);
 const candidates = await Promise.all([detectPlaywright(), detectPuppeteer()]);
 const active = candidates.filter((value) => value.state === 'AVAILABLE_RECOGNIZED');
-process.stdout.write(active.length === 0 ? 'unavailable' : active.length > 1 ? 'conflict' : active[0].id);
+if (active.length !== 1) {
+  process.stdout.write(active.length === 0 ? 'unavailable' : 'conflict');
+} else {
+  const observed = active[0];
+  const create = observed.id === 'playwright' || observed.id === 'playwright-core'
+    ? createPlaywrightAdapter : createPuppeteerAdapter;
+  let adapter;
+  try {
+    adapter = await create(observed.runtime, { allowedOrigins: ['http://127.0.0.1:1'] });
+    await adapter.open();
+    await adapter.close();
+    process.stdout.write(`${observed.id}@${observed.observedVersion}`);
+  } catch {
+    await adapter?.close?.().catch(() => {});
+    process.stdout.write('unavailable');
+  }
+}
 NODE
 )"
-ADAPTER_LABEL="$(label "$ADAPTER_LABEL")"
+ADAPTER_IDENTITY="$(label "$ADAPTER_IDENTITY")"
+ADAPTER_LABEL="${ADAPTER_IDENTITY%%@*}"
 
 SOURCE_HOOK_LAUNCHER="$ROOT/skills/browser-operations/scripts/browser-hook-launcher.sh"
 [[ -x "$SOURCE_HOOK_LAUNCHER" ]] || blocked 'source browser hook launcher not executable'
@@ -186,6 +243,44 @@ PROFILE_NAME='personal/p0-04b-live'
 "$NORI_BIN" --non-interactive link "$STAGING" --name "$LINK_NAME"
 "$NORI_BIN" --non-interactive --install-dir "$HOME" --agent claude-code \
   switch "$PROFILE_NAME"
+
+if [[ -n "$BROWSER_NODE_MODULES" ]]; then
+  INSTALLED_NODE_MODULES="$HOME/.claude/skills/browser-operations/node_modules"
+  [[ ! -e "$INSTALLED_NODE_MODULES" && ! -L "$INSTALLED_NODE_MODULES" ]] || \
+    blocked 'installed browser skill contains an untrusted node_modules directory'
+  mkdir -p "$INSTALLED_NODE_MODULES"
+  ln -s -- "$BROWSER_NODE_MODULES/playwright" "$INSTALLED_NODE_MODULES/playwright"
+  ln -s -- "$BROWSER_NODE_MODULES/playwright-core" "$INSTALLED_NODE_MODULES/playwright-core"
+fi
+installed_adapter_identity="$($NODE_BIN --input-type=module - "$HOME/.claude/skills/browser-operations" <<'NODE'
+const root = process.argv[2].replaceAll('\\', '/');
+const { detectPlaywright, createPlaywrightAdapter } = await import(`file://${root}/scripts/browser-adapters/playwright.mjs`);
+const { detectPuppeteer, createPuppeteerAdapter } = await import(`file://${root}/scripts/browser-adapters/puppeteer.mjs`);
+const candidates = await Promise.all([detectPlaywright(), detectPuppeteer()]);
+const active = candidates.filter((value) => value.state === 'AVAILABLE_RECOGNIZED');
+if (active.length !== 1) {
+  process.stdout.write(active.length === 0 ? 'unavailable' : 'conflict');
+} else {
+  const observed = active[0];
+  const create = observed.id === 'playwright' || observed.id === 'playwright-core'
+    ? createPlaywrightAdapter : createPuppeteerAdapter;
+  let adapter;
+  try {
+    adapter = await create(observed.runtime, { allowedOrigins: ['http://127.0.0.1:1'] });
+    await adapter.open();
+    await adapter.close();
+    process.stdout.write(`${observed.id}@${observed.observedVersion}`);
+  } catch {
+    await adapter?.close?.().catch(() => {});
+    process.stdout.write('unavailable');
+  }
+}
+NODE
+)"
+installed_adapter_identity="$(label "$installed_adapter_identity")"
+[[ "$installed_adapter_identity" == "$ADAPTER_IDENTITY" ]] || \
+  blocked 'installed browser runtime differs from preflight capability'
+unset installed_adapter_identity
 
 HOOK_LAUNCHER="$HOME/.claude/skills/browser-operations/scripts/browser-hook-launcher.sh"
 HOOK_CONFIGURATOR="$HOME/.claude/skills/browser-operations/scripts/configure-browser-operations.mjs"

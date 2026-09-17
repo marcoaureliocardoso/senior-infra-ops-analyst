@@ -45,6 +45,17 @@ tag. Tagged versions correspond to repository tags.
   the complete provider-free package gate and independent review also passed.
   No authenticated request occurred, so active-runtime acceptance remains
   pending.
+- Added an acceptance-only path for explicit existing Playwright module and
+  browser-cache roots. It validates current operator-installed packages and an
+  executable cached Chromium, links only `playwright` and `playwright-core`
+  inside disposable roots, and uses the fixed production adapter imports. It
+  rejects pre-existing skill-local package roots, correlates the exact adapter
+  ID and observed version across the probe and disposable installation, and
+  opens and closes both instances. It never installs, downloads, pins,
+  packages, or retains that runtime. A provider-free preflight observed Claude
+  Code `2.1.273`, Playwright `1.62.1`, and `AVAILABLE_RECOGNIZED` after one
+  navigation-free browser/context open and close on 2026-09-17; the expanded
+  47-test focused WSL gate also passed that day.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

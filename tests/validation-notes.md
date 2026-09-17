@@ -1070,3 +1070,23 @@ remain pending. The complete provider-free package gate then passed in Debian
 WSL with Node.js `v24.17.0`; PowerShell-only syntax checks remained the existing
 documented platform skip. An independent final review reported no remaining
 actionable P0, P1, or P2 finding in the producer scope.
+
+On 2026-09-17 a read-only runtime inventory found an existing Playwright
+`1.62.1` package and executable cached WSL Chromium. The harness gained an
+explicit existing-runtime route that validates operator-supplied absolute module
+and browser-cache paths, links only `playwright` and `playwright-core` under its
+nearest disposable skill roots, rejects pre-existing skill-local package roots,
+and continues through the fixed production imports without an install,
+download, test override, or retained link. The probe and disposable installation
+must expose the same adapter ID and observed version and each must open and close
+successfully. Its provider-free preflight observed Claude Code `2.1.273`,
+adapter `playwright`, and
+`AVAILABLE_RECOGNIZED` after opening and closing one browser/context without
+navigation. The expanded focused check passed 47 Python tests in Debian WSL:
+37 live browser safety tests, three native status-line recorder tests, two
+ordered MCP fixture tests, three one-call guard tests, and two strict MCP
+minimizer tests. Independent re-review found no remaining actionable P0, P1,
+or P2 issue in the runtime wiring. No provider request occurred. No operator
+permission MCP server is currently present in the inspected Claude
+configuration, so the authenticated gate still requires an external exact
+approval tool/config.

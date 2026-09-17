@@ -794,6 +794,18 @@ The live authorization must match four measurement invocations plus the
 requested browser workflow invocations and the computed maximum model-turn
 bound; no retry is automatic.
 
+An acceptance harness may consume explicit absolute operator paths to an
+already installed Playwright module root and browser cache. It must validate the
+current package directories and an executable cached Chromium, link only
+`playwright` and `playwright-core` beneath disposable probe and installed-skill
+roots at the nearest module-resolution location, reject any pre-existing
+skill-local package root, and run the normal fixed production imports. It must
+not install, download, copy into the package, or retain the runtime, and missing
+or invalid paths remain `UNAVAILABLE`. The probe and installed copy must report
+the same adapter ID and observed version. Each must also open and close one
+adapter context without navigation; launch, identity, or cleanup failure
+remains `UNAVAILABLE` or blocks the active run.
+
 The harness must report blocked prerequisites as blocked, not passed. A runtime
 compatibility observation supplements deterministic package guarantees and
 does not rewrite an observed failure into success.
