@@ -81,8 +81,13 @@ tag. Tagged versions correspond to repository tags.
   to allowlisted content-free stage codes. Native status-line percentages remain
   primary; when a bound status-line invocation proves that context metadata is
   not yet available before the first model turn, the harness accepts only the
-  official `/context` command's strictly ordered, numeric, content-free PTY
-  result. A provider-free closed-loopback run reached the first model-dependent
+  official `/context all` command's strictly ordered, numeric, content-free PTY
+  result in a fresh `before` probe. The fallback reconstructs only the bounded
+  ANSI screen state, requires exact `Context Usage` and `Free space` labels,
+  accepts the native optional `Compact buffer` or `Autocompact buffer` category,
+  closes the context view explicitly, proves prompt return and a clean exit, and
+  rejects malformed, conflicting, forced-exit, or unrelated percentages. A
+  provider-free closed-loopback run reached the first model-dependent
   measurement stage. Provider-backed acceptance remains pending and requires a
   fresh exact authorization.
 

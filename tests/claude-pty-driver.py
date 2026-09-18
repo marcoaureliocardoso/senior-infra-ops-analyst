@@ -19,6 +19,247 @@ TASK_B = b"P004A_TASK_B"
 AUTO_TASK = b"P004A_AUTO"
 
 
+def _without_csi(data: bytes) -> bytes:
+    return re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", data)
+
+
+def _folded_letters(data: bytes) -> bytes:
+    return bytes(value for value in _without_csi(data).lower() if 97 <= value <= 122)
+
+
+def terminal_screen_text(
+    data: bytes, rows: int = 40, columns: int = 120,
+    observed_rows: list[str] | None = None,
+) -> str:
+    """Render the small ANSI subset emitted by the bounded Claude TUI probe."""
+    screen = [[" "] * columns for _ in range(rows)]
+    row = column = 0
+    saved = (0, 0)
+    text = data.decode("utf-8", errors="ignore")
+    index = 0
+
+    def parameters(raw: str) -> list[int]:
+        raw = raw.lstrip("?<=>")
+        values = raw.split(";") if raw else []
+        return [int(value) if value.isdigit() else 0 for value in values]
+
+    def amount(values: list[int], default: int = 1) -> int:
+        return values[0] if values and values[0] > 0 else default
+
+    def scroll_up(count: int = 1) -> None:
+        nonlocal row
+        for _ in range(min(count, rows)):
+            screen.pop(0)
+            screen.append([" "] * columns)
+        row = max(0, row - count)
+
+    def observe_current_row() -> None:
+        if observed_rows is None or len(observed_rows) >= 128:
+            return
+        line = "".join(screen[row]).rstrip()
+        if (any(label in line for label in (
+                "Context Usage", "Free space", "Compact buffer",
+                "Autocompact buffer",
+            )) and line not in observed_rows):
+            observed_rows.append(line)
+
+    while index < len(text):
+        character = text[index]
+        if character == "\x1b":
+            if index + 1 < len(text) and text[index + 1] == "[":
+                end = index + 2
+                while end < len(text) and not "@" <= text[end] <= "~":
+                    end += 1
+                if end >= len(text):
+                    break
+                values = parameters(text[index + 2:end])
+                command = text[end]
+                if command in {"H", "f"}:
+                    row = max(0, min(rows - 1, (values[0] if values else 1) - 1))
+                    column = max(0, min(
+                        columns - 1,
+                        (values[1] if len(values) > 1 and values[1] else 1) - 1,
+                    ))
+                elif command == "A":
+                    row = max(0, row - amount(values))
+                elif command == "B":
+                    row = min(rows - 1, row + amount(values))
+                elif command == "C":
+                    column = min(columns - 1, column + amount(values))
+                elif command == "D":
+                    column = max(0, column - amount(values))
+                elif command == "E":
+                    row = min(rows - 1, row + amount(values)); column = 0
+                elif command == "F":
+                    row = max(0, row - amount(values)); column = 0
+                elif command == "G":
+                    column = max(0, min(columns - 1, amount(values) - 1))
+                elif command == "d":
+                    row = max(0, min(rows - 1, amount(values) - 1))
+                elif command == "J" and (not values or values[0] in {2, 3}):
+                    screen = [[" "] * columns for _ in range(rows)]
+                    row = column = 0
+                elif command == "K":
+                    mode = values[0] if values else 0
+                    if mode == 0:
+                        screen[row][column:] = [" "] * (columns - column)
+                    elif mode == 1:
+                        screen[row][:column + 1] = [" "] * (column + 1)
+                    elif mode == 2:
+                        screen[row] = [" "] * columns
+                elif command == "s":
+                    saved = (row, column)
+                elif command == "u":
+                    row, column = saved
+                elif command == "S":
+                    scroll_up(amount(values))
+                elif command == "T":
+                    count = min(amount(values), rows)
+                    for _ in range(count):
+                        screen.pop()
+                        screen.insert(0, [" "] * columns)
+                    row = min(rows - 1, row + count)
+                index = end + 1
+                continue
+            if index + 1 < len(text) and text[index + 1] == "]":
+                end = index + 2
+                while end < len(text):
+                    if text[end] == "\a":
+                        end += 1
+                        break
+                    if text[end:end + 2] == "\x1b\\":
+                        end += 2
+                        break
+                    end += 1
+                index = end
+                continue
+            index += 2
+            continue
+        if character == "\r":
+            column = 0
+        elif character == "\n":
+            row += 1
+            if row >= rows:
+                scroll_up()
+                row = rows - 1
+        elif character == "\b":
+            column = max(0, column - 1)
+        elif character == "\t":
+            column = min(columns - 1, ((column // 8) + 1) * 8)
+        elif character >= " ":
+            screen[row][column] = character
+            observe_current_row()
+            column += 1
+            if column >= columns:
+                column = 0
+                row += 1
+                if row >= rows:
+                    scroll_up()
+                    row = rows - 1
+        index += 1
+    return "\n".join("".join(line).rstrip() for line in screen)
+
+
+def _context_percent_from_text(
+    text: str, allow_rendered_row_order: bool = False,
+) -> int | None:
+    if "Context Usage" not in text:
+        return None
+    folded = bytes(value for value in text.lower().encode("utf-8") if 97 <= value <= 122)
+    free_matches = re.findall(
+        r"Free space[^\r\n%]{0,160}?(\d{1,3}(?:\.\d+)?)%",
+        text,
+        flags=re.IGNORECASE,
+    )
+    buffer_matches = re.findall(
+        r"(?<![A-Za-z])(?:Autocompact buffer|Compact buffer)"
+        r"[^\r\n%]{0,160}?(\d{1,3}(?:\.\d+)?)%",
+        text,
+        flags=re.IGNORECASE,
+    )
+    free_row_matches = [
+        value
+        for line in text.splitlines() if re.search(r"Free space", line, re.IGNORECASE)
+        for value in re.findall(r"(?<!\d)(\d{1,3}(?:\.\d+)?)%", line)
+    ]
+    buffer_row_matches = [
+        value
+        for line in text.splitlines()
+        if re.search(r"(?<![A-Za-z])(?:Autocompact buffer|Compact buffer)", line, re.IGNORECASE)
+        for value in re.findall(r"(?<!\d)(\d{1,3}(?:\.\d+)?)%", line)
+    ]
+    if allow_rendered_row_order and len(set(free_row_matches)) == 1:
+        free_matches = free_row_matches
+    if allow_rendered_row_order and len(set(buffer_row_matches)) == 1:
+        buffer_matches = buffer_row_matches
+    free_values = [float(value) for value in free_matches]
+    buffer_values = [float(value) for value in buffer_matches]
+    buffer_label_present = b"compactbuffer" in folded
+    if (not free_values
+            or any(not 0 <= value <= 100 for value in free_values + buffer_values)
+            or len(set(free_values)) != 1
+            or (buffer_label_present and not buffer_values)
+            or len(set(buffer_values)) > 1):
+        return None
+    used = 100 - free_values[-1] - (buffer_values[-1] if buffer_values else 0)
+    if not 0 <= used <= 100:
+        return None
+    return round(used)
+
+
+def context_usage_percent(data: bytes) -> int | None:
+    """Return used percent only from the exact native /context labels."""
+    observed_rows: list[str] = []
+    final_screen = terminal_screen_text(data, observed_rows=observed_rows)
+    percentage = _context_percent_from_text(
+        "\n".join(observed_rows), allow_rendered_row_order=True,
+    )
+    if percentage is not None:
+        return percentage
+    percentage = _context_percent_from_text(
+        final_screen, allow_rendered_row_order=True,
+    )
+    if percentage is not None:
+        return percentage
+    percentage = _context_percent_from_text(
+        _without_csi(data).decode("utf-8", errors="ignore")
+    )
+    if percentage is not None:
+        return percentage
+    return None
+
+
+def context_structure_stage(data: bytes) -> str:
+    """Reduce native /context output to one allowlisted structural stage."""
+    folded = _folded_letters(data)
+    if b"contextusage" not in folded:
+        return "context_header_missing"
+    if b"freespace" not in folded:
+        return "context_free_space_missing"
+    if context_usage_percent(data) is None:
+        text = _without_csi(data).decode("utf-8", errors="ignore")
+        near_free = re.search(
+            r"Free space[^\r\n%]{0,160}?\d{1,3}(?:\.\d+)?%",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if near_free is None:
+            separated_free = re.search(
+                r"Free space[\s\S]{0,2048}?\d{1,3}(?:\.\d+)?%",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if separated_free:
+                return "context_free_value_separated"
+            if re.search(r"(?<!\d)\d{1,3}(?:\.\d+)?%", text):
+                return "context_raw_percent_present"
+            return "context_free_value_missing"
+        return "context_values_invalid"
+    if "❯".encode("utf-8") not in data:
+        return "context_prompt_missing"
+    return "context_inspected"
+
+
 def write_all(file_descriptor: int, payload: bytes, writer=os.write) -> None:
     """Write every byte to a PTY even when the operating system accepts a prefix."""
     remaining = memoryview(payload)
@@ -136,6 +377,7 @@ def drive(
     deadline = time.monotonic() + timeout_seconds
     retained = bytearray()
     current_stage = "initial_screen"
+    context_probe_offset: int | None = None
 
     def pump(wait: float = 0.2) -> bool:
         if len(retained) > MAX_CAPTURE_BYTES:
@@ -179,8 +421,7 @@ def drive(
         write_all(master, b"\r")
 
     def folded_letters(data: bytes) -> bytes:
-        without_csi = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", data)
-        return bytes(value for value in without_csi.lower() if 97 <= value <= 122)
+        return _folded_letters(data)
 
     def prompt_ready(data: bytes) -> bool:
         return (
@@ -215,7 +456,7 @@ def drive(
         except subprocess.TimeoutExpired:
             _stop(process)
             record(current_stage, "forced")
-            return 0
+            return 2 if dialogue == "context" else 0
         if process.returncode == 0:
             record(current_stage, "passed")
             return 0
@@ -267,19 +508,24 @@ def drive(
             if dialogue == "context":
                 current_stage = "context_inspected"
                 context_offset = len(retained)
-                send("/context")
+                context_probe_offset = context_offset
+                send("/context all")
                 wait_for(
-                    lambda data: b"%" in data[context_offset:],
+                    lambda data: context_usage_percent(data[context_offset:]) is not None,
                     "native context inspection",
                 )
                 context_output = bytes(retained[context_offset:])
-                percentages = [
-                    int(value) for value in re.findall(rb"(?<!\d)(\d{1,3})%", context_output)
-                    if 0 <= int(value) <= 100
-                ]
-                if not percentages:
+                percentage = context_usage_percent(context_output)
+                if percentage is None:
                     raise RuntimeError("native context percentage unavailable")
-                record(current_stage, "passed", percentages[-1])
+                if "❯".encode("utf-8") not in context_output:
+                    prompt_offset = len(retained)
+                    write_all(master, b"\x1b")
+                    wait_for(
+                        lambda data: "❯".encode("utf-8") in data[prompt_offset:],
+                        "native context dismissal",
+                    )
+                record(current_stage, "passed", percentage)
                 return finish()
 
             if dialogue == "mock-window":
@@ -551,6 +797,11 @@ def drive(
             record(current_stage, "passed")
             return finish()
     except (OSError, RuntimeError, TimeoutError):
+        if (dialogue == "context" and current_stage == "context_inspected"
+                and context_probe_offset is not None):
+            current_stage = context_structure_stage(
+                bytes(retained[context_probe_offset:])
+            )
         record(current_stage, "failed")
         _stop(process)
         return 2

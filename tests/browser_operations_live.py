@@ -98,6 +98,10 @@ PTY_EVENT_FIELDS = {"kind", "stage", "outcome", "percent", "outputBytes"}
 PTY_STAGES = {
     "initial_screen", "theme_selection", "trust_selection", "prompt_ready", "exit",
     "context_inspected", "mock_response", "mock_second_response", "clear_observed",
+    "context_header_missing", "context_free_space_missing",
+    "context_values_invalid", "context_prompt_missing",
+    "context_free_value_separated", "context_free_value_missing",
+    "context_raw_percent_present",
     "skill_one_invoked", "skill_one_context", "skill_two_invoked", "skill_two_context",
     "resume_tasks", "rewind_selection", "rewind_restore_mode", "rewind_observed",
     "post_rewind_tasks", "post_rewind_context", "automatic_task_created",
@@ -187,7 +191,7 @@ def pty_context_observation(
             or not 0 <= context_event["percent"] <= 100
             or set(exit_event) != {"kind", "stage", "outcome"}
             or exit_event["stage"] != "exit"
-            or exit_event["outcome"] not in {"passed", "forced"}):
+            or exit_event["outcome"] != "passed"):
         raise ValueError("invalid PTY context completion")
     return {
         "stage": output_stage, "sessionId": session_id,
@@ -465,11 +469,20 @@ def status_context_observation(
     observations: list[tuple[int, int]] = []
     with path.open("r", encoding="utf-8") as stream:
         for line in stream:
-            event = _exact(
-                json.loads(line),
-                {"kind", "percent", "windowTokens", "runNonce", "stage"},
-                "status context event",
-            )
+            event = json.loads(line)
+            if isinstance(event, dict) and event.get("kind") == "status-context-unavailable":
+                event = _exact(event, {
+                    "kind", "reasonCode", "runNonce", "stage",
+                }, "status context unavailable event")
+                if (observations
+                        or event["reasonCode"] != "NATIVE_FIELDS_NOT_SUPPLIED"
+                        or event["runNonce"] != run_nonce
+                        or event["stage"] != output_stage):
+                    raise ValueError("invalid status context unavailable event")
+                continue
+            event = _exact(event, {
+                "kind", "percent", "windowTokens", "runNonce", "stage",
+            }, "status context event")
             percent = event["percent"]
             window = event["windowTokens"]
             if (event["kind"] != "status-context"
@@ -498,17 +511,20 @@ def status_context_failure_reason(
             return "STATUS_CONTEXT_REJECTED"
         if not path.is_file() or path.stat().st_size == 0:
             return "STATUS_CONTEXT_MISSING"
+        try:
+            status_context_observation(path, run_nonce, session_id, output_stage)
+            return "STATUS_CONTEXT_AVAILABLE"
+        except ValueError:
+            pass
         lines = path.read_text(encoding="utf-8").splitlines()
-        if len(lines) == 1:
-            event = json.loads(lines[0])
-            if event == {
+        if lines and all(json.loads(line) == {
                 "kind": "status-context-unavailable",
+                "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",
                 "runNonce": run_nonce,
                 "stage": output_stage,
-            }:
-                return "STATUS_CONTEXT_METADATA_UNAVAILABLE"
-        status_context_observation(path, run_nonce, session_id, output_stage)
-        return "STATUS_CONTEXT_AVAILABLE"
+            } for line in lines):
+            return "STATUS_CONTEXT_METADATA_UNAVAILABLE"
+        return "STATUS_CONTEXT_REJECTED"
     except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
         return "STATUS_CONTEXT_REJECTED"
 

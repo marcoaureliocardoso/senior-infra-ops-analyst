@@ -56,6 +56,90 @@ class ClaudePtyDriverTests(unittest.TestCase):
         with self.assertRaises(OSError):
             driver.write_all(17, b"payload", lambda _fd, _remaining: 0)
 
+    def test_context_structure_stage_reports_only_allowlisted_structure(self) -> None:
+        driver = load_driver()
+        classify = driver.context_structure_stage
+        self.assertEqual(classify(b"unrelated progress 7%"), "context_header_missing")
+        self.assertEqual(classify(b"## Context Usage"), "context_free_space_missing")
+        self.assertEqual(
+            classify(b"## Context Usage\r\nFree space: 90%"),
+            "context_prompt_missing",
+        )
+        self.assertEqual(
+            classify("## Context Usage\r\nFree space: 90%\r\n❯ ready".encode()),
+            "context_inspected",
+        )
+        self.assertEqual(
+            driver.context_usage_percent(
+                "## Context Usage\r\nFree space: 90%\r\n❯ ready".encode()
+            ),
+            10,
+        )
+        self.assertEqual(
+            classify(
+                b"## Context Usage\r\nFree space: 90%\r\n"
+                b"Compact buffer: 3%"
+            ),
+            "context_prompt_missing",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\n"
+                "Autocompact buffer: 3%\r\n❯ ready".encode()
+            ),
+            "context_inspected",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\nCompact buffer: 3%\r\n"
+                "❯ ready".encode()
+            ),
+            "context_inspected",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\nCompact buffer: 3%\r\n"
+                "Autocompact buffer: 4%\r\n❯ ready".encode()
+            ),
+            "context_values_invalid",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space:\r\nredraw\r\n90%\r\n❯ ready".encode()
+            ),
+            "context_free_value_separated",
+        )
+        self.assertEqual(
+            classify("## Context Usage\r\nFree space:\r\n❯ ready".encode()),
+            "context_free_value_missing",
+        )
+        self.assertEqual(
+            classify("90%\r\n## Context Usage\r\nFree space:\r\n❯ ready".encode()),
+            "context_raw_percent_present",
+        )
+
+    def test_context_usage_reconstructs_cursor_addressed_render_order(self) -> None:
+        driver = load_driver()
+        rendered_out_of_order = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;30H90.0%"
+            b"\x1b[3;1HFree space:"
+        )
+        self.assertEqual(driver.context_usage_percent(rendered_out_of_order), 10)
+        value_before_label = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;1H90.0%"
+            b"\x1b[3;30HFree space:"
+        )
+        self.assertEqual(driver.context_usage_percent(value_before_label), 10)
+        transient_then_cleared = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;30H90.0%"
+            b"\x1b[3;1HFree space:"
+            b"\x1b[2J\x1b[Hloading"
+        )
+        self.assertEqual(driver.context_usage_percent(transient_then_cleared), 10)
+
     def test_structural_compaction_sequence_rejects_orphans_and_duplicates(self) -> None:
         driver = load_driver()
         self.assertTrue(hasattr(driver, "compaction_pairs_observed"))
@@ -222,8 +306,14 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         character = os.read(sys.stdin.fileno(), 1)
                         if character == b"\r": return value.decode()
                         value.extend(character)
-                assert line() == "/context"
-                os.write(sys.stdout.fileno(), b"deepseek-v4-pro[1m] native context usage 7%")
+                assert line() == "/context all"
+                os.write(sys.stdout.fileno(), (
+                    b"\x1b[2J\x1b[HContext Usage"
+                    b"\x1b[3;30H90.0%"
+                    b"\x1b[3;1HFree space:"
+                ))
+                assert os.read(sys.stdin.fileno(), 1) == b"\x1b"
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
                 assert line() == "/exit"
             '''), encoding="utf-8")
             result = driver.drive(
@@ -233,7 +323,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertEqual(result, 0)
             event_text = events.read_text(encoding="utf-8")
             self.assertIn('"stage": "context_inspected"', event_text)
-            self.assertIn('"percent": 7', event_text)
+            self.assertIn('"percent": 10', event_text)
             self.assertNotIn('"windowTokens"', event_text)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
@@ -260,8 +350,8 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         character = os.read(sys.stdin.fileno(), 1)
                         if character == b"\r": return value.decode()
                         value.extend(character)
-                assert line() == "/context"
-                os.write(sys.stdout.fileno(), b"native context 7%")
+                assert line() == "/context all"
+                os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
                 assert line() == "/exit"
             '''), encoding="utf-8")
             result = driver.drive(
@@ -272,6 +362,60 @@ class ClaudePtyDriverTests(unittest.TestCase):
             event_text = events.read_text(encoding="utf-8")
             self.assertIn('"stage": "trust_selection"', event_text)
             self.assertIn('"stage": "context_inspected"', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_rejects_unrelated_percentage(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_unrelated_percent.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, time, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                value = bytearray()
+                while True:
+                    character = os.read(sys.stdin.fileno(), 1)
+                    if character == b"\r": break
+                    value.extend(character)
+                assert value.decode() == "/context all"
+                os.write(sys.stdout.fileno(), "unrelated progress 7%\r\n❯ ready".encode())
+                time.sleep(10)
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], root / "capture.pty",
+                timeout_seconds=3, events_path=root / "events.jsonl",
+                dialogue="context",
+            )
+            self.assertEqual(result, 2)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_rejects_forced_exit(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_forced_exit.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, time, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/context all"
+                os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
+                assert line() == "/exit"
+                time.sleep(10)
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], root / "capture.pty",
+                timeout_seconds=4, events_path=root / "events.jsonl",
+                dialogue="context",
+            )
+            self.assertEqual(result, 2)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_resume_dialogue_exercises_rewind_and_preserves_tasks(self) -> None:

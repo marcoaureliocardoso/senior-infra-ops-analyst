@@ -459,7 +459,8 @@ PY
     failure_reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
       --status-context-failure-reason "$status_events" "$RUN_NONCE" \
       "$session_id" "$output_stage")"
-    if [[ "$failure_reason" == "STATUS_CONTEXT_METADATA_UNAVAILABLE" ]]; then
+    if [[ "$failure_reason" == "STATUS_CONTEXT_METADATA_UNAVAILABLE" ]] \
+        && [[ "$mode" == "new" && "$output_stage" == "before" ]]; then
       set +e
       python3 "$ROOT/tests/browser_operations_live.py" --pty-context \
         "$events" "$session_id" "$output_stage" >"$observation" 2>/dev/null

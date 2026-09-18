@@ -787,10 +787,16 @@ only Bash. Native status-line events are the primary source of nonce-bound
 `context_window.used_percentage`. Claude Code can invoke the status line before
 those fields exist in a new session; only when the bound recorder emits the
 exact content-free `status-context-unavailable` marker may the producer fall
-back to the numeric result of the official [`/context` command](https://code.claude.com/docs/en/commands).
-That fallback accepts only the parent-driven dialogue's closed stage sequence,
-successful `context_inspected` event, bounded percentage, and clean exit.
-Generic PTY percentages, screen text, failed or reordered dialogues, missing
+back to the numeric result of the official [`/context all` command](https://code.claude.com/docs/en/commands),
+and only for a fresh `before` probe. That fallback accepts only the
+parent-driven dialogue's closed stage sequence, explicit workspace trust,
+exact native `Context Usage` and `Free space` labels in a bounded ANSI screen,
+an optional exact `Compact buffer` or `Autocompact buffer` value, successful
+context-view dismissal, prompt return, `context_inspected` event, bounded
+percentage, and clean exit. Transient redraws are reduced in memory to at most
+128 unique allowlisted structural rows; neither those rows nor the raw screen
+leave the driver. Generic PTY percentages, malformed or conflicting native
+values, forced exits, failed or reordered dialogues, missing or rejected
 status-line invocation, and arbitrary stream records remain non-evidence.
 The fixture accepts one nonce-bound call only after that process has initialized
 and listed tools, and its exact call count is snapshotted before workflows. Every

@@ -94,12 +94,48 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertEqual(observe(events, "session-001", "before"), {
                 "stage": "before", "sessionId": "session-001", "usedPercentage": 7,
             })
+            forced = [
+                {"kind": "pty-driver", "stage": "initial_screen", "outcome": "passed"},
+                {"kind": "pty-driver", "stage": "prompt_ready", "outcome": "passed"},
+                {"kind": "pty-driver", "stage": "context_inspected", "outcome": "passed", "percent": 7},
+                {"kind": "pty-driver", "stage": "exit", "outcome": "forced"},
+            ]
+            events.write_text(
+                "\n".join(json.dumps(event) for event in forced) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                observe(events, "session-001", "before")
             events.write_text(json.dumps({
                 "kind": "pty-driver", "stage": "context_inspected",
                 "outcome": "passed", "percent": 7, "content": "must not escape",
             }) + "\n", encoding="utf-8")
             with self.assertRaises(ValueError):
                 observe(events, "session-001", "before")
+
+    def test_pty_failure_reason_allows_structural_context_diagnostics(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        reason = browser_operations_live.pty_failure_reason
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "events.jsonl"
+            for stage in (
+                "context_header_missing",
+                "context_free_space_missing",
+                "context_values_invalid",
+                "context_prompt_missing",
+                "context_free_value_separated",
+                "context_free_value_missing",
+                "context_raw_percent_present",
+            ):
+                events.write_text(json.dumps({
+                    "kind": "pty-driver", "stage": stage, "outcome": "failed",
+                }) + "\n", encoding="utf-8")
+                self.assertEqual(reason(events), f"PTY_{stage.upper()}_FAILED")
 
     def test_status_context_failure_reason_is_content_free(self) -> None:
         import sys
@@ -127,11 +163,47 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             )
             events.write_text(json.dumps({
                 "kind": "status-context-unavailable", "runNonce": nonce,
-                "stage": stage,
+                "stage": stage, "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",
             }) + "\n", encoding="utf-8")
             self.assertEqual(
                 reason(events, nonce, session, stage),
                 "STATUS_CONTEXT_METADATA_UNAVAILABLE",
+            )
+            unavailable = {
+                "kind": "status-context-unavailable", "runNonce": nonce,
+                "stage": stage, "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",
+            }
+            numeric = {
+                "kind": "status-context", "percent": 8,
+                "windowTokens": 1_000_000, "runNonce": nonce, "stage": stage,
+            }
+            events.write_text(
+                json.dumps(unavailable) + "\n" + json.dumps(unavailable) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                reason(events, nonce, session, stage),
+                "STATUS_CONTEXT_METADATA_UNAVAILABLE",
+            )
+            events.write_text(
+                json.dumps(unavailable) + "\n" + json.dumps(numeric) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                browser_operations_live.status_context_observation(
+                    events, nonce, session, stage,
+                )["usedPercentage"],
+                8,
+            )
+            self.assertEqual(
+                reason(events, nonce, session, stage), "STATUS_CONTEXT_AVAILABLE"
+            )
+            events.write_text(json.dumps({
+                "kind": "status-context-rejected", "runNonce": nonce,
+                "stage": stage, "reasonCode": "INVALID_STATUS_PAYLOAD",
+            }) + "\n", encoding="utf-8")
+            self.assertEqual(
+                reason(events, nonce, session, stage), "STATUS_CONTEXT_REJECTED"
             )
             events.write_text(json.dumps({
                 "kind": "status-context", "percent": 7, "windowTokens": 1_000_000,
@@ -258,6 +330,12 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         )
         self.assertLess(project_cd, first_probe)
         self.assertEqual(self.script.count('cd "$PROJECT"'), 1)
+
+    def test_pty_fallback_is_limited_to_new_before_probes(self) -> None:
+        self.assertIn(
+            '[[ "$mode" == "new" && "$output_stage" == "before" ]]',
+            self.script,
+        )
 
     def test_live_probe_requests_the_protected_one_shot_route_with_references_only(self) -> None:
         for marker in (

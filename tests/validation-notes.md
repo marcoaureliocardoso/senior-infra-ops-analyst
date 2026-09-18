@@ -1197,12 +1197,18 @@ conditions are now fixed directly. The bound recorder now emits only an exact
 content-free unavailability marker for the third condition.
 
 The status-line observation remains primary. Only after that exact bound marker
-may the parent use the official `/context` command's reduced PTY event. The
-fallback parser accepts one closed ordered startup, prompt, context inspection,
-and exit sequence with a bounded integer percentage; raw screen text, generic
-percentages, extra fields, failures, reordering, symlinks, missing status-line
-invocation, or malformed evidence fail closed. Captures, transcripts, status
-events, and driver events are deleted after reduction.
+may the parent use the official `/context all` command's reduced PTY event, and
+only for a fresh `before` probe. The fallback parser accepts one closed ordered
+startup, explicit workspace trust when prompted, prompt, context inspection,
+context-view dismissal, prompt return, and clean exit sequence. It reconstructs
+the bounded ANSI screen, requires exact `Context Usage` and `Free space` labels,
+accepts the native optional `Compact buffer` or `Autocompact buffer` category,
+and reduces only a coherent bounded integer percentage. At most 128 unique
+allowlisted structural rows may be retained transiently in memory; they are not
+written to evidence. Raw screen text, generic percentages, conflicting values,
+extra fields, failures, forced exits, reordering, symlinks, missing or rejected
+status-line invocation, or malformed evidence fail closed. Captures,
+transcripts, status events, and driver events are deleted after reduction.
 
 The final closed-loopback reproduction passed workspace trust, loaded the
 disposable project settings, completed `main-before`, and stopped exactly at
@@ -1212,3 +1218,13 @@ context-probe wiring without an authenticated provider request. It does not
 prove the four provider-backed measurements, 12 role probes, deterministic
 allow/deny browser workflows, final aggregate, or cleanup aggregate. Those live
 acceptance gates require one fresh authorization bound to the final commit.
+
+The independent review of commit `0d239c98b8c3c9a69dd01f335f6cff5b393d11a0`
+found that malformed status payloads could incorrectly authorize the fallback,
+repeated status events were not reduced coherently, generic PTY percentages
+could be accepted, and forced exit could still satisfy the reducer. The
+remediation separates unavailable from rejected status events, prefers a later
+coherent numeric status observation, restricts fallback to `new/before`, uses
+the exact native labeled ANSI view, and requires a passed exit. The focused
+provider-free gate now passes 70 tests plus shell syntax and the live-harness
+self-test. Independent re-review of the remediated head remains pending.

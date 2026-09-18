@@ -41,33 +41,73 @@ def main() -> int:
             if not LABEL.fullmatch(nonce) or not LABEL.fullmatch(stage):
                 raise ValueError("invalid binding")
             binding = {"runNonce": nonce, "stage": stage}
+    except Exception:
+        sys.stdout.write(rendered + "\n")
+        return 0
+
+    try:
         payload = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
         if len(payload) > MAX_INPUT_BYTES:
             raise ValueError("input too large")
         value = json.loads(payload.decode("utf-8"))
-        context = value.get("context_window") if isinstance(value, dict) else None
-        window = context.get("context_window_size") if isinstance(context, dict) else None
-        percent = context.get("used_percentage") if isinstance(context, dict) else None
-        if (type(window) is not int or not 0 < window <= MAX_WINDOW_TOKENS
-                or type(percent) not in {int, float} or isinstance(percent, bool)
-                or not 0 <= percent <= 100):
-            raise ValueError("context metadata unavailable")
-        rounded = round(percent)
-        event_value = {
-            "kind": "status-context", "percent": rounded, "windowTokens": window,
-        }
-        if binding is not None:
-            event_value.update(binding)
-        append_event(destination, event_value)
-        rendered = f"ctx {rounded}%"
     except Exception:
         if destination is not None and binding is not None:
             try:
                 append_event(destination, {
-                    "kind": "status-context-unavailable", **binding,
+                    "kind": "status-context-rejected",
+                    "reasonCode": "INVALID_STATUS_PAYLOAD", **binding,
                 })
             except Exception:
                 pass
+        sys.stdout.write(rendered + "\n")
+        return 0
+
+    context = value.get("context_window") if isinstance(value, dict) else object()
+    unavailable = (
+        context is None
+        or (isinstance(context, dict)
+            and (context.get("context_window_size") is None
+                 or context.get("used_percentage") is None))
+    )
+    if unavailable:
+        if binding is not None:
+            try:
+                append_event(destination, {
+                    "kind": "status-context-unavailable",
+                    "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED", **binding,
+                })
+            except Exception:
+                pass
+        sys.stdout.write(rendered + "\n")
+        return 0
+
+    window = context.get("context_window_size") if isinstance(context, dict) else None
+    percent = context.get("used_percentage") if isinstance(context, dict) else None
+    if (type(window) is not int or not 0 < window <= MAX_WINDOW_TOKENS
+            or type(percent) not in {int, float} or isinstance(percent, bool)
+            or not 0 <= percent <= 100):
+        if binding is not None:
+            try:
+                append_event(destination, {
+                    "kind": "status-context-rejected",
+                    "reasonCode": "INVALID_NATIVE_FIELDS", **binding,
+                })
+            except Exception:
+                pass
+        sys.stdout.write(rendered + "\n")
+        return 0
+
+    rounded = round(percent)
+    event_value = {
+        "kind": "status-context", "percent": rounded, "windowTokens": window,
+    }
+    if binding is not None:
+        event_value.update(binding)
+    try:
+        append_event(destination, event_value)
+        rendered = f"ctx {rounded}%"
+    except Exception:
+        pass
     sys.stdout.write(rendered + "\n")
     return 0
 

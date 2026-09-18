@@ -78,6 +78,23 @@ class LiveContextWindowRecorderTests(unittest.TestCase):
             self.assertEqual(result.stdout, "ctx --\n")
             self.assertEqual(json.loads(destination.read_text(encoding="utf-8")), {
                 "kind": "status-context-unavailable",
+                "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",
+                "runNonce": "p004b-run-001", "stage": "before",
+            })
+
+    def test_bound_mode_rejects_malformed_payload_without_authorizing_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "events.jsonl"
+            result = subprocess.run(
+                [sys.executable, str(RECORDER), str(destination),
+                 "p004b-run-001", "before"],
+                input="not-json", text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "ctx --\n")
+            self.assertEqual(json.loads(destination.read_text(encoding="utf-8")), {
+                "kind": "status-context-rejected",
+                "reasonCode": "INVALID_STATUS_PAYLOAD",
                 "runNonce": "p004b-run-001", "stage": "before",
             })
 
