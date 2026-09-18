@@ -160,14 +160,32 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
         opened = os.fstat(descriptor)
         if (not stat.S_ISREG(opened.st_mode)
                 or not 1 <= opened.st_size <= maximum_bytes
-                or (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino)):
+                or (before.st_dev, before.st_ino, before.st_size,
+                    before.st_mtime_ns, before.st_ctime_ns)
+                != (opened.st_dev, opened.st_ino, opened.st_size,
+                    opened.st_mtime_ns, opened.st_ctime_ns)):
             raise ValueError("evidence file changed during open")
-        with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
-            descriptor = -1
-            return stream.read().splitlines()
+        chunks: list[bytes] = []
+        remaining = maximum_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        data = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (not 1 <= len(data) <= maximum_bytes
+                or not stat.S_ISREG(after.st_mode)
+                or (opened.st_dev, opened.st_ino, opened.st_size,
+                    opened.st_mtime_ns, opened.st_ctime_ns)
+                != (after.st_dev, after.st_ino, after.st_size,
+                    after.st_mtime_ns, after.st_ctime_ns)
+                or len(data) != after.st_size):
+            raise ValueError("evidence file changed during read")
+        return data.decode("utf-8").splitlines()
     finally:
-        if descriptor >= 0:
-            os.close(descriptor)
+        os.close(descriptor)
 
 
 def pty_failure_reason(path: Path) -> str:
@@ -479,14 +497,13 @@ def evaluate_measurement_stream(
         return empty
 
 
-def status_context_observation(
-    path: Path, run_nonce: str, session_id: str, output_stage: str,
+def _status_context_observation_from_lines(
+    lines: list[str], run_nonce: str, session_id: str, output_stage: str,
 ) -> dict[str, Any]:
     _label(run_nonce)
     _label(session_id)
     if output_stage not in EXPECTED_CONTEXT_STAGES:
         raise ValueError("invalid output context stage")
-    lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
     observations: list[tuple[int, int]] = []
     for line in lines:
         event = json.loads(line)
@@ -522,21 +539,36 @@ def status_context_observation(
     }
 
 
+def status_context_observation(
+    path: Path, run_nonce: str, session_id: str, output_stage: str,
+) -> dict[str, Any]:
+    lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
+    return _status_context_observation_from_lines(
+        lines, run_nonce, session_id, output_stage,
+    )
+
+
 def status_context_failure_reason(
     path: Path, run_nonce: str, session_id: str, output_stage: str,
 ) -> str:
     """Reduce status-line collection state to one content-free reason code."""
     try:
-        if path.is_symlink():
-            return "STATUS_CONTEXT_REJECTED"
-        if not path.is_file() or path.stat().st_size == 0:
-            return "STATUS_CONTEXT_MISSING"
         try:
-            status_context_observation(path, run_nonce, session_id, output_stage)
+            existing = path.lstat()
+        except FileNotFoundError:
+            return "STATUS_CONTEXT_MISSING"
+        if not stat.S_ISREG(existing.st_mode):
+            return "STATUS_CONTEXT_REJECTED"
+        if existing.st_size == 0:
+            return "STATUS_CONTEXT_MISSING"
+        lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
+        try:
+            _status_context_observation_from_lines(
+                lines, run_nonce, session_id, output_stage,
+            )
             return "STATUS_CONTEXT_AVAILABLE"
         except ValueError:
             pass
-        lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
         if lines and all(json.loads(line) == {
                 "kind": "status-context-unavailable",
                 "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",

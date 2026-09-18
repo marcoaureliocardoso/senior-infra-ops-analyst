@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -238,6 +239,80 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 browser_operations_live.status_context_observation(
                     linked, "p004b-run-001",
                     "00000000-0000-4000-8000-000000000001", "before",
+                )
+
+    def test_status_context_reason_uses_one_secure_snapshot(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        malformed = ["{not-json"]
+        unavailable = [json.dumps({
+            "kind": "status-context-unavailable",
+            "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",
+            "runNonce": "p004b-run-001", "stage": "before",
+        })]
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "status.jsonl"
+            evidence.write_text("placeholder\n", encoding="utf-8")
+            with mock.patch.object(
+                browser_operations_live, "_read_regular_lines_nofollow",
+                side_effect=(malformed, unavailable),
+            ) as reader:
+                self.assertEqual(
+                    browser_operations_live.status_context_failure_reason(
+                        evidence, "p004b-run-001",
+                        "00000000-0000-4000-8000-000000000001", "before",
+                    ),
+                    "STATUS_CONTEXT_REJECTED",
+                )
+                self.assertEqual(reader.call_count, 1)
+
+    def test_regular_evidence_reader_rejects_growth_and_special_files(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "evidence.jsonl"
+            evidence.write_bytes(b"x" * browser_operations_live.MAX_STATUS_CONTEXT_BYTES)
+            real_read = browser_operations_live.os.read
+            appended = False
+
+            def append_then_read(descriptor, count):
+                nonlocal appended
+                if not appended:
+                    appended = True
+                    with evidence.open("ab") as stream:
+                        stream.write(b"x")
+                return real_read(descriptor, count)
+
+            with mock.patch.object(
+                browser_operations_live.os, "read", side_effect=append_then_read,
+            ):
+                with self.assertRaises(ValueError):
+                    browser_operations_live._read_regular_lines_nofollow(
+                        evidence, browser_operations_live.MAX_STATUS_CONTEXT_BYTES,
+                    )
+
+            reason = browser_operations_live.status_context_failure_reason
+            self.assertEqual(
+                reason(root, "p004b-run-001",
+                       "00000000-0000-4000-8000-000000000001", "before"),
+                "STATUS_CONTEXT_REJECTED",
+            )
+            if hasattr(os, "mkfifo"):
+                fifo = root / "evidence.fifo"
+                os.mkfifo(fifo)
+                self.assertEqual(
+                    reason(fifo, "p004b-run-001",
+                           "00000000-0000-4000-8000-000000000001", "before"),
+                    "STATUS_CONTEXT_REJECTED",
                 )
 
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:

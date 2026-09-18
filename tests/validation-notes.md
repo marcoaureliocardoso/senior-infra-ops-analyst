@@ -1206,10 +1206,12 @@ accepts the native optional `Compact buffer` or `Autocompact buffer` category,
 and reduces only a coherent bounded integer percentage. At most 128 unique
 allowlisted structural rows may be retained transiently in memory; they are not
 written to evidence. Stripped raw-stream text is diagnostic only and cannot
-satisfy the percentage gate. Status evidence is opened as one bounded regular
-file with no-follow and opened-file identity checks. Raw screen text, erased
-labels, generic percentages, conflicting values, extra fields, failures, forced
-exits, reordering, symlinks, missing or rejected status-line invocation, or
+satisfy the percentage gate. Status evidence is reduced from one bounded
+regular-file snapshot with no-follow, identity, size, and before/after metadata
+checks; availability and rejection cannot observe different snapshots. Raw
+screen text, erased labels, generic percentages, conflicting values, extra
+fields, failures, forced exits, reordering, symlinks or other non-regular
+inputs, changing evidence, missing or rejected status-line invocation, or
 malformed evidence fail closed. Captures,
 transcripts, status events, and driver events are deleted after reduction.
 
@@ -1229,9 +1231,14 @@ could be accepted, and forced exit could still satisfy the reducer. The
 remediation separates unavailable from rejected status events, prefers a later
 coherent numeric status observation, restricts fallback to `new/before`, uses
 the exact native labeled ANSI view, and requires a passed exit. The focused
-provider-free gate now passes 72 tests plus shell syntax and the live-harness
+provider-free gate now passes 74 tests plus shell syntax and the live-harness
 self-test. A second independent review then found a raw-text reassociation after
 ANSI erasure and a symlink-following gap in the primary status reader. Both now
 have adversarial regressions: only labeled reconstructed screen state may supply
 the PTY value, and the primary reader performs no-follow regular-file identity
-checks. Independent re-review of the final remediated head remains pending.
+checks. A third independent review found that the failure reducer could reopen
+the path and that a post-open append could exceed the read bound; it also found
+that existing special files were misclassified as missing. Regressions now
+require one snapshot per decision, a hard read cap with stable before/after
+metadata, and rejection of every existing non-regular input. Independent
+re-review of the final remediated head remains pending.

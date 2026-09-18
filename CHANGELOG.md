@@ -87,8 +87,9 @@ tag. Tagged versions correspond to repository tags.
   accepts the native optional `Compact buffer` or `Autocompact buffer` category,
   closes the context view explicitly, proves prompt return and a clean exit, and
   rejects erased labels, raw-stream-only percentages, malformed or conflicting
-  values, forced exits, and unrelated percentages. Status evidence is opened as
-  one bounded regular file without following links. A
+  values, forced exits, and unrelated percentages. Status evidence is reduced
+  from one bounded regular-file snapshot without following links, and growth or
+  metadata changes during the bounded read are rejected. A
   provider-free closed-loopback run reached the first model-dependent
   measurement stage. Provider-backed acceptance remains pending and requires a
   fresh exact authorization.

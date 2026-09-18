@@ -796,11 +796,13 @@ context-view dismissal, prompt return, `context_inspected` event, bounded
 percentage, and clean exit. Transient redraws are reduced in memory to at most
 128 unique allowlisted structural rows; neither those rows nor the raw screen
 leave the driver, and stripped raw-stream text is diagnostic only, never
-acceptance evidence. Status evidence is opened as one bounded regular file with
-no-follow and identity checks. Generic PTY percentages, erased labels, malformed
-or conflicting native values, forced exits, failed or reordered dialogues,
-missing or rejected status-line invocation, symlinked evidence, and arbitrary
-stream records remain non-evidence.
+acceptance evidence. Status evidence is reduced from one bounded regular-file
+snapshot with no-follow, identity, size, and before/after metadata checks; the
+same snapshot determines availability or rejection. Generic PTY percentages,
+erased labels, malformed or conflicting native values, forced exits, failed or
+reordered dialogues, missing or rejected status-line invocation, symlinked or
+other non-regular evidence, changing evidence, and arbitrary stream records
+remain non-evidence.
 The fixture accepts one nonce-bound call only after that process has initialized
 and listed tools, and its exact call count is snapshotted before workflows. Every
 Claude invocation uses a strict minimal MCP configuration. Trusted measurements
