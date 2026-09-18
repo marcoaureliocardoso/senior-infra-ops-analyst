@@ -797,8 +797,9 @@ percentage, and clean exit. Transient redraws are reduced in memory to at most
 128 unique allowlisted structural rows; neither those rows nor the raw screen
 leave the driver, and stripped raw-stream text is diagnostic only, never
 acceptance evidence. Status evidence is reduced from one bounded regular-file
-snapshot with no-follow, identity, size, and before/after metadata checks; the
-same snapshot determines availability or rejection. Generic PTY percentages,
+snapshot with nonblocking and no-follow open plus identity, size, and
+before/after metadata checks; the same securely opened snapshot determines
+missing, availability, or rejection. Generic PTY percentages,
 erased labels, malformed or conflicting native values, forced exits, failed or
 reordered dialogues, missing or rejected status-line invocation, symlinked or
 other non-regular evidence, changing evidence, and arbitrary stream records

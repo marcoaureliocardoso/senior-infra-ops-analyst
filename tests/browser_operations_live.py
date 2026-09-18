@@ -113,6 +113,10 @@ MAX_PTY_EVENT_BYTES = 64 * 1024
 MAX_STATUS_CONTEXT_BYTES = 64 * 1024
 
 
+class EvidenceMissingError(ValueError):
+    """The evidence path did not exist at the initial secure-read check."""
+
+
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != fields:
         raise ValueError(f"invalid {name} fields")
@@ -151,15 +155,22 @@ def _load_pty_events(path: Path) -> list[dict[str, Any]]:
 
 def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
     """Read one bounded regular file without following or racing a symlink."""
-    before = path.lstat()
-    if not stat.S_ISREG(before.st_mode) or not 1 <= before.st_size <= maximum_bytes:
+    try:
+        before = path.lstat()
+    except FileNotFoundError as error:
+        raise EvidenceMissingError("evidence file missing") from error
+    if not stat.S_ISREG(before.st_mode) or not 0 <= before.st_size <= maximum_bytes:
         raise ValueError("invalid evidence file")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(path, flags)
+    flags = (os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+             | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError as error:
+        raise ValueError("evidence file changed during open") from error
     try:
         opened = os.fstat(descriptor)
         if (not stat.S_ISREG(opened.st_mode)
-                or not 1 <= opened.st_size <= maximum_bytes
+                or not 0 <= opened.st_size <= maximum_bytes
                 or (before.st_dev, before.st_ino, before.st_size,
                     before.st_mtime_ns, before.st_ctime_ns)
                 != (opened.st_dev, opened.st_ino, opened.st_size,
@@ -175,7 +186,7 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
             remaining -= len(chunk)
         data = b"".join(chunks)
         after = os.fstat(descriptor)
-        if (not 1 <= len(data) <= maximum_bytes
+        if (not 0 <= len(data) <= maximum_bytes
                 or not stat.S_ISREG(after.st_mode)
                 or (opened.st_dev, opened.st_ino, opened.st_size,
                     opened.st_mtime_ns, opened.st_ctime_ns)
@@ -554,14 +565,11 @@ def status_context_failure_reason(
     """Reduce status-line collection state to one content-free reason code."""
     try:
         try:
-            existing = path.lstat()
-        except FileNotFoundError:
+            lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
+        except EvidenceMissingError:
             return "STATUS_CONTEXT_MISSING"
-        if not stat.S_ISREG(existing.st_mode):
-            return "STATUS_CONTEXT_REJECTED"
-        if existing.st_size == 0:
+        if not lines:
             return "STATUS_CONTEXT_MISSING"
-        lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
         try:
             _status_context_observation_from_lines(
                 lines, run_nonce, session_id, output_stage,

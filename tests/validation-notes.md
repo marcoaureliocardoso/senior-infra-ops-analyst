@@ -1207,8 +1207,9 @@ and reduces only a coherent bounded integer percentage. At most 128 unique
 allowlisted structural rows may be retained transiently in memory; they are not
 written to evidence. Stripped raw-stream text is diagnostic only and cannot
 satisfy the percentage gate. Status evidence is reduced from one bounded
-regular-file snapshot with no-follow, identity, size, and before/after metadata
-checks; availability and rejection cannot observe different snapshots. Raw
+regular-file snapshot with nonblocking and no-follow open plus identity, size,
+and before/after metadata checks; missing, availability, and rejection cannot
+observe different snapshots. Raw
 screen text, erased labels, generic percentages, conflicting values, extra
 fields, failures, forced exits, reordering, symlinks or other non-regular
 inputs, changing evidence, missing or rejected status-line invocation, or
@@ -1231,7 +1232,7 @@ could be accepted, and forced exit could still satisfy the reducer. The
 remediation separates unavailable from rejected status events, prefers a later
 coherent numeric status observation, restricts fallback to `new/before`, uses
 the exact native labeled ANSI view, and requires a passed exit. The focused
-provider-free gate now passes 74 tests plus shell syntax and the live-harness
+provider-free gate now passes 76 tests plus shell syntax and the live-harness
 self-test. A second independent review then found a raw-text reassociation after
 ANSI erasure and a symlink-following gap in the primary status reader. Both now
 have adversarial regressions: only labeled reconstructed screen state may supply
@@ -1241,4 +1242,8 @@ the path and that a post-open append could exceed the read bound; it also found
 that existing special files were misclassified as missing. Regressions now
 require one snapshot per decision, a hard read cap with stable before/after
 metadata, and rejection of every existing non-regular input. Independent
-re-review of the final remediated head remains pending.
+re-review then found that a regular-to-FIFO replacement could block during open
+and that zero bytes were classified before secure open. Regressions now require
+the nonblocking flag before a simulated FIFO swap and prove that stable empty
+evidence is classified through the same secure reader. Independent re-review of
+the final remediated head remains pending.

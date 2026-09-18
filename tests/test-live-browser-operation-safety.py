@@ -315,6 +315,59 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                     "STATUS_CONTEXT_REJECTED",
                 )
 
+    def test_regular_evidence_reader_cannot_block_on_fifo_replacement(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        nonblocking = getattr(os, "O_NONBLOCK", 0)
+        if not nonblocking or not hasattr(os, "mkfifo"):
+            self.skipTest("nonblocking FIFO support is unavailable")
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "evidence.jsonl"
+            evidence.write_text("placeholder\n", encoding="utf-8")
+            real_open = browser_operations_live.os.open
+
+            def replace_with_fifo(path, flags):
+                if not flags & nonblocking:
+                    raise AssertionError("evidence open is allowed to block")
+                evidence.unlink()
+                os.mkfifo(evidence)
+                return real_open(path, flags)
+
+            with mock.patch.object(
+                browser_operations_live.os, "open", side_effect=replace_with_fifo,
+            ):
+                with self.assertRaises(ValueError):
+                    browser_operations_live._read_regular_lines_nofollow(
+                        evidence, browser_operations_live.MAX_STATUS_CONTEXT_BYTES,
+                    )
+
+    def test_empty_status_evidence_uses_one_secure_snapshot(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "status.jsonl"
+            evidence.touch()
+            with mock.patch.object(
+                browser_operations_live, "_read_regular_lines_nofollow",
+                wraps=browser_operations_live._read_regular_lines_nofollow,
+            ) as reader:
+                self.assertEqual(
+                    browser_operations_live.status_context_failure_reason(
+                        evidence, "p004b-run-001",
+                        "00000000-0000-4000-8000-000000000001", "before",
+                    ),
+                    "STATUS_CONTEXT_MISSING",
+                )
+                self.assertEqual(reader.call_count, 1)
+
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
         for marker in (
             "--self-test", "--preflight", "--run-live", "P004B_LIVE_AUTHORIZED",

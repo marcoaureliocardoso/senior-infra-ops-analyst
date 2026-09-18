@@ -89,7 +89,9 @@ tag. Tagged versions correspond to repository tags.
   rejects erased labels, raw-stream-only percentages, malformed or conflicting
   values, forced exits, and unrelated percentages. Status evidence is reduced
   from one bounded regular-file snapshot without following links, and growth or
-  metadata changes during the bounded read are rejected. A
+  metadata changes during the bounded read are rejected. Nonblocking open
+  prevents a regular-to-FIFO replacement from stalling, and empty evidence is
+  classified only from the securely opened snapshot. A
   provider-free closed-loopback run reached the first model-dependent
   measurement stage. Provider-backed acceptance remains pending and requires a
   fresh exact authorization.
