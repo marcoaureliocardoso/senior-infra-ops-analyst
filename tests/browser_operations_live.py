@@ -110,6 +110,7 @@ PTY_STAGES = {
 }
 PTY_OUTCOMES = {"passed", "failed", "forced", "not-present"}
 MAX_PTY_EVENT_BYTES = 64 * 1024
+MAX_STATUS_CONTEXT_BYTES = 64 * 1024
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -146,6 +147,27 @@ def _load_pty_events(path: Path) -> list[dict[str, Any]]:
         if len(events) > 128:
             raise ValueError("too many PTY events")
     return events
+
+
+def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
+    """Read one bounded regular file without following or racing a symlink."""
+    before = path.lstat()
+    if not stat.S_ISREG(before.st_mode) or not 1 <= before.st_size <= maximum_bytes:
+        raise ValueError("invalid evidence file")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode)
+                or not 1 <= opened.st_size <= maximum_bytes
+                or (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino)):
+            raise ValueError("evidence file changed during open")
+        with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
+            descriptor = -1
+            return stream.read().splitlines()
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def pty_failure_reason(path: Path) -> str:
@@ -464,36 +486,34 @@ def status_context_observation(
     _label(session_id)
     if output_stage not in EXPECTED_CONTEXT_STAGES:
         raise ValueError("invalid output context stage")
-    if not path.is_file() or not 1 <= path.stat().st_size <= 64 * 1024:
-        raise ValueError("invalid status event file")
+    lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
     observations: list[tuple[int, int]] = []
-    with path.open("r", encoding="utf-8") as stream:
-        for line in stream:
-            event = json.loads(line)
-            if isinstance(event, dict) and event.get("kind") == "status-context-unavailable":
-                event = _exact(event, {
-                    "kind", "reasonCode", "runNonce", "stage",
-                }, "status context unavailable event")
-                if (observations
-                        or event["reasonCode"] != "NATIVE_FIELDS_NOT_SUPPLIED"
-                        or event["runNonce"] != run_nonce
-                        or event["stage"] != output_stage):
-                    raise ValueError("invalid status context unavailable event")
-                continue
+    for line in lines:
+        event = json.loads(line)
+        if isinstance(event, dict) and event.get("kind") == "status-context-unavailable":
             event = _exact(event, {
-                "kind", "percent", "windowTokens", "runNonce", "stage",
-            }, "status context event")
-            percent = event["percent"]
-            window = event["windowTokens"]
-            if (event["kind"] != "status-context"
+                "kind", "reasonCode", "runNonce", "stage",
+            }, "status context unavailable event")
+            if (observations
+                    or event["reasonCode"] != "NATIVE_FIELDS_NOT_SUPPLIED"
                     or event["runNonce"] != run_nonce
-                    or event["stage"] != output_stage
-                    or not isinstance(percent, int) or isinstance(percent, bool)
-                    or not 0 <= percent <= 100
-                    or not isinstance(window, int) or isinstance(window, bool)
-                    or not 0 < window <= 10_000_000):
-                raise ValueError("invalid status context event")
-            observations.append((percent, window))
+                    or event["stage"] != output_stage):
+                raise ValueError("invalid status context unavailable event")
+            continue
+        event = _exact(event, {
+            "kind", "percent", "windowTokens", "runNonce", "stage",
+        }, "status context event")
+        percent = event["percent"]
+        window = event["windowTokens"]
+        if (event["kind"] != "status-context"
+                or event["runNonce"] != run_nonce
+                or event["stage"] != output_stage
+                or not isinstance(percent, int) or isinstance(percent, bool)
+                or not 0 <= percent <= 100
+                or not isinstance(window, int) or isinstance(window, bool)
+                or not 0 < window <= 10_000_000):
+            raise ValueError("invalid status context event")
+        observations.append((percent, window))
     if not observations or len({window for _, window in observations}) != 1:
         raise ValueError("native status context not observed coherently")
     return {
@@ -516,7 +536,7 @@ def status_context_failure_reason(
             return "STATUS_CONTEXT_AVAILABLE"
         except ValueError:
             pass
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = _read_regular_lines_nofollow(path, MAX_STATUS_CONTEXT_BYTES)
         if lines and all(json.loads(line) == {
                 "kind": "status-context-unavailable",
                 "reasonCode": "NATIVE_FIELDS_NOT_SUPPLIED",

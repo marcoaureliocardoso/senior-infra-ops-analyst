@@ -140,6 +140,20 @@ class ClaudePtyDriverTests(unittest.TestCase):
         )
         self.assertEqual(driver.context_usage_percent(transient_then_cleared), 10)
 
+    def test_context_usage_rejects_percentage_after_labeled_row_was_erased(self) -> None:
+        driver = load_driver()
+        erased_then_unrelated = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;1HFree space:"
+            b"\x1b[3;1H\x1b[2K"
+            b"\x1b[5;1Hunrelated 90%"
+        )
+        self.assertIsNone(driver.context_usage_percent(erased_then_unrelated))
+        self.assertNotEqual(
+            driver.context_structure_stage(erased_then_unrelated),
+            "context_inspected",
+        )
+
     def test_structural_compaction_sequence_rejects_orphans_and_duplicates(self) -> None:
         driver = load_driver()
         self.assertTrue(hasattr(driver, "compaction_pairs_observed"))

@@ -86,7 +86,9 @@ tag. Tagged versions correspond to repository tags.
   ANSI screen state, requires exact `Context Usage` and `Free space` labels,
   accepts the native optional `Compact buffer` or `Autocompact buffer` category,
   closes the context view explicitly, proves prompt return and a clean exit, and
-  rejects malformed, conflicting, forced-exit, or unrelated percentages. A
+  rejects erased labels, raw-stream-only percentages, malformed or conflicting
+  values, forced exits, and unrelated percentages. Status evidence is opened as
+  one bounded regular file without following links. A
   provider-free closed-loopback run reached the first model-dependent
   measurement stage. Provider-backed acceptance remains pending and requires a
   fresh exact authorization.

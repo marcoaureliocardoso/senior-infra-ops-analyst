@@ -154,6 +154,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertEqual(
                 reason(events, nonce, session, stage), "STATUS_CONTEXT_MISSING"
             )
+
             events.write_text(json.dumps({
                 "kind": "status-context", "percent": 7, "windowTokens": 1_000_000,
                 "runNonce": nonce, "stage": stage,
@@ -212,6 +213,32 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.assertEqual(
                 reason(events, nonce, session, stage), "STATUS_CONTEXT_REJECTED"
             )
+
+    def test_status_context_observation_rejects_symlinked_evidence(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target.jsonl"
+            linked = root / "linked.jsonl"
+            target.write_text(json.dumps({
+                "kind": "status-context", "percent": 8,
+                "windowTokens": 1_000_000, "runNonce": "p004b-run-001",
+                "stage": "before",
+            }) + "\n", encoding="utf-8")
+            try:
+                linked.symlink_to(target)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable")
+            with self.assertRaises(ValueError):
+                browser_operations_live.status_context_observation(
+                    linked, "p004b-run-001",
+                    "00000000-0000-4000-8000-000000000001", "before",
+                )
 
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
         for marker in (

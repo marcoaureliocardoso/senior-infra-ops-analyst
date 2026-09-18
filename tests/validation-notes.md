@@ -1205,9 +1205,12 @@ the bounded ANSI screen, requires exact `Context Usage` and `Free space` labels,
 accepts the native optional `Compact buffer` or `Autocompact buffer` category,
 and reduces only a coherent bounded integer percentage. At most 128 unique
 allowlisted structural rows may be retained transiently in memory; they are not
-written to evidence. Raw screen text, generic percentages, conflicting values,
-extra fields, failures, forced exits, reordering, symlinks, missing or rejected
-status-line invocation, or malformed evidence fail closed. Captures,
+written to evidence. Stripped raw-stream text is diagnostic only and cannot
+satisfy the percentage gate. Status evidence is opened as one bounded regular
+file with no-follow and opened-file identity checks. Raw screen text, erased
+labels, generic percentages, conflicting values, extra fields, failures, forced
+exits, reordering, symlinks, missing or rejected status-line invocation, or
+malformed evidence fail closed. Captures,
 transcripts, status events, and driver events are deleted after reduction.
 
 The final closed-loopback reproduction passed workspace trust, loaded the
@@ -1226,5 +1229,9 @@ could be accepted, and forced exit could still satisfy the reducer. The
 remediation separates unavailable from rejected status events, prefers a later
 coherent numeric status observation, restricts fallback to `new/before`, uses
 the exact native labeled ANSI view, and requires a passed exit. The focused
-provider-free gate now passes 70 tests plus shell syntax and the live-harness
-self-test. Independent re-review of the remediated head remains pending.
+provider-free gate now passes 72 tests plus shell syntax and the live-harness
+self-test. A second independent review then found a raw-text reassociation after
+ANSI erasure and a symlink-following gap in the primary status reader. Both now
+have adversarial regressions: only labeled reconstructed screen state may supply
+the PTY value, and the primary reader performs no-follow regular-file identity
+checks. Independent re-review of the final remediated head remains pending.

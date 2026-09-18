@@ -221,11 +221,6 @@ def context_usage_percent(data: bytes) -> int | None:
     )
     if percentage is not None:
         return percentage
-    percentage = _context_percent_from_text(
-        _without_csi(data).decode("utf-8", errors="ignore")
-    )
-    if percentage is not None:
-        return percentage
     return None
 
 
