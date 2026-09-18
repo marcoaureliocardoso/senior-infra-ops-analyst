@@ -75,6 +75,16 @@ tag. Tagged versions correspond to repository tags.
   `0644`/`100644`. A disposable Nori `0.27.0` installation retained the corrected
   launcher modes. A third authorized launch had stopped before any provider
   request when the earlier `0644` launcher exposed this packaging defect.
+- Hardened the live PTY path for Claude Code `2.1.274`: workspace trust now
+  selects the affirmative choice explicitly, retries do not repeat cursor
+  movement, context probes run from the disposable project, and failures reduce
+  to allowlisted content-free stage codes. Native status-line percentages remain
+  primary; when a bound status-line invocation proves that context metadata is
+  not yet available before the first model turn, the harness accepts only the
+  official `/context` command's strictly ordered, numeric, content-free PTY
+  result. A provider-free closed-loopback run reached the first model-dependent
+  measurement stage. Provider-backed acceptance remains pending and requires a
+  fresh exact authorization.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

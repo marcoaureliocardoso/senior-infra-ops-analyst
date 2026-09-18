@@ -443,9 +443,37 @@ PY
     >"$transcript" 2>&1
   status=$?
   set -e
-  [[ $status -eq 0 ]] || blocked "trusted context probe failed: $label"
+  if [[ $status -ne 0 ]]; then
+    failure_reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
+      --pty-failure-reason "$events")"
+    rm -f -- "$events" "$capture" "$transcript" "$status_events"
+    blocked "trusted context probe failed: $label ($failure_reason)"
+  fi
+  set +e
   python3 "$ROOT/tests/browser_operations_live.py" --status-context \
-    "$status_events" "$RUN_NONCE" "$session_id" "$output_stage" >"$observation"
+    "$status_events" "$RUN_NONCE" "$session_id" "$output_stage" \
+    >"$observation" 2>/dev/null
+  status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    failure_reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
+      --status-context-failure-reason "$status_events" "$RUN_NONCE" \
+      "$session_id" "$output_stage")"
+    if [[ "$failure_reason" == "STATUS_CONTEXT_METADATA_UNAVAILABLE" ]]; then
+      set +e
+      python3 "$ROOT/tests/browser_operations_live.py" --pty-context \
+        "$events" "$session_id" "$output_stage" >"$observation" 2>/dev/null
+      status=$?
+      set -e
+      if [[ $status -ne 0 ]]; then
+        rm -f -- "$events" "$capture" "$transcript" "$status_events" "$observation"
+        blocked "trusted PTY context failed: $label (PTY_CONTEXT_EVIDENCE_REJECTED)"
+      fi
+    else
+      rm -f -- "$events" "$capture" "$transcript" "$status_events" "$observation"
+      blocked "trusted status context failed: $label ($failure_reason)"
+    fi
+  fi
   rm -f -- "$events" "$capture" "$transcript" "$status_events"
 }
 
@@ -479,6 +507,7 @@ run_measurement_stage() {
   rm -f -- "$prompt_path" "$stream_path" "$MEASUREMENT_DIR/$label.transcript"
 }
 
+cd "$PROJECT"
 run_context_probe main-before "$MAIN_MEASUREMENT_SESSION" new before
 run_measurement_stage skill \
   'P0-04B synthetic context measurement. Invoke Skill exactly once with only skill=context-continuity, then reply P004B_SKILL_OK. Do not perform browser work.'
@@ -513,7 +542,6 @@ done
 CANARY='P004B_LIVE_CANARY_DO_NOT_REPEAT'
 export P004B_EVIDENCE_NODE_BIN="$NODE_BIN"
 export P004B_EXPECTED_RUNNER_PATH="$RUNNER"
-cd "$PROJECT"
 run_workflow() {
   local phase="$1" session_id="$2" config="$3" operation_id="$4"
   local prompt_path="$PROMPT_DIR/$phase.txt"

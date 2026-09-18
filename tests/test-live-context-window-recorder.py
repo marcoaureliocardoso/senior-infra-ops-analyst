@@ -65,6 +65,22 @@ class LiveContextWindowRecorderTests(unittest.TestCase):
                 "stage": "afterSkill",
             })
 
+    def test_bound_mode_records_content_free_unavailable_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "events.jsonl"
+            result = subprocess.run(
+                [sys.executable, str(RECORDER), str(destination),
+                 "p004b-run-001", "before"],
+                input=json.dumps({"context_window": {"used_percentage": 7}}),
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "ctx --\n")
+            self.assertEqual(json.loads(destination.read_text(encoding="utf-8")), {
+                "kind": "status-context-unavailable",
+                "runNonce": "p004b-run-001", "stage": "before",
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

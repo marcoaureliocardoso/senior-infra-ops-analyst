@@ -189,8 +189,13 @@ def drive(
             or (dialogue == "resume" and TASK_A in data and TASK_B in data)
         )
 
-    def advance_startup(predicate, label: str) -> None:
-        for _ in range(4):
+    def advance_startup(
+        predicate, label: str, selection: bytes = b""
+    ) -> None:
+        for attempt in range(4):
+            if selection and attempt == 0:
+                write_all(master, selection)
+                time.sleep(0.1)
             send("")
             attempt_deadline = min(deadline, time.monotonic() + 1.5)
             while time.monotonic() < attempt_deadline:
@@ -246,6 +251,7 @@ def drive(
                 advance_startup(
                     lambda data, size=previous_length: prompt_ready(data[size:]),
                     "trust screen transition",
+                    b"\x1b[A",
                 )
                 record(current_stage, "passed")
                 startup_offset = previous_length

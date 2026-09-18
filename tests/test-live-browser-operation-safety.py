@@ -38,6 +38,109 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertTrue(HARNESS.is_file())
         self.assertTrue(PARSER.is_file())
 
+    def test_pty_failure_reason_is_stage_bound_and_content_free(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        self.assertTrue(hasattr(browser_operations_live, "pty_failure_reason"))
+        pty_failure_reason = browser_operations_live.pty_failure_reason
+
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "events.jsonl"
+            events.write_text(
+                "\n".join(json.dumps(event) for event in (
+                    {"kind": "pty-driver", "stage": "initial_screen", "outcome": "passed"},
+                    {"kind": "pty-driver", "stage": "prompt_ready", "outcome": "passed"},
+                    {"kind": "pty-driver", "stage": "context_inspected", "outcome": "failed"},
+                )) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                pty_failure_reason(events),
+                "PTY_CONTEXT_INSPECTED_FAILED",
+            )
+            events.write_text(json.dumps({
+                "kind": "pty-driver",
+                "stage": "P004B_PROTECTED_VALUE_MUST_NOT_APPEAR",
+                "outcome": "failed",
+                "content": "untrusted screen text",
+            }) + "\n", encoding="utf-8")
+            self.assertEqual(pty_failure_reason(events), "PTY_EVIDENCE_REJECTED")
+
+    def test_pty_context_observation_accepts_only_completed_context_dialogue(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        self.assertTrue(hasattr(browser_operations_live, "pty_context_observation"))
+        observe = browser_operations_live.pty_context_observation
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "events.jsonl"
+            events.write_text(
+                "\n".join(json.dumps(event) for event in (
+                    {"kind": "pty-driver", "stage": "initial_screen", "outcome": "passed"},
+                    {"kind": "pty-driver", "stage": "trust_selection", "outcome": "passed"},
+                    {"kind": "pty-driver", "stage": "prompt_ready", "outcome": "passed"},
+                    {"kind": "pty-driver", "stage": "context_inspected", "outcome": "passed", "percent": 7},
+                    {"kind": "pty-driver", "stage": "exit", "outcome": "passed"},
+                )) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(observe(events, "session-001", "before"), {
+                "stage": "before", "sessionId": "session-001", "usedPercentage": 7,
+            })
+            events.write_text(json.dumps({
+                "kind": "pty-driver", "stage": "context_inspected",
+                "outcome": "passed", "percent": 7, "content": "must not escape",
+            }) + "\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                observe(events, "session-001", "before")
+
+    def test_status_context_failure_reason_is_content_free(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        self.assertTrue(hasattr(browser_operations_live, "status_context_failure_reason"))
+        reason = browser_operations_live.status_context_failure_reason
+        nonce = "p004b-run-001"
+        session = "00000000-0000-4000-8000-000000000001"
+        stage = "before"
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "status.jsonl"
+            self.assertEqual(
+                reason(events, nonce, session, stage), "STATUS_CONTEXT_MISSING"
+            )
+            events.write_text(json.dumps({
+                "kind": "status-context", "percent": 7, "windowTokens": 1_000_000,
+                "runNonce": nonce, "stage": stage,
+            }) + "\n", encoding="utf-8")
+            self.assertEqual(
+                reason(events, nonce, session, stage), "STATUS_CONTEXT_AVAILABLE"
+            )
+            events.write_text(json.dumps({
+                "kind": "status-context-unavailable", "runNonce": nonce,
+                "stage": stage,
+            }) + "\n", encoding="utf-8")
+            self.assertEqual(
+                reason(events, nonce, session, stage),
+                "STATUS_CONTEXT_METADATA_UNAVAILABLE",
+            )
+            events.write_text(json.dumps({
+                "kind": "status-context", "percent": 7, "windowTokens": 1_000_000,
+                "runNonce": nonce, "stage": stage, "content": "must not escape",
+            }) + "\n", encoding="utf-8")
+            self.assertEqual(
+                reason(events, nonce, session, stage), "STATUS_CONTEXT_REJECTED"
+            )
+
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
         for marker in (
             "--self-test", "--preflight", "--run-live", "P004B_LIVE_AUTHORIZED",
@@ -130,6 +233,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
     def test_trusted_measurement_is_parent_reduced_and_session_bound(self) -> None:
         for marker in (
             "--evaluate-measurement-stream", "--status-context",
+            "--pty-context", "STATUS_CONTEXT_METADATA_UNAVAILABLE",
             "--build-measurement", "MAIN_MEASUREMENT_SESSION",
             "ROLE_SESSIONS", "--session-id", "--resume",
             "context_fixture_ping", "ToolSearch", "Invoke Skill",
@@ -146,6 +250,14 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             self.script.index('--build-measurement'),
             self.script.index('aggregate_json="$(aggregate_results)"'),
         )
+
+    def test_trusted_measurement_runs_from_disposable_project(self) -> None:
+        project_cd = self.script.index('cd "$PROJECT"')
+        first_probe = self.script.index(
+            'run_context_probe main-before "$MAIN_MEASUREMENT_SESSION" new before'
+        )
+        self.assertLess(project_cd, first_probe)
+        self.assertEqual(self.script.count('cd "$PROJECT"'), 1)
 
     def test_live_probe_requests_the_protected_one_shot_route_with_references_only(self) -> None:
         for marker in (

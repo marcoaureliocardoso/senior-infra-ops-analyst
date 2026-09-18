@@ -1177,3 +1177,38 @@ without skips. A fresh disposable Nori `0.27.0` installation retained `0755` for
 both browser and command-guard launchers. This fixes package behavior rather
 than adding an acceptance-only chmod workaround. Provider-backed acceptance
 remains pending and requires another fresh authorization.
+
+## P0-04B live startup and context-probe remediation (2026-09-18)
+
+The first authorized launch on commit
+`85cca2e72b17854d300e367b0e7aded5b1ad5930` installed the disposable Nori
+profile and then stopped at `main-before` without an aggregate. It did not
+reach the first provider-backed measurement stage. The retained bounded result
+did not establish how many external requests, if any, occurred, so it is not
+counted as acceptance and was not retried under that authorization.
+
+Provider-free reproduction with Claude Code `2.1.274`, Nori `0.27.0`, a
+synthetic token, and a closed loopback provider endpoint isolated three harness
+defects. The current trust screen requires moving from its safe default to the
+affirmative choice before Enter; the measurement probes ran before the harness
+changed into the disposable project; and a new session invokes the configured
+status line before native `context_window` metadata is available. The first two
+conditions are now fixed directly. The bound recorder now emits only an exact
+content-free unavailability marker for the third condition.
+
+The status-line observation remains primary. Only after that exact bound marker
+may the parent use the official `/context` command's reduced PTY event. The
+fallback parser accepts one closed ordered startup, prompt, context inspection,
+and exit sequence with a bounded integer percentage; raw screen text, generic
+percentages, extra fields, failures, reordering, symlinks, missing status-line
+invocation, or malformed evidence fail closed. Captures, transcripts, status
+events, and driver events are deleted after reduction.
+
+The final closed-loopback reproduction passed workspace trust, loaded the
+disposable project settings, completed `main-before`, and stopped exactly at
+`trusted measurement stage failed: skill`, where the first model-dependent
+request met the deliberately closed endpoint. This proves local startup and
+context-probe wiring without an authenticated provider request. It does not
+prove the four provider-backed measurements, 12 role probes, deterministic
+allow/deny browser workflows, final aggregate, or cleanup aggregate. Those live
+acceptance gates require one fresh authorization bound to the final commit.

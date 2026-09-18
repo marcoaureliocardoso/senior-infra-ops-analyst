@@ -94,6 +94,18 @@ MEASUREMENT_SOURCE_FIELDS = {
     "runNonce", "workflowSessionIds", "roleProbes", "contextStages",
     "stageSamples", "mcpSignal",
 }
+PTY_EVENT_FIELDS = {"kind", "stage", "outcome", "percent", "outputBytes"}
+PTY_STAGES = {
+    "initial_screen", "theme_selection", "trust_selection", "prompt_ready", "exit",
+    "context_inspected", "mock_response", "mock_second_response", "clear_observed",
+    "skill_one_invoked", "skill_one_context", "skill_two_invoked", "skill_two_context",
+    "resume_tasks", "rewind_selection", "rewind_restore_mode", "rewind_observed",
+    "post_rewind_tasks", "post_rewind_context", "automatic_task_created",
+    "automatic_context_inspected", "automatic_compaction", "tasks_created",
+    "manual_compaction", "post_compaction_tasks", "manual_unfocused_compaction",
+}
+PTY_OUTCOMES = {"passed", "failed", "forced", "not-present"}
+MAX_PTY_EVENT_BYTES = 64 * 1024
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -106,6 +118,81 @@ def _label(value: Any) -> str:
     if not isinstance(value, str) or not LABEL.fullmatch(value):
         raise ValueError("invalid observed label")
     return value
+
+
+def _load_pty_events(path: Path) -> list[dict[str, Any]]:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("invalid PTY event file")
+    size = path.stat().st_size
+    if not 0 < size <= MAX_PTY_EVENT_BYTES:
+        raise ValueError("invalid PTY event size")
+    events = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        value = json.loads(line)
+        if (not isinstance(value, dict)
+                or not {"kind", "stage", "outcome"} <= set(value) <= PTY_EVENT_FIELDS
+                or value["kind"] != "pty-driver"
+                or value["stage"] not in PTY_STAGES
+                or value["outcome"] not in PTY_OUTCOMES):
+            raise ValueError("invalid PTY event")
+        for field in ("percent", "outputBytes"):
+            if field in value and (type(value[field]) is not int or value[field] < 0):
+                raise ValueError("invalid PTY numeric field")
+        events.append(value)
+        if len(events) > 128:
+            raise ValueError("too many PTY events")
+    return events
+
+
+def pty_failure_reason(path: Path) -> str:
+    """Reduce private PTY events to one allowlisted content-free failure code."""
+    rejected = "PTY_EVIDENCE_REJECTED"
+    try:
+        events = _load_pty_events(path)
+        if not events or events[-1]["outcome"] != "failed":
+            return rejected
+        reason = f"PTY_{events[-1]['stage'].upper()}_FAILED"
+        return reason if CODE.fullmatch(reason) else rejected
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        return rejected
+
+
+def pty_context_observation(
+    path: Path, session_id: str, output_stage: str,
+) -> dict[str, Any]:
+    """Accept only the content-free event shape of one completed /context dialogue."""
+    _label(session_id)
+    if output_stage not in EXPECTED_CONTEXT_STAGES:
+        raise ValueError("invalid output context stage")
+    events = _load_pty_events(path)
+    if len(events) < 4 or any(event["outcome"] == "failed" for event in events):
+        raise ValueError("incomplete PTY context dialogue")
+    prefix = events[:-2]
+    prefix_stages = [event["stage"] for event in prefix]
+    allowed_prefix = [
+        "initial_screen", "theme_selection", "trust_selection", "prompt_ready",
+    ]
+    if (not prefix_stages or prefix_stages[0] != "initial_screen"
+            or prefix_stages[-1] != "prompt_ready"
+            or len(prefix_stages) != len(set(prefix_stages))
+            or prefix_stages != [stage for stage in allowed_prefix if stage in prefix_stages]
+            or any(set(event) != {"kind", "stage", "outcome"}
+                   or event["outcome"] != "passed" for event in prefix)):
+        raise ValueError("invalid PTY context prefix")
+    context_event, exit_event = events[-2:]
+    if (set(context_event) != {"kind", "stage", "outcome", "percent"}
+            or context_event["stage"] != "context_inspected"
+            or context_event["outcome"] != "passed"
+            or type(context_event["percent"]) is not int
+            or not 0 <= context_event["percent"] <= 100
+            or set(exit_event) != {"kind", "stage", "outcome"}
+            or exit_event["stage"] != "exit"
+            or exit_event["outcome"] not in {"passed", "forced"}):
+        raise ValueError("invalid PTY context completion")
+    return {
+        "stage": output_stage, "sessionId": session_id,
+        "usedPercentage": context_event["percent"],
+    }
 
 
 def validate_trusted_measurement(
@@ -400,6 +487,30 @@ def status_context_observation(
         "stage": output_stage, "sessionId": session_id,
         "usedPercentage": observations[-1][0],
     }
+
+
+def status_context_failure_reason(
+    path: Path, run_nonce: str, session_id: str, output_stage: str,
+) -> str:
+    """Reduce status-line collection state to one content-free reason code."""
+    try:
+        if path.is_symlink():
+            return "STATUS_CONTEXT_REJECTED"
+        if not path.is_file() or path.stat().st_size == 0:
+            return "STATUS_CONTEXT_MISSING"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if len(lines) == 1:
+            event = json.loads(lines[0])
+            if event == {
+                "kind": "status-context-unavailable",
+                "runNonce": run_nonce,
+                "stage": output_stage,
+            }:
+                return "STATUS_CONTEXT_METADATA_UNAVAILABLE"
+        status_context_observation(path, run_nonce, session_id, output_stage)
+        return "STATUS_CONTEXT_AVAILABLE"
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        return "STATUS_CONTEXT_REJECTED"
 
 
 def build_trusted_measurement(
@@ -1461,6 +1572,19 @@ def main(argv: list[str]) -> int:
     if len(argv) == 5 and argv[0] == "--status-context":
         print(json.dumps(status_context_observation(
             Path(argv[1]), argv[2], argv[3], argv[4],
+        ), separators=(",", ":")))
+        return 0
+    if len(argv) == 5 and argv[0] == "--status-context-failure-reason":
+        print(status_context_failure_reason(
+            Path(argv[1]), argv[2], argv[3], argv[4],
+        ))
+        return 0
+    if len(argv) == 2 and argv[0] == "--pty-failure-reason":
+        print(pty_failure_reason(Path(argv[1])))
+        return 0
+    if len(argv) == 4 and argv[0] == "--pty-context":
+        print(json.dumps(pty_context_observation(
+            Path(argv[1]), argv[2], argv[3],
         ), separators=(",", ":")))
         return 0
     if len(argv) == 3 and argv[0] == "--build-measurement":

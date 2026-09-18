@@ -783,8 +783,15 @@ The POSIX/WSL producer is controlled by the harness parent. It assigns explicit
 UUID sessions and reduces temporary SDK streams only when exact stage-specific
 inputs have one same-session successful tool result. A one-call atomic hook
 prospectively bounds the diagnostic subagent, while browser workflows expose
-only Bash. Native status-line events provide nonce-bound
-`context_window.used_percentage`; generic PTY percentages are not evidence.
+only Bash. Native status-line events are the primary source of nonce-bound
+`context_window.used_percentage`. Claude Code can invoke the status line before
+those fields exist in a new session; only when the bound recorder emits the
+exact content-free `status-context-unavailable` marker may the producer fall
+back to the numeric result of the official [`/context` command](https://code.claude.com/docs/en/commands).
+That fallback accepts only the parent-driven dialogue's closed stage sequence,
+successful `context_inspected` event, bounded percentage, and clean exit.
+Generic PTY percentages, screen text, failed or reordered dialogues, missing
+status-line invocation, and arbitrary stream records remain non-evidence.
 The fixture accepts one nonce-bound call only after that process has initialized
 and listed tools, and its exact call count is snapshotted before workflows. Every
 Claude invocation uses a strict minimal MCP configuration. Trusted measurements

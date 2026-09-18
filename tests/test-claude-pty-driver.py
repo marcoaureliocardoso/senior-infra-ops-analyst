@@ -134,7 +134,10 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 os.write(sys.stdout.fileno(), theme)
                 assert line() == ""
                 os.write(sys.stdout.fileno(), theme + b" " + trust)
-                assert line() == ""
+                selection = bytearray()
+                while len(selection) < 4:
+                    selection.extend(os.read(sys.stdin.fileno(), 4 - len(selection)))
+                assert bytes(selection) == b"\x1b[A\r"
                 os.write(sys.stdout.fileno(), trust)
                 assert line() == ""
                 os.write(sys.stdout.fileno(), theme + b" Welcome back")
@@ -232,6 +235,43 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertIn('"stage": "context_inspected"', event_text)
             self.assertIn('"percent": 7', event_text)
             self.assertNotIn('"windowTokens"', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_explicitly_selects_workspace_trust(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_trust_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), b"Yes, I trust this folder")
+                selection = bytearray()
+                while len(selection) < 4:
+                    selection.extend(os.read(sys.stdin.fileno(), 4 - len(selection)))
+                if bytes(selection) != b"\x1b[A\r":
+                    raise SystemExit(8)
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), b"native context 7%")
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="context",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "trust_selection"', event_text)
+            self.assertIn('"stage": "context_inspected"', event_text)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_resume_dialogue_exercises_rewind_and_preserves_tasks(self) -> None:
