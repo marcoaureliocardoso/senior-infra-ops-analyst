@@ -93,8 +93,12 @@ tag. Tagged versions correspond to repository tags.
   prevents a regular-to-FIFO replacement from stalling, and empty evidence is
   classified only from the securely opened snapshot. A
   provider-free closed-loopback run reached the first model-dependent
-  measurement stage. Provider-backed acceptance remains pending and requires a
-  fresh exact authorization.
+  measurement stage. A single operator-authorized provider-backed attempt on
+  commit `e669e0514db2c387cd5369413d146bba4b84b667` then exited nonzero in that
+  first `skill` stage before producing a trusted sample or aggregate; its
+  disposable root was removed and it was not repeated. Provider-backed
+  acceptance therefore remains pending and requires a fresh exact
+  authorization.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

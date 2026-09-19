@@ -1247,3 +1247,20 @@ and that zero bytes were classified before secure open. Regressions now require
 the nonblocking flag before a simulated FIFO swap and prove that stable empty
 evidence is classified through the same secure reader. Independent re-review of
 the final remediated head remains pending.
+
+On 2026-09-19, the operator authorized one provider-backed run bound to commit
+`e669e0514db2c387cd5369413d146bba4b84b667`, the configured
+`https://api.deepseek.com/anthropic` endpoint, and the runtime-observed
+`deepseek-v4-pro[1m]` model. The redacted preflight confirmed only that the
+operator settings, one credential field, endpoint, and model were configured.
+The harness installed the disposable Nori profile, completed `main-before`, and
+started the first provider-backed `skill` stage. That Claude CLI process exited
+nonzero, so the harness stopped with `trusted measurement stage failed: skill`
+before a trusted stage sample or aggregate existed. The remaining five
+top-level provider-backed invocations were not launched. The bounded result does
+not establish whether the provider accepted or processed a request in the
+failed process, so it is inconclusive and consumes the one-run authorization.
+No retry occurred. The disposable root, prompt, stream, transcript, settings
+copy, fixture, and any partial results were removed by the cleanup trap, which
+was verified after exit. A fresh commit-bound authorization is required for any
+future provider-backed attempt.
