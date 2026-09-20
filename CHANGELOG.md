@@ -103,8 +103,9 @@ tag. Tagged versions correspond to repository tags.
   delete measurement or workflow prompt, stream, and stderr before blocking.
   Only whole-line canonical error shapes are classified; ambiguous, embedded,
   or suffix-bearing signatures stay generic. Timeout requires a separate
-  parent diagnostic captured through an anonymous descriptor rather than a
-  child-writable path, so a forged file or child exit `124` is not mislabeled.
+  monotonic supervisor deadline. The supervisor ignores child-delivered
+  `SIGALRM` and remaps a child exit `124`, reserving `124` for its own observed
+  deadline; forged files, signals, or child statuses therefore remain generic.
   Prompts, responses, excerpts, URLs, secrets, and raw provider errors never
   enter the result, and the code cannot authorize retry or fallback.
 

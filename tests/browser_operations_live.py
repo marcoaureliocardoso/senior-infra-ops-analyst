@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import secrets
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -254,6 +256,70 @@ def claude_failure_reason(
     if len(observed) == 1:
         return next(iter(observed))
     return "CLAUDE_PROCESS_FAILED"
+
+
+def _reset_sigalrm_for_child() -> None:
+    signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+
+def run_with_monotonic_timeout(
+    limit_text: str, transcript_path: Path, command: list[str],
+) -> int:
+    """Run one command; reserve 124 for this supervisor's monotonic deadline."""
+    if os.name != "posix" or not command:
+        raise ValueError("timeout supervisor requires POSIX and one command")
+    try:
+        limit = float(limit_text)
+    except ValueError as error:
+        raise ValueError("invalid timeout") from error
+    if not math.isfinite(limit) or not 0 < limit <= 1800:
+        raise ValueError("invalid timeout")
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(transcript_path, flags, 0o600)
+    process: subprocess.Popen[bytes] | None = None
+    previous_sigalrm = signal.signal(signal.SIGALRM, signal.SIG_IGN)
+    try:
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError("unsafe transcript")
+            process = subprocess.Popen(
+                command,
+                stderr=descriptor,
+                start_new_session=True,
+                close_fds=True,
+                preexec_fn=_reset_sigalrm_for_child,
+            )
+        finally:
+            os.close(descriptor)
+        try:
+            status = process.wait(timeout=limit)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            return 124
+    finally:
+        signal.signal(signal.SIGALRM, previous_sigalrm)
+
+    if status == 124:
+        return 125
+    if status < 0:
+        return min(255, 128 + abs(status))
+    if not 0 <= status <= 255:
+        return 125
+    return status
 
 
 def pty_failure_reason(path: Path) -> str:
@@ -1723,6 +1789,8 @@ def main(argv: list[str]) -> int:
         timed_out = {"0": False, "1": True}.get(argv[2])
         print(claude_failure_reason(status, timed_out, Path(argv[3])))
         return 0
+    if len(argv) >= 4 and argv[0] == "--run-with-timeout":
+        return run_with_monotonic_timeout(argv[1], Path(argv[2]), argv[3:])
     if len(argv) == 4 and argv[0] == "--pty-context":
         print(json.dumps(pty_context_observation(
             Path(argv[1]), argv[2], argv[3],

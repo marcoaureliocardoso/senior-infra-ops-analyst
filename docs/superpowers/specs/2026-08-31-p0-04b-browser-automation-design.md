@@ -818,9 +818,11 @@ timeout, authentication, rate limiting, provider/model, transport, local CLI
 contract, local runtime, generic process failure, or rejected evidence. Only
 whole-line canonical shapes may select a specific category; embedded,
 suffix-bearing, or multiple-category signatures reduce to generic failure.
-Timeout additionally requires a parent-generated `timeout --verbose` signal
-captured through an anonymous descriptor that is distinct from child stderr;
-no predictable child-writable evidence path is used. The shell applies the
+Timeout additionally requires expiry of the supervisor's monotonic deadline.
+The supervisor ignores child-delivered `SIGALRM`, restores the default signal
+behavior in the child, and remaps a child exit `124`; therefore only its own
+deadline returns the trusted timeout status. No named evidence path or parsed
+child diagnostic participates in timeout classification. The shell applies the
 allowlist again before displaying the code, and both measurement and workflow
 paths delete prompt, stream, and stderr before blocking. No excerpt, prompt,
 response, URL, identifier, or secret is retained. The category never authorizes

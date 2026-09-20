@@ -538,6 +538,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "live browser operations timeout forgery resistance self-test passed\n",
             result.stdout,
         )
+        self.assertIn(
+            "live browser operations timeout signal resistance self-test passed\n",
+            result.stdout,
+        )
         self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
 
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:

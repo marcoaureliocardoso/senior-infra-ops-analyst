@@ -1309,3 +1309,13 @@ parent capture while child stderr remains redirected to its bounded transient
 file; a forged historical pathname plus exit 124 stays generic. Diagnostic
 patterns now require a complete canonical line, so URL-like, quoted, embedded,
 suffix-bearing, and multiple-category text remains `CLAUDE_PROCESS_FAILED`.
+
+Re-review then demonstrated that a child could send `SIGALRM` to GNU `timeout`,
+causing the parent utility itself to emit its trusted-looking marker and return
+124 before the configured deadline. The provider-free regression reproduced the
+premature timeout. GNU timeout and marker parsing are now replaced by a Python
+supervisor whose own monotonic wait determines expiry. It ignores `SIGALRM`
+while supervising, restores the default behavior in the child, uses a distinct
+process group for bounded termination, and remaps a child exit 124 to 125. The
+self-test now proves honest expiry and rejects child-status, named-file, and
+parent-signal forgeries without a provider.

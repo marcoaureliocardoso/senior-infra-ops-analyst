@@ -91,26 +91,13 @@ aggregate_results() {
 CLAUDE_TIMED_OUT=0
 run_claude_with_timeout() {
   local limit="$1" transcript="$2"
-  local status timeout_diagnostic diagnostic_line output_fd timeout_observed=0
+  local status
   shift 2
   CLAUDE_TIMED_OUT=0
-  exec {output_fd}>&1
-  timeout_diagnostic="$(
-    LC_ALL=C timeout --verbose "$limit" bash -c \
-      'transcript="$1"; shift; exec "$@" 2>"$transcript"' \
-      p004b-claude "$transcript" "$@" 2>&1 1>&"$output_fd"
-  )"
+  python3 "$ROOT/tests/browser_operations_live.py" \
+    --run-with-timeout "$limit" "$transcript" "$@"
   status=$?
-  exec {output_fd}>&-
-  while IFS= read -r diagnostic_line; do
-    if [[ "$diagnostic_line" =~ ^timeout:\ sending\ signal\ (TERM|KILL)\ to\ command\  ]]; then
-      timeout_observed=1
-    else
-      timeout_observed=0
-      break
-    fi
-  done <<<"$timeout_diagnostic"
-  if [[ $status -eq 124 && $timeout_observed -eq 1 ]]; then
+  if [[ $status -eq 124 ]]; then
     CLAUDE_TIMED_OUT=1
   fi
   return "$status"
@@ -182,7 +169,7 @@ self_test() {
     bash -c 'exit 124'
   timeout_status=$?
   set -e
-  [[ $timeout_status -eq 124 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
+  [[ $timeout_status -eq 125 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
     blocked 'child exit 124 provenance self-test failed'
   rm -f -- "$timeout_transcript"
   printf 'live browser operations timeout provenance self-test passed\n'
@@ -194,10 +181,20 @@ self_test() {
     p004b-timeout-forgery "$forged_timeout_path"
   timeout_status=$?
   set -e
-  [[ $timeout_status -eq 124 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
+  [[ $timeout_status -eq 125 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
     blocked 'child-forged timeout provenance was accepted'
   rm -f -- "$timeout_transcript" "$forged_timeout_path"
   printf 'live browser operations timeout forgery resistance self-test passed\n'
+
+  set +e
+  run_claude_with_timeout 2 "$timeout_transcript" \
+    python3 -c 'import os, signal, sys, time; os.kill(os.getppid(), signal.SIGALRM); time.sleep(0.1); sys.exit(7)'
+  timeout_status=$?
+  set -e
+  [[ $timeout_status -eq 7 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
+    blocked 'child signal forged timeout provenance'
+  rm -f -- "$timeout_transcript"
+  printf 'live browser operations timeout signal resistance self-test passed\n'
 }
 
 if [[ "$MODE" == "--self-test" ]]; then
