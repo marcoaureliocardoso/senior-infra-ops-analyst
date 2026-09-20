@@ -822,11 +822,13 @@ Timeout additionally requires expiry of the supervisor's monotonic deadline.
 The supervisor ignores child-delivered `SIGALRM`, restores the default signal
 behavior in the child, and remaps a child exit `124`; therefore only its own
 deadline returns the trusted timeout status. No named evidence path or parsed
-child diagnostic participates in timeout classification. The shell applies the
-allowlist again before displaying the code, and both measurement and workflow
-paths delete prompt, stream, and stderr before blocking. No excerpt, prompt,
-response, URL, identifier, or secret is retained. The category never authorizes
-retry, fallback, or a policy change.
+child diagnostic participates in timeout classification. Deadline, interrupt,
+and error exits terminate the complete child process group, with bounded TERM
+grace followed by KILL even if the group leader has already exited. The shell
+applies the allowlist again before displaying the code, and both measurement and
+workflow paths delete prompt, stream, and stderr before blocking. No excerpt,
+prompt, response, URL, identifier, or secret is retained. The category never
+authorizes retry, fallback, or a policy change.
 The acceptance run uses a test-only deterministic handler: it permits one exact
 synthetic loopback mutation and denies a second observably different mutation
 in a fresh session. Evidence labels this `synthetic-deterministic`, never human

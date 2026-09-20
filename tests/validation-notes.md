@@ -1319,3 +1319,15 @@ while supervising, restores the default behavior in the child, uses a distinct
 process group for bounded termination, and remaps a child exit 124 to 125. The
 self-test now proves honest expiry and rejects child-status, named-file, and
 parent-signal forgeries without a provider.
+
+The next focused review found that timeout cleanup waited only for the group
+leader, so a descendant ignoring TERM could survive, and that an external
+interrupt could orphan the detached child session. Both cases were reproduced
+provider-free before remediation. Supervised termination signals are now
+blocked across spawn, restored to defaults in the child, and converted to a
+bounded supervisor interruption after the child handle exists. Timeout,
+interruption, and exceptional paths block further cleanup signals, send TERM to
+the process group, wait a bounded grace period for the whole group, send KILL
+whenever any group member remains, and reap the leader. Self-tests cover an
+ignoring descendant and external supervisor termination and verify that neither
+continues running.

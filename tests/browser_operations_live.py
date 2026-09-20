@@ -13,6 +13,7 @@ import signal
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -258,8 +259,66 @@ def claude_failure_reason(
     return "CLAUDE_PROCESS_FAILED"
 
 
-def _reset_sigalrm_for_child() -> None:
-    signal.signal(signal.SIGALRM, signal.SIG_DFL)
+class _SupervisorInterrupted(Exception):
+    def __init__(self, signum: int) -> None:
+        super().__init__("timeout supervisor interrupted")
+        self.signum = signum
+
+
+_SUPERVISOR_SIGNALS = (
+    signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM, signal.SIGALRM,
+)
+
+
+def _raise_supervisor_interruption(signum: int, _frame: Any) -> None:
+    raise _SupervisorInterrupted(signum)
+
+
+def _prepare_supervised_child(previous_mask: set[signal.Signals]) -> None:
+    for signum in _SUPERVISOR_SIGNALS:
+        signal.signal(signum, signal.SIG_DFL)
+    signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+
+def _process_group_exists(process_group: int) -> bool:
+    try:
+        os.killpg(process_group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _begin_supervisor_cleanup() -> None:
+    signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
+    for signum in _SUPERVISOR_SIGNALS:
+        signal.signal(signum, signal.SIG_IGN)
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    process_group = process.pid
+    try:
+        os.killpg(process_group, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    grace_deadline = time.monotonic() + 1.0
+    while _process_group_exists(process_group) and time.monotonic() < grace_deadline:
+        process.poll()
+        time.sleep(0.01)
+    if _process_group_exists(process_group):
+        try:
+            os.killpg(process_group, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=1.0)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process_group, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
 
 
 def run_with_monotonic_timeout(
@@ -277,10 +336,16 @@ def run_with_monotonic_timeout(
 
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(transcript_path, flags, 0o600)
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
+    previous_handlers = {
+        signum: signal.getsignal(signum) for signum in _SUPERVISOR_SIGNALS
+    }
     process: subprocess.Popen[bytes] | None = None
-    previous_sigalrm = signal.signal(signal.SIGALRM, signal.SIG_IGN)
     try:
+        for signum in _SUPERVISOR_SIGNALS[:-1]:
+            signal.signal(signum, _raise_supervisor_interruption)
+        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+        descriptor = os.open(transcript_path, flags, 0o600)
         try:
             metadata = os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
@@ -290,28 +355,32 @@ def run_with_monotonic_timeout(
                 stderr=descriptor,
                 start_new_session=True,
                 close_fds=True,
-                preexec_fn=_reset_sigalrm_for_child,
+                preexec_fn=lambda: _prepare_supervised_child(previous_mask),
             )
         finally:
             os.close(descriptor)
         try:
-            status = process.wait(timeout=limit)
-        except subprocess.TimeoutExpired:
             try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                process.wait(timeout=1.0)
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                status = process.wait(timeout=limit)
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait()
-            return 124
+                _begin_supervisor_cleanup()
+                _terminate_process_group(process)
+                return 124
+            except _SupervisorInterrupted as interruption:
+                _begin_supervisor_cleanup()
+                _terminate_process_group(process)
+                return min(255, 128 + interruption.signum)
+            except BaseException:
+                _begin_supervisor_cleanup()
+                _terminate_process_group(process)
+                raise
+        finally:
+            signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
     finally:
-        signal.signal(signal.SIGALRM, previous_sigalrm)
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
     if status == 124:
         return 125
