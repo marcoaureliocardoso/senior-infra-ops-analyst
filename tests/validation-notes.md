@@ -1232,7 +1232,7 @@ could be accepted, and forced exit could still satisfy the reducer. The
 remediation separates unavailable from rejected status events, prefers a later
 coherent numeric status observation, restricts fallback to `new/before`, uses
 the exact native labeled ANSI view, and requires a passed exit. The focused
-provider-free gate now passes 81 tests plus shell syntax and the live-harness
+provider-free gate now passes 82 tests plus shell syntax and the live-harness
 self-test. A second independent review then found a raw-text reassociation after
 ANSI erasure and a symlink-following gap in the primary status reader. Both now
 have adversarial regressions: only labeled reconstructed screen state may supply
@@ -1286,3 +1286,16 @@ no recognized transport signature, so the reducer conservatively retained the
 generic category. It did not inspect the model stream or broaden its inputs,
 and cleanup removed the disposable root. This proves the content-free
 integration but does not diagnose the earlier authenticated failure.
+
+Independent review of commit `8d202b1a6f86914a18af3b81ca055f006b124045`
+found that workflow Claude failures still bypassed reduction and immediate
+cleanup, broad substrings could be spoofed by URLs or quoted text, and exit 124
+alone did not prove parent timeout. Adversarial tests first reproduced all three
+conditions. The reducer now recognizes only anchored canonical line shapes and
+returns generic failure for embedded or multiple-category signatures. A shared
+shell path reduces and deletes prompt, stream, and transcript before blocking
+for every measurement and allow/deny workflow failure. Claude stderr is isolated
+from `timeout --verbose`; only a separate parent message plus exit 124 sets the
+timeout flag, while a child-generated 124 remains a generic process failure.
+The shared self-test proves reducer output, deletion of all three transient
+files, real parent timeout, and the child-124 distinction without a provider.

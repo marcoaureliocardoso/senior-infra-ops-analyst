@@ -100,9 +100,12 @@ tag. Tagged versions correspond to repository tags.
   acceptance therefore remains pending and requires a fresh exact
   authorization. Subsequent diagnostics reduce bounded transient Claude stderr
   to one allowlisted advisory failure code, apply a second shell allowlist, and
-  delete the source immediately. Prompts, responses, excerpts, URLs, secrets,
-  and raw provider errors never enter the result, and the code cannot authorize
-  retry or fallback.
+  delete measurement or workflow prompt, stream, and stderr before blocking.
+  Only anchored canonical error shapes are classified; ambiguous or embedded
+  signatures stay generic. Timeout requires separate parent-generated evidence,
+  so a child exit `124` is not mislabeled. Prompts, responses, excerpts, URLs,
+  secrets, and raw provider errors never enter the result, and the code cannot
+  authorize retry or fallback.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

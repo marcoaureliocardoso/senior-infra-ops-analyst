@@ -376,23 +376,24 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         import browser_operations_live  # noqa: PLC0415
 
         cases = (
-            (124, "API Error: 401 unauthorized", "CLAUDE_TIMEOUT"),
-            (1, "authentication_error: invalid x-api-key", "CLAUDE_AUTH_FAILURE"),
-            (1, "rate_limit_error: HTTP 429", "CLAUDE_RATE_LIMIT"),
-            (1, "model_not_found: invalid model", "CLAUDE_PROVIDER_MODEL_FAILURE"),
-            (1, "TypeError: fetch failed ECONNREFUSED", "CLAUDE_TRANSPORT_FAILURE"),
-            (2, "error: unknown option --not-real", "CLAUDE_CONTRACT_FAILURE"),
-            (1, "ModuleNotFoundError: no module named example", "CLAUDE_RUNTIME_FAILURE"),
-            (1, "unrecognized diagnostic text", "CLAUDE_PROCESS_FAILED"),
+            (124, True, "API Error: 401 authentication_error", "CLAUDE_TIMEOUT"),
+            (124, False, "unrecognized diagnostic text", "CLAUDE_PROCESS_FAILED"),
+            (1, False, "API Error: 401 authentication_error", "CLAUDE_AUTH_FAILURE"),
+            (1, False, "API Error: 429 rate_limit_error", "CLAUDE_RATE_LIMIT"),
+            (1, False, "API Error: 404 model_not_found", "CLAUDE_PROVIDER_MODEL_FAILURE"),
+            (1, False, "TypeError: fetch failed ECONNREFUSED", "CLAUDE_TRANSPORT_FAILURE"),
+            (2, False, "error: unknown option --not-real", "CLAUDE_CONTRACT_FAILURE"),
+            (1, False, "ModuleNotFoundError: no module named example", "CLAUDE_RUNTIME_FAILURE"),
+            (1, False, "unrecognized diagnostic text", "CLAUDE_PROCESS_FAILED"),
         )
         with tempfile.TemporaryDirectory() as directory:
             transcript = Path(directory) / "stage.transcript"
-            for status, content, expected in cases:
+            for status, timed_out, content, expected in cases:
                 with self.subTest(expected=expected):
                     transcript.write_text(content, encoding="utf-8")
                     self.assertEqual(
                         browser_operations_live.claude_failure_reason(
-                            status, transcript,
+                            status, timed_out, transcript,
                         ),
                         expected,
                     )
@@ -410,7 +411,9 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             transcript.write_text(
                 f"operator prompt and provider text {canary}", encoding="utf-8",
             )
-            reason = browser_operations_live.claude_failure_reason(1, transcript)
+            reason = browser_operations_live.claude_failure_reason(
+                1, False, transcript,
+            )
             self.assertEqual(reason, "CLAUDE_PROCESS_FAILED")
             self.assertNotIn(canary, reason)
             self.assertRegex(reason, r"^[A-Z][A-Z0-9_]{0,95}$")
@@ -426,7 +429,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             root = Path(directory)
             missing = root / "missing.transcript"
             self.assertEqual(
-                browser_operations_live.claude_failure_reason(1, missing),
+                browser_operations_live.claude_failure_reason(1, False, missing),
                 "CLAUDE_EVIDENCE_REJECTED",
             )
             oversized = root / "oversized.transcript"
@@ -434,7 +437,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 b"x" * (browser_operations_live.MAX_CLAUDE_FAILURE_BYTES + 1)
             )
             self.assertEqual(
-                browser_operations_live.claude_failure_reason(1, oversized),
+                browser_operations_live.claude_failure_reason(1, False, oversized),
                 "CLAUDE_EVIDENCE_REJECTED",
             )
             target = root / "target.transcript"
@@ -445,14 +448,45 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             except (OSError, NotImplementedError):
                 self.skipTest("symlink creation is unavailable")
             self.assertEqual(
-                browser_operations_live.claude_failure_reason(1, linked),
+                browser_operations_live.claude_failure_reason(1, False, linked),
                 "CLAUDE_EVIDENCE_REJECTED",
             )
             for status in (0, 256, True):
                 with self.subTest(status=status):
                     self.assertEqual(
-                        browser_operations_live.claude_failure_reason(status, target),
+                        browser_operations_live.claude_failure_reason(
+                            status, False, target,
+                        ),
                         "CLAUDE_EVIDENCE_REJECTED",
+                    )
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(1, True, target),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+
+    def test_claude_failure_reason_rejects_embedded_or_ambiguous_signatures(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        cases = (
+            "transport failed while requesting https://example.invalid/unauthorized",
+            "path=/tmp/rate limit/tool not found",
+            "API Error: 401 authentication_error\nTypeError: fetch failed ETIMEDOUT",
+            "quoted text: 'error: unknown option --not-real'",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            for content in cases:
+                with self.subTest(content=content):
+                    transcript.write_text(content, encoding="utf-8")
+                    self.assertEqual(
+                        browser_operations_live.claude_failure_reason(
+                            1, False, transcript,
+                        ),
+                        "CLAUDE_PROCESS_FAILED",
                     )
 
     def test_claude_failure_reason_cli_emits_only_one_code(self) -> None:
@@ -468,7 +502,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable, str(PARSER), "--claude-failure-reason",
-                    "1", str(transcript),
+                    "1", "0", str(transcript),
                 ],
                 check=False, capture_output=True, text=True,
             )
@@ -487,6 +521,14 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(
             "live browser operations diagnostic self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations diagnostic cleanup self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations timeout provenance self-test passed\n",
             result.stdout,
         )
         self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
