@@ -476,6 +476,9 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "path=/tmp/rate limit/tool not found",
             "API Error: 401 authentication_error\nTypeError: fetch failed ETIMEDOUT",
             "quoted text: 'error: unknown option --not-real'",
+            "authentication_error quoted payload https://example.invalid/not-an-error",
+            "authentication_error.example.invalid/path",
+            "error: unknown option --not-real followed by quoted provider text",
         )
         with tempfile.TemporaryDirectory() as directory:
             transcript = Path(directory) / "stage.transcript"
@@ -496,7 +499,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             transcript = Path(directory) / "stage.transcript"
             transcript.write_text(
-                "authentication_error SYNTH_SECRET_MUST_NOT_ESCAPE",
+                "authentication_error\nSYNTH_SECRET_MUST_NOT_ESCAPE",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -529,6 +532,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         )
         self.assertIn(
             "live browser operations timeout provenance self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations timeout forgery resistance self-test passed\n",
             result.stdout,
         )
         self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)

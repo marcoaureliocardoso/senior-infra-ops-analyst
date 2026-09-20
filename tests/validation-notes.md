@@ -1299,3 +1299,13 @@ from `timeout --verbose`; only a separate parent message plus exit 124 sets the
 timeout flag, while a child-generated 124 remains a generic process failure.
 The shared self-test proves reducer output, deletion of all three transient
 files, real parent timeout, and the child-124 distinction without a provider.
+
+A fresh review of commit `29598c2` found two remaining provenance gaps. The
+named parent timeout log could be overwritten by a same-user child before the
+shell read it, and prefix matching still accepted arbitrary text following a
+recognized diagnostic token. Provider-free adversarial tests reproduced both
+conditions first. Timeout diagnostics now travel only through an anonymous
+parent capture while child stderr remains redirected to its bounded transient
+file; a forged historical pathname plus exit 124 stays generic. Diagnostic
+patterns now require a complete canonical line, so URL-like, quoted, embedded,
+suffix-bearing, and multiple-category text remains `CLAUDE_PROCESS_FAILED`.

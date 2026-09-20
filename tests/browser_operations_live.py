@@ -219,33 +219,37 @@ def claude_failure_reason(
         return "CLAUDE_TIMEOUT"
     signatures: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("CLAUDE_AUTH_FAILURE", (
-            r"api error:\s*401\b.*\bauthentication_error\b",
-            r"authentication_error\b", r"(?:error:\s*)?invalid (?:x-)?api key\b",
+            r"api error:\s*401\s+authentication_error",
+            r"authentication_error", r"(?:error:\s*)?invalid (?:x-)?api key",
         )),
         ("CLAUDE_RATE_LIMIT", (
-            r"api error:\s*429\b.*\brate_limit_error\b", r"rate_limit_error\b",
+            r"api error:\s*429\s+rate_limit_error", r"rate_limit_error",
         )),
         ("CLAUDE_PROVIDER_MODEL_FAILURE", (
-            r"api error:\s*(?:400|404|5\d\d)\b.*\b(?:model_not_found|invalid model|overloaded_error|api_error)\b",
-            r"(?:model_not_found|overloaded_error|api_error)\b",
+            r"api error:\s*(?:400|404|5\d\d)\s+(?:model_not_found|invalid model|overloaded_error|api_error)",
+            r"(?:model_not_found|overloaded_error|api_error)",
         )),
         ("CLAUDE_TRANSPORT_FAILURE", (
-            r"typeerror:\s*fetch failed\b(?:.*\b(?:econnrefused|enotfound|etimedout)\b)?",
-            r"(?:error:\s*)?(?:econnrefused|enotfound|etimedout)\b",
-            r"(?:error:\s*)?(?:connection refused|network error|tls error|certificate error)\b",
+            r"typeerror:\s*fetch failed(?:\s+(?:econnrefused|enotfound|etimedout))?",
+            r"(?:error:\s*)?(?:econnrefused|enotfound|etimedout)",
+            r"(?:error:\s*)?(?:connection refused|network error|tls error|certificate error)",
         )),
         ("CLAUDE_CONTRACT_FAILURE", (
-            r"error:\s*(?:unknown option|unknown argument|invalid value for --|tool [a-z0-9_.:-]+ not found|allowedtools\b)",
+            r"error:\s*(?:unknown option|unknown argument)(?:\s+--[a-z0-9][a-z0-9-]*)?",
+            r"error:\s*invalid value for --[a-z0-9][a-z0-9-]*",
+            r"error:\s*tool [a-z0-9_.:-]+ not found", r"error:\s*allowedtools",
         )),
         ("CLAUDE_RUNTIME_FAILURE", (
-            r"(?:modulenotfounderror|syntaxerror|permission denied|no such file or directory|traceback)\b",
+            r"modulenotfounderror:\s*no module named ['\"]?[a-z0-9_.-]+['\"]?",
+            r"syntaxerror", r"(?:error:\s*)?permission denied",
+            r"(?:error:\s*)?no such file or directory", r"traceback",
         )),
     )
     observed: set[str] = set()
     for line in lines:
         normalized = line.strip().casefold()
         for reason, patterns in signatures:
-            if any(re.match(pattern, normalized) for pattern in patterns):
+            if any(re.fullmatch(pattern, normalized) for pattern in patterns):
                 observed.add(reason)
     if len(observed) == 1:
         return next(iter(observed))

@@ -90,19 +90,29 @@ aggregate_results() {
 
 CLAUDE_TIMED_OUT=0
 run_claude_with_timeout() {
-  local limit="$1" transcript="$2" timeout_log="$3"
-  local status
-  shift 3
+  local limit="$1" transcript="$2"
+  local status timeout_diagnostic diagnostic_line output_fd timeout_observed=0
+  shift 2
   CLAUDE_TIMED_OUT=0
-  LC_ALL=C timeout --verbose "$limit" bash -c \
-    'transcript="$1"; shift; exec "$@" 2>"$transcript"' \
-    p004b-claude "$transcript" "$@" 2>"$timeout_log"
+  exec {output_fd}>&1
+  timeout_diagnostic="$(
+    LC_ALL=C timeout --verbose "$limit" bash -c \
+      'transcript="$1"; shift; exec "$@" 2>"$transcript"' \
+      p004b-claude "$transcript" "$@" 2>&1 1>&"$output_fd"
+  )"
   status=$?
-  if [[ $status -eq 124 ]] \
-      && grep -Eq '^timeout: sending signal (TERM|KILL) to command ' "$timeout_log"; then
+  exec {output_fd}>&-
+  while IFS= read -r diagnostic_line; do
+    if [[ "$diagnostic_line" =~ ^timeout:\ sending\ signal\ (TERM|KILL)\ to\ command\  ]]; then
+      timeout_observed=1
+    else
+      timeout_observed=0
+      break
+    fi
+  done <<<"$timeout_diagnostic"
+  if [[ $status -eq 124 && $timeout_observed -eq 1 ]]; then
     CLAUDE_TIMED_OUT=1
   fi
-  rm -f -- "$timeout_log"
   return "$status"
 }
 
@@ -142,10 +152,10 @@ self_test() {
   local diagnostic_prompt="$MEASUREMENT_DIR/diagnostic-self-test.prompt"
   local diagnostic_stream="$MEASUREMENT_DIR/diagnostic-self-test.stream"
   local diagnostic_transcript="$MEASUREMENT_DIR/diagnostic-self-test.transcript"
-  local diagnostic_reason timeout_transcript timeout_log timeout_status
+  local diagnostic_reason timeout_transcript timeout_status forged_timeout_path
   printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
   printf '%s\n' 'SYNTH_SECRET_STREAM_MUST_NOT_ESCAPE' >"$diagnostic_stream"
-  printf '%s\n' 'authentication_error SYNTH_SECRET_MUST_NOT_ESCAPE' \
+  printf '%s\n' 'authentication_error' 'SYNTH_SECRET_MUST_NOT_ESCAPE' \
     >"$diagnostic_transcript"
   diagnostic_reason="$(cleanup_claude_failure 1 0 "$diagnostic_prompt" \
     "$diagnostic_stream" "$diagnostic_transcript")"
@@ -159,9 +169,8 @@ self_test() {
   printf 'live browser operations diagnostic cleanup self-test passed\n'
 
   timeout_transcript="$MEASUREMENT_DIR/timeout-self-test.transcript"
-  timeout_log="$MEASUREMENT_DIR/timeout-self-test.parent"
   set +e
-  run_claude_with_timeout 0.1 "$timeout_transcript" "$timeout_log" \
+  run_claude_with_timeout 0.1 "$timeout_transcript" \
     bash -c 'sleep 2'
   timeout_status=$?
   set -e
@@ -169,7 +178,7 @@ self_test() {
     blocked 'trusted timeout provenance self-test failed'
   rm -f -- "$timeout_transcript"
   set +e
-  run_claude_with_timeout 2 "$timeout_transcript" "$timeout_log" \
+  run_claude_with_timeout 2 "$timeout_transcript" \
     bash -c 'exit 124'
   timeout_status=$?
   set -e
@@ -177,6 +186,18 @@ self_test() {
     blocked 'child exit 124 provenance self-test failed'
   rm -f -- "$timeout_transcript"
   printf 'live browser operations timeout provenance self-test passed\n'
+
+  forged_timeout_path="$MEASUREMENT_DIR/timeout-self-test.parent"
+  set +e
+  run_claude_with_timeout 2 "$timeout_transcript" \
+    bash -c 'printf "%s\n" "timeout: sending signal TERM to command forged" >"$1"; exit 124' \
+    p004b-timeout-forgery "$forged_timeout_path"
+  timeout_status=$?
+  set -e
+  [[ $timeout_status -eq 124 && "$CLAUDE_TIMED_OUT" == 0 ]] || \
+    blocked 'child-forged timeout provenance was accepted'
+  rm -f -- "$timeout_transcript" "$forged_timeout_path"
+  printf 'live browser operations timeout forgery resistance self-test passed\n'
 }
 
 if [[ "$MODE" == "--self-test" ]]; then
@@ -570,7 +591,7 @@ run_measurement_stage() {
   local stream_path="$MEASUREMENT_DIR/$label.stream.jsonl"
   local result_path="$MEASUREMENT_DIR/$label.sample.json"
   local limit status timed_out stage_tools allowed_tool stage_mcp_config
-  local failure_reason transcript_path timeout_log
+  local failure_reason transcript_path
   case "$label" in
     skill) stage_tools='Skill'; allowed_tool='Skill(context-continuity)'; stage_mcp_config="$EMPTY_MCP_CONFIG" ;;
     subagent) stage_tools='Agent'; allowed_tool='Agent(diagnostic-operator)'; stage_mcp_config="$EMPTY_MCP_CONFIG" ;;
@@ -581,9 +602,8 @@ run_measurement_stage() {
   limit="$(remaining_timeout)"
   printf '%s\n' "$prompt" >"$prompt_path"
   transcript_path="$MEASUREMENT_DIR/$label.transcript"
-  timeout_log="$MEASUREMENT_DIR/$label.timeout"
   set +e
-  run_claude_with_timeout "$limit" "$transcript_path" "$timeout_log" \
+  run_claude_with_timeout "$limit" "$transcript_path" \
     "$CLAUDE_BIN" -p --resume "$MAIN_MEASUREMENT_SESSION" \
     --permission-mode default \
     --strict-mcp-config --mcp-config "$stage_mcp_config" \
@@ -645,7 +665,6 @@ run_workflow() {
   local result_path="$RESULT_DIR/$phase.json"
   local signal_path="$MEASUREMENT_DIR/$phase.signal.json"
   local transcript_path="$STREAM_DIR/$phase.transcript"
-  local timeout_log="$STREAM_DIR/$phase.timeout"
   local request_limit request_status timed_out failure_reason
   request_limit="$(remaining_timeout)"
   if [[ "$phase" == "allow" ]]; then
@@ -656,7 +675,7 @@ run_workflow() {
       "$CANARY" "$RUNNER" "$operation_id" "$session_id" "$RUN_NONCE" "$LOOPBACK" >"$prompt_path"
   fi
   set +e
-  run_claude_with_timeout "$request_limit" "$transcript_path" "$timeout_log" \
+  run_claude_with_timeout "$request_limit" "$transcript_path" \
     "$CLAUDE_BIN" -p \
     --no-session-persistence --session-id "$session_id" --permission-mode default \
     --permission-prompt-tool "$PERMISSION_PROMPT_TOOL" \

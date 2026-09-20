@@ -101,11 +101,12 @@ tag. Tagged versions correspond to repository tags.
   authorization. Subsequent diagnostics reduce bounded transient Claude stderr
   to one allowlisted advisory failure code, apply a second shell allowlist, and
   delete measurement or workflow prompt, stream, and stderr before blocking.
-  Only anchored canonical error shapes are classified; ambiguous or embedded
-  signatures stay generic. Timeout requires separate parent-generated evidence,
-  so a child exit `124` is not mislabeled. Prompts, responses, excerpts, URLs,
-  secrets, and raw provider errors never enter the result, and the code cannot
-  authorize retry or fallback.
+  Only whole-line canonical error shapes are classified; ambiguous, embedded,
+  or suffix-bearing signatures stay generic. Timeout requires a separate
+  parent diagnostic captured through an anonymous descriptor rather than a
+  child-writable path, so a forged file or child exit `124` is not mislabeled.
+  Prompts, responses, excerpts, URLs, secrets, and raw provider errors never
+  enter the result, and the code cannot authorize retry or fallback.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
