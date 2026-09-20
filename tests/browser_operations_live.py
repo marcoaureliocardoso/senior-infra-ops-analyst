@@ -111,6 +111,7 @@ PTY_STAGES = {
 PTY_OUTCOMES = {"passed", "failed", "forced", "not-present"}
 MAX_PTY_EVENT_BYTES = 64 * 1024
 MAX_STATUS_CONTEXT_BYTES = 64 * 1024
+MAX_CLAUDE_FAILURE_BYTES = 64 * 1024
 
 
 class EvidenceMissingError(ValueError):
@@ -197,6 +198,61 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
         return data.decode("utf-8").splitlines()
     finally:
         os.close(descriptor)
+
+
+def claude_failure_reason(exit_status: int, transcript_path: Path) -> str:
+    """Reduce transient Claude stderr to one advisory content-free code."""
+    rejected = "CLAUDE_EVIDENCE_REJECTED"
+    if (not isinstance(exit_status, int) or isinstance(exit_status, bool)
+            or not 1 <= exit_status <= 255):
+        return rejected
+    try:
+        lines = _read_regular_lines_nofollow(
+            transcript_path, MAX_CLAUDE_FAILURE_BYTES,
+        )
+    except (OSError, UnicodeError, ValueError):
+        return rejected
+    if exit_status == 124:
+        return "CLAUDE_TIMEOUT"
+    diagnostic = "\n".join(lines).casefold()
+    network_codes = frozenset({"econnrefused", "enotfound", "etimedout"})
+
+    def observed(candidate: str) -> bool:
+        if candidate in network_codes:
+            return re.search(rf"\b{candidate}\b", diagnostic) is not None
+        return candidate in diagnostic
+
+    signatures = (
+        ("CLAUDE_AUTH_FAILURE", (
+            "authentication_error", "invalid api key", "invalid x-api-key",
+            "unauthorized", "status code 401", "api error: 401", "http 401",
+        )),
+        ("CLAUDE_RATE_LIMIT", (
+            "rate_limit_error", "rate limit", "status code 429",
+            "api error: 429", "http 429",
+        )),
+        ("CLAUDE_PROVIDER_MODEL_FAILURE", (
+            "model_not_found", "model not found", "invalid model",
+            "overloaded_error", "provider error", "api_error",
+        )),
+        ("CLAUDE_TRANSPORT_FAILURE", (
+            "econnrefused", "enotfound", "etimedout", "fetch failed",
+            "connection refused", "network error", "tls error",
+            "certificate error",
+        )),
+        ("CLAUDE_CONTRACT_FAILURE", (
+            "unknown option", "unknown argument", "invalid value for --",
+            "tool not found", "allowedtools",
+        )),
+        ("CLAUDE_RUNTIME_FAILURE", (
+            "permission denied", "no such file or directory", "modulenotfounderror",
+            "module not found", "traceback", "syntaxerror",
+        )),
+    )
+    for reason, candidates in signatures:
+        if any(observed(candidate) for candidate in candidates):
+            return reason
+    return "CLAUDE_PROCESS_FAILED"
 
 
 def pty_failure_reason(path: Path) -> str:
@@ -1657,6 +1713,13 @@ def main(argv: list[str]) -> int:
         return 0
     if len(argv) == 2 and argv[0] == "--pty-failure-reason":
         print(pty_failure_reason(Path(argv[1])))
+        return 0
+    if len(argv) == 3 and argv[0] == "--claude-failure-reason":
+        try:
+            status = int(argv[1], 10)
+        except ValueError:
+            status = 0
+        print(claude_failure_reason(status, Path(argv[2])))
         return 0
     if len(argv) == 4 and argv[0] == "--pty-context":
         print(json.dumps(pty_context_observation(

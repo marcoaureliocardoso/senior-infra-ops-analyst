@@ -811,6 +811,14 @@ receive only their required disposable fixture, while each browser workflow
 receives only its phase-specific test permission server. Raw
 prompts, temporary SDK streams, captures, transcripts, temporary MCP configs,
 and the disposable Claude session store are deleted before sidecar construction.
+When a Claude process exits nonzero, the parent may inspect only its bounded
+transient stderr through the same regular-file, no-follow, race-resistant read
+contract. The reducer returns exactly one allowlisted advisory category for
+timeout, authentication, rate limiting, provider/model, transport, local CLI
+contract, local runtime, generic process failure, or rejected evidence. The
+shell applies the allowlist again before displaying the code and deletes stderr
+and stream immediately. No excerpt, prompt, response, URL, identifier, or secret
+is retained. The category never authorizes retry, fallback, or a policy change.
 The acceptance run uses a test-only deterministic handler: it permits one exact
 synthetic loopback mutation and denies a second observably different mutation
 in a fresh session. Evidence labels this `synthetic-deterministic`, never human

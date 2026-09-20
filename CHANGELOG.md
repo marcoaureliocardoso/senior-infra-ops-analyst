@@ -98,7 +98,11 @@ tag. Tagged versions correspond to repository tags.
   first `skill` stage before producing a trusted sample or aggregate; its
   disposable root was removed and it was not repeated. Provider-backed
   acceptance therefore remains pending and requires a fresh exact
-  authorization.
+  authorization. Subsequent diagnostics reduce bounded transient Claude stderr
+  to one allowlisted advisory failure code, apply a second shell allowlist, and
+  delete the source immediately. Prompts, responses, excerpts, URLs, secrets,
+  and raw provider errors never enter the result, and the code cannot authorize
+  retry or fallback.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

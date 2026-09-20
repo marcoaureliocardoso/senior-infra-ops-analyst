@@ -1232,7 +1232,7 @@ could be accepted, and forced exit could still satisfy the reducer. The
 remediation separates unavailable from rejected status events, prefers a later
 coherent numeric status observation, restricts fallback to `new/before`, uses
 the exact native labeled ANSI view, and requires a passed exit. The focused
-provider-free gate now passes 76 tests plus shell syntax and the live-harness
+provider-free gate now passes 81 tests plus shell syntax and the live-harness
 self-test. A second independent review then found a raw-text reassociation after
 ANSI erasure and a symlink-following gap in the primary status reader. Both now
 have adversarial regressions: only labeled reconstructed screen state may supply
@@ -1264,3 +1264,25 @@ No retry occurred. The disposable root, prompt, stream, transcript, settings
 copy, fixture, and any partial results were removed by the cleanup trap, which
 was verified after exit. A fresh commit-bound authorization is required for any
 future provider-backed attempt.
+
+The failure above cannot be classified retroactively because its raw transient
+files were correctly deleted. A later TDD cycle added a diagnostic reducer for
+future nonzero Claude exits. Initial tests failed because neither the reducer
+nor its CLI existed; the first implementation then exposed an `ENOTFOUND`
+substring collision inside `ModuleNotFoundError`, which was corrected with
+word-bounded network error matching. The reducer securely reads at most 64 KiB
+of transient stderr and emits only one of nine fixed codes: timeout,
+authentication, rate limit, provider/model, transport, CLI contract, local
+runtime, generic process failure, or rejected evidence. A second shell allowlist
+rejects unexpected parser output. Secret canaries, unknown text, malformed or
+unsafe evidence, invalid exit statuses, timeout precedence, CLI output, shell
+syntax, and the shared harness self-test are covered. The transcript and stream
+are deleted before the content-free blocking message. These codes are advisory
+only and never permit an automatic retry or fallback.
+
+A provider-free closed-loopback exercise then reached the same first `skill`
+stage and displayed only `CLAUDE_PROCESS_FAILED`. The transient stderr carried
+no recognized transport signature, so the reducer conservatively retained the
+generic category. It did not inspect the model stream or broaden its inputs,
+and cleanup removed the disposable root. This proves the content-free
+integration but does not diagnose the earlier authenticated failure.

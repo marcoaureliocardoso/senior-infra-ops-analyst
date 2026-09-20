@@ -368,6 +368,129 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 )
                 self.assertEqual(reader.call_count, 1)
 
+    def test_claude_failure_reason_reduces_allowlisted_categories(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        cases = (
+            (124, "API Error: 401 unauthorized", "CLAUDE_TIMEOUT"),
+            (1, "authentication_error: invalid x-api-key", "CLAUDE_AUTH_FAILURE"),
+            (1, "rate_limit_error: HTTP 429", "CLAUDE_RATE_LIMIT"),
+            (1, "model_not_found: invalid model", "CLAUDE_PROVIDER_MODEL_FAILURE"),
+            (1, "TypeError: fetch failed ECONNREFUSED", "CLAUDE_TRANSPORT_FAILURE"),
+            (2, "error: unknown option --not-real", "CLAUDE_CONTRACT_FAILURE"),
+            (1, "ModuleNotFoundError: no module named example", "CLAUDE_RUNTIME_FAILURE"),
+            (1, "unrecognized diagnostic text", "CLAUDE_PROCESS_FAILED"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            for status, content, expected in cases:
+                with self.subTest(expected=expected):
+                    transcript.write_text(content, encoding="utf-8")
+                    self.assertEqual(
+                        browser_operations_live.claude_failure_reason(
+                            status, transcript,
+                        ),
+                        expected,
+                    )
+
+    def test_claude_failure_reason_never_returns_content(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        canary = "SYNTH_SECRET_P004B_FAILURE_CANARY"
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            transcript.write_text(
+                f"operator prompt and provider text {canary}", encoding="utf-8",
+            )
+            reason = browser_operations_live.claude_failure_reason(1, transcript)
+            self.assertEqual(reason, "CLAUDE_PROCESS_FAILED")
+            self.assertNotIn(canary, reason)
+            self.assertRegex(reason, r"^[A-Z][A-Z0-9_]{0,95}$")
+
+    def test_claude_failure_reason_rejects_unsafe_evidence(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            missing = root / "missing.transcript"
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(1, missing),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+            oversized = root / "oversized.transcript"
+            oversized.write_bytes(
+                b"x" * (browser_operations_live.MAX_CLAUDE_FAILURE_BYTES + 1)
+            )
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(1, oversized),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+            target = root / "target.transcript"
+            target.write_text("unauthorized", encoding="utf-8")
+            linked = root / "linked.transcript"
+            try:
+                linked.symlink_to(target)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable")
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(1, linked),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+            for status in (0, 256, True):
+                with self.subTest(status=status):
+                    self.assertEqual(
+                        browser_operations_live.claude_failure_reason(status, target),
+                        "CLAUDE_EVIDENCE_REJECTED",
+                    )
+
+    def test_claude_failure_reason_cli_emits_only_one_code(self) -> None:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            transcript.write_text(
+                "authentication_error SYNTH_SECRET_MUST_NOT_ESCAPE",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable, str(PARSER), "--claude-failure-reason",
+                    "1", str(transcript),
+                ],
+                check=False, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "CLAUDE_AUTH_FAILURE\n")
+            self.assertEqual(result.stderr, "")
+
+    def test_harness_self_test_exercises_content_free_failure_reducer(self) -> None:
+        bash = shutil.which("bash")
+        if bash is None:
+            self.skipTest("bash is unavailable")
+        result = subprocess.run(
+            [bash, str(HARNESS), "--self-test"], cwd=ROOT,
+            check=False, capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            "live browser operations diagnostic self-test passed\n",
+            result.stdout,
+        )
+        self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
+
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
         for marker in (
             "--self-test", "--preflight", "--run-live", "P004B_LIVE_AUTHORIZED",

@@ -88,9 +88,34 @@ aggregate_results() {
     "${RESULTS[@]}"
 }
 
+claude_failure_code() {
+  local status="$1" transcript="$2" reason
+  if ! reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
+      --claude-failure-reason "$status" "$transcript" 2>/dev/null)"; then
+    reason='CLAUDE_EVIDENCE_REJECTED'
+  fi
+  case "$reason" in
+    CLAUDE_TIMEOUT|CLAUDE_AUTH_FAILURE|CLAUDE_RATE_LIMIT|CLAUDE_PROVIDER_MODEL_FAILURE|\
+CLAUDE_TRANSPORT_FAILURE|CLAUDE_CONTRACT_FAILURE|CLAUDE_RUNTIME_FAILURE|\
+CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED)
+      printf '%s\n' "$reason"
+      ;;
+    *) printf 'CLAUDE_EVIDENCE_REJECTED\n' ;;
+  esac
+}
+
 self_test() {
   python3 "$ROOT/tests/browser_operations_live.py" --self-test
   printf 'live browser operations self-test passed\n'
+  local diagnostic_transcript="$MEASUREMENT_DIR/diagnostic-self-test.transcript"
+  local diagnostic_reason
+  printf '%s\n' 'authentication_error SYNTH_SECRET_MUST_NOT_ESCAPE' \
+    >"$diagnostic_transcript"
+  diagnostic_reason="$(claude_failure_code 1 "$diagnostic_transcript")"
+  rm -f -- "$diagnostic_transcript"
+  [[ "$diagnostic_reason" == 'CLAUDE_AUTH_FAILURE' ]] || \
+    blocked 'content-free Claude failure reducer self-test failed'
+  printf 'live browser operations diagnostic self-test passed\n'
 }
 
 if [[ "$MODE" == "--self-test" ]]; then
@@ -483,7 +508,7 @@ run_measurement_stage() {
   local prompt_path="$MEASUREMENT_DIR/$label.prompt"
   local stream_path="$MEASUREMENT_DIR/$label.stream.jsonl"
   local result_path="$MEASUREMENT_DIR/$label.sample.json"
-  local limit status stage_tools allowed_tool stage_mcp_config
+  local limit status stage_tools allowed_tool stage_mcp_config failure_reason
   case "$label" in
     skill) stage_tools='Skill'; allowed_tool='Skill(context-continuity)'; stage_mcp_config="$EMPTY_MCP_CONFIG" ;;
     subagent) stage_tools='Agent'; allowed_tool='Agent(diagnostic-operator)'; stage_mcp_config="$EMPTY_MCP_CONFIG" ;;
@@ -502,7 +527,12 @@ run_measurement_stage() {
     <"$prompt_path" >"$stream_path" 2>"$MEASUREMENT_DIR/$label.transcript"
   status=$?
   set -e
-  [[ $status -eq 0 ]] || blocked "trusted measurement stage failed: $label"
+  if [[ $status -ne 0 ]]; then
+    failure_reason="$(claude_failure_code \
+      "$status" "$MEASUREMENT_DIR/$label.transcript")"
+    rm -f -- "$prompt_path" "$stream_path" "$MEASUREMENT_DIR/$label.transcript"
+    blocked "trusted measurement stage failed: $label ($failure_reason)"
+  fi
   python3 "$ROOT/tests/browser_operations_live.py" --evaluate-measurement-stream \
     "$stream_path" "$MAIN_MEASUREMENT_SESSION" "$label" "$RUN_NONCE" "$result_path"
   rm -f -- "$prompt_path" "$stream_path" "$MEASUREMENT_DIR/$label.transcript"
