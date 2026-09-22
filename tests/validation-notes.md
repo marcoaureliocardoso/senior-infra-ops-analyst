@@ -1359,3 +1359,26 @@ required to succeed, and synchronous signal handling, process-group cleanup,
 pending-signal drainage, and child-status remapping remain intact. The complete
 provider-free Debian WSL package gate on that commit ended with
 `package validation passed`.
+
+On 2026-09-22, the operator authorized one provider-backed run bound to final
+commit `3fbafad682d2cdad9e9082efaea17e6b708e294d`, the configured
+`https://api.deepseek.com/anthropic` endpoint, and the runtime-observed
+`deepseek-v4-pro[1m]` model. A redacted structural check reported the exact
+endpoint and model plus one configured credential field without exposing its
+value. The corrected provider-free preflight observed Claude Code `2.1.274`,
+the configured-provider label, sanitized model label `deepseek-v4-pro1m`,
+Playwright `AVAILABLE_RECOGNIZED`, exact guard denial, and verified cleanup.
+
+The single authenticated harness run installed the disposable Nori profile,
+completed the provider-free `main-before` context probe, and launched the first
+of six provider-backed invocations, the `skill` measurement stage. That Claude
+process exited nonzero and the hardened reducer conservatively emitted only
+`CLAUDE_PROCESS_FAILED`; no trusted stage sample or aggregate was produced. The
+remaining five provider-backed invocations were not launched and no retry
+occurred. Because the bounded evidence cannot establish whether the provider
+accepted or processed the failed request, the authorization is consumed and the
+result is inconclusive. Failure cleanup deleted prompt, stream, transcript,
+settings copy, fixture, and partial results. A post-run check verified the
+disposable root was absent and found no related process. Provider-backed P0-04B
+acceptance remains pending and any future attempt requires a new exact
+commit-bound authorization.

@@ -96,9 +96,15 @@ tag. Tagged versions correspond to repository tags.
   measurement stage. A single operator-authorized provider-backed attempt on
   commit `e669e0514db2c387cd5369413d146bba4b84b667` then exited nonzero in that
   first `skill` stage before producing a trusted sample or aggregate; its
-  disposable root was removed and it was not repeated. Provider-backed
-  acceptance therefore remains pending and requires a fresh exact
-  authorization. Subsequent diagnostics reduce bounded transient Claude stderr
+  disposable root was removed and it was not repeated. A later exact attempt on
+  commit `3fbafad682d2cdad9e9082efaea17e6b708e294d` used the configured DeepSeek
+  Anthropic endpoint and runtime-observed model, then stopped at the same first
+  provider-backed `skill` stage with the content-free
+  `CLAUDE_PROCESS_FAILED` category. It produced no trusted sample or aggregate,
+  did not launch the remaining five provider-backed invocations, removed the
+  disposable root, and was not repeated. Provider-backed acceptance therefore
+  remains pending and requires a fresh exact authorization. Subsequent
+  diagnostics reduce bounded transient Claude stderr
   to one allowlisted advisory failure code, apply a second shell allowlist, and
   delete measurement or workflow prompt, stream, and stderr before blocking.
   Only whole-line canonical error shapes are classified; ambiguous, embedded,
