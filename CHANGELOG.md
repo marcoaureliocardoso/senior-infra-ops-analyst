@@ -107,9 +107,11 @@ tag. Tagged versions correspond to repository tags.
   `SIGALRM` and remaps a child exit `124`, reserving `124` for its own observed
   deadline; forged files, signals, or child statuses therefore remain generic.
   Deadline and interruption paths terminate the complete child process group,
-  escalating to `SIGKILL` even when the group leader exits first. Prompts,
-  responses, excerpts, URLs, secrets, and raw provider errors never enter the
-  result, and the code cannot authorize retry or fallback.
+  escalating to `SIGKILL` even when the group leader exits first. Managed
+  signals remain blocked and are consumed synchronously by the monotonic loop,
+  eliminating asynchronous cleanup-entry races. Prompts, responses, excerpts,
+  URLs, secrets, and raw provider errors never enter the result, and the code
+  cannot authorize retry or fallback.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

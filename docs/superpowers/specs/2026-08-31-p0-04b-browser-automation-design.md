@@ -824,11 +824,15 @@ behavior in the child, and remaps a child exit `124`; therefore only its own
 deadline returns the trusted timeout status. No named evidence path or parsed
 child diagnostic participates in timeout classification. Deadline, interrupt,
 and error exits terminate the complete child process group, with bounded TERM
-grace followed by KILL even if the group leader has already exited. The shell
-applies the allowlist again before displaying the code, and both measurement and
-workflow paths delete prompt, stream, and stderr before blocking. No excerpt,
-prompt, response, URL, identifier, or secret is retained. The category never
-authorizes retry, fallback, or a policy change.
+grace followed by KILL even if the group leader has already exited. Managed
+signals remain blocked in the supervisor and are synchronously consumed in the
+same monotonic loop that observes process completion and deadline; the child
+restores the inherited mask before execution. Thus no asynchronous signal
+handler can bypass cleanup. The shell applies the allowlist again before
+displaying the code, and both measurement and workflow paths delete prompt,
+stream, and stderr before blocking. No excerpt, prompt, response, URL,
+identifier, or secret is retained. The category never authorizes retry,
+fallback, or a policy change.
 The acceptance run uses a test-only deterministic handler: it permits one exact
 synthetic loopback mutation and denies a second observably different mutation
 in a fresh session. Evidence labels this `synthetic-deterministic`, never human

@@ -1331,3 +1331,14 @@ the process group, wait a bounded grace period for the whole group, send KILL
 whenever any group member remains, and reap the leader. Self-tests cover an
 ignoring descendant and external supervisor termination and verify that neither
 continues running.
+
+Re-review then identified a cleanup-entry race: a second managed signal could
+arrive after an asynchronous handler raised but before the exception branch
+blocked signals, bypassing sibling handlers and group termination. The
+supervisor no longer installs asynchronous handlers. Managed signals remain
+blocked from before spawn through cleanup and are consumed synchronously with
+`sigtimedwait` in the monotonic process/deadline loop; SIGALRM is discarded,
+termination signals select a content-free exit status, and additional pending
+managed signals are drained only after group cleanup. The child restores the
+prior mask before execution. The harness now also exercises rapid TERM/HUP
+delivery and verifies that the child does not continue.

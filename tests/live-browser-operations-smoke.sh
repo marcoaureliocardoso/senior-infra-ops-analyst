@@ -142,6 +142,7 @@ self_test() {
   local diagnostic_reason timeout_transcript timeout_status forged_timeout_path
   local descendant_pid_path descendant_pid descendant_alive supervisor_pid
   local interrupted_transcript interrupted_pid_path interrupted_child_pid
+  local multi_transcript multi_pid_path multi_child_pid
   printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
   printf '%s\n' 'SYNTH_SECRET_STREAM_MUST_NOT_ESCAPE' >"$diagnostic_stream"
   printf '%s\n' 'authentication_error' 'SYNTH_SECRET_MUST_NOT_ESCAPE' \
@@ -257,6 +258,43 @@ self_test() {
     blocked 'interrupted supervisor left its child alive'
   rm -f -- "$interrupted_transcript" "$interrupted_pid_path"
   printf 'live browser operations interruption cleanup self-test passed\n'
+
+  multi_transcript="$MEASUREMENT_DIR/multi-signal-self-test.transcript"
+  multi_pid_path="$MEASUREMENT_DIR/multi-signal-self-test.pid"
+  set +e
+  python3 "$ROOT/tests/browser_operations_live.py" --run-with-timeout 10 \
+    "$multi_transcript" python3 -c \
+    'import os, sys, time; open(sys.argv[1], "w", encoding="ascii").write(str(os.getpid())); time.sleep(30)' \
+    "$multi_pid_path" &
+  supervisor_pid=$!
+  set -e
+  for _ in {1..40}; do
+    [[ -s "$multi_pid_path" ]] && break
+    sleep 0.05
+  done
+  [[ -s "$multi_pid_path" ]] || blocked 'multi-signal cleanup child did not start'
+  multi_child_pid="$(cat "$multi_pid_path")"
+  kill -TERM "$supervisor_pid"
+  kill -HUP "$supervisor_pid" 2>/dev/null || true
+  set +e
+  wait "$supervisor_pid"
+  timeout_status=$?
+  set -e
+  descendant_alive=1
+  for _ in {1..20}; do
+    if ! kill -0 "$multi_child_pid" 2>/dev/null; then
+      descendant_alive=0
+      break
+    fi
+    sleep 0.05
+  done
+  if [[ $descendant_alive -ne 0 ]]; then
+    kill -KILL "$multi_child_pid" 2>/dev/null || true
+  fi
+  [[ ( $timeout_status -eq 129 || $timeout_status -eq 143 ) \
+    && $descendant_alive -eq 0 ]] || blocked 'multiple signals bypassed cleanup'
+  rm -f -- "$multi_transcript" "$multi_pid_path"
+  printf 'live browser operations multiple signal cleanup self-test passed\n'
 }
 
 if [[ "$MODE" == "--self-test" ]]; then

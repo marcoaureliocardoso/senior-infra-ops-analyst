@@ -259,24 +259,12 @@ def claude_failure_reason(
     return "CLAUDE_PROCESS_FAILED"
 
 
-class _SupervisorInterrupted(Exception):
-    def __init__(self, signum: int) -> None:
-        super().__init__("timeout supervisor interrupted")
-        self.signum = signum
-
-
 _SUPERVISOR_SIGNALS = (
     signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM, signal.SIGALRM,
 )
 
 
-def _raise_supervisor_interruption(signum: int, _frame: Any) -> None:
-    raise _SupervisorInterrupted(signum)
-
-
 def _prepare_supervised_child(previous_mask: set[signal.Signals]) -> None:
-    for signum in _SUPERVISOR_SIGNALS:
-        signal.signal(signum, signal.SIG_DFL)
     signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
 
@@ -288,12 +276,6 @@ def _process_group_exists(process_group: int) -> bool:
     except PermissionError:
         return True
     return True
-
-
-def _begin_supervisor_cleanup() -> None:
-    signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
-    for signum in _SUPERVISOR_SIGNALS:
-        signal.signal(signum, signal.SIG_IGN)
 
 
 def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
@@ -337,14 +319,9 @@ def run_with_monotonic_timeout(
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
-    previous_handlers = {
-        signum: signal.getsignal(signum) for signum in _SUPERVISOR_SIGNALS
-    }
     process: subprocess.Popen[bytes] | None = None
+    cleanup_complete = False
     try:
-        for signum in _SUPERVISOR_SIGNALS[:-1]:
-            signal.signal(signum, _raise_supervisor_interruption)
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
         descriptor = os.open(transcript_path, flags, 0o600)
         try:
             metadata = os.fstat(descriptor)
@@ -359,27 +336,39 @@ def run_with_monotonic_timeout(
             )
         finally:
             os.close(descriptor)
-        try:
-            try:
-                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
-                status = process.wait(timeout=limit)
-            except subprocess.TimeoutExpired:
-                _begin_supervisor_cleanup()
+        deadline = time.monotonic() + limit
+        while True:
+            polled_status = process.poll()
+            if polled_status is not None:
+                status = polled_status
+                if _process_group_exists(process.pid):
+                    _terminate_process_group(process)
+                cleanup_complete = True
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 _terminate_process_group(process)
+                cleanup_complete = True
                 return 124
-            except _SupervisorInterrupted as interruption:
-                _begin_supervisor_cleanup()
+            observed = signal.sigtimedwait(
+                _SUPERVISOR_SIGNALS, min(0.05, remaining),
+            )
+            if observed is None or observed.si_signo == signal.SIGALRM:
+                continue
+            if observed.si_signo in _SUPERVISOR_SIGNALS[:-1]:
                 _terminate_process_group(process)
-                return min(255, 128 + interruption.signum)
-            except BaseException:
-                _begin_supervisor_cleanup()
-                _terminate_process_group(process)
-                raise
-        finally:
-            signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
+                cleanup_complete = True
+                return min(255, 128 + observed.si_signo)
+    except BaseException:
+        if process is not None and not cleanup_complete:
+            _terminate_process_group(process)
+            cleanup_complete = True
+        raise
     finally:
-        for signum, handler in previous_handlers.items():
-            signal.signal(signum, handler)
+        pending = signal.sigpending().intersection(_SUPERVISOR_SIGNALS)
+        while pending:
+            signal.sigwait(pending)
+            pending = signal.sigpending().intersection(_SUPERVISOR_SIGNALS)
         signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
     if status == 124:

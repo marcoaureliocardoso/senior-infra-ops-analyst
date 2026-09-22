@@ -550,6 +550,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             "live browser operations interruption cleanup self-test passed\n",
             result.stdout,
         )
+        self.assertIn(
+            "live browser operations multiple signal cleanup self-test passed\n",
+            result.stdout,
+        )
         self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
 
     def test_modes_authorization_and_bounds_are_explicit(self) -> None:
