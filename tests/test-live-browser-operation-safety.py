@@ -551,6 +551,10 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
+            "live browser operations child signal disposition self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
             "live browser operations multiple signal cleanup self-test passed\n",
             result.stdout,
         )

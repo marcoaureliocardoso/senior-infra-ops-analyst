@@ -143,6 +143,7 @@ self_test() {
   local descendant_pid_path descendant_pid descendant_alive supervisor_pid
   local interrupted_transcript interrupted_pid_path interrupted_child_pid
   local multi_transcript multi_pid_path multi_child_pid
+  local disposition_transcript disposition_status
   printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
   printf '%s\n' 'SYNTH_SECRET_STREAM_MUST_NOT_ESCAPE' >"$diagnostic_stream"
   printf '%s\n' 'authentication_error' 'SYNTH_SECRET_MUST_NOT_ESCAPE' \
@@ -259,6 +260,18 @@ self_test() {
   rm -f -- "$interrupted_transcript" "$interrupted_pid_path"
   printf 'live browser operations interruption cleanup self-test passed\n'
 
+  disposition_transcript="$MEASUREMENT_DIR/disposition-self-test.transcript"
+  set +e
+  python3 -c \
+    'import os, signal, sys; signal.signal(signal.SIGTERM, signal.SIG_IGN); os.execv(sys.executable, [sys.executable, sys.argv[1], "--run-with-timeout", "2", sys.argv[2], sys.executable, "-c", "import signal,sys; sys.exit(0 if signal.getsignal(signal.SIGTERM) == signal.SIG_DFL else 42)"])' \
+    "$ROOT/tests/browser_operations_live.py" "$disposition_transcript"
+  disposition_status=$?
+  set -e
+  [[ $disposition_status -eq 0 ]] || \
+    blocked 'supervised child inherited an ignored managed signal'
+  rm -f -- "$disposition_transcript"
+  printf 'live browser operations child signal disposition self-test passed\n'
+
   multi_transcript="$MEASUREMENT_DIR/multi-signal-self-test.transcript"
   multi_pid_path="$MEASUREMENT_DIR/multi-signal-self-test.pid"
   set +e
@@ -274,8 +287,10 @@ self_test() {
   done
   [[ -s "$multi_pid_path" ]] || blocked 'multi-signal cleanup child did not start'
   multi_child_pid="$(cat "$multi_pid_path")"
+  kill -STOP "$supervisor_pid"
   kill -TERM "$supervisor_pid"
-  kill -HUP "$supervisor_pid" 2>/dev/null || true
+  kill -HUP "$supervisor_pid"
+  kill -CONT "$supervisor_pid"
   set +e
   wait "$supervisor_pid"
   timeout_status=$?

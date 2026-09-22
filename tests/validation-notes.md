@@ -1342,3 +1342,12 @@ termination signals select a content-free exit status, and additional pending
 managed signals are drained only after group cleanup. The child restores the
 prior mask before execution. The harness now also exercises rapid TERM/HUP
 delivery and verifies that the child does not continue.
+
+Final review then found that restoring only the mask allowed an inherited
+`SIG_IGN` disposition to survive `exec` in the child, contradicting the stated
+default child behavior. A provider-free regression first reproduced this by
+launching the supervisor with ignored SIGTERM and observing the same disposition
+in its child. Child setup now resets every managed disposition to `SIG_DFL`
+before restoring the prior mask. The multiple-signal regression now stops the
+supervisor first, successfully queues both TERM and HUP, then resumes it, so the
+test proves both signals were delivered before verifying group cleanup.

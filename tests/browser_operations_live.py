@@ -265,6 +265,8 @@ _SUPERVISOR_SIGNALS = (
 
 
 def _prepare_supervised_child(previous_mask: set[signal.Signals]) -> None:
+    for signum in _SUPERVISOR_SIGNALS:
+        signal.signal(signum, signal.SIG_DFL)
     signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
 
