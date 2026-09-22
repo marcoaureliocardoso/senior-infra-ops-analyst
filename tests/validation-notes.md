@@ -1351,3 +1351,11 @@ in its child. Child setup now resets every managed disposition to `SIG_DFL`
 before restoring the prior mask. The multiple-signal regression now stops the
 supervisor first, successfully queues both TERM and HUP, then resumes it, so the
 test proves both signals were delivered before verifying group cleanup.
+
+Independent re-review of commit `359a749284fbfe717cbb30123048334884865e01`
+reported no Critical or Important findings. It confirmed the inherited
+`SIG_IGN` probe now observes `SIG_DFL` in the child, both queued signals are
+required to succeed, and synchronous signal handling, process-group cleanup,
+pending-signal drainage, and child-status remapping remain intact. The complete
+provider-free Debian WSL package gate on that commit ended with
+`package validation passed`.
