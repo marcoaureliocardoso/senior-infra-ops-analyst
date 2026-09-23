@@ -111,6 +111,7 @@ claude_failure_code() {
   fi
   case "$reason" in
     CLAUDE_TIMEOUT|CLAUDE_AUTH_FAILURE|CLAUDE_RATE_LIMIT|CLAUDE_PROVIDER_MODEL_FAILURE|\
+CLAUDE_MODEL_ROUTE_ADVISORY|\
 CLAUDE_TRANSPORT_FAILURE|CLAUDE_CONTRACT_FAILURE|CLAUDE_RUNTIME_FAILURE|\
 CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED)
       printf '%s\n' "$reason"
@@ -359,9 +360,10 @@ label() {
   printf '%.96s' "$value"
 }
 
-CLAUDE_LABEL="$(label "${CLAUDE_BIN:+$($CLAUDE_BIN --version 2>/dev/null | head -n 1 || true)}")"
+CLAUDE_LABEL="$(label "${CLAUDE_BIN:+configured-claude}")"
 PROVIDER_LABEL="$(label "${ANTHROPIC_BASE_URL:+configured-provider}")"
-MODEL_LABEL="$(label "${ANTHROPIC_MODEL:-observed-at-runtime}")"
+RUNTIME_MODEL="${ANTHROPIC_MODEL:-}"
+MODEL_LABEL="$(label "${RUNTIME_MODEL:-observed-at-runtime}")"
 ADAPTER_ROOT="$ROOT/skills/browser-operations"
 if [[ -n "$BROWSER_NODE_MODULES" ]]; then
   PROBE_SKILL_ROOT="$WORK/runtime-probe/skills/browser-operations"
@@ -409,20 +411,59 @@ preflight_guard="$(printf '%s' '{"session_id":"p004b-preflight","tool_use_id":"g
 [[ "$preflight_guard" == *'"permissionDecision":"deny"'* && "$preflight_guard" == *'"permissionDecisionReason":"DENY_OPERATION_MISMATCH"'* ]] || blocked 'GUARD_UNPROVEN'
 unset preflight_guard
 
+MODEL_DISPATCH_STATE='MODEL_DISPATCH_UNPROVEN'
+if [[ -n "$CLAUDE_BIN" && -n "$RUNTIME_MODEL" ]]; then
+  MODEL_DISPATCH_STATE="$(python3 "$ROOT/tests/browser_operations_live.py" \
+    --probe-local-model-dispatch "$CLAUDE_BIN" "$RUNTIME_MODEL" "$WORK_REAL")"
+fi
+case "$MODEL_DISPATCH_STATE" in
+  LOCAL_MODEL_REQUEST_OBSERVED|LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED|\
+  LOCAL_MODEL_MISMATCH_OBSERVED|LOCAL_MODEL_MIXED_REQUESTS_OBSERVED|\
+  LOCAL_NON_MESSAGE_REQUEST_OBSERVED|MODEL_DISPATCH_UNPROVEN|MODEL_PREFLIGHT_TIMEOUT) ;;
+  MODEL_PREFLIGHT_ISOLATION_FAILURE|MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE|\
+  MODEL_PREFLIGHT_INTERRUPTED|\
+  MODEL_PREFLIGHT_EVIDENCE_REJECTED)
+    blocked "local model dispatch preflight failed ($MODEL_DISPATCH_STATE)"
+    ;;
+  *) blocked 'local model dispatch preflight returned an invalid state' ;;
+esac
+
 if [[ "$MODE" == "--preflight" ]]; then
   PREFLIGHT_STATE='AVAILABLE_RECOGNIZED'
+  PREFLIGHT_REASON='PREFLIGHT_INLINE_MODEL_GATE_REQUIRED'
   case "$ADAPTER_LABEL" in
     unavailable) PREFLIGHT_STATE='UNAVAILABLE' ;;
     conflict) PREFLIGHT_STATE='CONFLICT' ;;
   esac
-  preflight_json="$(printf '{"status":"inconclusive","reasonCode":"PREFLIGHT_ONLY","observedRuntime":{"claude":"%s","provider":"%s","model":"%s","adapter":"%s"},"capabilityState":"%s","guardProof":"exact-deny","routeClass":"legacy-read-only-multi-command","workflow":{"executionSteps":0,"validationSteps":0,"authentication":"not-observed","mutation":"not-observed","validation":"not-observed","outcome":"NOT_OBSERVED"},"roleCount":0,"toolCalls":0,"hookEvents":0,"context":{"before":0,"afterSkill":0,"afterSubagent":0,"afterDiscovery":0,"afterUse":0,"toolSearchMode":"unavailable"},"cleanup":"pending","permission":{"mode":"synthetic-deterministic","allow":"not-observed","deny":"not-observed","callCount":0}}' \
-    "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" "$PREFLIGHT_STATE")"
+  if [[ "$MODEL_DISPATCH_STATE" == 'LOCAL_MODEL_REQUEST_OBSERVED' ]]; then
+    if [[ "$PREFLIGHT_STATE" == 'AVAILABLE_RECOGNIZED' ]]; then
+      PREFLIGHT_STATE='AVAILABLE_UNRECOGNIZED'
+    fi
+  else
+    case "$MODEL_DISPATCH_STATE" in
+      LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED)
+        PREFLIGHT_REASON='PREFLIGHT_MODEL_ROUTE_CLAUDE_OPUS'
+        ;;
+      LOCAL_MODEL_MISMATCH_OBSERVED|LOCAL_MODEL_MIXED_REQUESTS_OBSERVED)
+        PREFLIGHT_REASON='PREFLIGHT_MODEL_ROUTE_MISMATCH'
+        ;;
+      *) PREFLIGHT_REASON='PREFLIGHT_MODEL_DISPATCH_UNPROVEN' ;;
+    esac
+    if [[ "$PREFLIGHT_STATE" == 'AVAILABLE_RECOGNIZED' ]]; then
+      PREFLIGHT_STATE='AVAILABLE_UNRECOGNIZED'
+    fi
+  fi
+  preflight_json="$(printf '{"status":"inconclusive","reasonCode":"%s","observedRuntime":{"claude":"%s","provider":"%s","model":"%s","adapter":"%s"},"capabilityState":"%s","guardProof":"exact-deny","routeClass":"legacy-read-only-multi-command","workflow":{"executionSteps":0,"validationSteps":0,"authentication":"not-observed","mutation":"not-observed","validation":"not-observed","outcome":"NOT_OBSERVED"},"roleCount":0,"toolCalls":0,"hookEvents":0,"context":{"before":0,"afterSkill":0,"afterSubagent":0,"afterDiscovery":0,"afterUse":0,"toolSearchMode":"unavailable"},"cleanup":"pending","permission":{"mode":"synthetic-deterministic","allow":"not-observed","deny":"not-observed","callCount":0}}' \
+    "$PREFLIGHT_REASON" "$CLAUDE_LABEL" "$PROVIDER_LABEL" "$MODEL_LABEL" "$ADAPTER_LABEL" "$PREFLIGHT_STATE")"
   cleanup
   trap - EXIT
   python3 "$ROOT/tests/browser_operations_live.py" --finalize-cleanup "$preflight_json" "$WORK_REAL"
   exit 0
 fi
 
+[[ "$MODEL_DISPATCH_STATE" == 'LOCAL_MODEL_REQUEST_OBSERVED' ]] || \
+  blocked "local model dispatch preflight failed ($MODEL_DISPATCH_STATE)"
+blocked 'inline live model gate is not available'
 [[ -n "$CLAUDE_BIN" ]] || blocked 'Claude Code CLI not found'
 [[ -n "$NORI_BIN" ]] || blocked 'Nori CLI not found'
 "$CLAUDE_BIN" --help 2>/dev/null | grep -q -- '--permission-prompt-tool' || \

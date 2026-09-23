@@ -128,6 +128,19 @@ the same parent tool identity, and a coherent structural workflow result in that
 unrecognized runtime fields remain inconclusive. The authenticated acceptance
 result remains pending until a separately authorized run observes this complete
 sequence.
+The Linux/WSL harness can run a provider-free request-shape diagnostic inside a
+Bubblewrap network namespace with no egress, a minimal disposable environment,
+a synthetic credential, and an in-namespace loopback API sentinel. It
+classifies the `/v1/messages` model field without retaining request content,
+rejects timeout or interruption evidence, and builds an explicit filesystem
+allowlist that does not mount host homes, user data, runtime sockets, host
+configuration, or unrelated temporary paths. It never executes an
+unisolated Claude version probe. This isolated `--bare`
+observation does not prove the route of later settings-, session-, agent-, or
+tool-dependent calls. The provider-backed path therefore remains disabled even
+after an exact diagnostic match until a reviewed inline gate validates every
+real request before forwarding it. Operator approval is necessary for a
+divergent route but cannot replace that enforcement.
 Arbitrary stream records cannot supply role or context measurements, and an
 error terminal, later tool activity, or any failure lifecycle invalidates the
 sample. Until role and context evidence is collected through a separately

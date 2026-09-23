@@ -15,6 +15,35 @@ tag. Tagged versions correspond to repository tags.
 - Updated `context-continuity` to `1.0.1` so its package inventory validates the new `1.2.0` subagent component contract while retaining content-free measurements.
 - Added a loopback-only authenticated infrastructure UI fixture and an executable 37-scenario provider-free real-browser matrix spanning reads, authentication, persistent one-shot execution, approved effects, uploads/downloads, redirects, popups, injection channels, human challenges, selector drift, cleanup, compensation, and unknown outcomes. Inventory equality is checked separately from execution, and unavailable capability remains an explicit skip rather than success.
 - Added a bounded content-free live harness with provider-free self-test and preflight. Its aggregate distinguishes legacy read-only multi-command evidence from persistent one-shot evidence and cannot report `ACTIVE` or completed authentication, mutation, or validation without the exact runner command, same-session and same-parent SDK tool envelopes, the actual ordered Claude Code lifecycle for the configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask` response produced by the installed command guard, coherent tool/post-hook completion, a successful terminal, and a structural validated outcome in every requested sample. Error terminals, later tools, and failure lifecycles invalidate the workflow. Arbitrary stream records cannot supply role or context evidence. Only a private, bounded POSIX/WSL sidecar with the exact random run nonce, workflow sessions, canonical 12-role sequence, five ordered same-session numeric context stages, coherent tool-search state, and structural MCP discovery/use can complete that proof; missing, malformed, oversized, symlinked, permission-unsafe, cross-run, or cross-session evidence remains inconclusive. Native Windows sidecar loading also remains inconclusive until equivalent no-follow and ACL proof exists. The non-interactive acceptance path uses `default` mode with two phase-specific disposable test permission servers: one permits only the exact synthetic loopback change, and a fresh-session server denies only the exact synthetic rollback attempt. Evidence is labelled `synthetic-deterministic`, never human approval. The handler, verifier, configs, claims, and signals are excluded from staging and installed skill roots and are deleted before aggregation. Production installs no permission server and continues to use the native interactive Claude Code prompt. Cleanup is verified only after the disposable root is absent. The authenticated run is fixed at six top-level invocations, at most 40 model turns, and no automatic retry; its result remains pending. The 2026-09-02 preflight observed Claude Code `2.1.257`, no recognized adapter, zero tool/hook calls, and an exact fail-closed hook deny; it made no authenticated provider request.
+- Added a provider-free Linux/WSL model-dispatch diagnostic that runs Claude
+  Code inside a Bubblewrap user, PID, and network namespace with no egress, a
+  minimal environment, disposable home, synthetic credential, `--bare`,
+  disabled tools, and an in-namespace loopback API sentinel/proxy. It classifies
+  exact configured-model, remapped, mixed, auxiliary-only, and absent
+  `/v1/messages` dispatch without retaining the request. Timeout or interruption
+  invalidates the observation and terminates the namespace and complete process
+  tree. A direct proxy-bypass regression proves the isolated process cannot
+  reach a listener on the host network. The namespace is built from an explicit
+  filesystem allowlist instead of a host-root bind: operator homes, mounted host
+  paths, runtime sockets, host configuration, and unrelated temporary paths are
+  not mounted; only the resolved executable, diagnostic helper, required
+  read-only system runtime, and disposable work directory remain visible. The
+  harness no longer invokes unisolated
+  `claude --version`; runtime metadata uses a content-free configured label.
+  Even an exact diagnostic match cannot
+  unlock the provider-backed path: every live request still requires a future
+  inline validating forwarder or equivalent enforcement under the real
+  settings and arguments. An earlier proxy-only diagnostic with installed
+  Claude Code `2.1.280` observed a model mismatch, but independent review
+  rejected it as an egress guarantee or live-route proof. The corrected
+  no-egress diagnostic reached its 30-second bound; that partial observation was
+  rejected, and the aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
+  `AVAILABLE_UNRECOGNIZED`, and verified cleanup without contacting the
+  provider. The `unrecognized_model` diagnostic is now classified as a route
+  advisory rather than proof of provider rejection. Provider-backed
+  acceptance remains pending. Divergent routing requires an explicit future
+  operator decision, but operator approval alone cannot substitute for the
+  missing inline enforcement.
 - Deterministic browser tests and provider-free safety checks passed before this declaration. On 2026-09-07 the one-shot loopback witness passed with the existing Node.js `v24.19.0`, Playwright `1.62.1`, and system Chrome `152.0.7977.76`: eight execution steps and seven fresh-context validation steps returned structural `WORKFLOW_VALIDATED` with cleanup verified. This used a test-only fixed Playwright import and Chrome-channel launcher; it added no production module path or install behavior and made no provider request. The complete real-browser matrix, authenticated provider-backed runtime, CI/Security, merge, and post-merge gates remain separate and are not claimed.
 - Hardened one-shot workflows after independent review: credential and configuration values now have distinct origin classes; navigation uses an exact destination-origin lock and page-bound actions use step-scoped pre/post origin checks; failed or previously successful interactive actions that may autosave require independent validation after a later failure; pre-activation failures consume pending approval; interrupted one-shot bindings cannot enter the legacy route; injected artifact state is closed by the workflow; and structural results retain the real envelope effect.
 - On 2026-09-15 the provider-free matrix executed all 37 named scenarios with the

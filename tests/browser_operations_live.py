@@ -13,9 +13,12 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 
 AGGREGATE_FIELDS = {
@@ -232,6 +235,9 @@ def claude_failure_reason(
             r"api error:\s*(?:400|404|5\d\d)\s+(?:model_not_found|invalid model|overloaded_error|api_error)",
             r"(?:model_not_found|overloaded_error|api_error)",
         )),
+        ("CLAUDE_MODEL_ROUTE_ADVISORY", (
+            r'\[claude-code:unrecognized_model\]\s+\{"model":"[a-z0-9._:/+@\[\]-]{1,128}","query_source":"sdk"\}',
+        )),
         ("CLAUDE_TRANSPORT_FAILURE", (
             r"typeerror:\s*fetch failed(?:\s+(?:econnrefused|enotfound|etimedout))?",
             r"(?:error:\s*)?(?:econnrefused|enotfound|etimedout)",
@@ -257,6 +263,316 @@ def claude_failure_reason(
     if len(observed) == 1:
         return next(iter(observed))
     return "CLAUDE_PROCESS_FAILED"
+
+
+def _probe_local_model_dispatch_inner(
+    claude_bin: Path, model: str, work_path: Path, timeout_seconds: float = 30,
+) -> str:
+    """Observe request construction inside an already isolated network namespace."""
+    if (os.name != "posix"
+            or not work_path.is_absolute() or not work_path.is_dir() or work_path.is_symlink()
+            or work_path.resolve() != work_path
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/+@\[\]-]{0,127}", model)
+            or not isinstance(timeout_seconds, (int, float)) or not 0 < timeout_seconds <= 30):
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    try:
+        executable = claude_bin.resolve(strict=True)
+    except OSError:
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+
+    preflight_root = work_path / "model-preflight"
+    if preflight_root.exists() or preflight_root.is_symlink():
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    home = preflight_root / "home"
+    state = {
+        "matching": 0, "claude_opus": 0, "messages": 0, "local": 0,
+        "isolation": False,
+    }
+    lock = threading.Lock()
+
+    class SentinelHandler(BaseHTTPRequestHandler):
+        server_version = "P004BLocalSentinel/1"
+        sys_version = ""
+
+        def log_message(self, *_args: Any) -> None:
+            return
+
+        def _target(self) -> tuple[bool, str]:
+            parsed = urlsplit(self.path)
+            if parsed.scheme:
+                return parsed.hostname in {"127.0.0.1", "::1", "localhost"}, parsed.path
+            host = self.headers.get("Host", "").split(":", 1)[0].strip("[]").casefold()
+            return host in {"127.0.0.1", "::1", "localhost"}, parsed.path
+
+        def _reply(self, status_code: int) -> None:
+            body = b'{"type":"error","error":{"type":"authentication_error","message":"P004B_LOCAL_ONLY"}}'
+            self.send_response(status_code)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_CONNECT(self) -> None:  # noqa: N802
+            with lock:
+                state["isolation"] = True
+            self._reply(502)
+
+        def do_POST(self) -> None:  # noqa: N802
+            local_target, path = self._target()
+            if not local_target:
+                with lock:
+                    state["isolation"] = True
+                self._reply(502)
+                return
+            with lock:
+                state["local"] += 1
+            length_text = self.headers.get("Content-Length", "")
+            if not length_text.isascii() or not length_text.isdecimal():
+                self._reply(400)
+                return
+            length = int(length_text, 10)
+            if not 0 < length <= 64 * 1024:
+                self._reply(413)
+                return
+            body = self.rfile.read(length)
+            if path == "/v1/messages":
+                matched = False
+                try:
+                    value = json.loads(body)
+                    observed_model = value.get("model") if isinstance(value, dict) else None
+                    matched = observed_model == model
+                    claude_opus = (
+                        isinstance(observed_model, str)
+                        and re.fullmatch(r"claude-opus-[a-z0-9-]{1,96}", observed_model)
+                        is not None
+                    )
+                except (UnicodeError, json.JSONDecodeError):
+                    matched = False
+                    claude_opus = False
+                with lock:
+                    state["messages"] += 1
+                    state["matching"] += int(matched)
+                    state["claude_opus"] += int(claude_opus)
+            self._reply(401)
+
+        def do_GET(self) -> None:  # noqa: N802
+            local_target, _path = self._target()
+            with lock:
+                if local_target:
+                    state["local"] += 1
+                else:
+                    state["isolation"] = True
+            self._reply(404 if local_target else 502)
+
+    server: ThreadingHTTPServer | None = None
+    thread: threading.Thread | None = None
+    process: subprocess.Popen[bytes] | None = None
+    timed_out = False
+    try:
+        preflight_root.mkdir(mode=0o700)
+        home.mkdir(mode=0o700)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), SentinelHandler)
+        server.daemon_threads = True
+        port = server.server_address[1]
+        base_url = f"http://127.0.0.1:{port}"
+        proxy_url = base_url
+        sanitized = {
+            "ANTHROPIC_API_KEY": "P004B_LOCAL_ONLY",
+            "ANTHROPIC_BASE_URL": base_url,
+            "ANTHROPIC_AUTH_TOKEN": "P004B_LOCAL_ONLY",
+            "ANTHROPIC_MODEL": model,
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+            "CLAUDE_CODE_SKIP_PROMPT_HISTORY": "1",
+            "DISABLE_ERROR_REPORTING": "1",
+            "DISABLE_TELEMETRY": "1",
+            "HTTP_PROXY": proxy_url,
+            "HTTPS_PROXY": proxy_url,
+            "http_proxy": proxy_url,
+            "https_proxy": proxy_url,
+        }
+        env = {
+            **sanitized,
+            "HOME": str(home),
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+            "TMPDIR": str(preflight_root),
+        }
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        command = [
+            str(executable), "--bare", "--no-session-persistence",
+            "--permission-mode", "default",
+            "--tools", "", "--max-turns", "1", "-p",
+            "P004B_LOCAL_MODEL_DISPATCH",
+        ]
+        process = subprocess.Popen(
+            command, cwd=home, env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True, close_fds=True,
+        )
+        try:
+            process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _terminate_process_group(process)
+        else:
+            if _process_group_exists(process.pid):
+                _terminate_process_group(process)
+        with lock:
+            if state["isolation"]:
+                return "MODEL_PREFLIGHT_ISOLATION_FAILURE"
+            if timed_out:
+                return "MODEL_PREFLIGHT_TIMEOUT"
+            if state["messages"] >= 1 and state["matching"] == state["messages"]:
+                return "LOCAL_MODEL_REQUEST_OBSERVED"
+            if state["messages"] >= 1 and state["claude_opus"] == state["messages"]:
+                return "LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED"
+            if state["messages"] >= 1 and state["matching"] == 0:
+                return "LOCAL_MODEL_MISMATCH_OBSERVED"
+            if state["messages"] >= 1:
+                return "LOCAL_MODEL_MIXED_REQUESTS_OBSERVED"
+            if state["local"] > 0:
+                return "LOCAL_NON_MESSAGE_REQUEST_OBSERVED"
+        return "MODEL_DISPATCH_UNPROVEN"
+    except (OSError, ValueError):
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    finally:
+        if process is not None and _process_group_exists(process.pid):
+            _terminate_process_group(process)
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+        if thread is not None:
+            thread.join(timeout=2)
+        if (preflight_root.parent == work_path and preflight_root.name == "model-preflight"
+                and not preflight_root.is_symlink()):
+            shutil.rmtree(preflight_root, ignore_errors=True)
+
+
+def probe_local_model_dispatch(
+    claude_bin: Path, model: str, work_path: Path, timeout_seconds: float = 30,
+) -> str:
+    """Run the structural model probe with OS-enforced loopback-only networking."""
+    if os.name != "posix":
+        return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+    if (not work_path.is_absolute() or not work_path.is_dir() or work_path.is_symlink()
+            or work_path.resolve() != work_path
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/+@\[\]-]{0,127}", model)
+            or not isinstance(timeout_seconds, (int, float)) or not 0 < timeout_seconds <= 30):
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    try:
+        executable = claude_bin.resolve(strict=True)
+        script = Path(__file__).resolve(strict=True)
+        python_bin = Path(sys.executable).resolve(strict=True)
+    except OSError:
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    if (not executable.is_file() or not os.access(executable, os.X_OK)
+            or not script.is_file() or not python_bin.is_file()):
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    preflight_root = work_path / "model-preflight"
+    if preflight_root.exists() or preflight_root.is_symlink():
+        return "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    bwrap_text = shutil.which("bwrap")
+    if not bwrap_text:
+        return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+    try:
+        bwrap = Path(bwrap_text).resolve(strict=True)
+    except OSError:
+        return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+    if not bwrap.is_file() or not os.access(bwrap, os.X_OK):
+        return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+
+    safe_path = os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")
+    command = [
+        str(bwrap), "--die-with-parent", "--new-session",
+        "--unshare-user", "--unshare-pid", "--unshare-ipc", "--unshare-uts",
+        "--unshare-net", "--cap-drop", "ALL",
+        "--ro-bind", "/usr", "/usr",
+        "--symlink", "usr/bin", "/bin", "--symlink", "usr/sbin", "/sbin",
+        "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+        "--dev", "/dev", "--proc", "/proc",
+        "--dir", "/opt", "--dir", "/opt/p004b",
+        "--ro-bind", str(script), "/opt/p004b/browser_operations_live.py",
+        "--ro-bind", str(executable), "/opt/p004b/claude",
+        "--bind", str(work_path), "/opt/p004b/work",
+        "--dir", "/home", "--dir", "/root", "--dir", "/run",
+        "--dir", "/tmp", "--dir", "/var", "--dir", "/var/tmp", "--dir", "/mnt",
+        "--chdir", "/opt/p004b/work",
+        "--clearenv", "--setenv", "PATH", safe_path,
+        "--setenv", "LANG", "C.UTF-8", "--setenv", "LC_ALL", "C.UTF-8",
+        str(python_bin), "/opt/p004b/browser_operations_live.py",
+        "--probe-local-model-dispatch-inner", "/opt/p004b/claude", model,
+        "/opt/p004b/work", str(timeout_seconds),
+    ]
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _SUPERVISOR_SIGNALS)
+    process: subprocess.Popen[str] | None = None
+    cleanup_complete = False
+    try:
+        process = subprocess.Popen(
+            command, cwd=work_path,
+            env={"PATH": safe_path, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"},
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, start_new_session=True,
+            close_fds=True,
+            preexec_fn=lambda: _prepare_supervised_child(previous_mask),
+        )
+        deadline = time.monotonic() + timeout_seconds + 10
+        while process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _terminate_process_group(process)
+                cleanup_complete = True
+                return "MODEL_PREFLIGHT_TIMEOUT"
+            observed = signal.sigtimedwait(
+                _SUPERVISOR_SIGNALS, min(0.05, remaining),
+            )
+            if observed is None or observed.si_signo == signal.SIGALRM:
+                continue
+            if observed.si_signo in _SUPERVISOR_SIGNALS[:-1]:
+                _terminate_process_group(process)
+                cleanup_complete = True
+                return "MODEL_PREFLIGHT_INTERRUPTED"
+        if _process_group_exists(process.pid):
+            _terminate_process_group(process)
+        cleanup_complete = True
+        output, _stderr = process.communicate(timeout=1)
+        if process.returncode != 0:
+            return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+        result = output.strip()
+        allowed = {
+            "LOCAL_MODEL_REQUEST_OBSERVED",
+            "LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED",
+            "LOCAL_MODEL_MISMATCH_OBSERVED",
+            "LOCAL_MODEL_MIXED_REQUESTS_OBSERVED",
+            "LOCAL_NON_MESSAGE_REQUEST_OBSERVED",
+            "MODEL_DISPATCH_UNPROVEN",
+            "MODEL_PREFLIGHT_TIMEOUT",
+            "MODEL_PREFLIGHT_INTERRUPTED",
+            "MODEL_PREFLIGHT_ISOLATION_FAILURE",
+            "MODEL_PREFLIGHT_EVIDENCE_REJECTED",
+        }
+        return result if result in allowed else "MODEL_PREFLIGHT_EVIDENCE_REJECTED"
+    except OSError:
+        return "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE"
+    except BaseException:
+        if process is not None and not cleanup_complete:
+            _terminate_process_group(process)
+            cleanup_complete = True
+        raise
+    finally:
+        if process is not None and not cleanup_complete:
+            _terminate_process_group(process)
+        pending = signal.sigpending().intersection(_SUPERVISOR_SIGNALS)
+        while pending:
+            signal.sigwait(pending)
+            pending = signal.sigpending().intersection(_SUPERVISOR_SIGNALS)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        if (preflight_root.parent == work_path and preflight_root.name == "model-preflight"
+                and not preflight_root.is_symlink()):
+            shutil.rmtree(preflight_root, ignore_errors=True)
 
 
 _SUPERVISOR_SIGNALS = (
@@ -1848,6 +2164,18 @@ def main(argv: list[str]) -> int:
             status = 0
         timed_out = {"0": False, "1": True}.get(argv[2])
         print(claude_failure_reason(status, timed_out, Path(argv[3])))
+        return 0
+    if len(argv) == 4 and argv[0] == "--probe-local-model-dispatch":
+        print(probe_local_model_dispatch(Path(argv[1]), argv[2], Path(argv[3])))
+        return 0
+    if len(argv) == 5 and argv[0] == "--probe-local-model-dispatch-inner":
+        try:
+            timeout_seconds = float(argv[4])
+        except ValueError:
+            timeout_seconds = 0
+        print(_probe_local_model_dispatch_inner(
+            Path(argv[1]), argv[2], Path(argv[3]), timeout_seconds,
+        ))
         return 0
     if len(argv) >= 4 and argv[0] == "--run-with-timeout":
         return run_with_monotonic_timeout(argv[1], Path(argv[2]), argv[3:])

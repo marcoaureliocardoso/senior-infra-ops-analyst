@@ -215,6 +215,38 @@ Provider-free verification on 2026-09-17 passed the complete package gate and
 the 40-record real-browser matrix; a fresh preflight observed Claude Code
 `2.1.274`, Playwright recognized, exact guard deny, and verified cleanup.
 
+The harness now also has a provider-free model-dispatch diagnostic. On
+Linux/WSL, Claude Code runs under `--bare` inside a Bubblewrap user, PID, and
+network namespace with no egress, using a minimal allowlisted environment,
+disposable home, synthetic authentication material, disabled tools, and an
+in-namespace loopback API sentinel. The diagnostic records only structural
+request counts and route categories, never the request body or model value.
+Absent, auxiliary-only, mixed, remapped, timed-out, or interrupted dispatch is
+not an exact observation; interruption tears down the namespace and full
+process tree. A direct proxy-bypass regression proves the child cannot reach a
+host-network listener. The namespace is assembled from an explicit filesystem
+allowlist rather than a host-root bind. Operator homes, mounted host paths,
+runtime sockets, host configuration, and unrelated temporary directories are
+not mounted; only the resolved executable, diagnostic helper, required
+read-only system runtime, and disposable work bind are exposed. The harness
+derives a configured runtime label without
+executing `claude --version` outside isolation.
+
+This isolated request shape is not an authorization gate for live traffic. It
+does not prove the route selected under operator settings, resumed sessions,
+agents, tools, or permission services. Even an exact diagnostic match reports
+`PREFLIGHT_INLINE_MODEL_GATE_REQUIRED` and leaves capability unrecognized. The
+provider-backed path stays disabled until a reviewed inline validating
+forwarder, or equivalent OS-enforced design, validates every real request
+before provider forwarding. An earlier proxy-only observation with Claude Code
+`2.1.280` and configured `deepseek-v4-pro[1m]` produced a model mismatch, but it
+is not an egress guarantee or live-route proof. The corrected no-egress
+diagnostic reached its 30-second limit and rejected the partial observation;
+the aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
+`AVAILABLE_UNRECOGNIZED`, and verified cleanup. A future decision to accept a
+detected mapping requires explicit operator authorization, but approval alone
+cannot replace inline enforcement.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

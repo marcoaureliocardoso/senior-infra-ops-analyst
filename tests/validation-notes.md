@@ -1382,3 +1382,57 @@ settings copy, fixture, and partial results. A post-run check verified the
 disposable root was absent and found no related process. Provider-backed P0-04B
 acceptance remains pending and any future attempt requires a new exact
 commit-bound authorization.
+
+## P0-04B provider-free model-dispatch gate (2026-09-23)
+
+Follow-up diagnostics established that Claude Code's canonical
+`unrecognized_model` line is advisory: its presence does not by itself prove
+that the provider rejected the request. The failure reducer therefore reports
+it as `CLAUDE_MODEL_ROUTE_ADVISORY`; an explicit API `model_not_found` response
+remains a provider-model failure.
+
+An early ad hoc loopback diagnostic inherited the operator's real Claude
+settings and may have sent one synthetic `P004B_LOCAL_MODEL_PROBE` request to
+the configured provider. It carried no project content or real prompt data, was
+disclosed immediately, is not acceptance evidence, and was not repeated.
+
+The harness now performs only a provider-free Linux/WSL dispatch diagnostic. It resolves
+the Claude executable and runs it inside a Bubblewrap user, PID, and network
+namespace with no egress, using `--bare`, no tools, a disposable home, a minimal
+allowlisted environment, synthetic authentication material, and an
+in-namespace loopback sentinel. The sentinel retains only structural counters
+and model-route categories. A direct bypass test sends a matching sentinel
+request and then attempts to reach a host-network listener; the namespace
+blocks the second connection. Missing Bubblewrap, timeout, interruption, or
+isolation failure rejects the observation and cleanup terminates the namespace
+and complete process tree. The filesystem view is assembled from an explicit
+allowlist rather than a host-root bind. Operator homes, mounted host paths,
+runtime sockets, host configuration, and unrelated temporary paths are not
+mounted; only the resolved executable, diagnostic helper, required read-only
+system runtime, and disposable work bind are exposed. Credential-file,
+Unix-socket, and `/etc/hostname` regressions prove that the host fixtures and
+ordinary host configuration are neither visible nor reachable. The harness also avoids any
+unisolated `claude --version` call and records only a configured runtime label.
+
+The diagnostic never authorizes provider-backed execution. Its isolated
+settings and arguments cannot establish the route used by later resumed,
+agent-, tool-, permission-, or operator-settings-dependent requests. Even an
+exact configured-model observation produces
+`PREFLIGHT_INLINE_MODEL_GATE_REQUIRED` and leaves capability unrecognized.
+Live execution remains disabled until a reviewed inline forwarder or equivalent
+enforcement validates every real request before provider access.
+
+The focused provider-free suite passed 78 tests after the independent-review
+remediation. Before that remediation, a proxy-only diagnostic with Claude Code
+`2.1.280` and configured model `deepseek-v4-pro[1m]` observed a nonmatching
+model category. That observation supports the remapping hypothesis, but it is
+not an egress guarantee, does not identify the actual route, and cannot
+authorize live traffic.
+
+The corrected no-egress diagnostic reached its 30-second limit. Because timeout
+invalidates even a previously observed request, the aggregate conservatively
+reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`, `AVAILABLE_UNRECOGNIZED`, exact
+guard denial, zero execution or validation steps, and verified cleanup. It used
+no real credential and made no provider request. Provider-backed acceptance
+remains pending. Any future allowance for a divergent route requires both an
+explicit operator decision and the missing reviewed inline enforcement.

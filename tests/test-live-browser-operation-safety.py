@@ -34,6 +34,16 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
     def setUp(self) -> None:
         if not HARNESS.is_file() and self._testMethodName != "test_harness_files_exist":
             self.skipTest("live browser harness is not implemented yet")
+        isolated_prefixes = (
+            "test_local_model_dispatch_probe_",
+            "test_provider_free_preflight_",
+            "test_live_mode_blocks_",
+        )
+        if (self._testMethodName.startswith(isolated_prefixes)
+                and self._testMethodName
+                != "test_local_model_dispatch_probe_requires_os_network_isolation"
+                and (os.name != "posix" or shutil.which("bwrap") is None)):
+            self.skipTest("Linux/WSL Bubblewrap is required for this isolation test")
 
     def test_harness_files_exist(self) -> None:
         self.assertTrue(HARNESS.is_file())
@@ -381,6 +391,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             (1, False, "API Error: 401 authentication_error", "CLAUDE_AUTH_FAILURE"),
             (1, False, "API Error: 429 rate_limit_error", "CLAUDE_RATE_LIMIT"),
             (1, False, "API Error: 404 model_not_found", "CLAUDE_PROVIDER_MODEL_FAILURE"),
+            (1, False, '[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}', "CLAUDE_MODEL_ROUTE_ADVISORY"),
             (1, False, "TypeError: fetch failed ECONNREFUSED", "CLAUDE_TRANSPORT_FAILURE"),
             (2, False, "error: unknown option --not-real", "CLAUDE_CONTRACT_FAILURE"),
             (1, False, "ModuleNotFoundError: no module named example", "CLAUDE_RUNTIME_FAILURE"),
@@ -397,6 +408,887 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                         ),
                         expected,
                     )
+
+    def test_local_model_dispatch_probe_uses_only_sanitized_loopback_runtime(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, sys, urllib.request
+required = {
+    "ANTHROPIC_API_KEY": "P004B_LOCAL_ONLY",
+    "ANTHROPIC_AUTH_TOKEN": "P004B_LOCAL_ONLY",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+}
+if any(os.environ.get(key) != value for key, value in required.items()):
+    raise SystemExit(41)
+if ("P004B_PARENT_SECRET" in os.environ
+        or os.environ["HOME"] != "/opt/p004b/work/model-preflight/home"):
+    raise SystemExit(42)
+if "--bare" not in sys.argv or "--settings" in sys.argv or "--no-session-persistence" not in sys.argv:
+    raise SystemExit(43)
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            with mock.patch.dict(os.environ, {"P004B_PARENT_SECRET": "must-not-cross"}):
+                self.assertEqual(
+                    browser_operations_live.probe_local_model_dispatch(
+                        fake, "deepseek-v4-pro[1m]", root,
+                    ),
+                    "LOCAL_MODEL_REQUEST_OBSERVED",
+                )
+            self.assertFalse((root / "model-preflight").exists())
+
+    def test_local_model_dispatch_probe_blocks_non_loopback_proxy_target(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import http.client, os
+from urllib.parse import urlsplit
+proxy = urlsplit(os.environ["HTTPS_PROXY"])
+connection = http.client.HTTPConnection(proxy.hostname, proxy.port, timeout=2)
+connection.request("CONNECT", "api.deepseek.com:443")
+try:
+    connection.getresponse()
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "deepseek-v4-pro[1m]", root,
+                ),
+                "MODEL_PREFLIGHT_ISOLATION_FAILURE",
+            )
+
+    def test_local_model_dispatch_probe_os_boundary_blocks_proxy_bypass(self) -> None:
+        import socket
+        import sys
+        import tempfile
+        import threading
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        listener = socket.socket()
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.2", 0))
+        listener.listen(1)
+        listener.settimeout(3)
+        host_port = listener.getsockname()[1]
+        accepted: list[bool] = []
+
+        def accept_once() -> None:
+            try:
+                connection, _address = listener.accept()
+            except (TimeoutError, OSError):
+                return
+            with connection:
+                accepted.append(True)
+
+        thread = threading.Thread(target=accept_once, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                marker = root / "bypass-result"
+                fake = root / "fake-claude"
+                fake.write_text(
+                    f"""#!/usr/bin/env python3
+import json, os, pathlib, socket, urllib.request
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({{"model": os.environ["ANTHROPIC_MODEL"]}}).encode(),
+    headers={{"content-type": "application/json"}}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+probe = socket.socket()
+probe.settimeout(1)
+status = probe.connect_ex(("127.0.0.2", {host_port}))
+probe.close()
+(pathlib.Path.cwd().parents[1] / "bypass-result").write_text(
+    "blocked" if status else "connected", encoding="utf-8"
+)
+raise SystemExit(1)
+""",
+                    encoding="utf-8",
+                )
+                fake.chmod(0o700)
+                self.assertEqual(
+                    browser_operations_live.probe_local_model_dispatch(
+                        fake, "sonnet", root,
+                    ),
+                    "LOCAL_MODEL_REQUEST_OBSERVED",
+                )
+                self.assertEqual(marker.read_text(encoding="utf-8"), "blocked")
+        finally:
+            listener.close()
+            thread.join(timeout=4)
+        self.assertEqual(accepted, [])
+
+    def test_local_model_dispatch_probe_requires_os_network_isolation(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text("#!/usr/bin/env python3\nraise SystemExit(0)\n", encoding="utf-8")
+            fake.chmod(0o700)
+            with mock.patch.object(browser_operations_live.shutil, "which", return_value=None):
+                self.assertEqual(
+                    browser_operations_live.probe_local_model_dispatch(
+                        fake, "sonnet", root,
+                    ),
+                    "MODEL_PREFLIGHT_ISOLATION_UNAVAILABLE",
+                )
+
+    def test_local_model_dispatch_probe_hides_host_secret_and_unix_socket(self) -> None:
+        import socket
+        import sys
+        import tempfile
+        import threading
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            work = base / "work"
+            work.mkdir()
+            secret = base / "operator-credential"
+            secret.write_text("P004B_HOST_SECRET", encoding="utf-8")
+            socket_path = base / "host.sock"
+            listener = socket.socket(socket.AF_UNIX)
+            listener.bind(str(socket_path))
+            listener.listen(1)
+            listener.settimeout(3)
+            accepted: list[bool] = []
+
+            def accept_once() -> None:
+                try:
+                    connection, _address = listener.accept()
+                except (TimeoutError, OSError):
+                    return
+                with connection:
+                    accepted.append(True)
+
+            thread = threading.Thread(target=accept_once, daemon=True)
+            thread.start()
+            marker = work / "filesystem-boundary"
+            fake = work / "fake-claude"
+            fake.write_text(
+                f"""#!/usr/bin/env python3
+import json, os, pathlib, socket, urllib.request
+secret_visible = pathlib.Path({str(secret)!r}).is_file()
+system_file_visible = pathlib.Path("/etc/hostname").is_file()
+channel = socket.socket(socket.AF_UNIX)
+try:
+    channel.connect({str(socket_path)!r})
+    socket_connected = True
+except OSError:
+    socket_connected = False
+finally:
+    channel.close()
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({{"model": os.environ["ANTHROPIC_MODEL"]}}).encode(),
+    headers={{"content-type": "application/json"}}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+(pathlib.Path.cwd().parents[1] / "filesystem-boundary").write_text(
+    f"{{int(secret_visible)}}:{{int(socket_connected)}}:{{int(system_file_visible)}}",
+    encoding="utf-8",
+)
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            try:
+                self.assertEqual(
+                    browser_operations_live.probe_local_model_dispatch(
+                        fake, "sonnet", work,
+                    ),
+                    "LOCAL_MODEL_REQUEST_OBSERVED",
+                )
+                self.assertEqual(marker.read_text(encoding="utf-8"), "0:0:0")
+            finally:
+                listener.close()
+                thread.join(timeout=4)
+            self.assertEqual(accepted, [])
+
+    def test_local_model_dispatch_probe_does_not_treat_warning_as_dispatch(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import sys
+sys.stderr.write('[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}\\n')
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "deepseek-v4-pro[1m]", root,
+                ),
+                "MODEL_DISPATCH_UNPROVEN",
+            )
+
+    def test_local_model_dispatch_probe_distinguishes_non_message_loopback_traffic(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import os, urllib.request
+try:
+    urllib.request.urlopen(os.environ["ANTHROPIC_BASE_URL"] + "/v1/models", timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "sonnet", root,
+                ),
+                "LOCAL_NON_MESSAGE_REQUEST_OBSERVED",
+            )
+
+    def test_local_model_dispatch_probe_rejects_observed_request_after_timeout(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, time, urllib.request
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+time.sleep(5)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "sonnet", root, timeout_seconds=0.5,
+                ),
+                "MODEL_PREFLIGHT_TIMEOUT",
+            )
+
+    def test_local_model_dispatch_probe_terminates_descendants_after_timeout(self) -> None:
+        import sys
+        import tempfile
+        import time
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            marker = root / "orphan-marker"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, pathlib, subprocess, sys, time, urllib.request
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+marker = pathlib.Path.cwd().parents[1] / "orphan-marker"
+subprocess.Popen([
+    sys.executable, "-c",
+    "import pathlib,sys,time; time.sleep(1); pathlib.Path(sys.argv[1]).write_text('survived')",
+    str(marker),
+])
+time.sleep(5)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "sonnet", root, timeout_seconds=0.25,
+                ),
+                "MODEL_PREFLIGHT_TIMEOUT",
+            )
+            time.sleep(1.25)
+            self.assertFalse(marker.exists(), "timed-out preflight left a live descendant")
+
+    def test_local_model_dispatch_probe_cleans_namespace_after_sigterm(self) -> None:
+        import signal
+        import sys
+        import tempfile
+        import time
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            started = root / "started"
+            survivor = root / "survived"
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import pathlib, subprocess, sys, time
+root = pathlib.Path.cwd().parents[1]
+(root / "started").write_text("yes", encoding="utf-8")
+subprocess.Popen([
+    sys.executable, "-c",
+    "import pathlib,sys,time; time.sleep(1); pathlib.Path(sys.argv[1]).write_text('yes')",
+    str(root / "survived"),
+], start_new_session=True)
+time.sleep(30)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            process = subprocess.Popen(
+                [
+                    sys.executable, str(PARSER), "--probe-local-model-dispatch",
+                    str(fake), "sonnet", str(root),
+                ],
+                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True,
+            )
+            deadline = time.monotonic() + 5
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertTrue(started.exists(), "isolated probe did not start")
+            process.send_signal(signal.SIGTERM)
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 0, stderr)
+            self.assertEqual(stdout.strip(), "MODEL_PREFLIGHT_INTERRUPTED")
+            time.sleep(1.25)
+            self.assertFalse(survivor.exists(), "interrupted namespace left a detached descendant")
+            self.assertFalse((root / "model-preflight").exists())
+
+    def test_local_model_dispatch_probe_accepts_repeated_matching_local_retries(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, urllib.request
+for _attempt in range(2):
+    request = urllib.request.Request(
+        os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true",
+        data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+        headers={"content-type": "application/json"}, method="POST",
+    )
+    try:
+        urllib.request.urlopen(request, timeout=2)
+    except Exception:
+        pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "sonnet", root,
+                ),
+                "LOCAL_MODEL_REQUEST_OBSERVED",
+            )
+
+    def test_local_model_dispatch_probe_accepts_matching_message_with_local_auxiliary_traffic(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, urllib.request
+try:
+    urllib.request.urlopen(os.environ["ANTHROPIC_BASE_URL"] + "/v1/models", timeout=2)
+except Exception:
+    pass
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            self.assertEqual(
+                browser_operations_live.probe_local_model_dispatch(
+                    fake, "sonnet", root,
+                ),
+                "LOCAL_MODEL_REQUEST_OBSERVED",
+            )
+
+    def test_local_model_dispatch_probe_reports_model_mismatch_without_value(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, urllib.request
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true",
+    data=json.dumps({"model": "P004B_UNEXPECTED_MODEL_MUST_NOT_ESCAPE"}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            result = browser_operations_live.probe_local_model_dispatch(
+                fake, "sonnet", root,
+            )
+            self.assertEqual(result, "LOCAL_MODEL_MISMATCH_OBSERVED")
+            self.assertNotIn("UNEXPECTED", result)
+
+    def test_local_model_dispatch_probe_reports_claude_opus_route_without_version(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            fake = root / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, urllib.request
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true",
+    data=json.dumps({"model": "claude-opus-4-6"}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            result = browser_operations_live.probe_local_model_dispatch(
+                fake, "deepseek-v4-pro[1m]", root,
+            )
+            self.assertEqual(result, "LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED")
+            self.assertNotIn("4-6", result)
+
+    def test_provider_free_preflight_reports_observed_local_model_dispatch(self) -> None:
+        import tempfile
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory).resolve() / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, sys, urllib.request
+if "--version" in sys.argv:
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            env = {
+                **os.environ,
+                "CLAUDE_BIN": str(fake),
+                "NODE_BIN": node,
+                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+            }
+            result = subprocess.run(
+                [bash, str(HARNESS), "--preflight"], cwd=ROOT, env=env,
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            aggregate = json.loads(result.stdout)
+            self.assertEqual(
+                aggregate["reasonCode"],
+                "PREFLIGHT_INLINE_MODEL_GATE_REQUIRED",
+            )
+            self.assertNotEqual(aggregate["capabilityState"], "AVAILABLE_RECOGNIZED")
+            self.assertEqual(aggregate["cleanup"], "verified")
+
+    def test_provider_free_preflight_never_runs_unisolated_claude_version(self) -> None:
+        import socket
+        import tempfile
+        import threading
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        listener = socket.socket()
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.2", 0))
+        listener.listen(1)
+        listener.settimeout(3)
+        host_port = listener.getsockname()[1]
+        accepted: list[bool] = []
+
+        def accept_once() -> None:
+            try:
+                connection, _address = listener.accept()
+            except (TimeoutError, OSError):
+                return
+            with connection:
+                accepted.append(True)
+
+        thread = threading.Thread(target=accept_once, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                version_marker = root / "version-network"
+                fake = root / "fake-claude"
+                fake.write_text(
+                    f"""#!/usr/bin/env python3
+import json, os, pathlib, socket, sys, urllib.request
+if "--version" in sys.argv:
+    probe = socket.socket()
+    probe.settimeout(1)
+    status = probe.connect_ex(("127.0.0.2", {host_port}))
+    probe.close()
+    if not status:
+        pathlib.Path({str(version_marker)!r}).write_text("connected", encoding="utf-8")
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({{"model": os.environ["ANTHROPIC_MODEL"]}}).encode(),
+    headers={{"content-type": "application/json"}}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                    encoding="utf-8",
+                )
+                fake.chmod(0o700)
+                env = {
+                    **os.environ,
+                    "CLAUDE_BIN": str(fake),
+                    "NODE_BIN": node,
+                    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                    "ANTHROPIC_MODEL": "sonnet",
+                }
+                result = subprocess.run(
+                    [bash, str(HARNESS), "--preflight"], cwd=ROOT, env=env,
+                    check=False, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(version_marker.exists())
+        finally:
+            listener.close()
+            thread.join(timeout=4)
+        self.assertEqual(accepted, [])
+
+    def test_provider_free_preflight_reports_mismatched_model_route(self) -> None:
+        import tempfile
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory).resolve() / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, sys, urllib.request
+if "--version" in sys.argv:
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({"model": "claude-sonnet-route"}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            env = {
+                **os.environ,
+                "CLAUDE_BIN": str(fake),
+                "NODE_BIN": node,
+                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+            }
+            result = subprocess.run(
+                [bash, str(HARNESS), "--preflight"], cwd=ROOT, env=env,
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            aggregate = json.loads(result.stdout)
+            self.assertEqual(
+                aggregate["reasonCode"],
+                "PREFLIGHT_MODEL_ROUTE_MISMATCH",
+            )
+            self.assertNotEqual(aggregate["capabilityState"], "AVAILABLE_RECOGNIZED")
+            self.assertNotIn("claude-sonnet-route", result.stdout + result.stderr)
+            self.assertEqual(aggregate["cleanup"], "verified")
+
+    def test_live_mode_blocks_exact_diagnostic_without_inline_model_gate(self) -> None:
+        import tempfile
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory).resolve() / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import json, os, sys, urllib.request
+if "--version" in sys.argv or "--help" in sys.argv:
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+request = urllib.request.Request(
+    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
+    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
+    headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            env = {
+                **os.environ,
+                "CLAUDE_BIN": str(fake),
+                "NODE_BIN": node,
+                "NORI_BIN": str(fake),
+                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+                "P004B_LIVE_AUTHORIZED": "1",
+                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+            }
+            result = subprocess.run(
+                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertEqual(
+                result.stderr.strip(),
+                "BLOCKED: inline live model gate is not available",
+            )
+
+    def test_live_mode_blocks_before_provider_when_local_model_dispatch_is_unproven(self) -> None:
+        import tempfile
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory).resolve() / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import sys
+if "--version" in sys.argv:
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+sys.stderr.write('[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}\\n')
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            env = {
+                **os.environ,
+                "CLAUDE_BIN": str(fake),
+                "NODE_BIN": node,
+                "NORI_BIN": str(fake),
+                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+                "P004B_LIVE_AUTHORIZED": "1",
+                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+            }
+            result = subprocess.run(
+                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertEqual(
+                result.stderr.strip(),
+                "BLOCKED: local model dispatch preflight failed (MODEL_DISPATCH_UNPROVEN)",
+            )
+
+    def test_live_mode_blocks_non_message_loopback_traffic_before_provider(self) -> None:
+        import tempfile
+
+        bash = shutil.which("bash")
+        node = shutil.which("node")
+        if not bash or not node:
+            self.skipTest("bash and node are required for the provider-free preflight")
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory).resolve() / "fake-claude"
+            fake.write_text(
+                """#!/usr/bin/env python3
+import os, sys, urllib.request
+if "--version" in sys.argv:
+    print("p004b-fake-claude")
+    raise SystemExit(0)
+try:
+    urllib.request.urlopen(os.environ["ANTHROPIC_BASE_URL"] + "/v1/models", timeout=2)
+except Exception:
+    pass
+raise SystemExit(1)
+""",
+                encoding="utf-8",
+            )
+            fake.chmod(0o700)
+            env = {
+                **os.environ,
+                "CLAUDE_BIN": str(fake),
+                "NODE_BIN": node,
+                "NORI_BIN": str(fake),
+                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+                "ANTHROPIC_MODEL": "sonnet",
+                "P004B_LIVE_AUTHORIZED": "1",
+                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+            }
+            result = subprocess.run(
+                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertEqual(
+                result.stderr.strip(),
+                "BLOCKED: local model dispatch preflight failed (LOCAL_NON_MESSAGE_REQUEST_OBSERVED)",
+            )
 
     def test_claude_failure_reason_never_returns_content(self) -> None:
         import sys
