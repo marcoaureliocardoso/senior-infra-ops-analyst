@@ -975,7 +975,7 @@ raise SystemExit(1)
             self.assertEqual(result, "LOCAL_MODEL_CLAUDE_OPUS_ROUTE_OBSERVED")
             self.assertNotIn("4-6", result)
 
-    def test_provider_free_preflight_reports_observed_local_model_dispatch(self) -> None:
+    def test_provider_free_preflight_does_not_probe_model_dispatch(self) -> None:
         import tempfile
 
         bash = shutil.which("bash")
@@ -983,24 +983,11 @@ raise SystemExit(1)
         if not bash or not node:
             self.skipTest("bash and node are required for the provider-free preflight")
         with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory).resolve() / "fake-claude"
+            root = Path(directory).resolve()
+            marker = root / "claude-invoked"
+            fake = root / "fake-claude"
             fake.write_text(
-                """#!/usr/bin/env python3
-import json, os, sys, urllib.request
-if "--version" in sys.argv:
-    print("p004b-fake-claude")
-    raise SystemExit(0)
-request = urllib.request.Request(
-    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
-    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
-    headers={"content-type": "application/json"}, method="POST",
-)
-try:
-    urllib.request.urlopen(request, timeout=2)
-except Exception:
-    pass
-raise SystemExit(1)
-""",
+                f"#!/usr/bin/env sh\nprintf invoked >'{marker}'\nexit 1\n",
                 encoding="utf-8",
             )
             fake.chmod(0o700)
@@ -1017,11 +1004,12 @@ raise SystemExit(1)
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             aggregate = json.loads(result.stdout)
-            self.assertEqual(
+            self.assertIn(
                 aggregate["reasonCode"],
-                "PREFLIGHT_INLINE_MODEL_GATE_REQUIRED",
+                {"PREFLIGHT_READY", "PREFLIGHT_ADAPTER_UNAVAILABLE", "PREFLIGHT_ADAPTER_CONFLICT"},
             )
-            self.assertNotEqual(aggregate["capabilityState"], "AVAILABLE_RECOGNIZED")
+            self.assertNotIn("MODEL", aggregate["reasonCode"])
+            self.assertFalse(marker.exists())
             self.assertEqual(aggregate["cleanup"], "verified")
 
     def test_provider_free_preflight_never_runs_unisolated_claude_version(self) -> None:
@@ -1100,195 +1088,96 @@ raise SystemExit(1)
             thread.join(timeout=4)
         self.assertEqual(accepted, [])
 
-    def test_provider_free_preflight_reports_mismatched_model_route(self) -> None:
-        import tempfile
+    def test_model_dispatch_diagnostic_is_explicit_and_not_an_acceptance_gate(self) -> None:
+        diagnostic = ROOT / "tests" / "browser_operations_live.py"
+        self.assertIn("--probe-local-model-dispatch", diagnostic.read_text(encoding="utf-8"))
+        self.assertNotIn("--probe-local-model-dispatch", self.script)
+        self.assertNotIn("MODEL_DISPATCH_STATE", self.script)
+        self.assertNotIn("inline live model gate", self.script)
 
+    def test_live_mode_requires_operator_bound_provider_endpoint(self) -> None:
         bash = shutil.which("bash")
-        node = shutil.which("node")
-        if not bash or not node:
-            self.skipTest("bash and node are required for the provider-free preflight")
-        with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory).resolve() / "fake-claude"
-            fake.write_text(
-                """#!/usr/bin/env python3
-import json, os, sys, urllib.request
-if "--version" in sys.argv:
-    print("p004b-fake-claude")
-    raise SystemExit(0)
-request = urllib.request.Request(
-    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
-    data=json.dumps({"model": "claude-sonnet-route"}).encode(),
-    headers={"content-type": "application/json"}, method="POST",
-)
-try:
-    urllib.request.urlopen(request, timeout=2)
-except Exception:
-    pass
-raise SystemExit(1)
-""",
-                encoding="utf-8",
-            )
-            fake.chmod(0o700)
-            env = {
-                **os.environ,
-                "CLAUDE_BIN": str(fake),
-                "NODE_BIN": node,
-                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
-            }
-            result = subprocess.run(
-                [bash, str(HARNESS), "--preflight"], cwd=ROOT, env=env,
-                check=False, capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            aggregate = json.loads(result.stdout)
-            self.assertEqual(
-                aggregate["reasonCode"],
-                "PREFLIGHT_MODEL_ROUTE_MISMATCH",
-            )
-            self.assertNotEqual(aggregate["capabilityState"], "AVAILABLE_RECOGNIZED")
-            self.assertNotIn("claude-sonnet-route", result.stdout + result.stderr)
-            self.assertEqual(aggregate["cleanup"], "verified")
+        if not bash:
+            self.skipTest("bash is required")
+        env = {
+            **os.environ,
+            "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+            "P004B_LIVE_AUTHORIZED": "1",
+            "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+            "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+            "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+        }
+        env.pop("P004B_AUTHORIZED_PROVIDER_ENDPOINT", None)
+        result = subprocess.run(
+            [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(
+            result.stderr.strip(),
+            "BLOCKED: P004B_AUTHORIZED_PROVIDER_ENDPOINT is required",
+        )
 
-    def test_live_mode_blocks_exact_diagnostic_without_inline_model_gate(self) -> None:
-        import tempfile
-
+    def test_live_mode_rejects_provider_endpoint_mismatch_before_dependencies(self) -> None:
         bash = shutil.which("bash")
-        node = shutil.which("node")
-        if not bash or not node:
-            self.skipTest("bash and node are required for the provider-free preflight")
-        with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory).resolve() / "fake-claude"
-            fake.write_text(
-                """#!/usr/bin/env python3
-import json, os, sys, urllib.request
-if "--version" in sys.argv or "--help" in sys.argv:
-    print("p004b-fake-claude")
-    raise SystemExit(0)
-request = urllib.request.Request(
-    os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages",
-    data=json.dumps({"model": os.environ["ANTHROPIC_MODEL"]}).encode(),
-    headers={"content-type": "application/json"}, method="POST",
-)
-try:
-    urllib.request.urlopen(request, timeout=2)
-except Exception:
-    pass
-raise SystemExit(1)
-""",
-                encoding="utf-8",
-            )
-            fake.chmod(0o700)
-            env = {
-                **os.environ,
-                "CLAUDE_BIN": str(fake),
-                "NODE_BIN": node,
-                "NORI_BIN": str(fake),
-                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
-                "P004B_LIVE_AUTHORIZED": "1",
-                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
-                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
-                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
-            }
-            result = subprocess.run(
-                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
-                check=False, capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-            self.assertEqual(
-                result.stderr.strip(),
-                "BLOCKED: inline live model gate is not available",
-            )
+        if not bash:
+            self.skipTest("bash is required")
+        env = {
+            **os.environ,
+            "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+            "P004B_AUTHORIZED_PROVIDER_ENDPOINT": "https://other.example/anthropic",
+            "P004B_LIVE_AUTHORIZED": "1",
+            "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+            "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+            "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+        }
+        result = subprocess.run(
+            [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(
+            result.stderr.strip(),
+            "BLOCKED: configured provider endpoint does not match operator authorization",
+        )
 
-    def test_live_mode_blocks_before_provider_when_local_model_dispatch_is_unproven(self) -> None:
-        import tempfile
-
+    def test_live_mode_requires_bounded_https_provider_endpoint(self) -> None:
         bash = shutil.which("bash")
-        node = shutil.which("node")
-        if not bash or not node:
-            self.skipTest("bash and node are required for the provider-free preflight")
-        with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory).resolve() / "fake-claude"
-            fake.write_text(
-                """#!/usr/bin/env python3
-import sys
-if "--version" in sys.argv:
-    print("p004b-fake-claude")
-    raise SystemExit(0)
-sys.stderr.write('[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}\\n')
-raise SystemExit(1)
-""",
-                encoding="utf-8",
-            )
-            fake.chmod(0o700)
-            env = {
-                **os.environ,
-                "CLAUDE_BIN": str(fake),
-                "NODE_BIN": node,
-                "NORI_BIN": str(fake),
-                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-                "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
-                "P004B_LIVE_AUTHORIZED": "1",
-                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
-                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
-                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
-            }
-            result = subprocess.run(
-                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
-                check=False, capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-            self.assertEqual(
-                result.stderr.strip(),
-                "BLOCKED: local model dispatch preflight failed (MODEL_DISPATCH_UNPROVEN)",
-            )
-
-    def test_live_mode_blocks_non_message_loopback_traffic_before_provider(self) -> None:
-        import tempfile
-
-        bash = shutil.which("bash")
-        node = shutil.which("node")
-        if not bash or not node:
-            self.skipTest("bash and node are required for the provider-free preflight")
-        with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory).resolve() / "fake-claude"
-            fake.write_text(
-                """#!/usr/bin/env python3
-import os, sys, urllib.request
-if "--version" in sys.argv:
-    print("p004b-fake-claude")
-    raise SystemExit(0)
-try:
-    urllib.request.urlopen(os.environ["ANTHROPIC_BASE_URL"] + "/v1/models", timeout=2)
-except Exception:
-    pass
-raise SystemExit(1)
-""",
-                encoding="utf-8",
-            )
-            fake.chmod(0o700)
-            env = {
-                **os.environ,
-                "CLAUDE_BIN": str(fake),
-                "NODE_BIN": node,
-                "NORI_BIN": str(fake),
-                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-                "ANTHROPIC_MODEL": "sonnet",
-                "P004B_LIVE_AUTHORIZED": "1",
-                "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
-                "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
-                "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
-            }
-            result = subprocess.run(
-                [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
-                check=False, capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-            self.assertEqual(
-                result.stderr.strip(),
-                "BLOCKED: local model dispatch preflight failed (LOCAL_NON_MESSAGE_REQUEST_OBSERVED)",
-            )
+        if not bash:
+            self.skipTest("bash is required")
+        base = {
+            **os.environ,
+            "P004B_LIVE_AUTHORIZED": "1",
+            "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+            "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6",
+            "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+        }
+        invalid = (
+            "http://api.deepseek.com/anthropic",
+            "https://user@api.deepseek.com/anthropic",
+            "https://api.deepseek.com/anthropic?route=other",
+            "https://api.deepseek.com/anthropic#other",
+            "https://api.deepseek.com/anthropic path",
+            "https:///anthropic",
+            "https://" + "a" * 505,
+            "https://a/" + "é" * 252,
+        )
+        for endpoint in invalid:
+            with self.subTest(endpoint=endpoint):
+                env = {
+                    **base,
+                    "ANTHROPIC_BASE_URL": endpoint,
+                    "P004B_AUTHORIZED_PROVIDER_ENDPOINT": endpoint,
+                }
+                result = subprocess.run(
+                    [bash, str(HARNESS), "--run-live"], cwd=ROOT, env=env,
+                    check=False, capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(
+                    result.stderr.strip(),
+                    "BLOCKED: authorized provider endpoint must be a bounded HTTPS URL without credentials, query, or fragment",
+                )
 
     def test_claude_failure_reason_never_returns_content(self) -> None:
         import sys
@@ -1459,6 +1348,7 @@ raise SystemExit(1)
             "TOTAL_TIMEOUT_SECONDS=1800", 'timeout "$request_limit"',
             "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS",
             "P004B_AUTHORIZED_MAX_MODEL_TURNS",
+            "P004B_AUTHORIZED_PROVIDER_ENDPOINT",
             "MEASUREMENT_TOP_LEVEL_INVOCATIONS=4",
             "MEASUREMENT_MAX_MODEL_TURNS=32",
             "EXPECTED_TOP_LEVEL_INVOCATIONS=6", "EXPECTED_MAX_MODEL_TURNS=40",

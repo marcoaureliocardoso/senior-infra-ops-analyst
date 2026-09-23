@@ -232,20 +232,22 @@ read-only system runtime, and disposable work bind are exposed. The harness
 derives a configured runtime label without
 executing `claude --version` outside isolation.
 
-This isolated request shape is not an authorization gate for live traffic. It
-does not prove the route selected under operator settings, resumed sessions,
-agents, tools, or permission services. Even an exact diagnostic match reports
-`PREFLIGHT_INLINE_MODEL_GATE_REQUIRED` and leaves capability unrecognized. The
-provider-backed path stays disabled until a reviewed inline validating
-forwarder, or equivalent OS-enforced design, validates every real request
-before provider forwarding. An earlier proxy-only observation with Claude Code
+This isolated request shape is an explicit informational diagnostic, not an
+authorization gate for live traffic, and neither preflight nor live acceptance
+invokes it. P0-04B controls the configured provider boundary, browser
+capability, native permission path, and workflow evidence. Model names and
+provider-internal remapping are outside its security boundary. A live run must
+bind `ANTHROPIC_BASE_URL` exactly to the bounded HTTPS endpoint named by the
+operator in `P004B_AUTHORIZED_PROVIDER_ENDPOINT`; credentials, query, fragment,
+whitespace, empty authority, or a mismatch fail before runtime dependencies are
+used. An earlier proxy-only observation with Claude Code
 `2.1.280` and configured `deepseek-v4-pro[1m]` produced a model mismatch, but it
 is not an egress guarantee or live-route proof. The corrected no-egress
 diagnostic reached its 30-second limit and rejected the partial observation;
-the aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
-`AVAILABLE_UNRECOGNIZED`, and verified cleanup. A future decision to accept a
-detected mapping requires explicit operator authorization, but approval alone
-cannot replace inline enforcement.
+the historical aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
+`AVAILABLE_UNRECOGNIZED`, and verified cleanup. This remains diagnostic history,
+not a pending acceptance condition. Provider-backed acceptance still requires
+an explicit authorization bound to the final commit and provider endpoint.
 
 ## Alternatives rejected
 

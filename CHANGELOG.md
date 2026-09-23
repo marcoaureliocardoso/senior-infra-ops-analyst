@@ -28,22 +28,23 @@ tag. Tagged versions correspond to repository tags.
   paths, runtime sockets, host configuration, and unrelated temporary paths are
   not mounted; only the resolved executable, diagnostic helper, required
   read-only system runtime, and disposable work directory remain visible. The
-  harness no longer invokes unisolated
-  `claude --version`; runtime metadata uses a content-free configured label.
-  Even an exact diagnostic match cannot
-  unlock the provider-backed path: every live request still requires a future
-  inline validating forwarder or equivalent enforcement under the real
-  settings and arguments. An earlier proxy-only diagnostic with installed
+  harness no longer invokes unisolated `claude --version`; runtime metadata
+  uses a content-free configured label. The diagnostic is now explicit-only
+  and informational: neither preflight nor live acceptance invokes it, and
+  model names or provider-internal remapping do not gate P0-04B. Live execution
+  instead requires a bounded HTTPS provider endpoint whose configured value
+  exactly matches the endpoint authorized by the operator; credentials, query,
+  fragment, whitespace, and empty authorities fail before dependencies run.
+  An earlier proxy-only diagnostic with installed
   Claude Code `2.1.280` observed a model mismatch, but independent review
   rejected it as an egress guarantee or live-route proof. The corrected
   no-egress diagnostic reached its 30-second bound; that partial observation was
-  rejected, and the aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
-  `AVAILABLE_UNRECOGNIZED`, and verified cleanup without contacting the
-  provider. The `unrecognized_model` diagnostic is now classified as a route
-  advisory rather than proof of provider rejection. Provider-backed
-  acceptance remains pending. Divergent routing requires an explicit future
-  operator decision, but operator approval alone cannot substitute for the
-  missing inline enforcement.
+  rejected, and the historical aggregate reported
+  `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`, `AVAILABLE_UNRECOGNIZED`, and verified
+  cleanup without contacting the provider. The `unrecognized_model` diagnostic
+  remains a route advisory rather than proof of provider rejection.
+  Provider-backed acceptance remains pending on a newly authorized final-head
+  run, not on proof of the provider's internal model selection.
 - Deterministic browser tests and provider-free safety checks passed before this declaration. On 2026-09-07 the one-shot loopback witness passed with the existing Node.js `v24.19.0`, Playwright `1.62.1`, and system Chrome `152.0.7977.76`: eight execution steps and seven fresh-context validation steps returned structural `WORKFLOW_VALIDATED` with cleanup verified. This used a test-only fixed Playwright import and Chrome-channel launcher; it added no production module path or install behavior and made no provider request. The complete real-browser matrix, authenticated provider-backed runtime, CI/Security, merge, and post-merge gates remain separate and are not claimed.
 - Hardened one-shot workflows after independent review: credential and configuration values now have distinct origin classes; navigation uses an exact destination-origin lock and page-bound actions use step-scoped pre/post origin checks; failed or previously successful interactive actions that may autosave require independent validation after a later failure; pre-activation failures consume pending approval; interrupted one-shot bindings cannot enter the legacy route; injected artifact state is closed by the workflow; and structural results retain the real envelope effect.
 - On 2026-09-15 the provider-free matrix executed all 37 named scenarios with the

@@ -135,12 +135,13 @@ classifies the `/v1/messages` model field without retaining request content,
 rejects timeout or interruption evidence, and builds an explicit filesystem
 allowlist that does not mount host homes, user data, runtime sockets, host
 configuration, or unrelated temporary paths. It never executes an
-unisolated Claude version probe. This isolated `--bare`
-observation does not prove the route of later settings-, session-, agent-, or
-tool-dependent calls. The provider-backed path therefore remains disabled even
-after an exact diagnostic match until a reviewed inline gate validates every
-real request before forwarding it. Operator approval is necessary for a
-divergent route but cannot replace that enforcement.
+unisolated Claude version probe. The diagnostic is an explicit informational
+tool and is not invoked by preflight or live acceptance. P0-04B binds the
+configured provider endpoint, not the provider's internal model selection:
+live execution requires `P004B_AUTHORIZED_PROVIDER_ENDPOINT` to be a bounded
+HTTPS URL and to match `ANTHROPIC_BASE_URL` exactly. Model names and
+provider-internal remapping remain operational metadata and do not gate browser
+acceptance.
 Arbitrary stream records cannot supply role or context measurements, and an
 error terminal, later tool activity, or any failure lifecycle invalidates the
 sample. Until role and context evidence is collected through a separately

@@ -1414,13 +1414,14 @@ Unix-socket, and `/etc/hostname` regressions prove that the host fixtures and
 ordinary host configuration are neither visible nor reachable. The harness also avoids any
 unisolated `claude --version` call and records only a configured runtime label.
 
-The diagnostic never authorizes provider-backed execution. Its isolated
-settings and arguments cannot establish the route used by later resumed,
-agent-, tool-, permission-, or operator-settings-dependent requests. Even an
-exact configured-model observation produces
-`PREFLIGHT_INLINE_MODEL_GATE_REQUIRED` and leaves capability unrecognized.
-Live execution remains disabled until a reviewed inline forwarder or equivalent
-enforcement validates every real request before provider access.
+The diagnostic is now explicit-only and informational. Preflight and live
+acceptance do not invoke it, and its categories cannot enable or disable
+provider-backed execution. P0-04B treats model names and provider-internal
+remapping as operational metadata outside the browser security boundary. Live
+execution instead requires the bounded HTTPS endpoint supplied through
+`P004B_AUTHORIZED_PROVIDER_ENDPOINT` to match `ANTHROPIC_BASE_URL` exactly;
+credentials, query, fragment, whitespace, empty authority, and mismatches fail
+before runtime dependencies are used.
 
 The focused provider-free suite passed 78 tests after the independent-review
 remediation. Before that remediation, a proxy-only diagnostic with Claude Code
@@ -1430,9 +1431,10 @@ not an egress guarantee, does not identify the actual route, and cannot
 authorize live traffic.
 
 The corrected no-egress diagnostic reached its 30-second limit. Because timeout
-invalidates even a previously observed request, the aggregate conservatively
-reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`, `AVAILABLE_UNRECOGNIZED`, exact
-guard denial, zero execution or validation steps, and verified cleanup. It used
-no real credential and made no provider request. Provider-backed acceptance
-remains pending. Any future allowance for a divergent route requires both an
-explicit operator decision and the missing reviewed inline enforcement.
+invalidates even a previously observed request, the historical aggregate
+conservatively reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
+`AVAILABLE_UNRECOGNIZED`, exact guard denial, zero execution or validation
+steps, and verified cleanup. It used no real credential and made no provider
+request. This evidence remains valid diagnostic history but is no longer an
+acceptance gate. Provider-backed acceptance remains pending on a newly
+authorized final-head run bound to the configured provider endpoint.
