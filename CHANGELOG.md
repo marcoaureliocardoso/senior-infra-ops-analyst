@@ -149,6 +149,20 @@ tag. Tagged versions correspond to repository tags.
   mask and resets all managed dispositions to defaults. Prompts, responses,
   excerpts, URLs, secrets, and raw provider errors never enter the result, and
   the code cannot authorize retry or fallback.
+- A later endpoint-bound attempt on commit
+  `eb8fcdb02c6a82e9321df18563ab6f37dba982db` used Claude Code `2.1.281`,
+  installed the disposable Nori profile, completed the initial local context
+  probe, and stopped in the first provider-backed `skill` measurement with
+  `CLAUDE_PROCESS_FAILED`. No trusted sample, browser allow/deny workflow, or
+  aggregate was produced; the remaining five provider-backed invocations were
+  not launched, cleanup was verified, and the run was not repeated. Generic
+  process failures now retain only the numeric exit status and one allowlisted
+  structural stream state (`EMPTY`, `SYSTEM`, `ASSISTANT`, `RESULT`,
+  `RESULT_ERROR`, `INVALID`, or `OTHER`) before deleting prompt, stream, and
+  stderr. This diagnostic cannot establish provider receipt, authorize a retry,
+  or satisfy acceptance. The expanded focused suite passes 80 tests;
+  the complete Debian WSL package gate reports `package validation passed`.
+  Provider-backed acceptance remains pending.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

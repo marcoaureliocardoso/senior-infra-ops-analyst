@@ -249,6 +249,17 @@ the historical aggregate reported `PREFLIGHT_MODEL_DISPATCH_UNPROVEN`,
 not a pending acceptance condition. Provider-backed acceptance still requires
 an explicit authorization bound to the final commit and provider endpoint.
 
+When an authenticated Claude process exits before producing a trusted sample,
+the harness reduces bounded stderr to one existing allowlisted category. If no
+category matches, it may retain only the normalized process exit status and one
+allowlisted structural stream state: empty, system event, assistant event,
+result, error result, invalid JSONL, or other event. The reducer never copies an
+event value, message, prompt, URL, response, model value, or provider error into
+the diagnostic. Unsafe evidence yields `CLAUDE_EVIDENCE_REJECTED`; prompt,
+stream, and transcript are deleted before the harness blocks. This fingerprint
+is diagnostic only: it cannot prove provider receipt, permit a retry, or satisfy
+the live acceptance gate.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

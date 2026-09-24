@@ -1438,3 +1438,46 @@ steps, and verified cleanup. It used no real credential and made no provider
 request. This evidence remains valid diagnostic history but is no longer an
 acceptance gate. Provider-backed acceptance remains pending on a newly
 authorized final-head run bound to the configured provider endpoint.
+
+## P0-04B endpoint-bound attempt and structural failure fingerprint (2026-09-23)
+
+The operator authorized one endpoint-bound run on commit
+`eb8fcdb02c6a82e9321df18563ab6f37dba982db`, using the configured
+`https://api.deepseek.com/anthropic` endpoint, runtime-configured model,
+exactly six provider-backed invocations, at most 40 model turns, 120 seconds per
+workflow, 1,800 seconds total, synthetic prompts, a loopback target,
+deterministic allow then deny, raw-evidence deletion, and no automatic retry.
+Two host-side launch attempts stopped before the harness or provider because of
+PowerShell-to-WSL variable interpretation and Windows-worktree Git metadata;
+each consumed its one-attempt authorization and was not repeated. Both made
+zero provider requests. The final wrapper validated the authorized commit and
+clean worktree with Windows Git before entering WSL.
+
+The authenticated run used Claude Code `2.1.281`, linked and selected the
+disposable Nori profile, completed the initial local `main-before` context
+probe, and launched the first provider-backed measurement, `skill`. That Claude
+process exited nonzero and the existing reducer emitted
+`CLAUDE_PROCESS_FAILED`. No trusted measurement sample, allow workflow, deny
+workflow, or aggregate was produced. The remaining five provider-backed
+invocations were not launched, and the failed run was not repeated. The
+evidence does not establish whether the provider received or processed the
+failed request, so the result is inconclusive and does not satisfy acceptance.
+The failure path deleted raw prompt, stream, transcript, disposable settings,
+session data, fixture state, and partial results. A post-run check verified that
+the disposable root was absent; the external wrapper was also deleted and the
+repository worktree remained clean.
+
+The failure reducer now supplements only an otherwise generic process failure
+with the normalized exit status and one allowlisted structural stream state:
+`EMPTY`, `SYSTEM`, `ASSISTANT`, `RESULT`, `RESULT_ERROR`, `INVALID`, or `OTHER`.
+It examines no event value beyond the structural `type` and boolean
+`is_error`, emits no raw text, and deletes prompt, stream, and transcript before
+blocking. Known authentication, rate-limit, provider/model, transport,
+contract, runtime, timeout, and route-advisory categories remain unchanged.
+Unsafe or mutable evidence remains `CLAUDE_EVIDENCE_REJECTED`. This diagnostic
+cannot prove provider receipt, authorize retry, or satisfy acceptance. The TDD
+cycle observed both new focused tests fail before implementation; the expanded
+provider-free focused suite then passed all 80 tests. Shell syntax, the harness
+self-test, content validation, all 13 architecture-documentation tests, and the
+complete Debian WSL package gate also passed; the terminal package result was
+`package validation passed`.

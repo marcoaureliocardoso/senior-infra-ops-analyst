@@ -409,6 +409,62 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                         expected,
                     )
 
+    def test_claude_failure_reason_adds_content_free_process_fingerprint(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        canary = "SYNTH_SECRET_P004B_STREAM_CANARY"
+        cases = (
+            ("", "EMPTY"),
+            ('{"type":"system","secret":"' + canary + '"}\n', "SYSTEM"),
+            ('{"type":"assistant","secret":"' + canary + '"}\n', "ASSISTANT"),
+            ('{"type":"result","is_error":false,"result":"' + canary + '"}\n', "RESULT"),
+            ('{"type":"result","is_error":true,"result":"' + canary + '"}\n', "RESULT_ERROR"),
+            ("not-json " + canary + "\n", "INVALID"),
+            ('{"type":"unknown","secret":"' + canary + '"}\n', "OTHER"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            stream = Path(directory) / "stage.stream.jsonl"
+            transcript.write_text("unrecognized diagnostic text", encoding="utf-8")
+            for content, expected_state in cases:
+                with self.subTest(expected_state=expected_state):
+                    stream.write_text(content, encoding="utf-8")
+                    reason = browser_operations_live.claude_failure_reason(
+                        1, False, transcript, stream,
+                    )
+                    self.assertEqual(
+                        reason,
+                        f"CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_{expected_state}",
+                    )
+                    self.assertNotIn(canary, reason)
+
+    def test_claude_failure_reason_cli_emits_structural_fingerprint(self) -> None:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            stream = Path(directory) / "stage.stream.jsonl"
+            transcript.write_text("unrecognized diagnostic text", encoding="utf-8")
+            stream.write_text('{"type":"result","is_error":true}\n', encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable, str(PARSER), "--claude-failure-reason",
+                    "1", "0", str(transcript), str(stream),
+                ],
+                check=False, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                result.stdout,
+                "CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_RESULT_ERROR\n",
+            )
+            self.assertEqual(result.stderr, "")
+
     def test_local_model_dispatch_probe_uses_only_sanitized_loopback_runtime(self) -> None:
         import sys
         import tempfile
@@ -1309,6 +1365,10 @@ raise SystemExit(1)
         )
         self.assertIn(
             "live browser operations diagnostic cleanup self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations structural failure fingerprint self-test passed\n",
             result.stdout,
         )
         self.assertIn(

@@ -208,6 +208,7 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
 
 def claude_failure_reason(
     exit_status: int, timed_out: bool, transcript_path: Path,
+    stream_path: Path | None = None,
 ) -> str:
     """Reduce transient Claude stderr to one advisory content-free code."""
     rejected = "CLAUDE_EVIDENCE_REJECTED"
@@ -262,7 +263,40 @@ def claude_failure_reason(
                 observed.add(reason)
     if len(observed) == 1:
         return next(iter(observed))
-    return "CLAUDE_PROCESS_FAILED"
+    if stream_path is None:
+        return "CLAUDE_PROCESS_FAILED"
+    try:
+        stream_lines = _read_regular_lines_nofollow(
+            stream_path, MAX_CLAUDE_FAILURE_BYTES,
+        )
+    except (OSError, UnicodeError, ValueError):
+        return rejected
+    stream_state = "EMPTY"
+    observed_states: set[str] = set()
+    for line in stream_lines:
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
+            return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
+        if not isinstance(event, dict) or not isinstance(event.get("type"), str):
+            return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
+        event_type = event["type"]
+        if event_type == "result":
+            is_error = event.get("is_error", False)
+            if type(is_error) is not bool:
+                return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
+            observed_states.add("RESULT_ERROR" if is_error else "RESULT")
+        elif event_type == "assistant":
+            observed_states.add("ASSISTANT")
+        elif event_type == "system":
+            observed_states.add("SYSTEM")
+        else:
+            observed_states.add("OTHER")
+    for candidate in ("RESULT_ERROR", "RESULT", "ASSISTANT", "SYSTEM", "OTHER"):
+        if candidate in observed_states:
+            stream_state = candidate
+            break
+    return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_{stream_state}"
 
 
 def _probe_local_model_dispatch_inner(
@@ -2157,13 +2191,16 @@ def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[0] == "--pty-failure-reason":
         print(pty_failure_reason(Path(argv[1])))
         return 0
-    if len(argv) == 4 and argv[0] == "--claude-failure-reason":
+    if len(argv) in {4, 5} and argv[0] == "--claude-failure-reason":
         try:
             status = int(argv[1], 10)
         except ValueError:
             status = 0
         timed_out = {"0": False, "1": True}.get(argv[2])
-        print(claude_failure_reason(status, timed_out, Path(argv[3])))
+        stream_path = Path(argv[4]) if len(argv) == 5 else None
+        print(claude_failure_reason(
+            status, timed_out, Path(argv[3]), stream_path,
+        ))
         return 0
     if len(argv) == 4 and argv[0] == "--probe-local-model-dispatch":
         print(probe_local_model_dispatch(Path(argv[1]), argv[2], Path(argv[3])))

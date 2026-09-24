@@ -498,7 +498,7 @@ git add CHANGELOG.md docs/architecture/ADR-010-browser-automation-boundary.md do
 git commit -m "docs: record automated browser permission boundary"
 ```
 
-- [ ] **Step 5: Obtain fresh exact authorization and run once**
+- [x] **Step 5: Obtain fresh exact authorization and run once**
 
 Before execution, obtain explicit authorization for exactly:
 
@@ -519,6 +519,7 @@ env PATH=/home/marco/.local/opt/node-v24.17.0-linux-x64/bin:/home/marco/.local/b
   P004B_LIVE_ACK=I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES \
   P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS=6 \
   P004B_AUTHORIZED_MAX_MODEL_TURNS=40 \
+  P004B_AUTHORIZED_PROVIDER_ENDPOINT=https://api.deepseek.com/anthropic \
   P004B_PER_REQUEST_TIMEOUT_SECONDS=120 \
   P004B_TOTAL_TIMEOUT_SECONDS=1800 \
   P004B_BROWSER_NODE_MODULES=/home/marco/.npm/_npx/e41f203b7505f1fb/node_modules \
@@ -528,7 +529,13 @@ env PATH=/home/marco/.local/opt/node-v24.17.0-linux-x64/bin:/home/marco/.local/b
 
 Do not repeat an inconclusive or failed result. Record only the bounded aggregate.
 
-- [ ] **Step 6: Record observed evidence and rerun final gates**
+The endpoint-bound attempt on commit
+`eb8fcdb02c6a82e9321df18563ab6f37dba982db` stopped in the first
+provider-backed `skill` measurement with `CLAUDE_PROCESS_FAILED`; it produced
+no trusted sample or aggregate, did not reach either browser workflow, cleaned
+up the disposable root, and was not repeated. Acceptance remains pending.
+
+- [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.
 
