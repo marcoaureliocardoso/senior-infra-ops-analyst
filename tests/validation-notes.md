@@ -1481,3 +1481,31 @@ provider-free focused suite then passed all 80 tests. Shell syntax, the harness
 self-test, content validation, all 13 architecture-documentation tests, and the
 complete Debian WSL package gate also passed; the terminal package result was
 `package validation passed`.
+
+## P0-04B Claude Code stream-json compatibility correction (2026-09-25)
+
+One later operator-authorized run on commit
+`1a40d37849dc870da84c948f3f45451372c3076b` linked, selected, and installed the
+disposable Nori profile, then stopped at the first provider-backed `skill`
+measurement with `CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_EMPTY`. It launched none
+of the remaining five authorized provider-backed invocations, was not retried,
+produced no trusted sample or aggregate, and left no disposable root. The
+fingerprint cannot establish whether the provider received the request.
+
+A separate provider-free diagnostic used a fresh home, synthetic credential,
+an unreachable loopback endpoint, and no real provider credential. It retained
+no stderr or stream and reported only exit status, empty/nonempty state, and an
+exact boolean for the Claude CLI's `--verbose` plus `stream-json` contract. The
+result was exit 1, empty stdout, nonempty stderr, and the exact contract hint
+present. This isolates the immediate failure to the Claude Code `2.1.281` CLI
+contract rather than browser logic or trusted-stream evaluation.
+
+The regression test first failed because neither of the two structured live
+invocations enabled verbose mode. Both measurement and allow/deny workflow
+invocations now include `--verbose` whenever they select `stream-json`, and the
+test requires exact coverage of all such invocations. The provider-free probe
+was deleted after use. This correction does not authorize another authenticated
+attempt; live acceptance remains pending on a new exact authorization bound to
+the corrected final commit. The focused provider-free suite passed all 81 tests,
+shell syntax and harness self-tests passed, and the complete Debian WSL package
+gate ended with `package validation passed`.

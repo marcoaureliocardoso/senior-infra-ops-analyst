@@ -1545,6 +1545,14 @@ raise SystemExit(1)
         self.assertIn("Claude Code does not advertise --permission-prompt-tool", self.script)
         self.assertIn("Claude Code does not advertise --include-hook-events", self.script)
 
+    def test_every_stream_json_invocation_enables_verbose_mode(self) -> None:
+        stream_json_invocations = self.script.count("--output-format stream-json")
+        self.assertEqual(stream_json_invocations, 2)
+        self.assertEqual(
+            self.script.count("--verbose --output-format stream-json"),
+            stream_json_invocations,
+        )
+
     def test_package_gate_runs_only_provider_free_checks(self) -> None:
         gate = GATE.read_text(encoding="utf-8")
         for marker in (

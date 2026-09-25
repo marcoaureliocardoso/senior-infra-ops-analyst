@@ -769,7 +769,7 @@ run_measurement_stage() {
     --permission-mode default \
     --strict-mcp-config --mcp-config "$stage_mcp_config" \
     --tools "$stage_tools" --allowedTools "$allowed_tool" \
-    --include-hook-events --output-format stream-json --max-turns 4 \
+    --include-hook-events --verbose --output-format stream-json --max-turns 4 \
     <"$prompt_path" >"$stream_path"
   status=$?
   timed_out="$CLAUDE_TIMED_OUT"
@@ -842,7 +842,7 @@ run_workflow() {
     --permission-prompt-tool "$PERMISSION_PROMPT_TOOL" \
     --strict-mcp-config --mcp-config "$config" --include-hook-events \
     --tools Bash --allowedTools Bash \
-    --output-format stream-json --max-turns 4 <"$prompt_path" >"$stream_path"
+    --verbose --output-format stream-json --max-turns 4 <"$prompt_path" >"$stream_path"
   request_status=$?
   timed_out="$CLAUDE_TIMED_OUT"
   set -e

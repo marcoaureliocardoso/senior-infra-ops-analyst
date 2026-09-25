@@ -163,6 +163,20 @@ tag. Tagged versions correspond to repository tags.
   or satisfy acceptance. The expanded focused suite passes 80 tests;
   the complete Debian WSL package gate reports `package validation passed`.
   Provider-backed acceptance remains pending.
+- A subsequent authorized attempt on commit
+  `1a40d37849dc870da84c948f3f45451372c3076b` stopped at the same first
+  provider-backed `skill` measurement with the more precise content-free
+  fingerprint `CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_EMPTY`; it was not retried,
+  its disposable root was absent afterward, and it produced no acceptance
+  aggregate. A separate provider-free loopback diagnostic without real credentials then
+  confirmed that Claude Code `2.1.281` rejects `--output-format stream-json`
+  unless verbose mode is enabled. Both live stream consumers now pass
+  `--verbose`, with a static regression requiring it for every `stream-json`
+  invocation. This compatibility correction makes no provider claim and does
+  not change the six-invocation or 40-turn authorization boundary. A new exact
+  authorization remains required for another provider-backed attempt. The
+  focused provider-free suite now passes 81 tests, and the complete Debian WSL
+  package gate reports `package validation passed`.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

@@ -535,6 +535,15 @@ provider-backed `skill` measurement with `CLAUDE_PROCESS_FAILED`; it produced
 no trusted sample or aggregate, did not reach either browser workflow, cleaned
 up the disposable root, and was not repeated. Acceptance remains pending.
 
+A later authorized attempt on commit
+`1a40d37849dc870da84c948f3f45451372c3076b` stopped at the same first `skill`
+measurement with `CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_EMPTY` and was not
+repeated. A loopback diagnostic without real credentials isolated the cause to the
+Claude Code `2.1.281` command contract: `stream-json` requires verbose mode.
+The corrected harness now supplies `--verbose` on every structured live
+invocation. This provider-free diagnosis and correction do not satisfy Step 5;
+another run requires fresh authorization bound to the corrected commit.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.
