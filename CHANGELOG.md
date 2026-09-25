@@ -177,6 +177,17 @@ tag. Tagged versions correspond to repository tags.
   authorization remains required for another provider-backed attempt. The
   focused provider-free suite now passes 81 tests, and the complete Debian WSL
   package gate reports `package validation passed`.
+- The newly authorized run on corrected commit
+  `575fd621b464ab431c20664590c9812f16f0a3bc` passed the four ordered trusted
+  measurement invocations and reached the synthetic `allow` workflow, where
+  the fifth top-level Claude invocation exceeded its bounded deadline and the
+  harness reported `CLAUDE_TIMEOUT`. The `deny` workflow was not launched, no
+  allow/deny aggregate was produced, and the run was not repeated. The timeout
+  cannot establish provider receipt or workflow outcome. Raw evidence and the
+  disposable root were removed, the external wrapper was deleted, and the
+  repository remained clean. Provider-backed acceptance therefore remains
+  pending. After the result was recorded, the complete provider-free Debian WSL
+  package gate again reported `package validation passed`.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

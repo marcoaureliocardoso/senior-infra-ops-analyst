@@ -541,8 +541,17 @@ measurement with `CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_EMPTY` and was not
 repeated. A loopback diagnostic without real credentials isolated the cause to the
 Claude Code `2.1.281` command contract: `stream-json` requires verbose mode.
 The corrected harness now supplies `--verbose` on every structured live
-invocation. This provider-free diagnosis and correction do not satisfy Step 5;
-another run requires fresh authorization bound to the corrected commit.
+invocation. This provider-free diagnosis and correction do not satisfy live
+acceptance; another run requires fresh authorization bound to the corrected
+commit.
+
+The operator then authorized one run on corrected commit
+`575fd621b464ab431c20664590c9812f16f0a3bc`. It passed the four trusted
+measurement invocations and reached the synthetic `allow` workflow. That fifth
+top-level invocation exceeded its deadline and the harness emitted
+`CLAUDE_TIMEOUT`; the `deny` invocation was not launched, no aggregate was
+produced, cleanup was verified, and no retry occurred. The result is
+inconclusive and does not satisfy live acceptance.
 
 - [x] **Step 6: Record observed evidence and rerun final gates**
 

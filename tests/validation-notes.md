@@ -1509,3 +1509,34 @@ attempt; live acceptance remains pending on a new exact authorization bound to
 the corrected final commit. The focused provider-free suite passed all 81 tests,
 shell syntax and harness self-tests passed, and the complete Debian WSL package
 gate ended with `package validation passed`.
+
+## P0-04B corrected authenticated attempt (2026-09-25)
+
+The operator authorized exactly one authenticated run on commit
+`575fd621b464ab431c20664590c9812f16f0a3bc`, bound to the configured
+`https://api.deepseek.com/anthropic` endpoint and runtime-configured model,
+with six top-level provider-backed invocations, at most 40 model turns, 120
+seconds per workflow, 1,800 seconds total, synthetic prompts, a loopback target,
+deterministic allow then deny, raw-evidence deletion, and no automatic retry.
+
+The harness linked, selected, and installed the disposable Nori profile. The
+four ordered trusted measurement invocations completed sufficiently for the
+harness to enter the synthetic `allow` workflow. The fifth top-level Claude
+invocation exceeded its bounded deadline, and the content-free terminal result
+was `BLOCKED: allow workflow request was inconclusive (CLAUDE_TIMEOUT)`. The
+fresh-session `deny` workflow was not launched, no allow/deny aggregate was
+produced, and the attempt was not repeated. A timeout cannot establish whether
+the provider received or processed the request or whether any proposed workflow
+action occurred, so the result is inconclusive and does not satisfy acceptance.
+
+The harness deleted raw prompts, streams, transcripts, session data, permission
+handler state, fixture state, and partial results through its bounded cleanup
+path. The fixture process emitted an unsettled-top-level-await warning while it
+was terminated during cleanup; a separate post-run check verified that the
+entire disposable root was absent. The external authorization wrapper was also
+deleted, and the repository remained clean at the authorized commit before
+this evidence-only documentation update. Provider-backed acceptance remains
+pending. After this result was recorded, `git diff --check`, content validation,
+all 13 architecture-documentation tests, and the complete provider-free Debian
+WSL package gate passed; the terminal package result was
+`package validation passed`.
