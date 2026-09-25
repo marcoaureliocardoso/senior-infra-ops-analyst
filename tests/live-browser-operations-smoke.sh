@@ -135,6 +135,12 @@ CLAUDE_TRANSPORT_FAILURE|CLAUDE_CONTRACT_FAILURE|CLAUDE_RUNTIME_FAILURE|\
     CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED)
       printf '%s\n' "$reason"
       ;;
+    CLAUDE_TIMEOUT_STREAM_EMPTY|CLAUDE_TIMEOUT_STREAM_SYSTEM|\
+CLAUDE_TIMEOUT_STREAM_ASSISTANT|CLAUDE_TIMEOUT_STREAM_RESULT|\
+CLAUDE_TIMEOUT_STREAM_RESULT_ERROR|CLAUDE_TIMEOUT_STREAM_INVALID|\
+CLAUDE_TIMEOUT_STREAM_OTHER)
+      printf '%s\n' "$reason"
+      ;;
     *)
       if [[ "$reason" =~ ^CLAUDE_PROCESS_FAILED_EXIT_([1-9][0-9]{0,2})_STREAM_(EMPTY|SYSTEM|ASSISTANT|RESULT|RESULT_ERROR|INVALID|OTHER)$ ]] \
           && (( 10#${BASH_REMATCH[1]} <= 255 )); then
@@ -199,6 +205,20 @@ self_test() {
     && ! -e "$diagnostic_transcript" && ! -L "$diagnostic_transcript" ]] || \
     blocked 'structural Claude failure fingerprint cleanup self-test failed'
   printf 'live browser operations structural failure fingerprint self-test passed\n'
+  printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
+  printf '%s\n' '{"type":"assistant","message":"SYNTH_SECRET_TIMEOUT_STREAM_MUST_NOT_ESCAPE"}' \
+    >"$diagnostic_stream"
+  printf '%s\n' 'SYNTH_SECRET_TIMEOUT_TRANSCRIPT_MUST_NOT_ESCAPE' \
+    >"$diagnostic_transcript"
+  diagnostic_reason="$(cleanup_claude_failure 124 1 "$diagnostic_prompt" \
+    "$diagnostic_stream" "$diagnostic_transcript")"
+  [[ "$diagnostic_reason" == 'CLAUDE_TIMEOUT_STREAM_ASSISTANT' ]] || \
+    blocked 'structural Claude timeout fingerprint self-test failed'
+  [[ ! -e "$diagnostic_prompt" && ! -L "$diagnostic_prompt" \
+    && ! -e "$diagnostic_stream" && ! -L "$diagnostic_stream" \
+    && ! -e "$diagnostic_transcript" && ! -L "$diagnostic_transcript" ]] || \
+    blocked 'structural Claude timeout fingerprint cleanup self-test failed'
+  printf 'live browser operations structural timeout fingerprint self-test passed\n'
 
   timeout_transcript="$MEASUREMENT_DIR/timeout-self-test.transcript"
   set +e

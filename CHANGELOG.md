@@ -188,6 +188,14 @@ tag. Tagged versions correspond to repository tags.
   repository remained clean. Provider-backed acceptance therefore remains
   pending. After the result was recorded, the complete provider-free Debian WSL
   package gate again reported `package validation passed`.
+- Timeout diagnostics now reuse the same bounded structural stream vocabulary as
+  other Claude failures, emitting only `CLAUDE_TIMEOUT_STREAM_` plus `EMPTY`,
+  `SYSTEM`, `ASSISTANT`, `RESULT`, `RESULT_ERROR`, `INVALID`, or `OTHER` before
+  deleting raw evidence. The parser also bounds JSON integer width, nesting, and
+  node count. This does not retroactively classify the earlier `allow` timeout,
+  authorize a retry, or establish provider or workflow behavior. The expanded
+  focused provider-free suite passes 84 tests, and the complete Debian WSL
+  package gate reports `package validation passed`.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

@@ -553,6 +553,13 @@ top-level invocation exceeded its deadline and the harness emitted
 produced, cleanup was verified, and no retry occurred. The result is
 inconclusive and does not satisfy live acceptance.
 
+Provider-free follow-up identified a diagnostic gap: timeout classification
+discarded the already implemented structural stream state. The reducer now
+retains only one closed timeout fingerprint (`EMPTY`, `SYSTEM`, `ASSISTANT`,
+`RESULT`, `RESULT_ERROR`, `INVALID`, or `OTHER`) and still deletes every raw
+artifact before blocking. This cannot recover the deleted stream from the
+earlier attempt or justify another authenticated run.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

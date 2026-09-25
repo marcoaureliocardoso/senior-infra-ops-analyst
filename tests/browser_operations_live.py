@@ -206,6 +206,59 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
         os.close(descriptor)
 
 
+def _claude_stream_state(stream_path: Path) -> str:
+    """Reduce one bounded stream to a closed structural state."""
+    def bounded_integer(raw: str) -> int:
+        if len(raw.lstrip("-")) > 128:
+            raise ValueError("JSON integer exceeds structural bound")
+        return int(raw)
+
+    def exceeds_structure_bound(root: object) -> bool:
+        pending: list[tuple[object, int]] = [(root, 0)]
+        visited = 0
+        while pending:
+            value, depth = pending.pop()
+            visited += 1
+            if depth > 64 or visited > 4096:
+                return True
+            if isinstance(value, dict):
+                pending.extend((item, depth + 1) for item in value.values())
+            elif isinstance(value, list):
+                pending.extend((item, depth + 1) for item in value)
+        return False
+
+    stream_lines = _read_regular_lines_nofollow(
+        stream_path, MAX_CLAUDE_FAILURE_BYTES,
+    )
+    stream_state = "EMPTY"
+    observed_states: set[str] = set()
+    for line in stream_lines:
+        try:
+            event = json.loads(line, parse_int=bounded_integer)
+        except (json.JSONDecodeError, RecursionError, TypeError, ValueError):
+            return "INVALID"
+        if (exceeds_structure_bound(event) or not isinstance(event, dict)
+                or not isinstance(event.get("type"), str)):
+            return "INVALID"
+        event_type = event["type"]
+        if event_type == "result":
+            is_error = event.get("is_error", False)
+            if type(is_error) is not bool:
+                return "INVALID"
+            observed_states.add("RESULT_ERROR" if is_error else "RESULT")
+        elif event_type == "assistant":
+            observed_states.add("ASSISTANT")
+        elif event_type == "system":
+            observed_states.add("SYSTEM")
+        else:
+            observed_states.add("OTHER")
+    for candidate in ("RESULT_ERROR", "RESULT", "ASSISTANT", "SYSTEM", "OTHER"):
+        if candidate in observed_states:
+            stream_state = candidate
+            break
+    return stream_state
+
+
 def claude_failure_reason(
     exit_status: int, timed_out: bool, transcript_path: Path,
     stream_path: Path | None = None,
@@ -223,7 +276,12 @@ def claude_failure_reason(
     except (OSError, UnicodeError, ValueError):
         return rejected
     if timed_out:
-        return "CLAUDE_TIMEOUT"
+        if stream_path is None:
+            return "CLAUDE_TIMEOUT"
+        try:
+            return f"CLAUDE_TIMEOUT_STREAM_{_claude_stream_state(stream_path)}"
+        except (OSError, UnicodeError, ValueError):
+            return rejected
     signatures: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("CLAUDE_AUTH_FAILURE", (
             r"api error:\s*401\s+authentication_error",
@@ -266,36 +324,9 @@ def claude_failure_reason(
     if stream_path is None:
         return "CLAUDE_PROCESS_FAILED"
     try:
-        stream_lines = _read_regular_lines_nofollow(
-            stream_path, MAX_CLAUDE_FAILURE_BYTES,
-        )
+        stream_state = _claude_stream_state(stream_path)
     except (OSError, UnicodeError, ValueError):
         return rejected
-    stream_state = "EMPTY"
-    observed_states: set[str] = set()
-    for line in stream_lines:
-        try:
-            event = json.loads(line)
-        except (json.JSONDecodeError, TypeError):
-            return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
-        if not isinstance(event, dict) or not isinstance(event.get("type"), str):
-            return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
-        event_type = event["type"]
-        if event_type == "result":
-            is_error = event.get("is_error", False)
-            if type(is_error) is not bool:
-                return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_INVALID"
-            observed_states.add("RESULT_ERROR" if is_error else "RESULT")
-        elif event_type == "assistant":
-            observed_states.add("ASSISTANT")
-        elif event_type == "system":
-            observed_states.add("SYSTEM")
-        else:
-            observed_states.add("OTHER")
-    for candidate in ("RESULT_ERROR", "RESULT", "ASSISTANT", "SYSTEM", "OTHER"):
-        if candidate in observed_states:
-            stream_state = candidate
-            break
     return f"CLAUDE_PROCESS_FAILED_EXIT_{exit_status}_STREAM_{stream_state}"
 
 

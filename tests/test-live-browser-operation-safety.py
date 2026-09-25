@@ -424,6 +424,8 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
             ('{"type":"result","is_error":false,"result":"' + canary + '"}\n', "RESULT"),
             ('{"type":"result","is_error":true,"result":"' + canary + '"}\n', "RESULT_ERROR"),
             ("not-json " + canary + "\n", "INVALID"),
+            ('{"type":"system","number":' + "9" * 5000 + '}\n', "INVALID"),
+            ('{"type":"system","nested":' + "[" * 1100 + "0" + "]" * 1100 + '}\n', "INVALID"),
             ('{"type":"unknown","secret":"' + canary + '"}\n', "OTHER"),
         )
         with tempfile.TemporaryDirectory() as directory:
@@ -441,6 +443,110 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                         f"CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_{expected_state}",
                     )
                     self.assertNotIn(canary, reason)
+
+    def test_claude_timeout_adds_content_free_stream_fingerprint(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        canary = "SYNTH_SECRET_P004B_TIMEOUT_CANARY"
+        cases = (
+            ("", "EMPTY"),
+            ('{"type":"system","secret":"' + canary + '"}\n', "SYSTEM"),
+            ('{"type":"assistant","secret":"' + canary + '"}\n', "ASSISTANT"),
+            ('{"type":"result","is_error":false,"result":"' + canary + '"}\n', "RESULT"),
+            ('{"type":"result","is_error":true,"result":"' + canary + '"}\n', "RESULT_ERROR"),
+            ("not-json " + canary + "\n", "INVALID"),
+            ('{"type":"unknown","secret":"' + canary + '"}\n', "OTHER"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            stream = Path(directory) / "stage.stream.jsonl"
+            transcript.write_text("unrecognized diagnostic text", encoding="utf-8")
+            for content, expected_state in cases:
+                with self.subTest(expected_state=expected_state):
+                    stream.write_text(content, encoding="utf-8")
+                    reason = browser_operations_live.claude_failure_reason(
+                        124, True, transcript, stream,
+                    )
+                    self.assertEqual(
+                        reason,
+                        f"CLAUDE_TIMEOUT_STREAM_{expected_state}",
+                    )
+                    self.assertNotIn(canary, reason)
+
+    def test_claude_stream_fingerprint_enforces_exact_json_boundaries(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        cases = (
+            ('{"type":"system","number":' + "9" * 128 + '}\n', "SYSTEM"),
+            ('{"type":"system","number":' + "9" * 129 + '}\n', "INVALID"),
+            ('{"type":"system","nested":' + "[" * 63 + "0" + "]" * 63 + '}\n', "SYSTEM"),
+            ('{"type":"system","nested":' + "[" * 64 + "0" + "]" * 64 + '}\n', "INVALID"),
+            ('{"type":"system","items":[' + ",".join("0" for _ in range(4093)) + ']}\n', "SYSTEM"),
+            ('{"type":"system","items":[' + ",".join("0" for _ in range(4094)) + ']}\n', "INVALID"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = Path(directory) / "stage.transcript"
+            stream = Path(directory) / "stage.stream.jsonl"
+            transcript.write_text("unrecognized diagnostic text", encoding="utf-8")
+            for index, (content, expected_state) in enumerate(cases):
+                with self.subTest(index=index, expected_state=expected_state):
+                    stream.write_text(content, encoding="utf-8")
+                    self.assertEqual(
+                        browser_operations_live.claude_failure_reason(
+                            124, True, transcript, stream,
+                        ),
+                        f"CLAUDE_TIMEOUT_STREAM_{expected_state}",
+                    )
+
+    def test_claude_timeout_rejects_unsafe_stream_evidence(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            transcript = root / "stage.transcript"
+            transcript.write_text("unrecognized diagnostic text", encoding="utf-8")
+            missing = root / "missing.stream"
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(
+                    124, True, transcript, missing,
+                ),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+            oversized = root / "oversized.stream"
+            oversized.write_bytes(
+                b"x" * (browser_operations_live.MAX_CLAUDE_FAILURE_BYTES + 1)
+            )
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(
+                    124, True, transcript, oversized,
+                ),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
+            target = root / "target.stream"
+            target.write_text('{"type":"system"}\n', encoding="utf-8")
+            linked = root / "linked.stream"
+            try:
+                linked.symlink_to(target)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable")
+            self.assertEqual(
+                browser_operations_live.claude_failure_reason(
+                    124, True, transcript, linked,
+                ),
+                "CLAUDE_EVIDENCE_REJECTED",
+            )
 
     def test_claude_failure_reason_cli_emits_structural_fingerprint(self) -> None:
         import sys
@@ -1369,6 +1475,10 @@ raise SystemExit(1)
         )
         self.assertIn(
             "live browser operations structural failure fingerprint self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations structural timeout fingerprint self-test passed\n",
             result.stdout,
         )
         self.assertIn(

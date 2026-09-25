@@ -1540,3 +1540,32 @@ pending. After this result was recorded, `git diff --check`, content validation,
 all 13 architecture-documentation tests, and the complete provider-free Debian
 WSL package gate passed; the terminal package result was
 `package validation passed`.
+
+## P0-04B provider-free timeout diagnostic hardening (2026-09-25)
+
+Provider-free inspection after the inconclusive `allow` workflow showed that
+`claude_failure_reason` returned `CLAUDE_TIMEOUT` before examining the same
+bounded structural stream that already classified non-timeout failures. Because
+the authenticated run correctly deleted its raw stream, its historical timeout
+cannot be reclassified.
+
+A RED test proved all seven structural timeout cases collapsed to the generic
+code. The reducer now emits exactly one of `CLAUDE_TIMEOUT_STREAM_EMPTY`,
+`CLAUDE_TIMEOUT_STREAM_SYSTEM`, `CLAUDE_TIMEOUT_STREAM_ASSISTANT`,
+`CLAUDE_TIMEOUT_STREAM_RESULT`, `CLAUDE_TIMEOUT_STREAM_RESULT_ERROR`,
+`CLAUDE_TIMEOUT_STREAM_INVALID`, or `CLAUDE_TIMEOUT_STREAM_OTHER`. It reads the
+stream through the existing bounded no-follow path, never copies event values,
+and the harness deletes prompt, stream, and transcript before exposing the
+fingerprint and blocking.
+Missing, mutable, linked, or oversized evidence remains rejected.
+
+The shared structural parser now also rejects JSON integers wider than 128
+digits, nesting deeper than 64 levels, more than 4,096 parsed nodes per JSON
+event, malformed events, and non-boolean result error markers. Provider-free
+tests cover secret canaries, every structural state, exact integer, depth, and
+node-count boundaries, unsafe evidence, the shell allowlist, and cleanup. The
+focused suite passed all 84 tests. Shell syntax and every harness self-test
+passed. The complete provider-free Debian WSL package gate ended with
+`package validation passed`. No provider request occurred, and this
+instrumentation neither authorizes a retry nor changes the live acceptance
+criteria.
