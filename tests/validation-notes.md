@@ -1569,3 +1569,38 @@ passed. The complete provider-free Debian WSL package gate ended with
 `package validation passed`. No provider request occurred, and this
 instrumentation neither authorizes a retry nor changes the live acceptance
 criteria.
+
+## P0-04B structural-evidence rejection on authorized run (2026-09-26)
+
+The operator authorized exactly one authenticated run on commit
+`13324e9c74532b0653755b914c6bda6d490afd4c`, bound to the configured
+`https://api.deepseek.com/anthropic` endpoint and runtime-configured model,
+with six top-level provider-backed invocations, at most 40 model turns, 120
+seconds per workflow, 1,800 seconds total, synthetic prompts, a loopback target,
+deterministic allow then deny, raw-evidence deletion, and no automatic retry.
+
+The harness linked, selected, and installed the disposable Nori profile. The
+four ordered trusted measurement invocations completed sufficiently for the
+harness to enter the synthetic `allow` workflow. The fifth top-level Claude
+invocation exited nonzero, and the content-free terminal result was
+`BLOCKED: allow workflow request was inconclusive (CLAUDE_EVIDENCE_REJECTED)`.
+No structural timeout state or narrower allowlisted failure category was
+emitted. Because the raw prompt, stream, and transcript were deleted as
+required, retained evidence cannot distinguish an unsafe, oversized, mutable,
+missing, or otherwise unreadable diagnostic input from a parser failure,
+non-allowlisted reducer output, or immediate cleanup failure. The fresh-session
+`deny` workflow was not launched, no allow/deny aggregate was produced, and the
+run was not repeated. The result is inconclusive and does not satisfy
+acceptance.
+
+The fixture process emitted an unsettled-top-level-await warning while it was
+terminated during cleanup. A separate post-run check verified that the entire
+disposable root `/tmp/p0-04b-browser.g9urOX` was absent. The external
+authorization wrapper was deleted, and `git status --short` remained empty at
+the authorized commit before this evidence-only documentation update.
+Provider-backed acceptance remains pending, and another authenticated attempt
+would require a new exact authorization. After this result was recorded,
+`git diff --check`, content validation, all 13 architecture-documentation tests,
+and the 84-test focused POSIX suite passed. The complete provider-free Debian
+WSL package gate ran with Node.js `v24.17.0` and ended with
+`package validation passed`.

@@ -196,6 +196,19 @@ tag. Tagged versions correspond to repository tags.
   authorize a retry, or establish provider or workflow behavior. The expanded
   focused provider-free suite passes 84 tests, and the complete Debian WSL
   package gate reports `package validation passed`.
+- One exact operator-authorized run on commit
+  `13324e9c74532b0653755b914c6bda6d490afd4c` again completed the four ordered
+  trusted measurement invocations and entered the synthetic `allow` workflow.
+  The fifth top-level Claude invocation exited nonzero, and the harness emitted
+  only `CLAUDE_EVIDENCE_REJECTED`; no structural timeout state was emitted and
+  retained evidence cannot identify which fail-closed rejection path produced
+  the code. The `deny` workflow was not launched, no aggregate was produced,
+  and the run was not repeated. Raw artifacts, the disposable root, and the
+  external wrapper were removed. The repository remained clean, and
+  provider-backed acceptance remains pending. After this evidence was recorded,
+  content validation, all 13 architecture-documentation tests, the 84-test
+  focused POSIX suite, and the complete provider-free Debian WSL package gate
+  passed; the terminal package result was `package validation passed`.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

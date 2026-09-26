@@ -560,6 +560,19 @@ retains only one closed timeout fingerprint (`EMPTY`, `SYSTEM`, `ASSISTANT`,
 artifact before blocking. This cannot recover the deleted stream from the
 earlier attempt or justify another authenticated run.
 
+The operator authorized one further exact run on commit
+`13324e9c74532b0653755b914c6bda6d490afd4c`. The four trusted measurement
+invocations completed and the fifth top-level invocation entered the synthetic
+`allow` workflow, then exited nonzero. The harness emitted only
+`CLAUDE_EVIDENCE_REJECTED`. Because raw evidence was deleted, retained evidence
+cannot distinguish rejection of diagnostic input from a parser failure,
+non-allowlisted reducer output, or immediate cleanup failure. No narrower
+failure or timeout classification is supported. The `deny` invocation was not
+launched, no aggregate was produced, the run was not repeated, and cleanup
+removed the disposable root and external wrapper. Live acceptance remains
+pending and any further provider-backed attempt requires a new exact
+authorization.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.
