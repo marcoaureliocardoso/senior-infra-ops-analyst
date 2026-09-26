@@ -209,6 +209,18 @@ tag. Tagged versions correspond to repository tags.
   content validation, all 13 architecture-documentation tests, the 84-test
   focused POSIX suite, and the complete provider-free Debian WSL package gate
   passed; the terminal package result was `package validation passed`.
+- Replaced future generic evidence rejection with four closed, content-free
+  provenance codes for rejected diagnostic input, reducer execution failure,
+  output outside the shell allowlist, and immediate cleanup failure. The change
+  does not retain raw evidence, increase the 64 KiB read bound, loosen cleanup,
+  authorize retry, or reclassify the earlier authenticated result. Its
+  provider-free RED run failed at the expected generic-code assertions; the
+  GREEN focused suite passed all 84 tests. A second RED proved that successful
+  reducer output could impersonate a shell-only provenance; the allowlist now
+  accepts only `INPUT` from the reducer, while the shell exclusively produces
+  `PARSER`, `ALLOWLIST`, and `CLEANUP`. The harness self-test exercised every new
+  provenance path without a provider request. The complete provider-free Debian
+  WSL package gate passed with Node.js `v24.17.0`.
 
 ### 0.14.0 (unreleased) - declared 2026-08-25
 

@@ -522,7 +522,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 browser_operations_live.claude_failure_reason(
                     124, True, transcript, missing,
                 ),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
             oversized = root / "oversized.stream"
             oversized.write_bytes(
@@ -532,7 +532,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 browser_operations_live.claude_failure_reason(
                     124, True, transcript, oversized,
                 ),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
             target = root / "target.stream"
             target.write_text('{"type":"system"}\n', encoding="utf-8")
@@ -545,7 +545,7 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 browser_operations_live.claude_failure_reason(
                     124, True, transcript, linked,
                 ),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
 
     def test_claude_failure_reason_cli_emits_structural_fingerprint(self) -> None:
@@ -1373,7 +1373,7 @@ raise SystemExit(1)
             missing = root / "missing.transcript"
             self.assertEqual(
                 browser_operations_live.claude_failure_reason(1, False, missing),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
             oversized = root / "oversized.transcript"
             oversized.write_bytes(
@@ -1381,7 +1381,7 @@ raise SystemExit(1)
             )
             self.assertEqual(
                 browser_operations_live.claude_failure_reason(1, False, oversized),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
             target = root / "target.transcript"
             target.write_text("unauthorized", encoding="utf-8")
@@ -1392,7 +1392,7 @@ raise SystemExit(1)
                 self.skipTest("symlink creation is unavailable")
             self.assertEqual(
                 browser_operations_live.claude_failure_reason(1, False, linked),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
             for status in (0, 256, True):
                 with self.subTest(status=status):
@@ -1400,11 +1400,11 @@ raise SystemExit(1)
                         browser_operations_live.claude_failure_reason(
                             status, False, target,
                         ),
-                        "CLAUDE_EVIDENCE_REJECTED",
+                        "CLAUDE_EVIDENCE_REJECTED_INPUT",
                     )
             self.assertEqual(
                 browser_operations_live.claude_failure_reason(1, True, target),
-                "CLAUDE_EVIDENCE_REJECTED",
+                "CLAUDE_EVIDENCE_REJECTED_INPUT",
             )
 
     def test_claude_failure_reason_rejects_embedded_or_ambiguous_signatures(self) -> None:
@@ -1479,6 +1479,22 @@ raise SystemExit(1)
         )
         self.assertIn(
             "live browser operations structural timeout fingerprint self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations diagnostic input rejection self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations parser rejection self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations allowlist rejection self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations cleanup rejection self-test passed\n",
             result.stdout,
         )
         self.assertIn(

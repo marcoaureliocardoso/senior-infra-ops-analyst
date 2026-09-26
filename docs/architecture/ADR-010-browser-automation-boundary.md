@@ -255,9 +255,15 @@ category matches, it may retain only the normalized process exit status and one
 allowlisted structural stream state: empty, system event, assistant event,
 result, error result, invalid JSONL, or other event. The reducer never copies an
 event value, message, prompt, URL, response, model value, or provider error into
-the diagnostic. Unsafe evidence yields `CLAUDE_EVIDENCE_REJECTED`; prompt,
-stream, and transcript are deleted before the harness blocks. This fingerprint
-is diagnostic only: it cannot prove provider receipt, permit a retry, or satisfy
+the diagnostic. Fail-closed rejection provenance is limited to four content-free
+codes: `CLAUDE_EVIDENCE_REJECTED_INPUT` for rejected diagnostic arguments or
+evidence, `CLAUDE_EVIDENCE_REJECTED_PARSER` for reducer execution failure,
+`CLAUDE_EVIDENCE_REJECTED_ALLOWLIST` for output outside the closed vocabulary,
+and `CLAUDE_EVIDENCE_REJECTED_CLEANUP` for failed immediate deletion. Prompt,
+stream, and transcript are deleted before the harness blocks. Only `INPUT` may
+come from successful reducer output; `PARSER`, `ALLOWLIST`, and `CLEANUP` are
+reserved to the shell stage that observes each condition. These fingerprints are
+diagnostic only: they cannot prove provider receipt, permit a retry, or satisfy
 the live acceptance gate.
 
 ## Alternatives rejected

@@ -264,7 +264,7 @@ def claude_failure_reason(
     stream_path: Path | None = None,
 ) -> str:
     """Reduce transient Claude stderr to one advisory content-free code."""
-    rejected = "CLAUDE_EVIDENCE_REJECTED"
+    rejected = "CLAUDE_EVIDENCE_REJECTED_INPUT"
     if (not isinstance(exit_status, int) or isinstance(exit_status, bool)
             or not 1 <= exit_status <= 255 or type(timed_out) is not bool
             or (timed_out and exit_status != 124)):

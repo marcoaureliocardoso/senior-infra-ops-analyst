@@ -126,13 +126,14 @@ claude_failure_code() {
   if ! reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
       --claude-failure-reason "$status" "$timed_out" "$transcript" "$stream" \
       2>/dev/null)"; then
-    reason='CLAUDE_EVIDENCE_REJECTED'
+    printf 'CLAUDE_EVIDENCE_REJECTED_PARSER\n'
+    return 0
   fi
   case "$reason" in
     CLAUDE_TIMEOUT|CLAUDE_AUTH_FAILURE|CLAUDE_RATE_LIMIT|CLAUDE_PROVIDER_MODEL_FAILURE|\
 CLAUDE_MODEL_ROUTE_ADVISORY|\
 CLAUDE_TRANSPORT_FAILURE|CLAUDE_CONTRACT_FAILURE|CLAUDE_RUNTIME_FAILURE|\
-    CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED)
+    CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED_INPUT)
       printf '%s\n' "$reason"
       ;;
     CLAUDE_TIMEOUT_STREAM_EMPTY|CLAUDE_TIMEOUT_STREAM_SYSTEM|\
@@ -146,7 +147,7 @@ CLAUDE_TIMEOUT_STREAM_OTHER)
           && (( 10#${BASH_REMATCH[1]} <= 255 )); then
         printf '%s\n' "$reason"
       else
-        printf 'CLAUDE_EVIDENCE_REJECTED\n'
+        printf 'CLAUDE_EVIDENCE_REJECTED_ALLOWLIST\n'
       fi
       ;;
   esac
@@ -157,11 +158,11 @@ cleanup_claude_failure() {
   local reason
   reason="$(claude_failure_code "$status" "$timed_out" "$transcript" "$stream")"
   if ! rm -f -- "$prompt" "$stream" "$transcript"; then
-    reason='CLAUDE_EVIDENCE_REJECTED'
+    reason='CLAUDE_EVIDENCE_REJECTED_CLEANUP'
   fi
   if [[ -e "$prompt" || -L "$prompt" || -e "$stream" || -L "$stream" \
       || -e "$transcript" || -L "$transcript" ]]; then
-    reason='CLAUDE_EVIDENCE_REJECTED'
+    reason='CLAUDE_EVIDENCE_REJECTED_CLEANUP'
   fi
   printf '%s\n' "$reason"
 }
@@ -219,6 +220,42 @@ self_test() {
     && ! -e "$diagnostic_transcript" && ! -L "$diagnostic_transcript" ]] || \
     blocked 'structural Claude timeout fingerprint cleanup self-test failed'
   printf 'live browser operations structural timeout fingerprint self-test passed\n'
+
+  printf '%s\n' 'unrecognized diagnostic text' >"$diagnostic_transcript"
+  diagnostic_reason="$(claude_failure_code 124 1 "$diagnostic_transcript" \
+    "$MEASUREMENT_DIR/missing-diagnostic-stream")"
+  [[ "$diagnostic_reason" == 'CLAUDE_EVIDENCE_REJECTED_INPUT' ]] || \
+    blocked 'diagnostic input rejection provenance self-test failed'
+  rm -f -- "$diagnostic_transcript"
+  printf 'live browser operations diagnostic input rejection self-test passed\n'
+
+  python3() { return 1; }
+  diagnostic_reason="$(claude_failure_code 1 0 "$diagnostic_transcript" \
+    "$diagnostic_stream")"
+  unset -f python3
+  [[ "$diagnostic_reason" == 'CLAUDE_EVIDENCE_REJECTED_PARSER' ]] || \
+    blocked 'parser rejection provenance self-test failed'
+  printf 'live browser operations parser rejection self-test passed\n'
+
+  python3() { printf 'CLAUDE_EVIDENCE_REJECTED_CLEANUP\n'; }
+  diagnostic_reason="$(claude_failure_code 1 0 "$diagnostic_transcript" \
+    "$diagnostic_stream")"
+  unset -f python3
+  [[ "$diagnostic_reason" == 'CLAUDE_EVIDENCE_REJECTED_ALLOWLIST' ]] || \
+    blocked 'allowlist rejection provenance self-test failed'
+  printf 'live browser operations allowlist rejection self-test passed\n'
+
+  printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
+  printf '%s\n' '{"type":"system"}' >"$diagnostic_stream"
+  printf '%s\n' 'unrecognized diagnostic text' >"$diagnostic_transcript"
+  rm() { return 0; }
+  diagnostic_reason="$(cleanup_claude_failure 1 0 "$diagnostic_prompt" \
+    "$diagnostic_stream" "$diagnostic_transcript")"
+  unset -f rm
+  [[ "$diagnostic_reason" == 'CLAUDE_EVIDENCE_REJECTED_CLEANUP' ]] || \
+    blocked 'cleanup rejection provenance self-test failed'
+  rm -f -- "$diagnostic_prompt" "$diagnostic_stream" "$diagnostic_transcript"
+  printf 'live browser operations cleanup rejection self-test passed\n'
 
   timeout_transcript="$MEASUREMENT_DIR/timeout-self-test.transcript"
   set +e

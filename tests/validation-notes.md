@@ -1604,3 +1604,41 @@ would require a new exact authorization. After this result was recorded,
 and the 84-test focused POSIX suite passed. The complete provider-free Debian
 WSL package gate ran with Node.js `v24.17.0` and ended with
 `package validation passed`.
+
+## P0-04B provider-free rejection-provenance hardening (2026-09-26)
+
+The operator approved a bounded provider-free diagnostic change after the
+authenticated attempt returned only the historical generic
+`CLAUDE_EVIDENCE_REJECTED` code. Future rejection paths now emit exactly one of
+four content-free categories:
+
+- `CLAUDE_EVIDENCE_REJECTED_INPUT` for invalid arguments or rejected,
+  missing, linked, mutable, oversized, or otherwise unreadable bounded evidence;
+- `CLAUDE_EVIDENCE_REJECTED_PARSER` when the Python reducer cannot execute;
+- `CLAUDE_EVIDENCE_REJECTED_ALLOWLIST` when reducer output is outside the
+  shell's closed vocabulary; or
+- `CLAUDE_EVIDENCE_REJECTED_CLEANUP` when immediate deletion fails or leaves
+  any prompt, stream, or transcript artifact.
+
+Only `CLAUDE_EVIDENCE_REJECTED_INPUT` may be accepted from successful Python
+reducer output. The other three categories are reserved to the shell stage that
+directly observes reducer failure, allowlist rejection, or cleanup failure. A
+second RED self-test supplied a forged `CLAUDE_EVIDENCE_REJECTED_CLEANUP` as
+successful reducer output and correctly exposed the initial ambiguity; after the
+fix, that value reduced to `CLAUDE_EVIDENCE_REJECTED_ALLOWLIST`.
+
+The change preserves the existing 64 KiB bounded no-follow reads, copies no raw
+value into a result, and does not relax cleanup, authorize retry, establish
+provider receipt, or satisfy live acceptance. It cannot retroactively classify
+the deleted evidence from the run on
+`13324e9c74532b0653755b914c6bda6d490afd4c`.
+
+The RED focused run failed in the two unsafe-evidence tests because the reducer
+still returned the generic code and in the harness self-test because the four
+provenance checks did not yet exist. After the minimal implementation, the
+focused POSIX suite passed all 84 tests. Shell syntax passed, and the direct
+harness self-test exercised diagnostic input, parser, allowlist, and cleanup
+rejection without any provider request. Content validation, all 13 architecture
+documentation tests, and the complete provider-free Debian WSL package gate
+also passed. The gate used Node.js `v24.17.0` and ended with
+`package validation passed`.

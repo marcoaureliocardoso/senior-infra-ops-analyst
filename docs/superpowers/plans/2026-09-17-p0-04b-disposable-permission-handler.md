@@ -573,6 +573,17 @@ removed the disposable root and external wrapper. Live acceptance remains
 pending and any further provider-backed attempt requires a new exact
 authorization.
 
+An approved provider-free follow-up replaced future generic rejection with four
+closed provenance codes: rejected diagnostic input, reducer execution failure,
+non-allowlisted reducer output, and immediate cleanup failure. The existing raw
+evidence deletion, 64 KiB bound, no-retry rule, authorization boundary, and live
+acceptance criteria remain unchanged. This does not retroactively classify the
+deleted evidence from the earlier attempt. The RED focused run failed on the
+old generic result and missing provenance self-tests; the GREEN run passed all
+84 tests, and the direct harness self-test exercised all four paths without a
+provider request. The complete provider-free Debian WSL package gate then ended
+with `package validation passed`.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.
