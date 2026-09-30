@@ -619,6 +619,23 @@ A separate check confirmed `/tmp/p0-04b-browser.y7Bxll` was absent; the
 external launcher was deleted and no retry occurred. Acceptance remains
 inconclusive, and the authorization is consumed.
 
+Provider-free follow-up traced the diagnostic loss through the allow reducer
+and shell: failed or inconclusive stream reasons were overwritten with
+`PERMISSION_INCONCLUSIVE`, and a successful reducer process let rejected
+samples advance to the fixture. Synthetic reproductions included a canary
+failure, absent post-hook, unknown outcome, absent permission signal, and
+a tool-free terminal; a fully valid control also advanced. These are local
+pipeline observations, not explanations of the deleted authenticated evidence.
+The correction preserves stream failures, distinguishes incomplete workflow
+proof, and gates reduced allow/deny semantics before the fixture. Rejection
+retains only a closed reason after full cleanup; a valid phase still proceeds
+to independent fixture validation. Twelve added regression methods cover
+reason preservation, exact phase proof, forged completion, private-file and
+duplicate-key rejection, nonblocking FIFO rejection, unknown reason/classifier
+content, cleanup failure, and the valid allow path. The final focused POSIX
+suite passed all 102 tests after this correction.
+No authenticated request or retry was made for this correction.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

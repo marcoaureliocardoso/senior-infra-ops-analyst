@@ -247,6 +247,16 @@ tag. Tagged versions correspond to repository tags.
   confirmed root absence; the external launcher was removed and no retry
   occurred. Provider-backed acceptance remains inconclusive.
 
+- Preserved failed or inconclusive stream status and reason through the allow
+  reducer; `CANARY_EXPOSED` is no longer downgraded to permission uncertainty.
+  Incomplete workflow proof is distinguished from missing permission proof.
+  A semantic gate now requires the exact allow or deny phase proof before the
+  independent fixture check. It reads a bounded private reduced sample and
+  emits only closed reason codes after verified cleanup on rejection. Tests
+  reproduce the previous loss of reason and shell advancement, reject forged
+  completion and classifier output, and retain the valid allow path. No live
+  request, retry, acceptance relaxation, or historical reclassification occurred.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

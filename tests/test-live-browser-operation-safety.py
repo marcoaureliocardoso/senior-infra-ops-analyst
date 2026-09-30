@@ -2001,6 +2001,287 @@ raise SystemExit(1)
             encoding="utf-8",
         )
 
+    def test_allow_reducer_preserves_canary_failure(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_allowed_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "allow.jsonl"
+            stream.write_text(json.dumps({"type": "result", "result": "P004B_TEST_CANARY"}) + "\n")
+            sample = evaluate_allowed_stream(
+                stream, "P004B_TEST_CANARY", Path(directory) / "absent.signal",
+                "p004b-run-001", "session-live-browser-001",
+            )
+        self.assertEqual(sample["status"], "fail")
+        self.assertEqual(sample["reasonCode"], "CANARY_EXPOSED")
+        self.assertEqual(sample["permissionCallCount"], 0)
+        self.assertNotEqual(sample["workflowMutation"], "completed")
+
+    def test_allow_reducer_preserves_stream_failure_reason(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_allowed_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "allow.jsonl"
+            for present, expected in ((False, "STREAM_INVALID"), (True, "STREAM_INCONCLUSIVE")):
+                with self.subTest(present=present):
+                    if present:
+                        stream.write_text('{"type":"result","subtype":"success","is_error":false}\n')
+                    sample = evaluate_allowed_stream(
+                        stream, "P004B_TEST_CANARY", Path(directory) / "absent.signal",
+                        "p004b-run-001", "session-live-browser-001",
+                    )
+                    self.assertEqual(sample["status"], "inconclusive")
+                    self.assertEqual(sample["reasonCode"], expected)
+
+    def test_allow_reducer_distinguishes_incomplete_workflow_from_permission(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_allowed_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "allow.jsonl"
+            self._workflow_stream(stream, reason_code="OUTCOME_UNKNOWN")
+            sample = evaluate_allowed_stream(
+                stream, "P004B_TEST_CANARY", Path(directory) / "absent.signal",
+                "p004b-run-001", "session-live-browser-001",
+            )
+        self.assertEqual(sample["status"], "inconclusive")
+        self.assertEqual(sample["reasonCode"], "WORKFLOW_INCOMPLETE")
+        self.assertEqual(sample["workflowOutcome"], "OUTCOME_UNKNOWN")
+
+    def _workflow_result_sample(self, root: Path, phase: str) -> Path:
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import (
+            _workflow_command, evaluate_allowed_stream, evaluate_denied_stream,
+        )
+
+        session = "session-live-browser-001" if phase == "allow" else "session-live-browser-deny-001"
+        command = self._workflow_command()
+        stream, signal, result = root / "stream.jsonl", root / "signal.json", root / "sample.json"
+        if phase == "allow":
+            self._workflow_stream(stream)
+        else:
+            command = command.replace("op-live-browser-001", "op-live-browser-deny-001").replace(
+                "session-live-browser-001", session,
+            )
+            self._denied_stream(stream, command)
+        observed = _workflow_command(command)
+        self.assertIsNotNone(observed)
+        self._permission_signal(signal, phase, observed["invocationFingerprint"], "synthetic")
+        evaluator = evaluate_allowed_stream if phase == "allow" else evaluate_denied_stream
+        sample = evaluator(stream, "P004B_TEST_CANARY", signal, "p004b-run-001", session)
+        self.assertEqual(sample["status"], "pass")
+        result.write_text(json.dumps(sample))
+        os.chmod(result, 0o600)
+        return result
+
+    @unittest.skipIf(os.name == "nt", "private workflow samples require POSIX")
+    def test_workflow_result_gate_accepts_exact_allow_and_deny(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live as reducer
+
+        with tempfile.TemporaryDirectory() as directory:
+            for phase, session, expected in (
+                ("allow", "session-live-browser-001", "WORKFLOW_ALLOW_READY"),
+                ("deny", "session-live-browser-deny-001", "WORKFLOW_DENY_READY"),
+            ):
+                with self.subTest(phase=phase):
+                    path = self._workflow_result_sample(Path(directory), phase)
+                    result = reducer.workflow_result_reason(path, phase, session)
+                    self.assertEqual(result, expected)
+
+    @unittest.skipIf(os.name == "nt", "private workflow samples require POSIX")
+    def test_workflow_result_gate_rejects_forged_completion_and_content(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live as reducer
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = self._workflow_result_sample(root, "allow")
+            original = json.loads(path.read_text())
+            for field, value in (
+                ("guardProof", "exact-deny"), ("routeClass", "workflow-incomplete"),
+                ("toolCalls", 0), ("hookEvents", True), ("permissionCallCount", True),
+                ("workflowOutcome", "OUTCOME_UNKNOWN"), ("workflowMutation", "not-observed"),
+                ("workflowSessionIds", ["different-session"]), ("invocationFingerprint", "invalid"),
+                ("workflowExecutionSteps", 0), ("workflowValidationSteps", True),
+                ("reasonCode", "SYNTH_SECRET_FORGED_REASON"),
+                ("extraContent", "SYNTH_SECRET_FORGED_CONTENT"),
+            ):
+                with self.subTest(field=field):
+                    path.write_text(json.dumps({**original, field: value}))
+                    self.assertEqual(
+                        reducer.workflow_result_reason(path, "allow", "session-live-browser-001"),
+                        "WORKFLOW_EVIDENCE_REJECTED",
+                    )
+            path.write_text(json.dumps(original))
+            os.chmod(path, 0o644)
+            self.assertEqual(reducer.workflow_result_reason(path, "allow", "session-live-browser-001"), "WORKFLOW_EVIDENCE_REJECTED")
+            os.chmod(path, 0o600)
+            linked = root / "linked.json"
+            linked.symlink_to(path)
+            self.assertEqual(reducer.workflow_result_reason(linked, "allow", "session-live-browser-001"), "WORKFLOW_EVIDENCE_REJECTED")
+            path.write_text('{"status":"inconclusive",' + json.dumps(original)[1:])
+            self.assertEqual(reducer.workflow_result_reason(path, "allow", "session-live-browser-001"), "WORKFLOW_EVIDENCE_REJECTED")
+
+    @unittest.skipIf(os.name == "nt", "private workflow samples require POSIX")
+    def test_workflow_result_gate_closes_unknown_or_malformed_reason_values(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live as reducer
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.json"
+            for reason, expected in (
+                ("STREAM_INVALID", "STREAM_INVALID"),
+                ("STREAM_INCONCLUSIVE", "STREAM_INCONCLUSIVE"),
+                ("WORKFLOW_INCOMPLETE", "WORKFLOW_INCOMPLETE"),
+                ("PERMISSION_INCONCLUSIVE", "PERMISSION_INCONCLUSIVE"),
+                ("DENY_STREAM_INCONCLUSIVE", "DENY_STREAM_INCONCLUSIVE"),
+                ("SYNTH_SECRET_REASON", "WORKFLOW_EVIDENCE_REJECTED"),
+                (["SYNTH_SECRET_REASON"], "WORKFLOW_EVIDENCE_REJECTED"),
+                ({"secret": "SYNTH_SECRET_REASON"}, "WORKFLOW_EVIDENCE_REJECTED"),
+            ):
+                with self.subTest(reason=reason):
+                    path.write_text(json.dumps({"status": "inconclusive", "reasonCode": reason}))
+                    os.chmod(path, 0o600)
+                    self.assertEqual(reducer.workflow_result_reason(path, "allow", "session-live-browser-001"), expected)
+            path.write_text("x" * 4097)
+            self.assertEqual(reducer.workflow_result_reason(path, "allow", "session-live-browser-001"), "WORKFLOW_EVIDENCE_REJECTED")
+
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "mkfifo"), "POSIX FIFO required")
+    def test_workflow_result_gate_rejects_fifo_without_blocking_open(self) -> None:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.fifo"
+            os.mkfifo(path, 0o600)
+            command = (
+                'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); '
+                'from browser_operations_live import workflow_result_reason; '
+                'print(workflow_result_reason(Path(sys.argv[2]), "allow", "session-live-browser-001"))'
+            )
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-c", command, str(ROOT / "tests"), str(path)],
+                    capture_output=True, text=True, timeout=2, check=False,
+                )
+            except subprocess.TimeoutExpired:
+                self.fail("workflow result gate blocked while opening a non-regular FIFO")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "WORKFLOW_EVIDENCE_REJECTED\n")
+        self.assertEqual(result.stderr, "")
+
+    def _workflow_shell_probe(self, stream: Path, signal: Path | None = None,
+                              classifier: str = "") -> tuple[subprocess.CompletedProcess[str], bool]:
+        workflow = "run_workflow() {" + self.script.split("run_workflow() {", 1)[1].split(
+            "\nsnapshot_fixture() {", 1,
+        )[0]
+        body = (
+            f"ROOT={shlex.quote(str(ROOT))}\n"
+            + f"SYNTHETIC_STREAM={shlex.quote(str(stream))}\n"
+            + "CANARY=P004B_TEST_CANARY\nRUN_NONCE=p004b-run-001\n"
+            + 'RUNNER="$ROOT/skills/browser-operations/scripts/browser-runner.mjs"\n'
+            + "LOOPBACK=http://127.0.0.1:43111\nCLAUDE_BIN=/bin/false\n"
+            + "PERMISSION_PROMPT_TOOL=synthetic-unused\n"
+            + "remaining_timeout(){ printf 120; }\n"
+            + 'run_claude_with_timeout(){ cat -- "$SYNTHETIC_STREAM"; }\n'
+        )
+        if signal:
+            body += f'cp -- {shlex.quote(str(signal))} "$MEASUREMENT_DIR/allow.signal.json"\n'
+        if classifier:
+            body += classifier + "\n"
+        body += workflow + "\nrun_workflow allow session-live-browser-001 synthetic-unused synthetic-operation\n"
+        body += 'printf "reached-next-fixture-check\\n"\n'
+        return self._run_exit_probe(body)
+
+    def test_workflow_shell_blocks_inconclusive_result_after_cleanup(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            stream.write_text('{"type":"result","subtype":"success","is_error":false}\n')
+            result, cleaned = self._workflow_shell_probe(stream)
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (STREAM_INCONCLUSIVE; cleanup=verified)\n")
+
+    def test_workflow_shell_canary_failure_remains_failure_without_raw_output(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            stream.write_text('{"type":"result","result":"P004B_TEST_CANARY"}\n')
+            result, cleaned = self._workflow_shell_probe(stream)
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (CANARY_EXPOSED; cleanup=verified)\n")
+
+    def test_workflow_shell_rejects_untrusted_classifier_output_without_copying_it(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            stream.write_text('{"type":"result","subtype":"success","is_error":false}\n')
+            result, cleaned = self._workflow_shell_probe(
+                stream, classifier='python3(){ if [[ "${2:-}" == --workflow-result-reason ]]; then '
+                "printf '%s\\n' SYNTH_SECRET_CLASSIFIER_OUTPUT; else command python3 \"$@\"; fi; }",
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (WORKFLOW_EVIDENCE_REJECTED; cleanup=verified)\n")
+
+    def test_workflow_shell_failed_cleanup_does_not_claim_verified_evidence_cleanup(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            stream.write_text('{"type":"result","subtype":"success","is_error":false}\n')
+            result, cleaned = self._workflow_shell_probe(
+                stream, classifier='rm(){ if [[ "${1:-}" == -rf ]]; then unset -f rm; '
+                'return 1; else command rm "$@"; fi; }',
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: harness cleanup failed (stage=WORKFLOW_ALLOW, exit=2, cleanup=failed)\n")
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_workflow_shell_valid_allow_still_reaches_independent_fixture_check(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._workflow_result_sample(root, "allow")
+            result, cleaned = self._workflow_shell_probe(root / "stream.jsonl", root / "signal.json")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "reached-next-fixture-check\n")
+        self.assertEqual(result.stderr, "")
+
     def _denied_stream(self, path: Path, command: str) -> None:
         session = "session-live-browser-deny-001"
         pre_output = json.dumps({

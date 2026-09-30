@@ -889,19 +889,32 @@ def validate_trusted_measurement(
     return measurement
 
 
-def _load_private_json(path: Path, maximum_bytes: int) -> Any | None:
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("duplicate JSON key")
+        value[key] = item
+    return value
+
+
+def _load_private_json(path: Path, maximum_bytes: int, *, strict: bool = False) -> Any | None:
     if os.name == "nt" or not hasattr(os, "O_NOFOLLOW"):
         return None
     descriptor: int | None = None
     try:
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
         flags |= getattr(os, "O_NOFOLLOW", 0)
+        if strict:
+            flags |= os.O_NONBLOCK
         descriptor = os.open(path, flags)
         metadata = os.fstat(descriptor)
         if (not stat.S_ISREG(metadata.st_mode)
                 or not 1 <= metadata.st_size <= maximum_bytes):
             return None
         if os.name != "nt" and stat.S_IMODE(metadata.st_mode) & 0o077:
+            return None
+        if strict and metadata.st_uid != os.getuid():
             return None
         chunks: list[bytes] = []
         remaining = maximum_bytes + 1
@@ -914,8 +927,10 @@ def _load_private_json(path: Path, maximum_bytes: int) -> Any | None:
         payload = b"".join(chunks)
         if len(payload) != metadata.st_size or len(payload) > maximum_bytes:
             return None
-        return json.loads(payload.decode("utf-8"))
-    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        return json.loads(
+            payload.decode("utf-8"), object_pairs_hook=_unique_json_object if strict else None,
+        )
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError, RecursionError):
         return None
     finally:
         if descriptor is not None:
@@ -1784,10 +1799,11 @@ def load_permission_signal(
 
 
 def _invalid_permission_sample(sample: dict[str, Any]) -> dict[str, Any]:
+    rejected = sample.get("status") in {"fail", "inconclusive"}
     return {
         **sample,
-        "status": "inconclusive",
-        "reasonCode": "PERMISSION_INCONCLUSIVE",
+        "status": sample["status"] if rejected else "inconclusive",
+        "reasonCode": sample["reasonCode"] if rejected else "PERMISSION_INCONCLUSIVE",
         "routeClass": "workflow-incomplete",
         "guardProof": "exact-deny",
         "workflowAuthentication": "not-observed",
@@ -1805,10 +1821,14 @@ def evaluate_allowed_stream(
     expected_nonce: str, expected_session: str,
 ) -> dict[str, Any]:
     sample = evaluate_stream(path, canary)
+    if sample.get("status") != "pass":
+        return _invalid_permission_sample(sample)
+    if sample.get("routeClass") != "persistent-one-shot":
+        return _invalid_permission_sample({
+            **sample, "status": "inconclusive", "reasonCode": "WORKFLOW_INCOMPLETE",
+        })
     fingerprint = sample.get("invocationFingerprint")
-    if (sample.get("status") != "pass"
-            or sample.get("routeClass") != "persistent-one-shot"
-            or sample.get("workflowSessionIds") != [_label(expected_session)]
+    if (sample.get("workflowSessionIds") != [_label(expected_session)]
             or not isinstance(fingerprint, str)
             or load_permission_signal(
                 signal_path, "allow", expected_nonce, fingerprint,
@@ -1820,6 +1840,65 @@ def evaluate_allowed_stream(
         "permissionDecision": "allow",
         "permissionCallCount": 1,
     }
+
+
+def workflow_result_reason(path: Path, phase: str, expected_session: str) -> str:
+    """Classify a private reduced sample; never emit a field from its content."""
+    rejected = "WORKFLOW_EVIDENCE_REJECTED"
+    if phase not in {"allow", "deny"} or not LABEL.fullmatch(expected_session):
+        return rejected
+    sample = _load_private_json(path, 4096, strict=True)
+    if not isinstance(sample, dict):
+        return rejected
+    status, reason = sample.get("status"), sample.get("reasonCode")
+    if not isinstance(status, str) or not isinstance(reason, str):
+        return rejected
+    if status == "fail" and reason == "CANARY_EXPOSED":
+        return "CANARY_EXPOSED"
+    if status == "inconclusive" and reason in {
+        "STREAM_INVALID", "STREAM_INCONCLUSIVE", "WORKFLOW_INCOMPLETE",
+        "PERMISSION_INCONCLUSIVE", "DENY_STREAM_INCONCLUSIVE",
+    }:
+        # Return the trusted literal, not the input object/string.
+        return {
+            "STREAM_INVALID": "STREAM_INVALID", "STREAM_INCONCLUSIVE": "STREAM_INCONCLUSIVE",
+            "WORKFLOW_INCOMPLETE": "WORKFLOW_INCOMPLETE",
+            "PERMISSION_INCONCLUSIVE": "PERMISSION_INCONCLUSIVE",
+            "DENY_STREAM_INCONCLUSIVE": "DENY_STREAM_INCONCLUSIVE",
+        }[reason]
+    fields = {
+        "status", "reasonCode", "toolCalls", "hookEvents", "roleLabels",
+        "contextPercentages", "workflowSessionIds", "routeClass", "guardProof",
+        "workflowExecutionSteps", "workflowValidationSteps", "workflowAuthentication",
+        "workflowMutation", "workflowValidation", "workflowOutcome", "operationId",
+        "invocationFingerprint", "permissionPhase", "permissionDecision", "permissionCallCount",
+    }
+    if set(sample) != fields or status != "pass":
+        return rejected
+    allow = phase == "allow"
+    expected = {
+        "reasonCode": "STRUCTURAL_RESULT" if allow else "STRUCTURAL_DENIAL",
+        "routeClass": "persistent-one-shot" if allow else "workflow-denied",
+        "guardProof": "exact-native-approval" if allow else "exact-native-denial",
+        "workflowOutcome": "WORKFLOW_VALIDATED" if allow else "NOT_OBSERVED",
+        "permissionPhase": phase, "permissionDecision": phase,
+        "workflowSessionIds": [expected_session], "roleLabels": [], "contextPercentages": [],
+    }
+    for field in ("workflowAuthentication", "workflowMutation", "workflowValidation"):
+        expected[field] = "completed" if allow else "not-observed"
+    if any(sample.get(field) != value for field, value in expected.items()):
+        return rejected
+    for field, value in (("toolCalls", 2), ("hookEvents", 2 if allow else 1), ("permissionCallCount", 1)):
+        if type(sample.get(field)) is not int or sample[field] != value:
+            return rejected
+    for field, maximum in (("workflowExecutionSteps", 16), ("workflowValidationSteps", 12)):
+        if type(sample.get(field)) is not int or not 1 <= sample[field] <= maximum:
+            return rejected
+    if (not isinstance(sample.get("operationId"), str) or not LABEL.fullmatch(sample["operationId"])
+            or not isinstance(sample.get("invocationFingerprint"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", sample["invocationFingerprint"])):
+        return rejected
+    return "WORKFLOW_ALLOW_READY" if allow else "WORKFLOW_DENY_READY"
 
 
 def _permission_pre_decision(value: dict[str, Any]) -> str | None:
@@ -2192,6 +2271,9 @@ def main(argv: list[str]) -> int:
     if len(argv) == 4 and argv[0] == "--evaluate-stream":
         result = evaluate_stream(Path(argv[1]), argv[2])
         Path(argv[3]).write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
+        return 0
+    if len(argv) == 4 and argv[0] == "--workflow-result-reason":
+        print(workflow_result_reason(Path(argv[1]), argv[2], argv[3]))
         return 0
     if len(argv) == 7 and argv[0] in {"--evaluate-allow-stream", "--evaluate-deny-stream"}:
         evaluator = (

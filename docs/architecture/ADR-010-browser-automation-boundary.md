@@ -280,6 +280,22 @@ before that parent emits the explicit block reason. Stage labels describe where
 the shell stopped, not the failure cause,
 provider receipt, workflow outcome, or authorization to retry.
 
+Successful reducer execution is not workflow acceptance. The allow reducer
+preserves failed or inconclusive stream status and reason before considering
+permission proof; a structurally incomplete workflow remains explicitly
+`WORKFLOW_INCOMPLETE`. After deleting raw prompt, stream, and transcript,
+the shell applies a semantic gate to each reduced phase sample. The gate
+requires exact phase, session, route, guard, lifecycle counts, workflow state,
+and permission proof, not merely a successful JSON writer exit. Its bounded
+4 KiB private read requires current-user ownership, owner-only permissions,
+a regular nonblocking no-follow file, unique JSON keys, exact completion fields, and
+strict integer counts. Unknown content or classifier output becomes
+`WORKFLOW_EVIDENCE_REJECTED`, never an emitted input value. A rejected sample
+stops the sequence, removes the complete disposable root, verifies absence,
+and then emits its closed reason. Cleanup failure cannot claim verified
+cleanup. Valid phase proof still requires the independent fixture-state check
+and the complete pair aggregate; this gate cannot establish acceptance alone.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

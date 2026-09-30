@@ -1784,3 +1784,62 @@ final marker was `package validation passed`. The optional PowerShell syntax
 step was skipped because PowerShell was unavailable in WSL. No authenticated
 attempt was repeated during this validation, and these local gates do not
 change the inconclusive provider-backed acceptance result.
+
+## P0-04B provider-free semantic workflow gate (2026-09-30)
+
+Investigation at commit `3c7f85d17449feda402de23c7454b96da68a2437` traced
+the returned allow sample into `run_workflow`. The evaluator CLI writes a
+reduced JSON sample and returns 0 even when the sample is inconclusive; this
+is successful reduction, not successful browser work. The shell previously
+accepted that process result without checking the sample before the fixture.
+The allow reducer also replaced stream failure or uncertainty with the generic
+permission reason. A disposable provider-free reproduction exercised the real
+shell function and reducer with only the external Claude invocation replaced
+by a synthetic stream. Five problematic cases and one valid control all
+advanced: tool-free terminal, absent post-hook, unknown workflow outcome,
+absent permission signal, synthetic canary, and complete valid proof. The
+original underlying canary result was `fail/CANARY_EXPOSED`, while the phase
+sample became `inconclusive/PERMISSION_INCONCLUSIVE`. All synthetic temporary
+data and the probe were removed. No provider request occurred.
+
+The first RED regressions reproduced canary downgrade, overwritten
+`STREAM_INVALID` and `STREAM_INCONCLUSIVE`, unknown-outcome misclassification,
+and shell exit 0 with advancement on rejected evidence. The minimal correction
+preserves underlying failed/inconclusive status and reason, distinguishes
+`WORKFLOW_INCOMPLETE`, and adds a private semantic gate. The gate validates the
+exact allow or deny completion contract and session before the independent
+fixture check. A valid allow proof still reaches that check. On rejection,
+the shell removes raw prompt, stream, and transcript, deletes the whole
+disposable root, verifies absence, and emits only a closed reason. Failure
+of cleanup remains sticky and never reports successful evidence cleanup.
+
+Boundary regressions also reproduced acceptance of a full completion sample
+with duplicate JSON keys and uncontrolled errors on non-text reason values.
+The gate's strict 4 KiB no-follow read now checks current ownership, private
+permissions, regular-file status, unique keys, and strict completion/count
+types. Unknown reason values and polluted classifier output map to
+`WORKFLOW_EVIDENCE_REJECTED` without copying content. All eleven new regression
+methods and the intermediate 101-test focused POSIX suite passed. A twelfth
+regression then reproduced a blocked FIFO open before regular-file validation.
+Strict reads now use nonblocking open so that non-regular targets are rejected
+before reading. The same-principal race model and existing non-strict readers
+retain their existing trust boundaries. Ownership, duplicate-key, and
+nonblocking checks are opt-in for this gate; malformed over-deep JSON also
+fails closed. All twelve new regression methods and the final 102-test focused
+POSIX suite passed after that correction.
+
+This repairs the local diagnostic and phase-transition gaps, not the unproven
+browser outcome from the authenticated attempt. No deleted raw evidence was
+recovered, no previous attempt was reclassified, no permission or fixture
+requirement was weakened, and no authenticated call or retry was made.
+
+Independent read-only review found no remaining Critical or Important issue.
+It confirmed the nonblocking FIFO correction, reason preservation, closed
+output, sticky cleanup failure, and unchanged fixture/pair acceptance boundary.
+After the final correction, content validation, all 13 architecture-documentation
+tests, and the complete provider-free Debian WSL package gate passed. The gate
+included all 102 focused browser safety tests, harness self-tests, schema
+validation, and CI workflow validation, ending with `package validation passed`
+on Node.js `v24.17.0`. Its optional PowerShell syntax step was skipped because
+PowerShell was unavailable in WSL. This is local patch validation, not
+provider-backed acceptance or branch-merge approval.
