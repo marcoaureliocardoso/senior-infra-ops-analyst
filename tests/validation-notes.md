@@ -1642,3 +1642,46 @@ rejection without any provider request. Content validation, all 13 architecture
 documentation tests, and the complete provider-free Debian WSL package gate
 also passed. The gate used Node.js `v24.17.0` and ended with
 `package validation passed`.
+
+## P0-04B authorized run without a retained failure category (2026-09-30)
+
+The operator authorized one authenticated attempt bound to commit
+`5b540c12bfd58c6bcb48445f3aa31a3c1a3489b5`, preserving the approved endpoint
+`https://api.deepseek.com/anthropic`, runtime-configured model, six top-level
+invocation budget, at most 40 model turns, 120 seconds per workflow, 1,800
+seconds total, synthetic prompts, loopback target, deterministic allow then
+deny, raw-evidence deletion, and no automatic retry.
+
+The Windows Git check confirmed the exact authorized commit and clean worktree.
+The existing WSL Claude executable was explicitly resolved as
+`/home/marco/.local/bin/claude`; it reported `2.1.284`. An earlier discovery
+check incorrectly inferred absence from the non-interactive PATH. No install
+was needed, and those read-only checks made no provider request.
+
+The single live run linked, selected, and installed the disposable Nori profile.
+Read-only observations found all four reduced measurement sample filenames:
+`skill.sample.json`, `subagent.sample.json`, `discovery.sample.json`, and
+`use.sample.json`. A later filename observation found no workflow result JSON.
+The harness then exited with status 2. Its retained terminal output contained
+only an unsettled-top-level-await warning from the fixture process; it emitted no
+`BLOCKED` reason, no rejection-provenance code, and no final aggregate.
+
+This evidence cannot locate the failure after the four measurement samples or
+establish whether either workflow invocation launched, timed out, completed,
+or changed fixture state. The four new rejection codes classify only failures
+that reach their diagnostic path; absence of a code is not a narrower cause.
+The result is inconclusive and does not satisfy provider-backed acceptance.
+The attempt was not repeated.
+
+A separate post-run check confirmed `/tmp/p0-04b-browser.Cpmw3x` was absent,
+and Git remained clean at the authorized commit before this evidence update.
+The disposable external authorization wrapper was deleted. The authorization
+is consumed; any further authenticated attempt requires fresh authorization.
+
+Independent read-only review found no Critical or Important issue; filename-only
+evidence and fixture-warning wording were tightened. After the evidence update,
+content validation, all 13 architecture-documentation tests, and the complete
+provider-free Debian WSL package gate passed, including all 84 focused live
+browser safety tests and the rejection-provenance self-tests. The final gate
+reported `package validation passed` with Node.js `v24.17.0`. Its optional
+PowerShell syntax step was skipped because PowerShell was unavailable in WSL.

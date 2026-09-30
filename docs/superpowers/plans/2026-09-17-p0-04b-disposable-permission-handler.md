@@ -584,6 +584,15 @@ old generic result and missing provenance self-tests; the GREEN run passed all
 provider request. The complete provider-free Debian WSL package gate then ended
 with `package validation passed`.
 
+On 2026-09-30, the exact authorized attempt on commit
+`5b540c12bfd58c6bcb48445f3aa31a3c1a3489b5` used the existing WSL Claude Code
+`2.1.284`. All four reduced measurement sample filenames were observed. The
+harness subsequently exited with status 2 without a retained failure category
+or final aggregate. The failure location and either workflow's invocation or
+outcome remain unproven. Cleanup removed `/tmp/p0-04b-browser.Cpmw3x`, the
+external wrapper was deleted, and no retry occurred. Acceptance remains pending;
+another authenticated attempt requires fresh authorization.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

@@ -222,6 +222,14 @@ tag. Tagged versions correspond to repository tags.
   provenance path without a provider request. The complete provider-free Debian
   WSL package gate passed with Node.js `v24.17.0`.
 
+- One operator-authorized attempt on commit
+  `5b540c12bfd58c6bcb48445f3aa31a3c1a3489b5` used the existing WSL Claude Code
+  `2.1.284`; all four reduced measurement sample filenames were observed. It exited
+  with status 2 without a retained failure category or final aggregate. The
+  observed evidence does not establish either workflow's invocation or outcome;
+  provider-backed acceptance remains inconclusive. The disposable root and
+  external wrapper were removed, and no retry occurred.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
