@@ -636,6 +636,21 @@ content, cleanup failure, and the valid allow path. The final focused POSIX
 suite passed all 102 tests after this correction.
 No authenticated request or retry was made for this correction.
 
+The operator authorized one exact attempt on commit
+`6eb257195122dcec0db8358448df0953ff21894a`. The launcher observed the existing
+Claude Code `2.1.284`, Node.js `v24.17.0`, configured model
+`deepseek-v4-pro[1m]`, and exact authorized endpoint. All four measurement
+sample filenames were observed. The run stopped in the allow request's
+nonzero-process branch with `CLAUDE_MODEL_ROUTE_ADVISORY`, before semantic
+reduction and independent fixture validation. The advisory is a recognized
+stderr diagnostic after process failure, not a model-name gate or proof of
+provider rejection, redirection, or failure cause. The deny invocation was
+not launched and no aggregate was produced. A separate check confirmed
+`/tmp/p0-04b-browser.Q4X26q` was absent and not a symlink; the external
+launcher was removed and its absence checked. No retry occurred and the
+authorization is consumed. Acceptance remains inconclusive; another
+authenticated attempt requires fresh commit-bound authorization.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

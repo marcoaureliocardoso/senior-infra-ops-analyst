@@ -257,6 +257,15 @@ tag. Tagged versions correspond to repository tags.
   completion and classifier output, and retain the valid allow path. No live
   request, retry, acceptance relaxation, or historical reclassification occurred.
 
+- One separately authorized attempt on commit
+  `6eb257195122dcec0db8358448df0953ff21894a` observed all four measurement
+  sample filenames, then stopped on a nonzero allow-process result with
+  `CLAUDE_MODEL_ROUTE_ADVISORY`. This post-failure diagnostic is not a
+  model-name gate or proof of provider rejection, redirection, or failure
+  cause. No deny invocation or final aggregate followed. Disposable-root and
+  launcher absence were verified, no retry occurred, and provider-backed
+  acceptance remains inconclusive.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

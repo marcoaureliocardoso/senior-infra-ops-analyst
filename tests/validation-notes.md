@@ -1843,3 +1843,62 @@ validation, and CI workflow validation, ending with `package validation passed`
 on Node.js `v24.17.0`. Its optional PowerShell syntax step was skipped because
 PowerShell was unavailable in WSL. This is local patch validation, not
 provider-backed acceptance or branch-merge approval.
+
+## P0-04B authorized allow-process interruption (2026-09-30)
+
+The operator authorized one exact attempt on commit
+`6eb257195122dcec0db8358448df0953ff21894a`, using only
+`https://api.deepseek.com/anthropic` and the runtime-configured model, with
+six top-level invocations, at most 40 model turns, 120 seconds per workflow,
+1,800 seconds total, synthetic prompts, a loopback browser target,
+deterministic allow then deny, raw deletion, and no automatic retry.
+Windows Git verified that commit and a clean worktree before launcher checks
+and again before the live run. The provider-free launcher check observed
+Claude Code `2.1.284`, Node.js `v24.17.0`, and configured model
+`deepseek-v4-pro[1m]`, and confirmed the exact endpoint without displaying
+credentials.
+
+The single run installed the disposable Nori profile. Filename-only
+observations found all four reduced measurement files: `skill.sample.json`,
+`subagent.sample.json`, `discovery.sample.json`, and `use.sample.json`.
+The launch command returned status 1 and retained this closed diagnostic:
+
+```text
+BLOCKED: allow workflow request was inconclusive (CLAUDE_MODEL_ROUTE_ADVISORY)
+```
+
+The terminal also retained the fixture-process unsettled-top-level-await
+warning. The allow request failure branch executes only when the Claude
+process returns nonzero. Its diagnostic reducer returns the advisory for a
+recognized `unrecognized_model` stderr signature after excluding a
+parent-owned timeout. This is a post-failure advisory, not a model-name
+preflight gate, evidence of provider rejection or redirect, or proof that the
+advisory caused the process failure. The retained code does not establish
+the exact child exit status, structural stream state, provider receipt, or
+any browser effect. Raw evidence was deleted and was not recovered.
+
+The allow phase stopped before semantic workflow reduction and independent
+fixture validation. The deny invocation was not launched and no final
+aggregate was produced; the authorized six-invocation sequence was
+incomplete. Provider-backed acceptance remains inconclusive. This observation
+does not reclassify earlier runs or invalidate the provider-free semantic-gate
+tests, whose new boundary was not reached by this attempt.
+
+A separate post-run check confirmed that `/tmp/p0-04b-browser.Q4X26q`
+was absent and not a symlink. The external launcher was deleted and its
+absence was checked; no credential value was written to it or retained in
+these notes. Git was clean at the authorized commit before this evidence
+update. No repeat occurred. The authorization is consumed, and another
+authenticated attempt requires fresh commit-bound authorization.
+
+Independent read-only review found no Critical, Important, or Minor issue in
+the three-document evidence diff. It explicitly declined to infer child
+status, raw stream content, provider receipt or redirect, failure cause,
+browser effect, or merge readiness. The complete provider-free Debian WSL
+package gate passed, including all 102 focused browser safety tests,
+content and architecture-documentation checks, harness self-tests, schema
+validation, and CI workflow validation. It ended with
+`package validation passed` on Node.js `v24.17.0`. The optional PowerShell
+syntax step was skipped because PowerShell was unavailable in WSL.
+These local results are not remote CI/Security evidence, provider-backed
+acceptance, or authorization to merge or rerun.
