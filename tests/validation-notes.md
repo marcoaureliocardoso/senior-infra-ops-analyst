@@ -1685,3 +1685,48 @@ provider-free Debian WSL package gate passed, including all 84 focused live
 browser safety tests and the rejection-provenance self-tests. The final gate
 reported `package validation passed` with Node.js `v24.17.0`. Its optional
 PowerShell syntax step was skipped because PowerShell was unavailable in WSL.
+
+## P0-04B provider-free unexpected-exit diagnostic (2026-09-30)
+
+Investigation found a concrete silent-exit path in `snapshot_fixture`: an
+unexpected structural fixture state raises `SystemExit(2)` from embedded
+Python. A provider-free regression ran the real snapshot function against an
+actual loopback HTTP fixture with an unexpected state. Before the change it
+exited with status 2 and empty stderr, while deleting the disposable root.
+This reproduces a diagnostic gap but does not establish that it caused the
+earlier authenticated failure; that run's raw evidence was correctly deleted.
+
+The harness now owns a closed stage vocabulary and an EXIT handler that retains
+only the numeric exit status, stage label, and cleanup result. The handler
+reports an unexpected failure only after attempting verified-prefix deletion
+and checking root absence. Unknown stage text becomes `UNKNOWN`; cleanup
+failure forces exit 2 and reports `cleanup=failed`, never successful cleanup.
+Existing explicit block reasons are preserved, and successful exits remain
+silent. No command, source line, prompt, stream, filename, exception content,
+secret, or session data is added to the diagnostic. Provider and workflow
+outcomes, authorization, no-retry behavior, time limits, and acceptance gates
+are unchanged.
+
+The real fixture-mismatch and forged-stage tests were RED because the stage
+diagnostic was missing. The cleanup-failure test was RED because the original
+trap returned status 1 without a cleanup classification. After the minimal
+change, all four initial behavioral tests passed. Independent review then
+identified a first cleanup failure that could be masked by a successful final
+cleanup. A real Bash regression reproduced exit 1 with `cleanup=verified`;
+the correction retains the earlier failure and forces exit 2 with
+`cleanup=failed`, even when the root is subsequently removed. A second RED
+regression reproduced duplicate reporting when a timeout helper blocked from
+inside command substitution. The helper now returns failure and the parent
+emits one explicit reason. Role context stages are assigned before that check.
+Preflight finalization also retains the EXIT handler. All six behavioral tests
+and the complete 90-test focused POSIX suite passed after these corrections.
+No authenticated invocation or provider request occurred.
+
+Final independent read-only review confirmed the earlier findings were resolved
+and found no new Critical or Important issue in the harness and regression-test
+diff. The complete provider-free Debian WSL package gate then passed, including
+all 90 focused browser safety tests, the diagnostic self-tests, schema
+validation, and CI workflow validation. It reported `package validation passed`
+with Node.js `v24.17.0`. The optional PowerShell syntax step was skipped because
+PowerShell was unavailable in WSL. These results validate the diagnostic patch,
+not provider-backed browser acceptance or readiness to merge.

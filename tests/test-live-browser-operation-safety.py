@@ -1456,6 +1456,132 @@ raise SystemExit(1)
             self.assertEqual(result.stdout, "CLAUDE_AUTH_FAILURE\n")
             self.assertEqual(result.stderr, "")
 
+    def _run_exit_probe(self, body: str) -> tuple[subprocess.CompletedProcess[str], bool]:
+        import tempfile
+
+        bash = shutil.which("bash")
+        if os.name != "posix" or bash is None:
+            self.skipTest("POSIX Bash is required for exit cleanup probes")
+        prefix = self.script.split('if [[ "$MODE" == "--self-test" ]]; then', 1)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tests").mkdir()
+            probe = root / "tests" / "exit-probe.sh"
+            marker = root / "work-root.txt"
+            probe.write_text(
+                prefix + '\nprintf "%s" "$WORK_REAL" >' + shlex.quote(str(marker))
+                + '\nprintf "%s" "SYNTH_SECRET_EXIT_PROBE" >"$PROMPT_DIR/raw.prompt"\n'
+                + body + "\n", encoding="utf-8",
+            )
+            result = subprocess.run(
+                [bash, str(probe), "--self-test"], cwd=root,
+                env={**os.environ, "TMPDIR": str(root)},
+                capture_output=True, text=True, check=False, timeout=10,
+            )
+            work = Path(marker.read_text(encoding="utf-8"))
+            return result, not work.exists()
+
+    def test_fixture_state_mismatch_reports_stage_after_raw_cleanup(self) -> None:
+        import http.server
+        import threading
+
+        class Fixture(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"routerEnabled":true,"revision":0}')
+
+            def log_message(self, *_args: object) -> None:
+                pass
+
+        with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Fixture) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                snapshot = self.script.split('snapshot_fixture() {', 1)[1].split(
+                    '\nrun_workflow allow ', 1,
+                )[0]
+                result, cleaned = self._run_exit_probe(
+                    'snapshot_fixture() {' + snapshot
+                    + '\nFAILURE_STAGE=FIXTURE_ALLOW\n'
+                    + f'FIXTURE_ORIGIN=http://127.0.0.1:{server.server_port}\n'
+                    + 'snapshot_fixture "$RESULT_DIR/fixture.json"',
+                )
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(
+            result.stderr,
+            "BLOCKED: unexpected harness exit (stage=FIXTURE_ALLOW, exit=2, cleanup=verified)\n",
+        )
+
+    def test_unexpected_exit_does_not_copy_command_or_unknown_stage(self) -> None:
+        result, cleaned = self._run_exit_probe(
+            "FAILURE_STAGE='SYNTH_SECRET_FORGED_STAGE'\n"
+            "bash -c 'exit 7' # SYNTH_SECRET_FAILED_COMMAND",
+        )
+        self.assertEqual(result.returncode, 7)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(
+            result.stderr,
+            "BLOCKED: unexpected harness exit (stage=UNKNOWN, exit=7, cleanup=verified)\n",
+        )
+        self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
+
+    def test_explicit_block_is_not_replaced_and_success_is_silent(self) -> None:
+        result, cleaned = self._run_exit_probe("blocked 'synthetic bounded stop'")
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stderr, "BLOCKED: synthetic bounded stop\n")
+        result, cleaned = self._run_exit_probe("true")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout + result.stderr, "")
+
+    def test_failed_cleanup_never_reports_verified_or_success(self) -> None:
+        result, cleaned = self._run_exit_probe(
+            'FAILURE_STAGE=FIXTURE_DENY\nrm() { return 1; }\ntrue',
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertFalse(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(
+            result.stderr,
+            "BLOCKED: harness cleanup failed (stage=FIXTURE_DENY, exit=2, cleanup=failed)\n",
+        )
+
+    def test_first_cleanup_failure_is_not_erased_by_final_cleanup(self) -> None:
+        result, cleaned = self._run_exit_probe(
+            'FAILURE_STAGE=CLEANUP\nrm() { unset -f rm; return 1; }\ncleanup',
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(
+            result.stderr,
+            "BLOCKED: harness cleanup failed (stage=CLEANUP, exit=2, cleanup=failed)\n",
+        )
+
+    def test_context_budget_exhaustion_emits_one_explicit_block(self) -> None:
+        context_functions = 'START_SECONDS=$SECONDS' + self.script.split(
+            'START_SECONDS=$SECONDS', 1,
+        )[1].split('run_measurement_stage() {', 1)[0]
+        result, cleaned = self._run_exit_probe(
+            context_functions + '\nTOTAL_TIMEOUT_SECONDS=0\n'
+            + 'run_context_probe main-before bounded-session new before',
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(
+            result.stderr,
+            "BLOCKED: total timeout reached during trusted measurement\n",
+        )
+
     def test_harness_self_test_exercises_content_free_failure_reducer(self) -> None:
         bash = shutil.which("bash")
         if bash is None:
@@ -1550,7 +1676,7 @@ raise SystemExit(1)
 
     def test_disposable_install_loopback_and_cleanup_are_mandatory(self) -> None:
         for marker in (
-            "mktemp -d", "trap cleanup EXIT", 'HOME="$WORK/home"',
+            "mktemp -d", 'HOME="$WORK/home"',
             'PROJECT="$WORK/project"', 'INSTALL_ROOT="$WORK/install"',
             'PROMPT_DIR="$WORK/prompts"', 'STREAM_DIR="$WORK/streams"',
             "tests/browser-fixture/server.mjs", "127.0.0.1", "LOOPBACK",

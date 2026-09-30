@@ -230,6 +230,13 @@ tag. Tagged versions correspond to repository tags.
   provider-backed acceptance remains inconclusive. The disposable root and
   external wrapper were removed, and no retry occurred.
 
+- Added an EXIT diagnostic for otherwise unclassified harness failures. It
+  reports only a closed stage, numeric process status, and verified or failed
+  cleanup, preserving explicit block reasons and silent successful exits.
+  Provider-free tests reproduce a real fixture-state mismatch that previously
+  exited with status 2 and no reason. This does not reclassify the historical
+  authenticated result, change acceptance, or authorize another attempt.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

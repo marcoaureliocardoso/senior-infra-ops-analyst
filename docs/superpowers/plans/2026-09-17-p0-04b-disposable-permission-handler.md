@@ -593,6 +593,18 @@ outcome remain unproven. Cleanup removed `/tmp/p0-04b-browser.Cpmw3x`, the
 external wrapper was deleted, and no retry occurred. Acceptance remains pending;
 another authenticated attempt requires fresh authorization.
 
+Provider-free investigation reproduced one silent exit path: the exact
+fixture-state check raises `SystemExit(2)` on a mismatch. This is a demonstrated
+harness behavior, not a retrospective explanation of the authenticated run.
+A bounded EXIT handler now reports the closed shell stage and exit status only
+after checking cleanup. It never emits the failed command or raw evidence and
+cannot turn a diagnostic into acceptance or retry authority. Six behavioral
+tests cover real loopback fixture mismatch, unknown-stage redaction,
+explicit-block/success preservation, failed-cleanup handling, first-cleanup
+failure followed by successful removal, and parent-owned timeout reporting.
+The missing-diagnostic and cleanup/timeout regressions were RED before their
+fixes. The complete focused POSIX suite passed all 90 tests.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

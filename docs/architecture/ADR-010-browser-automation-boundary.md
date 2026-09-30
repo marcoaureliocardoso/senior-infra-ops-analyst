@@ -266,6 +266,20 @@ reserved to the shell stage that observes each condition. These fingerprints are
 diagnostic only: they cannot prove provider receipt, permit a retry, or satisfy
 the live acceptance gate.
 
+Unexpected nonzero harness exits also have a shell-owned diagnostic boundary.
+An EXIT handler captures the process status, attempts the verified-prefix
+cleanup, and checks that the disposable root is absent before reporting
+`BLOCKED: unexpected harness exit` with a closed stage label, numeric exit
+status, and `cleanup=verified`. An unknown stage becomes `UNKNOWN`; failed
+cleanup forces status 2 and reports only `cleanup=failed`. It never copies
+`BASH_COMMAND`, source lines, prompts, streams, filenames, or exception values.
+Explicit `blocked` reasons remain authoritative and the EXIT handler is silent
+on success. A failed cleanup attempt remains recorded even if the final
+cleanup later removes the root. Timeout helpers return failure to their parent
+before that parent emits the explicit block reason. Stage labels describe where
+the shell stopped, not the failure cause,
+provider receipt, workflow outcome, or authorization to retry.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between
