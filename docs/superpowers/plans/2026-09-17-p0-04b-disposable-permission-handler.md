@@ -605,6 +605,20 @@ failure followed by successful removal, and parent-owned timeout reporting.
 The missing-diagnostic and cleanup/timeout regressions were RED before their
 fixes. The complete focused POSIX suite passed all 90 tests.
 
+The separately authorized run on commit
+`9b883df6f4da32a611ad61282645c9d19c13bfd0` observed Claude Code `2.1.284`,
+Node.js `v24.17.0`, the exact authorized DeepSeek endpoint, and configured
+model `deepseek-v4-pro[1m]`. All four measurement sample filenames were
+observed. The run reached the independent fixture check after the allow
+workflow, then reported `BLOCKED: unexpected harness exit` with
+`stage=FIXTURE_ALLOW`, `exit=2`, and `cleanup=verified`. No final aggregate
+was produced. The deny workflow follows this check in the harness and was
+not reached. The fixture-check interruption is not accepted mutation or
+validation evidence, and the deleted raw state cannot support a narrower explanation.
+A separate check confirmed `/tmp/p0-04b-browser.y7Bxll` was absent; the
+external launcher was deleted and no retry occurred. Acceptance remains
+inconclusive, and the authorization is consumed.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

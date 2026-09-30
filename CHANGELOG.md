@@ -237,6 +237,16 @@ tag. Tagged versions correspond to repository tags.
   exited with status 2 and no reason. This does not reclassify the historical
   authenticated result, change acceptance, or authorize another attempt.
 
+- One separately authorized attempt on commit
+  `9b883df6f4da32a611ad61282645c9d19c13bfd0` used WSL Claude Code `2.1.284`
+  with the authorized DeepSeek endpoint and runtime-configured model. All four
+  measurement sample filenames were observed. It stopped at `FIXTURE_ALLOW`
+  with a shell-reported exit 2 and `cleanup=verified`; no final aggregate was
+  produced and the deny workflow was not reached. This locates the independent
+  fixture-check failure, not a validated browser outcome. A separate check
+  confirmed root absence; the external launcher was removed and no retry
+  occurred. Provider-backed acceptance remains inconclusive.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

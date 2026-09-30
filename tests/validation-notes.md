@@ -1730,3 +1730,57 @@ validation, and CI workflow validation. It reported `package validation passed`
 with Node.js `v24.17.0`. The optional PowerShell syntax step was skipped because
 PowerShell was unavailable in WSL. These results validate the diagnostic patch,
 not provider-backed browser acceptance or readiness to merge.
+
+## P0-04B authorized fixture-check interruption (2026-09-30)
+
+The operator authorized one exact attempt on commit
+`9b883df6f4da32a611ad61282645c9d19c13bfd0`, using only
+`https://api.deepseek.com/anthropic` and the model configured at runtime.
+The scope remained six top-level provider-backed invocations, at most 40
+model turns, 120 seconds per workflow, 1,800 seconds total, synthetic prompts,
+loopback-only browser target, deterministic allow then deny, raw deletion,
+and no automatic retry. Windows Git verified the exact commit and clean
+worktree before launch. Provider-free launcher checks observed Claude Code
+`2.1.284`, Node.js `v24.17.0`, and configured model `deepseek-v4-pro[1m]`;
+they confirmed the authorized endpoint without displaying credentials.
+
+The single live run installed the disposable Nori profile. Filename-only
+observations found `skill.sample.json`, `subagent.sample.json`,
+`discovery.sample.json`, and `use.sample.json`. A later filename-only
+observation found no result JSON. The terminal retained a fixture-process
+unsettled-top-level-await warning and exactly this bounded diagnostic:
+
+```text
+BLOCKED: unexpected harness exit (stage=FIXTURE_ALLOW, exit=2, cleanup=verified)
+```
+
+The launch command returned status 1; the shell-owned diagnostic reports
+the harness failure status as 2. The stage is assigned immediately before
+`snapshot_fixture` after `run_workflow allow` returns. Its embedded Python
+explicitly exits 2 when the summary does not equal the required structural
+state. The observed stage and status are consistent with that mismatch,
+but no raw fixture state was retained, and they cannot establish which field
+differed, why the browser workflow did not establish the expected state,
+or whether a partial browser effect occurred. No final aggregate or accepted
+browser outcome was produced. The deny workflow follows the failed check
+and was not reached; the authorized six-invocation sequence was incomplete.
+Provider-backed acceptance remains inconclusive. This observation does not
+retroactively classify any earlier attempt.
+
+A separate post-run check confirmed `/tmp/p0-04b-browser.y7Bxll` was absent.
+Git remained clean at the authorized commit before this evidence update.
+The external launcher was removed, including its transient runtime credential
+loader; no credential value was written to it or retained in the evidence.
+The attempt was not repeated. The authorization is consumed; any further
+authenticated attempt requires fresh commit-bound authorization.
+
+Independent read-only review found no Critical or Important issue in this
+evidence-only diff. Its wording clarification was applied so the fixture-check
+interruption is not presented as a proven cause. Content validation and all
+13 architecture-documentation tests passed. The complete provider-free Debian
+WSL package gate also passed, including all 90 focused browser safety tests,
+the harness self-tests, schema validation, and CI workflow validation; its
+final marker was `package validation passed`. The optional PowerShell syntax
+step was skipped because PowerShell was unavailable in WSL. No authenticated
+attempt was repeated during this validation, and these local gates do not
+change the inconclusive provider-backed acceptance result.
