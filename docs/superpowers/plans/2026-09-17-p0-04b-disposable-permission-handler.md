@@ -665,6 +665,18 @@ max-turns error with an advisory. RED runs reproduced the diagnostic gap and
 missing self-test; the focused GREEN suite passed all 109 tests. No provider
 request, acceptance relaxation, deleted-evidence recovery, or retry occurred.
 
+One freshly authorized attempt on commit
+`e547b310f03376836008ce5fd6c2757d6ba16301` used the same observed WSL runtime
+and exact authorized endpoint. All four measurement sample filenames were
+observed. The allow workflow reached semantic reduction and blocked with
+`CANARY_EXPOSED; cleanup=verified`, before independent fixture validation and
+the deny invocation. No aggregate was produced. The protected-output gate
+failed; this does not establish a browser effect, provider rejection, or
+failure cause. Separate checks confirmed the disposable root was absent and
+not a symlink and the external launcher was absent. No retry occurred; the
+authorization is consumed and acceptance remains unsatisfied. Another live
+attempt requires fresh commit-bound authorization.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

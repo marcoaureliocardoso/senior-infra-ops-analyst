@@ -276,6 +276,16 @@ tag. Tagged versions correspond to repository tags.
   Provider-free regressions passed; no authenticated attempt was made and
   the deleted historical evidence cannot be reclassified.
 
+- One separately authorized attempt on commit
+  `e547b310f03376836008ce5fd6c2757d6ba16301` observed all four measurement
+  sample filenames, then the allow workflow semantic gate rejected the
+  reduced evidence with `CANARY_EXPOSED; cleanup=verified`. The deny invocation
+  and independent fixture validation were not reached; no aggregate was
+  produced. This records synthetic protected-output failure, not provider
+  rejection or a proven browser effect. Separate disposable-root and launcher
+  absence checks passed. No retry occurred; provider-backed acceptance remains
+  unsatisfied.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
