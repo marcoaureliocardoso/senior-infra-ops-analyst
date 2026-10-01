@@ -2432,3 +2432,97 @@ TODO completion is part of this attempt. The next recommended investigation
 is a credential-free isolated native `/context` characterization with synthetic
 or local-mock inputs, preserving the required numeric-evidence gate. A further
 authenticated attempt would require fresh authorization for its final commit.
+
+## P0-04B offline native-context characterization (2026-10-01)
+
+Following operator approval to investigate without configured credentials or
+provider access, an external diagnostic script exercised the unchanged PTY
+driver from `62627ab43396fe04208d079efd0fc5e4d5b9a730`. No authenticated
+acceptance harness or browser workflow was launched. The earlier one-attempt
+authorization remained consumed.
+
+Every native probe ran inside a fresh Debian WSL user/network namespace.
+The diagnostic checked that only loopback existed, that loopback was down
+through namespace-local `SIOCGIFFLAGS`, and that the IPv4 routing table had no
+routes. This prevented external connections independently of Claude's traffic
+settings. Two initial isolation-check failures stopped before launching Claude:
+the first check consulted a host-mounted sysfs view; the corrected ioctl check
+then encountered a genuinely empty routing file rather than a header-only
+file. Neither condition was bypassed; the final check accepted only an empty
+or header-only table, a sole loopback interface, and its down state.
+
+Each probe used a fresh disposable HOME/config/project populated only with
+diagnostic settings and the stated synthetic variant, an empty MCP
+configuration, an allowlisted environment, and a 20-second driver limit. The diagnostic did
+not read the operator's settings or pass any configured credential/model.
+Synthetic variants supplied a deliberately invalid test-only API-key value,
+a non-listening loopback endpoint, and a synthetic model identifier. No real
+credential was used or disclosed. This is network isolation and supplied-input
+evidence, not a comprehensive audit of every file the native runtime may read.
+The installed executable resolved to the native ELF artifact for Claude Code
+`2.1.286`; no upgrade or permanent version pin was introduced.
+
+Five native probes were performed, all offline. The following are supplied
+execution observations, not independently reproduced results:
+
+| Probe | Only changed input/action | Sanitized outcome |
+|---|---|---|
+| No authentication input | Empty configuration | `prompt_ready` failed; no context header or command echo |
+| Synthetic authentication | Invalid test-only API key/model and loopback endpoint | Native exit 1; `prompt_ready` failed |
+| Synthetic authentication, additional classification | Same inputs, more closed structural flags | Same native exit 1; startup/connectivity words observed, cause not established |
+| Synthetic onboarding state | Disposable cached onboarding state added | Workspace trust advanced; driver reported `prompt_ready`; API-key approval dialog observed; no `/context all` echo or context header; `context_header_missing` failure |
+| Synthetic key dialog advanced | Same state, one diagnostic-only selection before `/context all` | `context_inspected` passed with 16 percent; native exit 0 and normal `/exit` |
+
+The final probe interposed only on the driver's `/context all` write. It first
+required the exact API-key approval-dialog phrase in the current disposable
+capture, then sent one selection/Enter for that deliberately invalid synthetic
+key and waited briefly before forwarding the original command. This was an
+offline diagnostic action, not a production credential-approval mechanism.
+The installed driver and percentage parser were not modified.
+
+The controlled comparison establishes a local startup-dialogue defect:
+`prompt_ready()` treats any `❯` chevron as command readiness, including the
+API-key approval selector. After workspace trust, that selector can satisfy
+the readiness predicate even though the command prompt is not ready. The
+unchanged driver then attempts `/context all` at the wrong UI boundary.
+Resolving only the synthetic selector let the unchanged parser recognize
+`Context Usage`, `Free space`, and a numeric percentage and exit normally.
+This rules out universal parser incompatibility with this installed runtime;
+it does not prove the cause of the historical authenticated failure, whose raw
+stream was deleted. The 16-percent value describes only this empty synthetic
+offline session, not the project's installed skillset, actual provider/model
+capacity, or any P0-04B numeric acceptance measurement.
+
+Official documentation confirms that interactive `ANTHROPIC_API_KEY` use has
+a one-time approval prompt and that `/context [all]` is a built-in command:
+
+- https://code.claude.com/docs/en/env-vars
+- https://code.claude.com/docs/en/commands
+
+The next proposed change is startup-state recognition with a synthetic
+regression test: distinguish API-key/onboarding selectors from a genuine
+command prompt and stop with an explicit closed reason when credential
+approval is required. Any future automatic handling of a real credential
+dialog needs its own exact scope and authorization; this characterization
+does not authorize it. Do not relax the numeric-evidence gate or treat the
+offline result as authenticated acceptance. No provider retry, runtime/parser
+fix, production setting change, version bump, push, PR or merge occurred.
+
+The diagnostic's `TemporaryDirectory` removed each owned disposable root,
+including raw PTY captures and native session artifacts, before JSON emission.
+All five native runs reported `disposableRootAbsent=true`. This is reported
+runtime cleanup and reviewed source ordering, not an independent cleanup audit.
+Only counts, stage names, booleans and the final synthetic percentage were
+returned; no raw display or configured credential value was emitted.
+The external diagnostic script was then removed; its separate `Test-Path`
+check returned false. No operator file was removed.
+
+Follow-up content validation, 13 architecture-documentation tests and 19
+synthetic PTY-driver tests passed. Independent read-only evidence/source review
+found no Critical or Important findings; its two Minor provenance/initial-state
+wording issues were clarified. It did not independently rerun the probes or
+audit cleanup/namespace invocation, complete runtime file access, credential
+exposure, exact current-screen rendering, historical failure cause, provider
+behavior or actual capacity. Those claims remain unestablished. Startup repair
+is only proposed, and browser/authenticated acceptance, full-package/CI/Security
+gates and merge readiness were not evaluated by this characterization review.

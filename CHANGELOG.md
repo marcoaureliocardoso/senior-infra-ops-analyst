@@ -331,6 +331,14 @@ tag. Tagged versions correspond to repository tags.
   consumed without a retry; acceptance remains inconclusive and the underlying
   display/dialogue/parser cause is not established.
 
+- Characterized native `/context all` offline in a disposable network namespace.
+  A synthetic API-key approval selector reproduced false command readiness;
+  advancing only that synthetic selector let the unchanged parser read native
+  context and exit normally on observed Claude Code `2.1.286`. This identifies
+  a local startup-dialogue defect, not the historical authenticated failure's
+  proven cause or P0-04B acceptance. No production approval bypass, parser
+  relaxation, credential reuse or authenticated retry was introduced.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
