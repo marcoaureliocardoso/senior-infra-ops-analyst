@@ -266,6 +266,16 @@ tag. Tagged versions correspond to repository tags.
   launcher absence were verified, no retry occurred, and provider-backed
   acceptance remains inconclusive.
 
+- Added a closed failure observation to preserve the observed supervisor exit status,
+  structural stream state, recognized terminal subtype, and separate
+  model-route advisory. An advisory no longer masks another recognized
+  stderr category or replaces the process fingerprint in live diagnostics.
+  Unknown or conflicting terminal content is reduced without copying it;
+  shell validation binds status and timeout provenance before reporting.
+  Raw cleanup, authorization, turn/time limits, and acceptance are unchanged.
+  Provider-free regressions passed; no authenticated attempt was made and
+  the deleted historical evidence cannot be reclassified.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

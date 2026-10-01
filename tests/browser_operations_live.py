@@ -206,8 +206,11 @@ def _read_regular_lines_nofollow(path: Path, maximum_bytes: int) -> list[str]:
         os.close(descriptor)
 
 
-def _claude_stream_state(stream_path: Path) -> str:
+def _claude_stream_observation(stream_path: Path, *, strict: bool = False) -> tuple[str, str]:
     """Reduce one bounded stream to a closed structural state."""
+    def reject_constant(_raw: str) -> None:
+        raise ValueError("non-JSON constant")
+
     def bounded_integer(raw: str) -> int:
         if len(raw.lstrip("-")) > 128:
             raise ValueError("JSON integer exceeds structural bound")
@@ -232,20 +235,36 @@ def _claude_stream_state(stream_path: Path) -> str:
     )
     stream_state = "EMPTY"
     observed_states: set[str] = set()
+    terminal = "NONE"
+    result_count = 0
+    last_type = ""
+    subtypes = {
+        "success": "SUCCESS", "error_max_turns": "MAX_TURNS",
+        "error_max_budget_usd": "MAX_BUDGET", "error_during_execution": "EXECUTION",
+        "error_max_structured_output_retries": "STRUCTURED_RETRIES",
+    }
     for line in stream_lines:
         try:
-            event = json.loads(line, parse_int=bounded_integer)
+            event = json.loads(line, parse_int=bounded_integer,
+                               object_pairs_hook=_unique_json_object if strict else None,
+                               parse_constant=reject_constant if strict else None)
         except (json.JSONDecodeError, RecursionError, TypeError, ValueError):
-            return "INVALID"
+            return "INVALID", "INVALID"
         if (exceeds_structure_bound(event) or not isinstance(event, dict)
                 or not isinstance(event.get("type"), str)):
-            return "INVALID"
+            return "INVALID", "INVALID"
         event_type = event["type"]
+        last_type = event_type
         if event_type == "result":
             is_error = event.get("is_error", False)
             if type(is_error) is not bool:
-                return "INVALID"
+                return "INVALID", "INVALID"
             observed_states.add("RESULT_ERROR" if is_error else "RESULT")
+            result_count += 1
+            subtype = event.get("subtype")
+            terminal = subtypes.get(subtype, "UNKNOWN") if isinstance(subtype, str) else "UNKNOWN"
+            if terminal in {"MAX_TURNS", "MAX_BUDGET", "EXECUTION", "STRUCTURED_RETRIES"} and not is_error:
+                terminal = "INVALID"
         elif event_type == "assistant":
             observed_states.add("ASSISTANT")
         elif event_type == "system":
@@ -256,12 +275,18 @@ def _claude_stream_state(stream_path: Path) -> str:
         if candidate in observed_states:
             stream_state = candidate
             break
-    return stream_state
+    if result_count > 1 or (result_count == 1 and last_type != "result"):
+        terminal = "INVALID"
+    return stream_state, terminal
+
+
+def _claude_stream_state(stream_path: Path) -> str:
+    return _claude_stream_observation(stream_path)[0]
 
 
 def claude_failure_reason(
     exit_status: int, timed_out: bool, transcript_path: Path,
-    stream_path: Path | None = None,
+    stream_path: Path | None = None, *, detailed: bool = False,
 ) -> str:
     """Reduce transient Claude stderr to one advisory content-free code."""
     rejected = "CLAUDE_EVIDENCE_REJECTED_INPUT"
@@ -275,7 +300,14 @@ def claude_failure_reason(
         )
     except (OSError, UnicodeError, ValueError):
         return rejected
-    if timed_out:
+    if detailed:
+        if stream_path is None:
+            return rejected
+        try:
+            stream_state, terminal = _claude_stream_observation(stream_path, strict=True)
+        except (OSError, UnicodeError, ValueError):
+            return rejected
+    if timed_out and not detailed:
         if stream_path is None:
             return "CLAUDE_TIMEOUT"
         try:
@@ -319,6 +351,20 @@ def claude_failure_reason(
         for reason, patterns in signatures:
             if any(re.fullmatch(pattern, normalized) for pattern in patterns):
                 observed.add(reason)
+    if detailed:
+        advisory = "PRESENT" if "CLAUDE_MODEL_ROUTE_ADVISORY" in observed else "ABSENT"
+        observed.discard("CLAUDE_MODEL_ROUTE_ADVISORY")
+        categories = {
+            "CLAUDE_AUTH_FAILURE": "AUTH", "CLAUDE_RATE_LIMIT": "RATE_LIMIT",
+            "CLAUDE_PROVIDER_MODEL_FAILURE": "PROVIDER_MODEL",
+            "CLAUDE_TRANSPORT_FAILURE": "TRANSPORT", "CLAUDE_CONTRACT_FAILURE": "CONTRACT",
+            "CLAUDE_RUNTIME_FAILURE": "RUNTIME",
+        }
+        category = categories[next(iter(observed))] if len(observed) == 1 else "PROCESS"
+        if timed_out:
+            category = "TIMEOUT"
+        return (f"CLAUDE_FAILURE_EXIT_{exit_status}_STREAM_{stream_state}"
+                f"_TERMINAL_{terminal}_MODEL_ADVISORY_{advisory}_REASON_{category}")
     if len(observed) == 1:
         return next(iter(observed))
     if stream_path is None:
@@ -2304,7 +2350,7 @@ def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[0] == "--pty-failure-reason":
         print(pty_failure_reason(Path(argv[1])))
         return 0
-    if len(argv) in {4, 5} and argv[0] == "--claude-failure-reason":
+    if len(argv) in {4, 5} and argv[0] in {"--claude-failure-reason", "--claude-failure-observation"}:
         try:
             status = int(argv[1], 10)
         except ValueError:
@@ -2313,6 +2359,7 @@ def main(argv: list[str]) -> int:
         stream_path = Path(argv[4]) if len(argv) == 5 else None
         print(claude_failure_reason(
             status, timed_out, Path(argv[3]), stream_path,
+            detailed=argv[0] == "--claude-failure-observation",
         ))
         return 0
     if len(argv) == 4 and argv[0] == "--probe-local-model-dispatch":

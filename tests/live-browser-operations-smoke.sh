@@ -156,29 +156,25 @@ run_claude_with_timeout() {
 }
 
 claude_failure_code() {
-  local status="$1" timed_out="$2" transcript="$3" stream="$4" reason
+  local status="$1" timed_out="$2" transcript="$3" stream="$4" reason failure_pattern
   if ! reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
-      --claude-failure-reason "$status" "$timed_out" "$transcript" "$stream" \
+      --claude-failure-observation "$status" "$timed_out" "$transcript" "$stream" \
       2>/dev/null)"; then
     printf 'CLAUDE_EVIDENCE_REJECTED_PARSER\n'
     return 0
   fi
   case "$reason" in
-    CLAUDE_TIMEOUT|CLAUDE_AUTH_FAILURE|CLAUDE_RATE_LIMIT|CLAUDE_PROVIDER_MODEL_FAILURE|\
-CLAUDE_MODEL_ROUTE_ADVISORY|\
-CLAUDE_TRANSPORT_FAILURE|CLAUDE_CONTRACT_FAILURE|CLAUDE_RUNTIME_FAILURE|\
-    CLAUDE_PROCESS_FAILED|CLAUDE_EVIDENCE_REJECTED_INPUT)
-      printf '%s\n' "$reason"
-      ;;
-    CLAUDE_TIMEOUT_STREAM_EMPTY|CLAUDE_TIMEOUT_STREAM_SYSTEM|\
-CLAUDE_TIMEOUT_STREAM_ASSISTANT|CLAUDE_TIMEOUT_STREAM_RESULT|\
-CLAUDE_TIMEOUT_STREAM_RESULT_ERROR|CLAUDE_TIMEOUT_STREAM_INVALID|\
-CLAUDE_TIMEOUT_STREAM_OTHER)
+    CLAUDE_EVIDENCE_REJECTED_INPUT)
       printf '%s\n' "$reason"
       ;;
     *)
-      if [[ "$reason" =~ ^CLAUDE_PROCESS_FAILED_EXIT_([1-9][0-9]{0,2})_STREAM_(EMPTY|SYSTEM|ASSISTANT|RESULT|RESULT_ERROR|INVALID|OTHER)$ ]] \
-          && (( 10#${BASH_REMATCH[1]} <= 255 )); then
+      failure_pattern='^CLAUDE_FAILURE_EXIT_([1-9][0-9]{0,2})_STREAM_(EMPTY|SYSTEM|ASSISTANT|RESULT|RESULT_ERROR|INVALID|OTHER)'
+      failure_pattern+='_TERMINAL_(NONE|SUCCESS|MAX_TURNS|MAX_BUDGET|EXECUTION|STRUCTURED_RETRIES|UNKNOWN|INVALID)'
+      failure_pattern+='_MODEL_ADVISORY_(PRESENT|ABSENT)_REASON_(AUTH|RATE_LIMIT|PROVIDER_MODEL|TRANSPORT|CONTRACT|RUNTIME|PROCESS|TIMEOUT)$'
+      if [[ "$reason" =~ $failure_pattern ]] && (( 10#${BASH_REMATCH[1]} <= 255 )) \
+          && [[ "${BASH_REMATCH[1]}" == "$status" ]] \
+          && { [[ "$timed_out" == 1 && "$status" == 124 && "$reason" == *_REASON_TIMEOUT ]] \
+            || [[ "$timed_out" == 0 && "$reason" != *_REASON_TIMEOUT ]]; }; then
         printf '%s\n' "$reason"
       else
         printf 'CLAUDE_EVIDENCE_REJECTED_ALLOWLIST\n'
@@ -218,7 +214,7 @@ self_test() {
     >"$diagnostic_transcript"
   diagnostic_reason="$(cleanup_claude_failure 1 0 "$diagnostic_prompt" \
     "$diagnostic_stream" "$diagnostic_transcript")"
-  [[ "$diagnostic_reason" == 'CLAUDE_AUTH_FAILURE' ]] || \
+  [[ "$diagnostic_reason" == 'CLAUDE_FAILURE_EXIT_1_STREAM_INVALID_TERMINAL_INVALID_MODEL_ADVISORY_ABSENT_REASON_AUTH' ]] || \
     blocked 'content-free Claude failure reducer self-test failed'
   printf 'live browser operations diagnostic self-test passed\n'
   [[ ! -e "$diagnostic_prompt" && ! -L "$diagnostic_prompt" \
@@ -233,7 +229,7 @@ self_test() {
     >"$diagnostic_transcript"
   diagnostic_reason="$(cleanup_claude_failure 1 0 "$diagnostic_prompt" \
     "$diagnostic_stream" "$diagnostic_transcript")"
-  [[ "$diagnostic_reason" == 'CLAUDE_PROCESS_FAILED_EXIT_1_STREAM_RESULT_ERROR' ]] || \
+  [[ "$diagnostic_reason" == 'CLAUDE_FAILURE_EXIT_1_STREAM_RESULT_ERROR_TERMINAL_UNKNOWN_MODEL_ADVISORY_ABSENT_REASON_PROCESS' ]] || \
     blocked 'structural Claude failure fingerprint self-test failed'
   [[ ! -e "$diagnostic_prompt" && ! -L "$diagnostic_prompt" \
     && ! -e "$diagnostic_stream" && ! -L "$diagnostic_stream" \
@@ -241,13 +237,27 @@ self_test() {
     blocked 'structural Claude failure fingerprint cleanup self-test failed'
   printf 'live browser operations structural failure fingerprint self-test passed\n'
   printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
+  printf '%s\n' '{"type":"result","subtype":"error_max_turns","is_error":true,"result":"SYNTH_SECRET_STREAM_MUST_NOT_ESCAPE"}' \
+    >"$diagnostic_stream"
+  printf '%s\n' '[claude-code:unrecognized_model] {"model":"synthetic-model","query_source":"sdk"}' \
+    'SYNTH_SECRET_MUST_NOT_ESCAPE' >"$diagnostic_transcript"
+  diagnostic_reason="$(cleanup_claude_failure 2 0 "$diagnostic_prompt" \
+    "$diagnostic_stream" "$diagnostic_transcript")"
+  [[ "$diagnostic_reason" == 'CLAUDE_FAILURE_EXIT_2_STREAM_RESULT_ERROR_TERMINAL_MAX_TURNS_MODEL_ADVISORY_PRESENT_REASON_PROCESS' ]] || \
+    blocked 'Claude advisory observation self-test failed'
+  [[ ! -e "$diagnostic_prompt" && ! -L "$diagnostic_prompt" \
+    && ! -e "$diagnostic_stream" && ! -L "$diagnostic_stream" \
+    && ! -e "$diagnostic_transcript" && ! -L "$diagnostic_transcript" ]] || \
+    blocked 'Claude advisory observation cleanup self-test failed'
+  printf 'live browser operations advisory observation self-test passed\n'
+  printf '%s\n' 'SYNTH_SECRET_PROMPT_MUST_NOT_ESCAPE' >"$diagnostic_prompt"
   printf '%s\n' '{"type":"assistant","message":"SYNTH_SECRET_TIMEOUT_STREAM_MUST_NOT_ESCAPE"}' \
     >"$diagnostic_stream"
   printf '%s\n' 'SYNTH_SECRET_TIMEOUT_TRANSCRIPT_MUST_NOT_ESCAPE' \
     >"$diagnostic_transcript"
   diagnostic_reason="$(cleanup_claude_failure 124 1 "$diagnostic_prompt" \
     "$diagnostic_stream" "$diagnostic_transcript")"
-  [[ "$diagnostic_reason" == 'CLAUDE_TIMEOUT_STREAM_ASSISTANT' ]] || \
+  [[ "$diagnostic_reason" == 'CLAUDE_FAILURE_EXIT_124_STREAM_ASSISTANT_TERMINAL_NONE_MODEL_ADVISORY_ABSENT_REASON_TIMEOUT' ]] || \
     blocked 'structural Claude timeout fingerprint self-test failed'
   [[ ! -e "$diagnostic_prompt" && ! -L "$diagnostic_prompt" \
     && ! -e "$diagnostic_stream" && ! -L "$diagnostic_stream" \

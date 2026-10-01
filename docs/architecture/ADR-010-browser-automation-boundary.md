@@ -266,6 +266,26 @@ reserved to the shell stage that observes each condition. These fingerprints are
 diagnostic only: they cannot prove provider receipt, permit a retry, or satisfy
 the live acceptance gate.
 
+The live diagnostic now uses `--claude-failure-observation` instead of the
+legacy single-category reducer, whose interface remains compatible. One
+closed fingerprint preserves the observed nonzero supervisor exit status,
+structural stream state, recognized terminal subtype, model-route advisory
+presence, and stderr category. The advisory is excluded from the error-category
+selection; ambiguity remains `PROCESS`. A parent-owned timeout overrides the
+category without discarding other structural fields. Missing or unsafe evidence
+is rejected. Reads retain the 64 KiB bound, regular-file/no-follow checks,
+nonblocking open, and change detection. Detailed JSON parsing rejects duplicate
+keys and non-JSON constants; multiple or nonterminal result records produce an invalid terminal label.
+Unknown subtypes never cross the boundary as input text. A `SUCCESS` subtype
+with `RESULT_ERROR` remains explicitly distinguishable from successful work.
+The shell accepts only closed enum fields, the matching numeric supervisor status,
+and coherent parent-timeout provenance. It deletes raw data before blocking.
+Neither the fingerprint nor a terminal label proves provider receipt,
+failure cause, native permission, browser effect, or acceptance, and neither
+authorizes a retry. Existing signal encoding and reserved timeout-status
+mapping are unchanged, so this is not a claim to preserve an unmodified raw
+child status. No provider-backed run occurred for this correction.
+
 Unexpected nonzero harness exits also have a shell-owned diagnostic boundary.
 An EXIT handler captures the process status, attempts the verified-prefix
 cleanup, and checks that the disposable root is absent before reporting

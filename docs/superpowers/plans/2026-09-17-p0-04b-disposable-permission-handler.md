@@ -651,6 +651,20 @@ launcher was removed and its absence checked. No retry occurred and the
 authorization is consumed. Acceptance remains inconclusive; another
 authenticated attempt requires fresh commit-bound authorization.
 
+The operator approved a bounded provider-free diagnostic correction after
+seven synthetic cases showed that advisory presence collapsed exit statuses
+1, 2, and 7 and different stream states into the same category. The new live
+failure observation preserves numeric status, structural stream state,
+recognized terminal subtype, separate advisory presence, and error category.
+The shell requires exact status/timeout correlation, while legacy direct
+reducer callers retain their existing interface. Seven new regression methods
+cover advisory masking, known/unknown terminal states, duplicate and
+nonterminal results, parent timeout, unsafe files, real shell cleanup, and
+forged classifier output. The harness self-test also verifies a synthetic
+max-turns error with an advisory. RED runs reproduced the diagnostic gap and
+missing self-test; the focused GREEN suite passed all 109 tests. No provider
+request, acceptance relaxation, deleted-evidence recovery, or retry occurred.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

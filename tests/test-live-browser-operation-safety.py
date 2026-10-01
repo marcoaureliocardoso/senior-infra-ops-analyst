@@ -378,6 +378,161 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
                 )
                 self.assertEqual(reader.call_count, 1)
 
+    def _failure_observation(self, status: int, timed_out: bool,
+                             transcript: str, stream: str) -> subprocess.CompletedProcess[str]:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stderr_path = root / "synthetic.transcript"
+            stream_path = root / "synthetic.stream"
+            stderr_path.write_text(transcript, encoding="utf-8")
+            stream_path.write_text(stream, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(PARSER), "--claude-failure-observation",
+                 str(status), str(int(timed_out)), str(stderr_path), str(stream_path)],
+                capture_output=True, text=True, check=False, timeout=5,
+            )
+
+    def test_failure_observation_preserves_status_and_does_not_promote_advisory(self) -> None:
+        advisory = '[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}'
+        cases = (
+            (1, "", "EMPTY", "NONE"),
+            (2, '{"type":"result","subtype":"error_max_turns","is_error":true}\n', "RESULT_ERROR", "MAX_TURNS"),
+            (7, '{"type":"assistant"}\n', "ASSISTANT", "NONE"),
+        )
+        for status, stream, state, terminal in cases:
+            with self.subTest(status=status):
+                result = self._failure_observation(status, False, advisory, stream)
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(result.stdout,
+                    f"CLAUDE_FAILURE_EXIT_{status}_STREAM_{state}_TERMINAL_{terminal}"
+                    "_MODEL_ADVISORY_PRESENT_REASON_PROCESS\n")
+        result = self._failure_observation(1, False,
+            advisory + "\nerror: unknown option --synthetic",
+            '{"type":"system"}\n')
+        self.assertEqual(result.stdout,
+            "CLAUDE_FAILURE_EXIT_1_STREAM_SYSTEM_TERMINAL_NONE_MODEL_ADVISORY_PRESENT_REASON_CONTRACT\n")
+
+    def test_failure_observation_terminal_subtypes_are_closed_and_coherent(self) -> None:
+        cases = (
+            ("success", False, "RESULT", "SUCCESS"),
+            ("error_max_turns", True, "RESULT_ERROR", "MAX_TURNS"),
+            ("error_max_budget_usd", True, "RESULT_ERROR", "MAX_BUDGET"),
+            ("error_during_execution", True, "RESULT_ERROR", "EXECUTION"),
+            ("error_max_structured_output_retries", True, "RESULT_ERROR", "STRUCTURED_RETRIES"),
+            ("SYNTH_SECRET_UNKNOWN", True, "RESULT_ERROR", "UNKNOWN"),
+            (["SYNTH_SECRET_UNKNOWN"], True, "RESULT_ERROR", "UNKNOWN"),
+            ("success", True, "RESULT_ERROR", "SUCCESS"),
+            ("error_max_turns", False, "RESULT", "INVALID"),
+        )
+        for subtype, error, state, terminal in cases:
+            with self.subTest(terminal=terminal, state=state):
+                stream = json.dumps({"type": "result", "subtype": subtype,
+                                     "is_error": error, "result": "SYNTH_SECRET_PAYLOAD"}) + "\n"
+                result = self._failure_observation(1, False, "unclassified", stream)
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(result.stdout,
+                    f"CLAUDE_FAILURE_EXIT_1_STREAM_{state}_TERMINAL_{terminal}"
+                    "_MODEL_ADVISORY_ABSENT_REASON_PROCESS\n")
+                self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
+
+    def test_failure_observation_rejects_malformed_or_nonterminal_proof(self) -> None:
+        cases = (
+            ('{"type":"result","subtype":"error_max_turns","is_error":true,"extra":NaN}\n', "INVALID", "INVALID"),
+            ('{"type":"result","subtype":"error_max_turns","is_error":true,"extra":Infinity}\n', "INVALID", "INVALID"),
+            ('{"type":"result","subtype":"error_max_turns","is_error":true,"extra":-Infinity}\n', "INVALID", "INVALID"),
+            ('{"type":"result","type":"assistant","is_error":true}\n', "INVALID", "INVALID"),
+            ('{"type":"result","subtype":"error_max_turns","is_error":true}\n'
+             '{"type":"result","subtype":"error_max_turns","is_error":true}\n', "RESULT_ERROR", "INVALID"),
+            ('{"type":"result","subtype":"success","is_error":false}\n'
+             '{"type":"assistant"}\n', "RESULT", "INVALID"),
+            ('{"type":"result","is_error":true}\n', "RESULT_ERROR", "UNKNOWN"),
+            ("not-json SYNTH_SECRET_UNKNOWN\n", "INVALID", "INVALID"),
+        )
+        for stream, state, terminal in cases:
+            with self.subTest(state=state, terminal=terminal):
+                result = self._failure_observation(1, False, "unclassified", stream)
+                self.assertEqual(result.stdout,
+                    f"CLAUDE_FAILURE_EXIT_1_STREAM_{state}_TERMINAL_{terminal}"
+                    "_MODEL_ADVISORY_ABSENT_REASON_PROCESS\n")
+                self.assertNotIn("SYNTH_SECRET", result.stdout + result.stderr)
+
+    def test_failure_observation_preserves_parent_timeout_and_rejects_unsafe_input(self) -> None:
+        advisory = '[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}'
+        result = self._failure_observation(124, True, advisory, '{"type":"assistant"}\n')
+        self.assertEqual(result.stdout,
+            "CLAUDE_FAILURE_EXIT_124_STREAM_ASSISTANT_TERMINAL_NONE_MODEL_ADVISORY_PRESENT_REASON_TIMEOUT\n")
+        for status, timed_out, stream in ((0, False, ""), (256, False, ""),
+                                        (1, True, ""), (1, False, "x" * (64 * 1024 + 1))):
+            result = self._failure_observation(status, timed_out, advisory, stream)
+            self.assertEqual(result.stdout, "CLAUDE_EVIDENCE_REJECTED_INPUT\n")
+
+    def test_failure_observation_harness_reports_closed_details_after_raw_cleanup(self) -> None:
+        advisory = '[claude-code:unrecognized_model] {"model":"deepseek-v4-pro[1m]","query_source":"sdk"}'
+        result, cleaned = self._run_exit_probe(
+            'ROOT=' + shlex.quote(str(ROOT)) + '\n'
+            + 'printf "%s\\n" ' + shlex.quote(advisory) + ' >"$STREAM_DIR/raw.transcript"\n'
+            + 'printf "%s\\n" ' + shlex.quote('{"type":"result","subtype":"error_max_turns","is_error":true}')
+            + ' >"$STREAM_DIR/raw.stream"\n'
+            + 'reason="$(cleanup_claude_failure 2 0 "$PROMPT_DIR/raw.prompt" "$STREAM_DIR/raw.stream" "$STREAM_DIR/raw.transcript")"\n'
+            + 'test ! -e "$PROMPT_DIR/raw.prompt" && test ! -e "$STREAM_DIR/raw.stream" && test ! -e "$STREAM_DIR/raw.transcript"\n'
+            + 'blocked "$reason"',
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr,
+            "BLOCKED: CLAUDE_FAILURE_EXIT_2_STREAM_RESULT_ERROR_TERMINAL_MAX_TURNS_MODEL_ADVISORY_PRESENT_REASON_PROCESS\n")
+
+    def test_failure_observation_harness_rejects_forged_details(self) -> None:
+        for forged in (
+            "CLAUDE_MODEL_ROUTE_ADVISORY",
+            "CLAUDE_FAILURE_EXIT_7_STREAM_RESULT_TERMINAL_SUCCESS_MODEL_ADVISORY_ABSENT_REASON_PROCESS",
+            "CLAUDE_FAILURE_EXIT_1_STREAM_SYSTEM_TERMINAL_NONE_MODEL_ADVISORY_ABSENT_REASON_TIMEOUT",
+            "CLAUDE_FAILURE_EXIT_1_STREAM_SYSTEM_TERMINAL_SYNTH_SECRET_MODEL_ADVISORY_ABSENT_REASON_PROCESS",
+        ):
+            result, cleaned = self._run_exit_probe(
+                'python3() { printf "%s\\n" ' + shlex.quote(forged) + '; }\n'
+                + 'reason="$(claude_failure_code 1 0 /unused /unused)"\nblocked "$reason"',
+            )
+            self.assertTrue(cleaned)
+            self.assertEqual(result.stderr, "BLOCKED: CLAUDE_EVIDENCE_REJECTED_ALLOWLIST\n")
+
+    def test_failure_observation_rejects_missing_linked_and_nonregular_evidence(self) -> None:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            transcript = root / "transcript"
+            stream = root / "stream"
+            transcript.write_text("unclassified", encoding="utf-8")
+            stream.write_text('{"type":"system"}\n', encoding="utf-8")
+            cases = [(transcript, root / "missing"), (root, stream)]
+            link = root / "linked"
+            try:
+                link.symlink_to(stream)
+                cases.append((transcript, link))
+            except (OSError, NotImplementedError):
+                pass
+            if os.name == "posix":
+                fifo = root / "fifo"
+                os.mkfifo(fifo, 0o600)
+                cases.append((transcript, fifo))
+            for stderr_path, stream_path in cases:
+                result = subprocess.run(
+                    [sys.executable, str(PARSER), "--claude-failure-observation",
+                     "1", "0", str(stderr_path), str(stream_path)],
+                    capture_output=True, text=True, check=False, timeout=2,
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "CLAUDE_EVIDENCE_REJECTED_INPUT\n")
+                self.assertEqual(result.stderr, "")
+
     def test_claude_failure_reason_reduces_allowlisted_categories(self) -> None:
         import sys
         import tempfile
@@ -1601,6 +1756,10 @@ raise SystemExit(1)
         )
         self.assertIn(
             "live browser operations structural failure fingerprint self-test passed\n",
+            result.stdout,
+        )
+        self.assertIn(
+            "live browser operations advisory observation self-test passed\n",
             result.stdout,
         )
         self.assertIn(

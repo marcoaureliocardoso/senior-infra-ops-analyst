@@ -1902,3 +1902,83 @@ validation, and CI workflow validation. It ended with
 syntax step was skipped because PowerShell was unavailable in WSL.
 These local results are not remote CI/Security evidence, provider-backed
 acceptance, or authorization to merge or rerun.
+
+## P0-04B provider-free failure observation (2026-09-30)
+
+At commit `c8cc71eac53afeb68fee35fa9f68179258611e5e`, seven disposable
+synthetic cases exercised the real diagnostic reducer. Advisory presence
+collapsed exit statuses 1, 2, and 7 with empty, error-result, and assistant
+streams into `CLAUDE_MODEL_ROUTE_ADVISORY`. A known error plus the advisory
+instead became a generic process fingerprint because the categories competed.
+The parent-owned timeout remained authoritative. The temporary probe and
+synthetic data were removed, Git remained clean, and no Claude/provider
+invocation or credential read occurred. This explains diagnostic loss only;
+it does not establish the cause of the deleted authenticated failure.
+
+After approval, TDD added the closed `--claude-failure-observation` path.
+The initial six-method RED run had 20 assertion failures, including the real
+shell reporting only the advisory instead of the expected failure details.
+Additional RED regressions caught acceptance of the insufficient legacy
+advisory and loss of `success` subtype when `is_error` was true. The separate
+harness self-test regression was RED for its missing observation marker.
+The correction preserves the observed nonzero supervisor status, structural stream state,
+recognized terminal subtype, advisory presence, and diagnostic error category.
+Retained diagnostic fields never copy error text, result payload, command,
+credentials, model name, session, or tool content.
+
+The detailed reader uses the existing 64 KiB regular-file, nonblocking
+no-follow, identity/metadata-stability boundary. It rejects duplicate JSON
+keys and non-JSON constants, and labels unknown, multiple, inconsistent, or nonterminal results
+without copying their values. A `SUCCESS` subtype with `RESULT_ERROR` is
+retained as that combination, never treated as accepted work. The advisory
+is separate from actual error-category selection; parent timeout remains
+authoritative. The shell verifies closed fields plus exact numeric status
+and timeout correlation, then deletes raw prompt, stream, and transcript
+before returning the diagnostic. Existing whole-root cleanup and workflow
+acceptance remain independent. Legacy reducer callers retain compatibility;
+the live harness no longer accepts insufficient legacy category output.
+
+All seven new regression methods and the complete 109-test focused POSIX
+suite passed. Cases cover unsafe/missing/linked/FIFO input, oversized data,
+duplicate keys, terminal order, unknown/non-text subtype, warning plus known
+error, parent timeout, real shell cleanup, and forged classifier output.
+No authenticated invocation, retry, permission weakening, budget increase,
+or historical reclassification occurred. The correction cannot establish
+the earlier child status, provider receipt or redirect, failure cause,
+browser outcome, or provider-backed acceptance.
+
+Official runtime reference:
+`https://code.claude.com/docs/en/agent-sdk/agent-loop` describes error terminal
+subtypes and nonzero process termination. The official SDK error definition
+`https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_errors.py`
+also describes a `success` subtype with an API-error terminal. These references
+inform diagnostic labels only, not a pinned runtime or acceptance proof.
+
+Independent review found a strict-JSON diagnostic gap: the detailed parser
+still accepted `NaN`, `Infinity`, and `-Infinity`. Three RED subcases
+reproduced `RESULT_ERROR/MAX_TURNS` instead of `INVALID/INVALID`. The
+correction rejects these constants only in detailed parsing, retaining the
+legacy parsing behavior. Review also clarified that the numeric field is
+the observed supervisor status: existing child-124-to-125 mapping and
+signal encoding remain unchanged. Neither observation changes historical
+evidence or grants execution/retry authority.
+
+The attempted native Windows command
+`python tests/test-live-browser-operation-safety.py -k failure_observation`
+failed before exercising the reducer because module import raises
+`AttributeError` for unavailable `signal.SIGHUP`. The run reported 20
+assertion failures and two POSIX-shell skips. The same unconditional POSIX
+signal tuple exists at the base commit. This pre-existing platform limitation
+was not changed or hidden with new skips. Native Windows diagnostic validation
+remains pending; the POSIX/WSL gate is the supported validation route here.
+
+After the review fix, all seven new regression methods passed. The complete
+provider-free Debian WSL package gate then passed with Node.js `v24.17.0`,
+including all 109 focused browser safety tests, the new advisory observation
+self-test, content and architecture checks, schema validation, and CI
+workflow validation. Its final marker was `package validation passed` and
+process status was 0. The optional PowerShell syntax step was skipped because
+PowerShell was unavailable in WSL. The read-only review's one Important issue
+was verified RED-to-GREEN; its wording clarification was applied. This is not
+native Windows validation, remote CI/Security evidence, authenticated browser
+acceptance, or merge approval. No provider-backed invocation or retry occurred.
