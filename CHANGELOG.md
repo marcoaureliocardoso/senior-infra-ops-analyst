@@ -315,6 +315,14 @@ tag. Tagged versions correspond to repository tags.
   authorization-stop, and PTY-reducer boundaries. This changes neither live
   limits nor acceptance and does not recover deleted historical diagnostics.
 
+- Integrated that reducer into a test-only POSIX disposable launcher with
+  bounded concurrent stdout/stderr framing, monotonic timeout and signal
+  supervision, process-group termination, and independently checked owned-root
+  cleanup. Final aggregates use the existing strict parser and a closed output
+  projection. Its public CLI supports credential-free preflight only; live
+  flags cannot authorize a run, and no authenticated retry or production
+  setting change is introduced.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

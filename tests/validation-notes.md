@@ -2247,3 +2247,95 @@ The optional PowerShell syntax check was skipped because PowerShell was
 unavailable in WSL. These are local results, not full native Windows
 validation, remote CI/Security, provider-backed acceptance, or merge readiness.
 No push, PR, merge, or definitive TODO completion was performed.
+
+## P0-04B disposable launcher integration (2026-10-01)
+
+The operator approved integration of the versioned diagnostic reducer into a
+bounded disposable launcher, followed only by synthetic tests and a
+credential-free preflight. No authenticated authorization was reused.
+The public CLI deliberately has no live path or credential loader. This is
+test-only process plumbing, excluded from Nori staging, not a production
+settings change or permission mechanism. Component versions remain unchanged.
+
+Initial RED validation produced 15 assertion failures because the launcher
+module did not exist. The implemented integration passed all 15 tests; four
+additional tests covering strict cleanup/claim rejection, symlink boundaries,
+and a real SIGTERM interruption then passed, for 19 focused tests in Debian
+WSL. The existing reducer's 28 tests also passed unchanged. Child programs in
+these tests are synthetic, not Claude Code or authenticated provider calls.
+
+The new supervisor imports `reduce_line` and drains both pipes concurrently
+within line, total input, distinct output, and monotonic time bounds. It
+terminates the process group before deleting its exact owned private root.
+Cleanup claims from child output cannot establish `launcherCleanup`. The
+separate aggregate path rejects duplicate keys, nonfinite constants, repeated
+objects, malformed encoding, pending cleanup, and incoherent passing claims.
+Runtime labels and arbitrary reason codes cannot cross the final projection.
+
+The actual preflight used the existing installed Node/browser runtime, an
+empty credential-free environment, and the new CLI:
+
+```bash
+# Run in the isolated p0-04b-browser-automation worktree under Debian WSL.
+env -i HOME=/home/marco \
+  PATH=/home/marco/.local/opt/node-v24.17.0-linux-x64/bin:/home/marco/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  PYTHONDONTWRITEBYTECODE=1 \
+  P004B_BROWSER_NODE_MODULES=/home/marco/.npm/_npx/e41f203b7505f1fb/node_modules \
+  P004B_PLAYWRIGHT_BROWSERS_PATH=/home/marco/.cache/ms-playwright \
+  python3 tests/browser_disposable_launcher.py --preflight
+```
+
+It exited 0 with `STREAM_COMPLETE`, no diagnostic records, independently
+checked `launcherCleanup=verified`, and a reported aggregate containing
+`PREFLIGHT_READY`, `AVAILABLE_RECOGNIZED`, `exact-deny`, and verified harness
+cleanup. Its status remained `inconclusive`; tool/hook/role/permission counts
+were zero, all workflow observations were `not-observed`, and context samples
+were zero. It opened/closed an empty browser and directly tested a synthetic
+guard denial. It did not invoke Claude/Nori or a provider, prove installed
+native hooks, authenticate, navigate, or complete an operational workflow.
+Neither CLI/provider/model versions nor authenticated acceptance are claimed.
+
+The trusted harness's process group is covered, not adversarial session escape
+or uncatchable supervisor termination. POSIX/WSL pipes are required; native
+Windows supervision is not claimed. Deleted historical streams and failure
+causes remain unavailable. Fresh exact-commit live authorization, protected
+credential transport, unchanged live limits, and no automatic retry still
+apply to any future authenticated caller. No push, PR, merge, or definitive
+TODO completion is performed by this follow-up.
+
+Independent read-only review found no Critical or Important defect and one
+Minor test-coverage gap: the orphan/pipe test did not independently prove
+descendant termination. The implementer strengthened that test to observe the
+synthetic descendant's PID and verify termination both normally and when it
+ignores SIGTERM, exercising SIGKILL escalation. All 19 focused tests passed
+again; no launcher code changed for that correction. This is implementer
+verification, not a second independent approval. The reviewer independently
+ran the original 19 tests in Debian WSL with zero skips and checked the diff.
+
+The review declined to judge historical cause, authenticated acceptance and
+credential transport, provider/model/native-hook behavior, real browser
+availability/public preflight, full package/CI/merge readiness, native Windows
+supervision, adversarial executable/session escape or uncatchable termination,
+and production authorization/settings. Those exclusions remain explicit:
+historical and authenticated claims stay pending; the actual preflight above
+and full local gate are separate implementer evidence; Windows and hostile
+containment are not promised; operator settings are not inspected or modified.
+The evidence notes were written concurrently and were not independently
+reviewed. No excluded behavior is promoted to an acceptance claim.
+
+The complete local gate then exited 0 with `package validation passed` under
+Debian WSL, using observed Node.js `v24.17.0` and Python `3.13.5`. It included
+the strengthened final 19 launcher tests, all 28 reducer tests, all 126 browser
+safety tests, content/architecture/schema/workflow checks, installed-form
+validation and provider-free harness self-tests. The command was:
+
+```bash
+env -i HOME=/home/marco \
+  PATH=/home/marco/.local/opt/node-v24.17.0-linux-x64/bin:/home/marco/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  PYTHONDONTWRITEBYTECODE=1 bash tests/validate-package.sh
+```
+
+The optional PowerShell syntax check was skipped because PowerShell was not
+available in WSL; platform-specific skips are not Windows coverage. Local CI
+workflow validation is not a remote CI/Security result. Authenticated P0-04B
+acceptance, push/PR/merge, and definitive TODO completion remain pending.
