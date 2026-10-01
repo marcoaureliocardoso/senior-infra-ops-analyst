@@ -696,6 +696,24 @@ message/channel and hook types, and explicit parent identity requirements.
 Invalid records reset suffixes without reopening acceptance. Validation notes
 record the verified resolution separately from independent review approval.
 
+The operator subsequently authorized one execution on exact commit
+`d193a35aa8aed08be491573f04a3a0c788b3b9c2`. Runtime checks observed Claude
+Code `2.1.286`, Node.js `v24.17.0`, configured `deepseek-v4-pro[1m]`, and the
+exact authorized endpoint. Global operator hooks and status line were not
+imported: the disposable harness used an empty credential-free settings seed,
+with configured provider authentication transmitted only through a bounded
+process environment. Operator settings were not written by the launcher;
+package-owned guards and test permission configuration remained the harness's
+responsibility. The single launch reported harness exit 2 and an unclassified
+diagnostic whose content the external launcher suppressed. No accepted
+aggregate or canary-source category was observed. This does not identify the
+failure stage, provider receipt, permission decisions, or browser outcome.
+Independent checks confirmed that `/tmp/p0-04b-browser.ocWdmX` was absent
+and not a symlink and that both external launch files were absent. No retry
+occurred; authorization is consumed. Before another live attempt, validate
+the launcher's closed diagnostic coverage without a provider. Any later
+authenticated attempt still requires fresh final-commit authorization.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

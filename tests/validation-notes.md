@@ -2108,3 +2108,80 @@ authenticated failure remains unsatisfied and unclassified by source.
 Package/component versions remain unchanged for this test-harness-only
 correction; README installation/production behavior is unchanged. No live
 retry, push, PR, merge, or definitive TODO completion occurred.
+
+## P0-04B authorized attempt with external diagnostic suppression (2026-10-01)
+
+The operator authorized one execution on exact commit
+`d193a35aa8aed08be491573f04a3a0c788b3b9c2`, using only
+`https://api.deepseek.com/anthropic` and the currently configured model, with
+six planned provider-backed invocations, at most 40 model turns, 120 seconds
+per workflow, and 1,800 seconds total. Scope remained synthetic prompts,
+loopback-only effects, deterministic allow then deny, raw-evidence deletion,
+and no automatic repetition.
+
+Local launcher checks initially blocked before the authenticated harness
+started because the source settings contained global hooks and a status line.
+An empty credential-free settings seed was then used only for the disposable
+harness. A bounded environment allowlist transmitted configured provider
+credentials in memory, never in command arguments or launcher files. The
+launcher did not write the original operator settings; their owner-only mode,
+size, and displayed modification time were consistent before and after the
+attempt. This metadata check is not a byte-for-byte content comparison.
+Package-owned project guards and deterministic permission configuration
+remained the unchanged committed harness's responsibility; their installation
+or activation was not independently established in this attempt.
+
+The final provider-free check confirmed the exact commit, a clean worktree,
+the exact endpoint, credential presence, and the credential-free seed. It
+observed Claude Code `2.1.286`, Node.js `v24.17.0`, and configured
+`deepseek-v4-pro[1m]`. Runtime versions were observed, not pinned. Nonessential
+Claude traffic and official marketplace auto-install were disabled through
+documented runtime environment variables. No provider prompt was sent by
+these local checks.
+
+The external launcher then started the harness exactly once. A filename-only
+observation found no `*.sample.json` in its measurement directory at that
+observation point; this does not prove that none was created later. The
+retained external-launcher output was:
+
+```text
+BLOCKED: unclassified harness diagnostic (content suppressed)
+runtimeWarning=FIXTURE_UNSETTLED_TOP_LEVEL_AWAIT
+harnessExit=2; automaticRetry=none
+```
+
+The outer WSL tool returned exit 1; the launcher separately reported the
+harness status as 2. A diagnostic outside the launcher's finite output
+allowlist was suppressed instead of exposing unclassified content. No raw
+prompt, stream, transcript, fixture payload, credential, or canary was read
+back or retained for this record. No accepted aggregate or canary-source
+category was observed. These results cannot establish the exact failing
+stage, completed invocation count, provider receipt or rejection, permission
+handler decisions, browser effect, or a Claude-version-related cause.
+Provider-backed acceptance remains inconclusive; historical evidence is
+unchanged. Validate closed launcher-diagnostic coverage without a provider
+before proposing another authenticated attempt.
+The warning label is a launcher classification, not independent proof of
+which process emitted the warning or why it occurred.
+
+A separate post-run check returned exit 0 for both absence and non-symlink
+conditions on `/tmp/p0-04b-browser.ocWdmX`. The external launcher and empty
+settings seed were deleted and both absence checks returned `False` from
+`Test-Path`. Git remained clean at the authorized commit before this evidence
+update. No retry occurred; authorization is consumed. No package/component
+version change, push, PR, merge, or definitive TODO completion was performed.
+
+Independent read-only review of this three-document evidence diff found no
+Critical issue. Its Important finding corrected an installation-completion
+overclaim to distinguish harness responsibility from unobserved installation
+or activation. The review did not assess the prior canary implementation,
+provider receipt or browser outcome, local gate result, whole-branch
+acceptance, or merge readiness; those remain separate evidence requirements.
+
+After the reviewed wording correction, the complete provider-free package
+gate passed in Debian WSL with Node.js `v24.17.0`, exit 0, and
+`package validation passed`. This included all 126 focused safety tests and
+the browser harness self-tests. The optional PowerShell syntax check was
+skipped because PowerShell was unavailable in WSL. These local results do
+not establish native Windows validation, remote CI/Security, provider-backed
+acceptance, or merge readiness.

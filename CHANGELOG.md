@@ -298,6 +298,15 @@ tag. Tagged versions correspond to repository tags.
   This provider-free correction does not establish the source of historical
   exposure, relax acceptance, or authorize an authenticated retry.
 
+- Recorded one newly authorized P0-04B attempt on `d193a35` with the runtime
+  observed as Claude Code `2.1.286`, Node.js `v24.17.0`, configured
+  `deepseek-v4-pro[1m]`, and the exact authorized DeepSeek endpoint. The
+  external launcher reported harness exit 2 and suppressed a diagnostic
+  outside its output allowlist. No accepted aggregate or canary source was
+  observed; neither the failure stage nor cause is established. The exact
+  disposable root and credential-free launch files were removed. No retry
+  occurred; acceptance remains inconclusive.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
