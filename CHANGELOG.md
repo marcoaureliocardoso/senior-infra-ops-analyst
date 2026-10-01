@@ -339,6 +339,16 @@ tag. Tagged versions correspond to repository tags.
   proven cause or P0-04B acceptance. No production approval bypass, parser
   relaxation, credential reuse or authenticated retry was introduced.
 
+- Fixed the test-only PTY startup dialogue to stop on recognized API-key
+  approval and login selectors instead of treating their chevron as command
+  readiness. Classification uses the visible rendered screen, including a
+  post-settle check for delayed selectors. Closed launch diagnostics retain
+  `PTY_API_KEY_APPROVAL_REQUIRED_FAILED` and `PTY_LOGIN_REQUIRED_FAILED` without
+  raw output. Corrected default ANSI erase-down handling so a visible heading
+  above the cursor cannot disappear from the startup classifier. No credential
+  approval, login action, percentage-grammar relaxation
+  or authenticated acceptance is introduced.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

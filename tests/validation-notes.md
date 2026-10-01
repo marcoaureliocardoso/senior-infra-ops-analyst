@@ -2526,3 +2526,121 @@ exposure, exact current-screen rendering, historical failure cause, provider
 behavior or actual capacity. Those claims remain unestablished. Startup repair
 is only proposed, and browser/authenticated acceptance, full-package/CI/Security
 gates and merge readiness were not evaluated by this characterization review.
+
+## P0-04B fail-closed startup authentication recognition (2026-10-01)
+
+The operator approved the bounded startup-readiness correction and regression
+tests, without automatic credential approval. Work continued in the clean
+existing `p0-04b-browser-automation` worktree at `7fe2040`; no operator changes
+were overwritten. This changes only test/acceptance plumbing, not an installed
+skill, native permission policy, or provider configuration. The unreleased
+package version remains `0.15.0`; no additional version bump or README feature
+claim is needed for this test-only correction.
+
+The PTY driver now recognizes the API-key approval question and known login
+selectors from the visible ANSI-rendered startup screen. It stops before
+answering an authentication selector or sending a model/context command,
+including after theme/workspace-trust transitions and after the readiness
+settle interval. Erased selector text does not become a permanent blocker.
+Unknown/changed UI formats remain outside these recognized labels; this is
+not a universal terminal-state classifier. No generic key approval, login,
+onboarding bypass or provider retry was added to the committed driver.
+
+The new failure stages are `api_key_approval_required` and `login_required`.
+The PTY-event and external diagnostic allowlists retain their respective
+closed reasons `PTY_API_KEY_APPROVAL_REQUIRED_FAILED` and
+`PTY_LOGIN_REQUIRED_FAILED`. The percentage grammar and successful-context
+evidence contract are unchanged; authentication-required stages are not
+successful numeric measurements.
+
+TDD evidence:
+
+- Two existing successful synthetic context/trust tests passed as a baseline.
+- Two new integration-test methods failed in six subcases against the old
+  driver: it actually wrote `/context all` plus carriage return into API-key
+  or login selectors, including theme/trust transitions and a delayed redraw.
+- The new visible-screen classification test failed in four label subcases;
+  the new end-to-end diagnostic-boundary test failed in two subcases because
+  the old PTY reducer returned `PTY_EVIDENCE_REJECTED`.
+- After the minimal fix, all four new test methods passed. Complete focused
+  suites passed: 22 PTY-driver tests and 29 launch-diagnostic tests. Synthetic
+  subprocess input observations confirm no answer or context command reaches
+  the authentication selectors covered by those tests.
+
+Two native offline validations, before and after the erase-down refinement,
+exercised the corrected driver with the installed Claude Code, observed
+dynamically as `2.1.286`. A disposable external
+script checked a fresh network namespace with only a down loopback interface
+and no IPv4 routes, used a disposable HOME/config/project populated solely
+with diagnostic settings/synthetic onboarding state, and passed only an
+invalid synthetic API key/model and a non-listening loopback endpoint. It did
+not read operator settings or pass configured credentials. No selector was
+approved. Both supplied sanitized results were:
+
+```text
+driverExit=2
+initial_screen=passed
+trust_selection=passed
+api_key_approval_required=failed
+expectedStop=true
+externalNetworkUnavailable=true
+operatorSettingsRead=false
+disposableRootAbsent=true
+```
+
+Exit 2 here is the expected fail-closed behavior, not authenticated acceptance.
+The disposable root, including raw PTY/native artifacts, was removed before
+result emission. This is reported runtime cleanup, not an independent audit
+of cleanup, runtime file access or every possible credential source. No raw
+display or configured credential value was emitted. The historical failure's
+cause remains unproved, and the earlier authorization remains consumed.
+
+The external native-check script was removed after both offline checks; a
+separate `Test-Path` returned false. No operator file was removed.
+
+Independent review identified an additional erase-down redraw case. The
+existing shared ANSI renderer incorrectly treated default `CSI J` as clearing
+the whole screen, discarding a still-visible authentication heading above the
+cursor. A provider-free synthetic PTY reproduction sent 12 context-command
+bytes into that selector. Classifier and input-observation regressions first
+failed for this case, then passed after narrowly correcting default/zero
+erase-down behavior to clear only from the cursor to the display end. The
+existing numeric percentage grammar and successful-context evidence contract
+were not relaxed. Full-clear handling and unsupported terminal sequences were
+not broadly redesigned. The upstream control-sequence reference confirms the
+default erase-below semantics:
+https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+
+The first full package gate stopped in the unchanged
+`DisposableLauncherTests.test_parent_exit_does_not_leave_descendant_holding_pipes`
+test (`ignore_term=True`): reading `/proc/<pid>/stat` raised
+`ProcessLookupError` after the synthetic process disappeared. The existing
+observer catches `FileNotFoundError` only. A targeted repeat passed, but that
+does not establish a fix. Neither the supervisor nor that observer was changed
+in this startup patch; the intermittent observation race remains a residual
+test-harness issue and the initial failed gate is not a passing result.
+
+The independent review re-exercised the same erase-down case with a Python-only
+PTY child after the correction: driver exit 2, zero input bytes, and final
+`api_key_approval_required` stage. No Critical, Important or Minor findings
+remained in the reviewed startup patch. General VT emulation, unsupported
+sequences and unchanged full-clear modes were outside that correction; no
+general emulation guarantee is claimed. Native isolation/cleanup/file-access
+audit, historical cause, authenticated/browser acceptance, the unchanged
+process-observer race and final full-package results were not independently
+verified by that review and retain their stated limitations.
+
+The second full provider-free package gate completed with exit 0 and
+`package validation passed` after the final erase-down correction. It included
+22 PTY-driver tests, 29 launch-diagnostic tests, 19 disposable-launcher tests,
+and 126 browser-operation safety tests, along with the remaining package suites
+and self-tests. That successful run does not remediate or erase the earlier
+intermittent `/proc` observation race. Platform-specific skipped tests and the
+optional PowerShell syntax check (PowerShell unavailable in WSL) are not
+Windows coverage. Local CI-workflow validation is not remote CI/Security.
+
+Remaining separate actions: stabilize the process-disappearance observer in
+its own scoped change, and decide how the disposable acceptance harness will
+satisfy native API-key approval under exact authorization. The repaired driver
+stops rather than providing that approval. No new authenticated attempt,
+push/PR/merge or definitive TODO completion occurred during this correction.

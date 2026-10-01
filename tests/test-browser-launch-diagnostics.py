@@ -202,6 +202,28 @@ class LaunchDiagnosticsTests(unittest.TestCase):
                 b"BLOCKED: trusted context probe failed: main-before (" + result.stdout.rstrip(b"\n") + b")"),
                 {"category": "CONTEXT", "reasonCode": "PTY_CONTEXT_FREE_VALUE_MISSING_FAILED", "probe": "main-before"})
 
+    def test_startup_authentication_stops_survive_the_closed_launch_boundary(self):
+        import tempfile
+        for stage, expected in (
+            ("api_key_approval_required", "PTY_API_KEY_APPROVAL_REQUIRED_FAILED"),
+            ("login_required", "PTY_LOGIN_REQUIRED_FAILED"),
+        ):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as directory:
+                events = Path(directory) / "events.jsonl"
+                events.write_text(json.dumps({
+                    "kind": "pty-driver", "stage": stage, "outcome": "failed",
+                }) + "\n", encoding="utf-8")
+                result = subprocess.run(
+                    [sys.executable, str(ROOT / "tests/browser_operations_live.py"),
+                     "--pty-failure-reason", str(events)],
+                    capture_output=True, timeout=5, check=False,
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.decode().strip(), expected)
+                self.assertEqual(self.module.reduce_line(
+                    f"BLOCKED: trusted context probe failed: main-before ({expected})".encode()),
+                    {"category": "CONTEXT", "reasonCode": expected, "probe": "main-before"})
+
     def test_real_cli_rejects_arguments_without_echo(self):
         result = subprocess.run([sys.executable, str(MODULE), "private-token"],
                                 capture_output=True, timeout=5, check=False)

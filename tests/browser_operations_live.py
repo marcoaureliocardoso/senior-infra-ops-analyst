@@ -103,6 +103,7 @@ MEASUREMENT_SOURCE_FIELDS = {
 PTY_EVENT_FIELDS = {"kind", "stage", "outcome", "percent", "outputBytes"}
 PTY_STAGES = {
     "initial_screen", "theme_selection", "trust_selection", "prompt_ready", "exit",
+    "api_key_approval_required", "login_required",
     "context_inspected", "mock_response", "mock_second_response", "clear_observed",
     "context_header_missing", "context_free_space_missing",
     "context_values_invalid", "context_prompt_missing",

@@ -302,6 +302,108 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertNotEqual(result, 0)
             self.assertIn('"outcome": "failed"', events.read_text(encoding="utf-8"))
 
+    def test_startup_authentication_recognition_uses_visible_screen_not_history(self) -> None:
+        driver = load_driver()
+        classify = getattr(driver, "startup_authentication_stage", lambda _data: None)
+        cases = (
+            (b"Do you want to use this API key?\r\n" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\r\n\x1b[J" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\r\n\x1b[0J" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\x1b[2J\x1b[H" + "❯ ready".encode(), None),
+            (b"Select login method:\r\n" + "❯ 1. Continue".encode(), "login_required"),
+            (b"How would you like to log in?\r\n" + "❯ 1. Continue".encode(), "login_required"),
+            (b"Claude Code requires authentication.", "login_required"),
+            (b"Context Usage\r\nFree space: 90%\r\n" + "❯ ready".encode(), None),
+        )
+        for data, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(classify(data), expected)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_startup_auth_dialogues_stop_without_answer_or_context_command(self) -> None:
+        # Removing auth-dialog recognition must expose selector input again.
+        cases = (
+            ("api", "Do you want to use this API key?", "api_key_approval_required"),
+            ("api", "Do you want to use this API key?\r\n\x1b[J", "api_key_approval_required"),
+            ("login", "Select login method:", "login_required"),
+            ("login", "How would you like to log in?", "login_required"),
+        )
+        for label, message, stage in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "auth_tui.py"
+                inputs = root / "inputs.bin"
+                inputs.write_bytes(b"")
+                fake.write_text(textwrap.dedent('''
+                    import os, sys, tty
+                    from pathlib import Path
+                    tty.setraw(sys.stdin.fileno())
+                    os.write(1, (sys.argv[2] + "\\r\\n❯ 1. Continue").encode())
+                    while True:
+                        value = os.read(0, 256)
+                        with Path(sys.argv[1]).open("ab") as stream:
+                            stream.write(value)
+                '''), encoding="utf-8")
+                events = root / "events.jsonl"
+                result = load_driver().drive(
+                    [sys.executable, str(fake), str(inputs), message],
+                    root / "capture.pty", timeout_seconds=3,
+                    events_path=events, dialogue="context",
+                )
+                self.assertEqual(result, 2)
+                self.assertEqual(inputs.read_bytes(), b"", label)
+                records = [json.loads(line) for line in events.read_text().splitlines()]
+                self.assertEqual(records[-1], {
+                    "kind": "pty-driver", "stage": stage, "outcome": "failed",
+                })
+                self.assertFalse(any(record["stage"] == "context_inspected" for record in records))
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_api_key_selector_after_startup_transitions_never_receives_input(self) -> None:
+        # A trust/theme transition or late redraw must not promote an auth selector.
+        for transition in ("theme", "trust", "late"):
+            with self.subTest(transition=transition), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "transition_tui.py"
+                inputs = root / "auth_inputs.bin"
+                inputs.write_bytes(b"")
+                fake.write_text(textwrap.dedent(r'''
+                    import os, sys, tty, time
+                    from pathlib import Path
+                    tty.setraw(sys.stdin.fileno())
+                    transition = sys.argv[2]
+                    if transition == "theme":
+                        os.write(1, b"Choose the text style that looks best with your terminal")
+                        if os.read(0, 1) != b"\r": raise SystemExit(8)
+                    elif transition == "trust":
+                        os.write(1, b"Yes, I trust this folder")
+                        selected = bytearray()
+                        while len(selected) < 4:
+                            selected.extend(os.read(0, 4 - len(selected)))
+                        if bytes(selected) != b"\x1b[A\r": raise SystemExit(9)
+                    else:
+                        os.write(1, "❯ ready".encode())
+                        time.sleep(0.8)
+                    os.write(1, ("\x1b[2J\x1b[HDo you want to use this API key?"
+                                 "\r\n❯ 2. No").encode())
+                    while True:
+                        value = os.read(0, 256)
+                        with Path(sys.argv[1]).open("ab") as stream:
+                            stream.write(value)
+                '''), encoding="utf-8")
+                events = root / "events.jsonl"
+                result = load_driver().drive(
+                    [sys.executable, str(fake), str(inputs), transition],
+                    root / "capture.pty", timeout_seconds=4,
+                    events_path=events, dialogue="context",
+                )
+                self.assertEqual(result, 2)
+                self.assertEqual(inputs.read_bytes(), b"")
+                records = [json.loads(line) for line in events.read_text().splitlines()]
+                self.assertEqual(records[-1], {
+                    "kind": "pty-driver", "stage": "api_key_approval_required", "outcome": "failed",
+                })
+
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_context_dialogue_uses_native_context_without_model_prompt(self) -> None:
         driver = load_driver()

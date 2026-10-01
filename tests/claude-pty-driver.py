@@ -96,9 +96,16 @@ def terminal_screen_text(
                     column = max(0, min(columns - 1, amount(values) - 1))
                 elif command == "d":
                     row = max(0, min(rows - 1, amount(values) - 1))
-                elif command == "J" and (not values or values[0] in {2, 3}):
-                    screen = [[" "] * columns for _ in range(rows)]
-                    row = column = 0
+                elif command == "J":
+                    mode = values[0] if values else 0
+                    if mode == 0:
+                        # ED 0/default clears from the cursor down, not headings above it.
+                        screen[row][column:] = [" "] * (columns - column)
+                        for below in range(row + 1, rows):
+                            screen[below] = [" "] * columns
+                    elif mode in {2, 3}:
+                        screen = [[" "] * columns for _ in range(rows)]
+                        row = column = 0
                 elif command == "K":
                     mode = values[0] if values else 0
                     if mode == 0:
@@ -158,6 +165,20 @@ def terminal_screen_text(
                     row = rows - 1
         index += 1
     return "\n".join("".join(line).rstrip() for line in screen)
+
+
+def startup_authentication_stage(data: bytes) -> str | None:
+    """Recognize auth UI on the visible startup screen, never approve it."""
+    screen = terminal_screen_text(data)
+    folded = _folded_letters(screen.encode("utf-8"))
+    if b"doyouwanttousethisapikey" in folded:
+        return "api_key_approval_required"
+    if any(label in folded for label in (
+        b"selectloginmethod", b"howwouldyouliketologin",
+        b"claudecoderequiresauthentication",
+    )):
+        return "login_required"
+    return None
 
 
 def _context_percent_from_text(
@@ -418,7 +439,15 @@ def drive(
     def folded_letters(data: bytes) -> bytes:
         return _folded_letters(data)
 
+    def require_startup_auth_clear(data: bytes) -> None:
+        nonlocal current_stage
+        stage = startup_authentication_stage(data)
+        if stage is not None:
+            current_stage = stage
+            raise RuntimeError("startup authentication requires an independent decision")
+
     def prompt_ready(data: bytes) -> bool:
+        require_startup_auth_clear(data)
         return (
             b"ctx" in folded_letters(data)
             or "❯".encode("utf-8") in data
@@ -429,6 +458,7 @@ def drive(
         predicate, label: str, selection: bytes = b""
     ) -> None:
         for attempt in range(4):
+            require_startup_auth_clear(bytes(retained))
             if selection and attempt == 0:
                 write_all(master, selection)
                 time.sleep(0.1)
@@ -463,6 +493,7 @@ def drive(
             wait_for(lambda data: len(data) > 0, "initial screen")
             settle()
             record("initial_screen", "passed")
+            require_startup_auth_clear(bytes(retained))
             startup_offset = 0
             theme_prompt = b"choosethetextstylethatlooksbestwithyourterminal"
             trust_prompt = b"yesitrustthisfolder"
@@ -498,6 +529,7 @@ def drive(
                 "interactive prompt readiness",
             )
             settle(1.0)
+            require_startup_auth_clear(bytes(retained))
             record(current_stage, "passed")
 
             if dialogue == "context":
