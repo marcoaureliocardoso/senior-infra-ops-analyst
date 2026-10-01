@@ -2185,3 +2185,65 @@ the browser harness self-tests. The optional PowerShell syntax check was
 skipped because PowerShell was unavailable in WSL. These local results do
 not establish native Windows validation, remote CI/Security, provider-backed
 acceptance, or merge readiness.
+
+## P0-04B provider-free launch diagnostic boundary (2026-10-01)
+
+The operator approved a bounded, test-only diagnostic reducer after the
+external launcher suppressed an unclassified diagnostic in the preceding
+attempt. No live authorization was reused and no provider-backed invocation
+was performed for this follow-up.
+
+Initial RED validation produced 18 assertion failures because the versioned
+reducer did not exist. The first implementation passed those 18 behavioral
+tests. An additional boundary regression then demonstrated that a standalone
+carriage return was incorrectly removed; it failed before the correction and
+passed after accepting carriage returns only as part of CRLF. All 25 reducer
+tests subsequently passed in Debian WSL. Real boundaries include the stdin
+CLI, the unauthorized harness stop before runtime initialization, and the
+existing PTY event reducer followed by classification.
+
+The reducer emits only closed categories/codes and bounded exit numbers.
+Arbitrary content, private labels, malformed encoding, control characters,
+unknown JSON, and overlong lines are suppressed. Streaming tests cover whole
+overlong-line discard, deduplication, exact input bounds, and output bounds.
+Warning classification and reported cleanup/stage/exit are explicitly not
+cause attribution, independent proof, acceptance, or authorization.
+
+No settings, credential transport, provider endpoint/model policy, harness
+permissions, six-invocation/40-turn limits, 120-second workflow limit,
+1,800-second total limit, or no-retry rule changed. Final aggregate validation
+remains separate. The offline filter cannot serve as a live pipe; external
+launchers must use bounded in-memory classification with process budgets.
+The raw historical diagnostic remains unavailable, and acceptance is still
+inconclusive. Package/component versions remain unchanged because this is a
+test-only correction; README gains only a link to the test-boundary guide.
+
+Independent read-only review found no Critical or Important issue and one
+Minor exact-payload CRLF streaming mismatch. A RED regression reproduced the
+mismatch before space for both delimiter bytes was allowed; LF, CRLF, and EOF
+now share the same payload bound, and oversized payloads remain suppressed.
+An additional implementer RED regression reproduced an exception escaping
+error handling when output was already closed; the correction returns a
+non-success status without exposing exception content. The final focused
+reducer suite passed all 28 tests. This records verified resolutions, not a
+second independent approval of the fixes.
+
+The reviewer independently ran 21 non-subprocess tests under Windows Python
+with bytecode writes disabled. They did not judge the historical cause,
+provider acceptance or independent cleanup, full-package/remote-CI/merge
+readiness, or production launcher integration. Those limits remain explicit:
+historical evidence is unchanged, no live run occurred, local package gates
+are separate, and any future launcher must frame input within process budgets
+and validate an aggregate independently. No production launcher integration
+or authenticated acceptance is claimed by these synthetic tests.
+
+The initial full local package gate passed, but ran the original 25 reducer
+tests before the final boundary corrections. It was therefore repeated on
+the corrected revision. The final complete gate passed in Debian WSL with
+Node.js `v24.17.0`, exit 0, and `package validation passed`, including all 28
+reducer tests, all 126 existing browser safety tests, content, architecture,
+schema, workflow validation, installed-form tests, and harness self-tests.
+The optional PowerShell syntax check was skipped because PowerShell was
+unavailable in WSL. These are local results, not full native Windows
+validation, remote CI/Security, provider-backed acceptance, or merge readiness.
+No push, PR, merge, or definitive TODO completion was performed.

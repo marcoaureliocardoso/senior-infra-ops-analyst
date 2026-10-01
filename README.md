@@ -588,6 +588,9 @@ CI runs all validators on every PR and push to main. See `.github/workflows/ci.y
 
 PowerShell parser validation requires a host with `pwsh` or Windows PowerShell installed.
 
+For credential-free P0-04B launcher diagnostic checks, see
+[the test-only diagnostic boundary](tests/browser-launch-diagnostics.md).
+
 ## Docs
 
 - [CHANGELOG](CHANGELOG.md)

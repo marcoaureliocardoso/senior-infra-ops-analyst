@@ -307,6 +307,14 @@ tag. Tagged versions correspond to repository tags.
   disposable root and credential-free launch files were removed. No retry
   occurred; acceptance remains inconclusive.
 
+- Added a versioned, test-only external-launch diagnostic reducer with closed
+  context, measurement, workflow, runtime, installation, configuration, and
+  cleanup categories. Unknown content is suppressed, line/input/output bounds
+  prevent unbounded retention, and reported cleanup remains distinct from
+  independent verification. Provider-free regressions cover real CLI, harness
+  authorization-stop, and PTY-reducer boundaries. This changes neither live
+  limits nor acceptance and does not recover deleted historical diagnostics.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

@@ -714,6 +714,16 @@ occurred; authorization is consumed. Before another live attempt, validate
 the launcher's closed diagnostic coverage without a provider. Any later
 authenticated attempt still requires fresh final-commit authorization.
 
+The approved provider-free follow-up adds the test-only
+`tests/browser_launch_diagnostics.py` boundary and its behavioral tests to the
+package gate. External launchers can import its bounded line classifier;
+closed context, measurement, workflow, and cleanup reports are distinguished
+without forwarding arbitrary output. Standalone filtering is not execution or
+acceptance, and reported fields are not independent evidence. The offline CLI
+and its limits must not be inserted as a pipe into an authenticated workflow.
+Final aggregate validation remains separate. No authentication, retry, raw
+evidence recovery, operator settings change, or live limit change is included.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.
