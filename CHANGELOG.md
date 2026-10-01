@@ -323,6 +323,14 @@ tag. Tagged versions correspond to repository tags.
   flags cannot authorize a run, and no authenticated retry or production
   setting change is introduced.
 
+- Recorded one authorized P0-04B attempt on `7f7064b` with observed Claude Code
+  `2.1.286` and Node.js `v24.17.0`. The first `main-before` context probe stopped
+  with `PTY_CONTEXT_HEADER_MISSING_FAILED`; no accepted aggregate or completed
+  allow/deny workflow was established. The bounded supervisor verified owned-root
+  cleanup, and the disposable external files were removed. Authorization was
+  consumed without a retry; acceptance remains inconclusive and the underlying
+  display/dialogue/parser cause is not established.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.

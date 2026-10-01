@@ -2339,3 +2339,96 @@ The optional PowerShell syntax check was skipped because PowerShell was not
 available in WSL; platform-specific skips are not Windows coverage. Local CI
 workflow validation is not a remote CI/Security result. Authenticated P0-04B
 acceptance, push/PR/merge, and definitive TODO completion remain pending.
+
+## P0-04B authorized context-probe stop (2026-10-01)
+
+The operator authorized one authenticated attempt on exact commit
+`7f7064b66029d4373bca3b24dd5bba54245ce9e5`, using exclusively the configured
+`https://api.deepseek.com/anthropic` endpoint and runtime-configured model.
+The planned scope remained six provider-backed top-level invocations, at most
+40 model turns, 120 seconds per workflow and 1,800 seconds total, synthetic
+prompts and loopback targets only, deterministic allow followed by deny,
+raw-evidence deletion before aggregation, and no automatic repetition.
+
+A disposable external wrapper imported the committed bounded supervisor.
+Its protected settings reader used no-follow directory/file descriptors,
+owner-only regular-file checks, a 64 KiB bound, duplicate-key/nonfinite JSON
+rejection, and an exact provider endpoint check. Only allowlisted transport
+and configured model variables crossed into the child environment, in memory;
+credential values were not written to launcher files or command arguments.
+An empty credential-free settings seed prevented copying the operator's
+global hook/status-line preferences into the disposable harness. A single-use
+claim prevented a second launch through that wrapper. Documented nonessential
+traffic, marketplace auto-install, background-title traffic, API retry and
+non-streaming fallback controls were set only in its disposable environment.
+This is not a packet-level proof of provider traffic or internal behavior.
+
+Six synthetic transport tests first failed because the wrapper was absent,
+then all six passed before real settings were read. Those tests covered
+protected-file handling, ambiguous JSON, endpoint/model/credential rejection,
+single-use claims, and metadata-change detection; they did not start Claude
+or call a provider. A separate local check returned `ready` for the exact
+clean commit, matching endpoint, configured credential/model presence, and
+empty seed. It observed Claude Code `2.1.286` and Node.js `v24.17.0` through
+credential-free local version commands. No version or model is pinned.
+
+The wrapper started the harness exactly once and returned this closed result:
+
+```text
+reasonCode=CHILD_FAILED
+harnessExit=2
+aggregateReported=null
+diagnostic=CONTEXT / PTY_CONTEXT_HEADER_MISSING_FAILED / main-before
+diagnostic=UNKNOWN / DIAGNOSTIC_SUPPRESSED
+diagnostic=RUNTIME_WARNING / UNSETTLED_TOP_LEVEL_AWAIT
+launcherCleanup=verified
+operatorSettingsMetadataUnchanged=true
+authorizationConsumed=true
+automaticRetry=none
+```
+
+The outer WSL tool returned exit 1; the supervisor reported child exit 2 from
+its process handle, separately from harness output. This is a launcher
+observation, not an independent audit or reproduction. The committed control
+flow runs `main-before` before the four
+measurement invocations and the allow/deny workflows. This context gate
+therefore stopped the intended sequence; no accepted aggregate or completed
+browser workflow was established. The planned six-invocation sequence was
+not completed, and provider receipt/request counts are not independently
+verified. The header code means the PTY parser did not recognize its required
+`Context usage` structure. It does not establish whether the CLI failed to
+render it, the dialogue/timing failed, the format changed, or the parser
+misinterpreted the display. The warning is not cause attribution. Unknown
+output remained suppressed; no raw stream was recovered for diagnosis.
+
+The supervisor terminated the process group, removed its exact owned root,
+and checked absence/non-symlink conditions before emitting the result. All
+four external artifacts (wrapper, synthetic tests, empty seed and claim) were
+then removed; separate `Test-Path` checks returned false for each. The original
+WSL settings still showed owner/group 1000, mode 600, size 2,512 bytes and the
+same modification timestamp before and after. These are metadata observations,
+not a byte-for-byte credential/configuration comparison. Owned-root cleanup
+is runtime-supervisor verification, not a separate independent cleanup audit.
+
+Provider-free follow-up checks passed: content validation, 13 architecture
+documentation tests, 28 diagnostic-reducer tests, 19 disposable-launcher tests
+and 19 PTY-driver tests. The full package gate and remote CI/Security were not
+rerun for this documentation-only follow-up.
+
+An independent read-only review found no Critical or Important factual
+mismatches; its Minor provenance ambiguity was clarified above. The review
+checked the supplied sanitized observations against committed control flow;
+it did not reproduce the run. Provider receipt, request counts and internal
+transport behavior remain unverified; the missing-header/warning cause remains
+unknown. Browser/permission/numeric acceptance was not reached. Independent
+cleanup audit, deleted-wrapper implementation reinspection, byte-level settings
+preservation and comprehensive credential-exposure audit were not claimed or
+performed. Full-package/CI/Security, production behavior, TODO completion and
+merge readiness remain outside this evidence review.
+
+Acceptance remains inconclusive and this authorization is consumed. No retry,
+parser relaxation, runtime fix, version bump, push, PR, merge or definitive
+TODO completion is part of this attempt. The next recommended investigation
+is a credential-free isolated native `/context` characterization with synthetic
+or local-mock inputs, preserving the required numeric-evidence gate. A further
+authenticated attempt would require fresh authorization for its final commit.
