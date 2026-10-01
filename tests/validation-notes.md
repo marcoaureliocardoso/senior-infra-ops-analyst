@@ -2037,3 +2037,74 @@ schema validation, and CI workflow validation. It ended with process status
 skipped because PowerShell was unavailable in WSL. These local results do
 not establish native Windows validation, remote CI/Security, provider-backed
 acceptance, browser outcome, or merge readiness.
+
+## P0-04B provider-free decoded canary detector (2026-10-01)
+
+At clean commit `8329351c7d2f99bb35075830e181b8c2444f9dbe`, two disposable
+provider-free characterization runs used 14 synthetic cases in Debian WSL
+with Bubblewrap network isolation. No Claude invocation, provider call, or
+credential read occurred. The literal detector produced `CANARY_EXPOSED`
+for nine source shapes and passed its structural control. Four Unicode-escaped
+or fragmented cases were missed. A second run added valid synthetic allow
+permission signals: those four cases reached allow-phase `pass`, not full
+browser acceptance. User input, tool results, metadata, and assistant content
+were indistinguishable in the old closed reason. This establishes diagnostic
+and detector limits only, not the origin or cause of deleted historical
+exposure. Generated inputs were deleted before emitting the structural
+report; the external probe was removed and its absence checked.
+
+The operator approved a bounded TDD correction, preserving authorization,
+raw cleanup, independent fixture verification, the aggregate schema, and
+all live limits. After fixing test setup, the initial RED run had 22 assertion
+failures and no errors. It reproduced missed decoded values, missing correlated
+recomposition and source categories, absent CLI support, acceptance beyond
+scanner bounds, and the missing shell source diagnostic. Negative controls
+deliberately did not join different sessions, parents, message IDs, channels,
+or events without an explicit message ID.
+
+The shared scanner inspects decoded JSON strings and keys without exempting
+user input, tool results, metadata, unknown fields, or thinking. It keeps
+only bounded ephemeral suffixes for correlated text/thinking content and
+emits only a closed source-shape enum on failure. Duplicate keys and non-JSON
+constants reject the event. Later decoded matches remain detectable after a
+malformed event; source labels do not establish trusted authorship or cause.
+Follow-up RED cases caught lost detection after invalid records, non-string
+event/block types causing unhashable-type errors, and ignored oversized content
+block lists. The corrections retain fail-closed rejection and never copy
+raw event, canary, payload, source identity, or diagnostic text into the
+source diagnostic; existing validated workflow metadata is unchanged.
+Forged source classifier output becomes `UNKNOWN` at the shell boundary,
+which deletes raw data and verifies whole-root cleanup before reporting.
+
+Independent read-only review requested changes for three important issues:
+sticky invalid state disabled later fragment recomposition; eager fan-out
+allocated traversal tuples before the node cap; and malformed known message
+or channel shapes could pass synthetic phases. It also identified missing
+parent identity conflation with null and a pre-existing unhashable hook-event
+crash. Five regression methods reproduced 14 assertion failures and five
+errors before correction. The corrected scanner discards suffixes at invalid
+boundaries while continuing later valid correlation, checks fan-out before
+enqueueing, rejects malformed known message/channel and hook field types,
+and requires explicit parent identity for cross-event joins. A traced-memory
+regression compares large-list/dictionary scans with the same strict JSON
+parser baseline, separating unavoidable parse allocation from traversal
+fan-out. All 16 selected canary-scan regression methods then passed. This is
+the implementer's verified resolution of review findings, not a second
+independent review approval.
+
+After those corrections, the complete focused safety suite passed all 126
+tests in Debian WSL with Node.js `v24.17.0`. These provider-free results do
+not establish provider-backed acceptance or independent review approval.
+The subsequent complete package gate also passed with exit 0 and
+`package validation passed`, including the same 126 safety tests and browser
+harness self-tests. The optional PowerShell syntax check was skipped because
+PowerShell was unavailable in WSL. This is local validation, not native Windows
+validation, remote CI/Security, browser acceptance, or merge readiness.
+
+Detection covers JSON decoding and bounded native message correlation, not
+arbitrary encodings or unidentifiable cross-event concatenation. No accepted
+phase or aggregate is inferred from these synthetic tests. The historical
+authenticated failure remains unsatisfied and unclassified by source.
+Package/component versions remain unchanged for this test-harness-only
+correction; README installation/production behavior is unchanged. No live
+retry, push, PR, merge, or definitive TODO completion occurred.

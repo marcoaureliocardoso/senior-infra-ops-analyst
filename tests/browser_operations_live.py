@@ -1553,6 +1553,197 @@ def _workflow_result(content: Any, operation_id: str, expected_effect: str) -> s
     return value["reasonCode"]
 
 
+CANARY_SOURCES = frozenset({
+    "ASSISTANT_TEXT", "ASSISTANT_THINKING", "ASSISTANT_TOOL_INPUT",
+    "USER_INPUT", "TOOL_RESULT", "SYSTEM_METADATA", "TERMINAL_RESULT",
+    "RAW_INVALID", "UNKNOWN", "MULTIPLE",
+})
+
+
+class _CanaryScan:
+    """Ephemeral bounded scan; categories describe shape, never trusted authorship."""
+
+    def __init__(self, marker: str):
+        self.marker = marker
+        self.invalid = not isinstance(marker, str) or len(marker) > 256
+        self.sources: set[str] = set()
+        self.tails: dict[tuple[str, str | None, str], dict[str, str]] = {}
+
+    @property
+    def source(self) -> str:
+        return next(iter(self.sources)) if len(self.sources) == 1 else "MULTIPLE" if self.sources else "UNKNOWN"
+
+    def _invalidate(self) -> None:
+        self.invalid = True
+        # No fragment may bridge a record whose shape/bounds are unproven.
+        # Later valid records can still detect exposure; acceptance stays closed.
+        self.tails.clear()
+
+    @staticmethod
+    def _source(event: dict[str, Any], path: tuple[Any, ...]) -> str:
+        if event.get("type") == "stream" and path[:1] == ("event",):
+            wrapped = event.get("event")
+            return _CanaryScan._source(wrapped, path[1:]) if isinstance(wrapped, dict) else "UNKNOWN"
+        kind = event.get("type")
+        if not isinstance(kind, str):
+            return "UNKNOWN"
+        if kind == "system":
+            return "SYSTEM_METADATA"
+        if kind == "result" and path[:1] == ("result",):
+            return "TERMINAL_RESULT"
+        if kind == "tool_use" and path[:1] == ("input",):
+            return "ASSISTANT_TOOL_INPUT"
+        if kind == "tool_result" and path[:1] == ("content",):
+            return "TOOL_RESULT"
+        if kind in {"assistant", "user"} and path[:2] == ("message", "content"):
+            content = event.get("message", {}).get("content")
+            if isinstance(content, list) and len(path) >= 4 and isinstance(path[2], int):
+                block = content[path[2]]
+                if isinstance(block, dict):
+                    block_type = block.get("type")
+                    if kind == "user" and block_type == "tool_result" and path[3] == "content":
+                        return "TOOL_RESULT"
+                    if kind == "assistant":
+                        if block_type == "text" and path[3] == "text":
+                            return "ASSISTANT_TEXT"
+                        if block_type == "thinking" and path[3] == "thinking":
+                            return "ASSISTANT_THINKING"
+                        if block_type == "tool_use" and path[3] == "input":
+                            return "ASSISTANT_TOOL_INPUT"
+            if kind == "user":
+                return "USER_INPUT"
+        return "UNKNOWN"
+
+    def _joined_content(self, event: dict[str, Any]) -> None:
+        if event.get("type") == "stream" and isinstance(event.get("event"), dict):
+            event = event["event"]
+        if event.get("type") != "assistant" or not isinstance(event.get("message"), dict):
+            return
+        message = event["message"]
+        content = message.get("content")
+        if not isinstance(content, list) or len(content) > 64:
+            return
+        # Within one message, channel-specific blocks may be contiguous output.
+        # Across events, all three native identifiers must match exactly.
+        tails: dict[str, str] = {}
+        session, parent, identity = event.get("session_id"), event.get("parent_tool_use_id"), message.get("id")
+        if ("parent_tool_use_id" in event
+                and isinstance(session, str) and LABEL.fullmatch(session)
+                and (parent is None or isinstance(parent, str) and LABEL.fullmatch(parent))
+                and isinstance(identity, str) and LABEL.fullmatch(identity)):
+            key = (session, parent, identity)
+            if key not in self.tails and len(self.tails) >= 64:
+                self._invalidate()
+                return
+            tails = self.tails.setdefault(key, {})
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            kind = block.get("type")
+            field = "text" if kind == "text" else "thinking" if kind == "thinking" else None
+            value = block.get(field) if field else None
+            if not isinstance(value, str):
+                continue
+            combined = tails.get(field, "") + value
+            if self.marker in combined:
+                self.sources.add("ASSISTANT_TEXT" if field == "text" else "ASSISTANT_THINKING")
+            # Never retain whole output or combine unrelated channels/identities.
+            tails[field] = combined[-(len(self.marker) - 1):] if len(self.marker) > 1 else ""
+
+    def read(self, line: str) -> dict[str, Any] | None:
+        def reject_constant(_value: str) -> None:
+            raise ValueError("non-JSON constant")
+
+        raw_match = isinstance(self.marker, str) and bool(self.marker) and self.marker in line
+        try:
+            event = json.loads(line, object_pairs_hook=_unique_json_object, parse_constant=reject_constant)
+        except (ValueError, RecursionError):
+            self._invalidate()
+            if raw_match:
+                self.sources.add("RAW_INVALID")
+            return None
+        if not isinstance(event, dict):
+            self._invalidate()
+            if raw_match:
+                self.sources.add("RAW_INVALID")
+            return None
+        if not isinstance(self.marker, str) or len(self.marker) > 256 or not self.marker:
+            return event
+        found = False
+        stack = [(event, (), 0)]
+        nodes = 0
+        record_invalid = False
+        while stack:
+            value, path, depth = stack.pop()
+            nodes += 1
+            if nodes > 4096 or depth > 64:
+                record_invalid = True
+                break
+            if isinstance(value, str):
+                if self.marker in value:
+                    self.sources.add(self._source(event, path))
+                    found = True
+            elif isinstance(value, dict):
+                if nodes + len(stack) + len(value) > 4096:
+                    record_invalid = True
+                    break
+                for key, child in value.items():
+                    # Keys are scanned too, but do not assert a content origin.
+                    if self.marker in key:
+                        self.sources.add("UNKNOWN")
+                        found = True
+                    stack.append((child, path + (key,), depth + 1))
+            elif isinstance(value, list):
+                if nodes + len(stack) + len(value) > 4096:
+                    record_invalid = True
+                    break
+                stack.extend((child, path + (index,), depth + 1) for index, child in enumerate(value))
+        if raw_match and not found:
+            self.sources.add("UNKNOWN")
+        records = [event]
+        if event.get("type") == "stream" and isinstance(event.get("event"), dict):
+            records.append(event["event"])
+        for record in records:
+            if record.get("type") is not None and not isinstance(record["type"], str):
+                self._invalidate()
+                return None
+            message = record.get("message")
+            if record.get("type") in {"assistant", "user"}:
+                if not isinstance(message, dict):
+                    self._invalidate()
+                    return None
+                blocks = message.get("content")
+                valid_blocks = isinstance(blocks, list) and len(blocks) <= 64 and all(
+                    isinstance(block, dict) and isinstance(block.get("type"), str)
+                    and (block["type"] not in {"text", "thinking"}
+                         or isinstance(block.get(block["type"]), str)) for block in blocks
+                )
+                if not valid_blocks and not (record["type"] == "user" and isinstance(blocks, str)):
+                    self._invalidate()
+                    return None
+            if record.get("type") == "system" and record.get("subtype") in ("hook_started", "hook_response"):
+                if (any(field in record and not isinstance(record[field], str) for field in (
+                    "hook_event", "hook_name", "hook_id", "session_id", "outcome",
+                )) or record.get("exit_code") is not None and type(record["exit_code"]) is not int):
+                    self._invalidate()
+                    return None
+        if record_invalid:
+            self._invalidate()
+            return None
+        self._joined_content(event)
+        return event
+
+
+def workflow_canary_source(path: Path) -> str:
+    sample = _load_private_json(path, 4096, strict=True)
+    if (isinstance(sample, dict) and sample.get("status") == "fail"
+            and sample.get("reasonCode") == "CANARY_EXPOSED"):
+        source = sample.get("canarySource")
+        if isinstance(source, str) and source in CANARY_SOURCES:
+            return {name: name for name in CANARY_SOURCES}[source]
+    return "UNKNOWN"
+
+
 def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     if not path.is_file() or path.stat().st_size > 5_000_000:
         return {"status": "inconclusive", "reasonCode": "STREAM_INVALID", "toolCalls": 0}
@@ -1560,7 +1751,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     bash_tool_uses = 0
     result_seen = False
     terminal_count = 0
-    canary_seen = False
+    canary_scan = _CanaryScan(canary)
     malformed = False
     hook_events = 0
     workflow_calls: dict[str, dict[str, Any]] = {}
@@ -1610,14 +1801,8 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
 
     with path.open("r", encoding="utf-8") as stream:
         for line in stream:
-            if canary and canary in line:
-                canary_seen = True
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                malformed = True
-                continue
-            if not isinstance(event, dict):
+            event = canary_scan.read(line)
+            if event is None:
                 malformed = True
                 continue
             for value, provenance in _stream_records(event):
@@ -1806,9 +1991,9 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
         session_id = next(iter(workflow_calls.values())).get("sessionId")
         if isinstance(session_id, str) and LABEL.fullmatch(session_id):
             workflow_session_ids = [session_id]
-    if canary_seen:
-        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
-    if malformed or not result_seen:
+    if canary_scan.sources:
+        return {"status": "fail", "reasonCode": "CANARY_EXPOSED", "canarySource": canary_scan.source, "toolCalls": tool_calls, "hookEvents": hook_events, "roleLabels": [], "contextPercentages": [], "workflowSessionIds": [], **workflow_observation}
+    if malformed or canary_scan.invalid or not result_seen:
         if workflow_observation["routeClass"] == "persistent-one-shot":
             workflow_observation.update({
                 "routeClass": "workflow-incomplete", "guardProof": "exact-deny",
@@ -1993,16 +2178,11 @@ def evaluate_denied_stream(
         tool_calls = 0
         hook_events = 0
         malformed = False
+        canary_scan = _CanaryScan(canary)
         with path.open("r", encoding="utf-8") as stream:
             for line in stream:
-                if canary and canary in line:
-                    return {**empty, "status": "fail", "reasonCode": "CANARY_EXPOSED"}
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    malformed = True
-                    continue
-                if not isinstance(event, dict):
+                event = canary_scan.read(line)
+                if event is None:
                     malformed = True
                     continue
                 for value, provenance in _stream_records(event):
@@ -2075,7 +2255,9 @@ def evaluate_denied_stream(
                             state = "terminal"
                     elif state == "terminal" or event_type in {"tool_use", "tool_result"}:
                         malformed = True
-        if (malformed or state != "terminal" or observation is None
+        if canary_scan.sources:
+            return {**empty, "status": "fail", "reasonCode": "CANARY_EXPOSED", "canarySource": canary_scan.source}
+        if (malformed or canary_scan.invalid or state != "terminal" or observation is None
                 or tool_calls != 2 or hook_events != 1):
             return {**empty, "toolCalls": tool_calls, "hookEvents": hook_events}
         fingerprint = observation["invocationFingerprint"]
@@ -2320,6 +2502,9 @@ def main(argv: list[str]) -> int:
         return 0
     if len(argv) == 4 and argv[0] == "--workflow-result-reason":
         print(workflow_result_reason(Path(argv[1]), argv[2], argv[3]))
+        return 0
+    if len(argv) == 2 and argv[0] == "--workflow-canary-source":
+        print(workflow_canary_source(Path(argv[1])))
         return 0
     if len(argv) == 7 and argv[0] in {"--evaluate-allow-stream", "--evaluate-deny-stream"}:
         evaluator = (

@@ -286,6 +286,37 @@ authorizes a retry. Existing signal encoding and reserved timeout-status
 mapping are unchanged, so this is not a claim to preserve an unmodified raw
 child status. No provider-backed run occurred for this correction.
 
+Canary detection is independent of workflow and permission proof. Both phase
+reducers inspect literal raw occurrences and decoded JSON strings and keys;
+no user input, tool result, metadata, unknown field, or thinking channel is
+whitelisted. Text and thinking blocks are recomposed separately within one
+assistant message. Cross-event recomposition requires the exact bounded native
+session ID, explicitly present parent tool-use ID (including null), and message ID. Only a suffix
+shorter than the canary is held per channel in ephemeral memory. The scanner
+bounds the marker to 256 characters, each event to 4,096 value nodes and depth
+64, message content to 64 blocks, and cross-event identities to 64. Exceeded
+bounds, malformed known message/channel and hook field types, duplicate keys,
+and non-JSON constants prevent a passing phase; a detected canary remains a
+failure. Fan-out is checked before enqueueing traversal nodes, independently
+of the bounded input's unavoidable JSON parsing allocation. Invalid records
+discard correlation suffixes but do not disable scanning or recomposition of
+later valid records; acceptance rejection remains sticky. Arbitrary encodings and
+unidentified cross-event fragments are not reconstructed, and this is not a
+universal confidentiality claim.
+
+Failed private samples may add only one `canarySource` enum:
+`ASSISTANT_TEXT`, `ASSISTANT_THINKING`, `ASSISTANT_TOOL_INPUT`, `USER_INPUT`,
+`TOOL_RESULT`, `SYSTEM_METADATA`, `TERMINAL_RESULT`, `RAW_INVALID`, `UNKNOWN`,
+or `MULTIPLE`. These labels describe observed record shape, not trusted
+authorship, exposure causality, or provider behavior. The closed classifier
+`--workflow-canary-source` reads the bounded private sample and emits only a
+known enum; missing, unsafe, or forged values become `UNKNOWN`. A second shell
+allowlist applies before reporting, after raw and whole-root cleanup.
+Unknown attribution never permits continuation or retry. The aggregate schema,
+native authorization, fixture validation, time/turn limits, and fresh
+commit-bound live authorization remain unchanged. Deleted historical streams
+cannot be recovered or reclassified by this correction.
+
 Unexpected nonzero harness exits also have a shell-owned diagnostic boundary.
 An EXIT handler captures the process status, attempts the verified-prefix
 cleanup, and checks that the disposable root is absent before reporting

@@ -677,6 +677,25 @@ not a symlink and the external launcher was absent. No retry occurred; the
 authorization is consumed and acceptance remains unsatisfied. Another live
 attempt requires fresh commit-bound authorization.
 
+On 2026-10-01, the operator approved a bounded provider-free detector correction
+after an isolated 14-case probe showed identical failure codes across source
+shapes and missed decoded Unicode and split text. A second control with valid
+synthetic permission proof confirmed that those four missed cases reached
+allow-phase `pass`; this was not a full browser acceptance or live observation.
+The disposable probe was deleted and the worktree remained clean at `8329351`.
+The correction uses decoded scanning and bounded, channel-separated native
+message correlation, plus one closed source-shape enum after verified cleanup.
+No input/source category is exempt from blocking. Unknown or invalid evidence
+cannot authorize a retry, and historical evidence remains unchanged.
+
+The independent review requested bounded detector corrections rather than
+approving the initial patch. Follow-up RED regressions reproduced its three
+important findings and two minor boundary issues. The implementer corrected
+later valid recomposition, pre-enqueue traversal bounds, malformed known
+message/channel and hook types, and explicit parent identity requirements.
+Invalid records reset suffixes without reopening acceptance. Validation notes
+record the verified resolution separately from independent review approval.
+
 - [x] **Step 6: Record observed evidence and rerun final gates**
 
 If the run passes, update validation notes and release documents with the exact content-free aggregate, observed runtime labels, decision order, cleanup, and limitations. If it is blocked or inconclusive, record that outcome without claiming acceptance. Rerun content, architecture, focused, and complete package gates after documentation changes.

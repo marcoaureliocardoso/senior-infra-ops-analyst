@@ -2199,6 +2199,300 @@ raise SystemExit(1)
                     self.assertEqual(sample["status"], "inconclusive")
                     self.assertEqual(sample["reasonCode"], expected)
 
+    def _canary_samples(self, root: Path, extra: list[dict], *, escaped: bool = False, prefix: str = "") -> list[dict]:
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import _workflow_command, evaluate_allowed_stream, evaluate_denied_stream
+
+        results = []
+        for phase, session in (("allow", "session-live-browser-001"), ("deny", "session-live-browser-deny-001")):
+            stream, signal = root / f"{phase}.jsonl", root / f"{phase}.signal"
+            command = self._workflow_command()
+            if phase == "allow":
+                self._workflow_stream(stream)
+            else:
+                command = command.replace("op-live-browser-001", "op-live-browser-deny-001").replace("session-live-browser-001", session)
+                self._denied_stream(stream, command)
+            observed = _workflow_command(command)
+            self.assertIsNotNone(observed)
+            self._permission_signal(signal, phase, observed["invocationFingerprint"], "synthetic")
+            phase_extra = json.loads(json.dumps(extra).replace("canary-session-placeholder", session))
+            content = prefix + "".join(json.dumps(event) + "\n" for event in phase_extra) + stream.read_text()
+            if escaped:
+                content = content.replace("P004B_TEST_CANARY", "".join(f"\\u{ord(char):04x}" for char in "P004B_TEST_CANARY"))
+            stream.write_text(content)
+            evaluator = evaluate_allowed_stream if phase == "allow" else evaluate_denied_stream
+            sample = evaluator(stream, "P004B_TEST_CANARY", signal, "p004b-run-001", session)
+            self.assertNotIn("P004B_TEST_CANARY", json.dumps(sample))
+            results.append(sample)
+        return results
+
+    def test_canary_scan_decodes_unicode_without_relaxing_permission(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for sample in self._canary_samples(root, []):
+                self.assertEqual(sample["status"], "pass")
+            for sample in self._canary_samples(root, [{"type": "assistant", "message": {
+                "content": [{"type": "text", "text": "P004B_TEST_CANARY"}],
+            }}], escaped=True):
+                self.assertEqual(sample["status"], "fail")
+                self.assertEqual(sample["reasonCode"], "CANARY_EXPOSED")
+                self.assertEqual(sample.get("canarySource"), "ASSISTANT_TEXT")
+
+    def test_canary_scan_sources_are_closed_and_do_not_whitelist_inputs(self) -> None:
+        import tempfile
+
+        cases = (
+            ({"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "P004B_TEST_CANARY"}]}}, "ASSISTANT_THINKING"),
+            ({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "synthetic", "name": "Bash", "input": {"command": "P004B_TEST_CANARY"}}]}}, "ASSISTANT_TOOL_INPUT"),
+            ({"type": "user", "message": {"content": "P004B_TEST_CANARY"}}, "USER_INPUT"),
+            ({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "synthetic", "content": "P004B_TEST_CANARY"}]}}, "TOOL_RESULT"),
+            ({"type": "system", "subtype": "init", "metadata": "P004B_TEST_CANARY"}, "SYSTEM_METADATA"),
+            ({"type": "result", "result": "P004B_TEST_CANARY"}, "TERMINAL_RESULT"),
+            ({"type": "unknown", "payload": "P004B_TEST_CANARY"}, "UNKNOWN"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for event, source in cases:
+                with self.subTest(source=source):
+                    for sample in self._canary_samples(Path(directory), [event], escaped=True):
+                        self.assertEqual(sample["status"], "fail")
+                        self.assertEqual(sample["reasonCode"], "CANARY_EXPOSED")
+                        self.assertEqual(sample.get("canarySource"), source)
+
+    def test_canary_scan_reassembles_only_correlated_text_and_thinking(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            for kind, field, source in (("text", "text", "ASSISTANT_TEXT"), ("thinking", "thinking", "ASSISTANT_THINKING")):
+                for split_events in (False, True):
+                    blocks = [{"type": kind, field: "P004B_TEST_"}, {"type": kind, field: "CANARY"}]
+                    groups = [[block] for block in blocks] if split_events else [blocks]
+                    events = [{"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+                               "message": {"id": "msg-canary-probe", "content": group}} for group in groups]
+                    with self.subTest(kind=kind, split_events=split_events):
+                        for sample in self._canary_samples(Path(directory), events):
+                            self.assertEqual(sample["status"], "fail")
+                            self.assertEqual(sample.get("canarySource"), source)
+
+    def test_canary_scan_does_not_join_unrelated_provenance_or_channels(self) -> None:
+        import tempfile
+
+        base = [
+            {"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+             "message": {"id": "msg-canary-probe", "content": [{"type": "text", "text": "P004B_TEST_"}]}},
+            {"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+             "message": {"id": "msg-canary-probe", "content": [{"type": "text", "text": "CANARY"}]}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            for variant in ("session", "parent", "message", "channel", "absent-id"):
+                events = json.loads(json.dumps(base))
+                if variant == "session":
+                    events[1]["session_id"] = "other-session"
+                elif variant == "parent":
+                    events[1]["parent_tool_use_id"] = "other-parent"
+                elif variant == "message":
+                    events[1]["message"]["id"] = "other-message"
+                elif variant == "channel":
+                    events[1]["message"]["content"] = [{"type": "thinking", "thinking": "CANARY"}]
+                else:
+                    for event in events:
+                        del event["message"]["id"]
+                with self.subTest(variant=variant):
+                    for sample in self._canary_samples(Path(directory), events):
+                        self.assertNotEqual(sample["reasonCode"], "CANARY_EXPOSED")
+
+    def test_canary_scan_multiple_sources_and_invalid_literal_remain_blocked(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            for sample in self._canary_samples(Path(directory), [
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "P004B_TEST_CANARY"}]}},
+                {"type": "user", "message": {"content": "P004B_TEST_CANARY"}},
+            ]):
+                self.assertEqual(sample.get("canarySource"), "MULTIPLE")
+            path = Path(directory) / "invalid.jsonl"
+            path.write_text("not-json P004B_TEST_CANARY\n")
+            sample = evaluate_stream(path, "P004B_TEST_CANARY")
+            self.assertEqual(sample["status"], "fail")
+            self.assertEqual(sample.get("canarySource"), "RAW_INVALID")
+
+    def test_canary_scan_bounds_fail_closed_instead_of_accepting(self) -> None:
+        import tempfile
+
+        nested = "no marker"
+        for _ in range(65):
+            nested = {"nested": nested}
+        many_ids = [{"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+                     "message": {"id": f"msg-{index}", "content": [{"type": "text", "text": "ordinary text"}]}}
+                    for index in range(65)]
+        with tempfile.TemporaryDirectory() as directory:
+            for events in ([{"type": "unknown", "payload": nested}],
+                           [{"type": "unknown", "payload": [None] * 4097}], many_ids):
+                with self.subTest(event_count=len(events)):
+                    for sample in self._canary_samples(Path(directory), events):
+                        self.assertEqual(sample["status"], "inconclusive")
+
+    def test_canary_source_cli_rejects_untrusted_values_without_copying(self) -> None:
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.json"
+            for source, expected in (("ASSISTANT_TEXT", "ASSISTANT_TEXT"), ("SYNTH_SECRET_FORGED_SOURCE", "UNKNOWN"),
+                                     (["SYNTH_SECRET_FORGED_SOURCE"], "UNKNOWN"), (None, "UNKNOWN")):
+                with self.subTest(source=source):
+                    path.write_text(json.dumps({"status": "fail", "reasonCode": "CANARY_EXPOSED", "canarySource": source}))
+                    os.chmod(path, 0o600)
+                    result = subprocess.run([sys.executable, str(PARSER), "--workflow-canary-source", str(path)], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, expected + "\n")
+                    self.assertEqual(result.stderr, "")
+
+    def test_canary_scan_invalid_record_cannot_hide_later_decoded_exposure(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stream.jsonl"
+            escaped = "".join(f"\\u{ord(char):04x}" for char in "P004B_TEST_CANARY")
+            for first in ('not-json\n', '{"type":"unknown","payload":NaN}\n', '{"type":"system","type":"unknown"}\n'):
+                with self.subTest(first_kind=first[:12]):
+                    path.write_text(first + '{"type":"result","result":"' + escaped + '"}\n')
+                    sample = evaluate_stream(path, "P004B_TEST_CANARY")
+                    self.assertEqual(sample["status"], "fail")
+                    self.assertEqual(sample.get("canarySource"), "TERMINAL_RESULT")
+
+    def test_canary_scan_non_string_event_type_is_closed_without_traceback(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import evaluate_stream
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stream.jsonl"
+            for kind in ([], {}, True):
+                with self.subTest(kind_type=type(kind).__name__):
+                    path.write_text(json.dumps({"type": kind, "payload": "P004B_TEST_CANARY"}) + "\n")
+                    sample = evaluate_stream(path, "P004B_TEST_CANARY")
+                    self.assertEqual(sample["status"], "fail")
+                    self.assertEqual(sample.get("canarySource"), "UNKNOWN")
+
+    def test_canary_scan_malformed_block_cannot_crash_or_skip_bound(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            for blocks in ([{"type": [], "payload": "ordinary text"}], [{"type": {}, "payload": "ordinary text"}],
+                           [{"type": "text", "text": "ordinary text"}] * 65):
+                with self.subTest(block_count=len(blocks)):
+                    for sample in self._canary_samples(Path(directory), [{"type": "assistant", "message": {"content": blocks}}]):
+                        self.assertEqual(sample["status"], "inconclusive")
+
+    def test_canary_scan_recomposes_after_invalid_prefix_without_bridging_it(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import _CanaryScan
+
+        with tempfile.TemporaryDirectory() as directory:
+            for kind, source in (("text", "ASSISTANT_TEXT"), ("thinking", "ASSISTANT_THINKING")):
+                events = [{"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+                           "message": {"id": "msg-review-probe", "content": [{"type": kind, kind: fragment}]}}
+                          for fragment in ("P004B_TEST_", "CANARY")]
+                for prefix in ('not-json\n', '{"type":[]}\n'):
+                    with self.subTest(channel=kind, prefix_type=prefix[:10]):
+                        for sample in self._canary_samples(Path(directory), events, prefix=prefix):
+                            self.assertEqual(sample["status"], "fail")
+                            self.assertEqual(sample.get("canarySource"), source)
+                scanner = _CanaryScan("P004B_TEST_CANARY")
+                scanner.read(json.dumps(events[0]))
+                scanner.read("not-json")
+                scanner.read(json.dumps(events[1]))
+                self.assertTrue(scanner.invalid)
+                self.assertFalse(scanner.sources, "invalid boundaries must discard earlier suffixes")
+
+    def test_canary_scan_fanout_is_bounded_before_traversal_allocation(self) -> None:
+        import sys
+        import tracemalloc
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import _CanaryScan, _unique_json_object
+
+        for payload in ([None] * 100_000, {f"key-{index}": None for index in range(50_000)}):
+            line = json.dumps({"type": "unknown", "payload": payload})
+            # JSON parsing necessarily allocates the decoded input. Compare against
+            # that baseline so the bound measures traversal, not parser allocation.
+            tracemalloc.start()
+            decoded = json.loads(line, object_pairs_hook=_unique_json_object)
+            baseline = tracemalloc.get_traced_memory()[1]
+            del decoded
+            tracemalloc.stop()
+            scanner = _CanaryScan("P004B_TEST_CANARY")
+            tracemalloc.start()
+            try:
+                scanner.read(line)
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+            self.assertTrue(scanner.invalid)
+            self.assertLess(peak, baseline + 2_000_000, "fan-out must not allocate one traversal tuple per child")
+
+    def test_canary_scan_known_message_shapes_reject_passing_evidence(self) -> None:
+        import tempfile
+
+        messages = ([], None, {}, {"content": {}}, {"content": [None]},
+                    {"content": [{"type": "text", "text": []}]},
+                    {"content": [{"type": "thinking", "thinking": {}}]})
+        with tempfile.TemporaryDirectory() as directory:
+            for message in messages:
+                with self.subTest(message_shape=type(message).__name__):
+                    for sample in self._canary_samples(Path(directory), [{"type": "assistant", "message": message}]):
+                        self.assertEqual(sample["status"], "inconclusive")
+            for sample in self._canary_samples(Path(directory), [{"type": "user", "message": []}]):
+                self.assertEqual(sample["status"], "inconclusive")
+
+    def test_canary_scan_requires_explicit_parent_for_cross_event_recomposition(self) -> None:
+        import tempfile
+
+        events = [{"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+                   "message": {"id": "msg-review-probe", "content": [{"type": "text", "text": fragment}]}}
+                  for fragment in ("P004B_TEST_", "CANARY")]
+        del events[0]["parent_tool_use_id"]
+        with tempfile.TemporaryDirectory() as directory:
+            for sample in self._canary_samples(Path(directory), events):
+                self.assertNotEqual(sample["reasonCode"], "CANARY_EXPOSED")
+
+    def test_canary_scan_malformed_hooks_cannot_hide_exposure_or_later_fragments(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            for subtype in ("hook_started", "hook_response"):
+                for field in ("hook_event", "hook_name", "hook_id", "session_id", "outcome", "exit_code"):
+                    for bad in ([], {}):
+                        event = {"type": "system", "subtype": subtype, field: bad, "metadata": "P004B_TEST_CANARY"}
+                        with self.subTest(subtype=subtype, field=field, bad_type=type(bad).__name__):
+                            for sample in self._canary_samples(Path(directory), [event], escaped=True):
+                                self.assertEqual(sample["status"], "fail")
+                                self.assertEqual(sample.get("canarySource"), "SYSTEM_METADATA")
+            malformed = {"type": "system", "subtype": "hook_started", "hook_event": []}
+            events = [malformed] + [{"type": "assistant", "session_id": "canary-session-placeholder", "parent_tool_use_id": None,
+                                     "message": {"id": "msg-hook-probe", "content": [{"type": "text", "text": fragment}]}}
+                                    for fragment in ("P004B_TEST_", "CANARY")]
+            for sample in self._canary_samples(Path(directory), events):
+                self.assertEqual(sample["status"], "fail")
+                self.assertEqual(sample.get("canarySource"), "ASSISTANT_TEXT")
+
     def test_allow_reducer_distinguishes_incomplete_workflow_from_permission(self) -> None:
         import sys
         import tempfile
@@ -2396,7 +2690,36 @@ raise SystemExit(1)
         self.assertEqual(result.returncode, 2)
         self.assertTrue(cleaned)
         self.assertEqual(result.stdout, "")
-        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (CANARY_EXPOSED; cleanup=verified)\n")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (CANARY_EXPOSED; source=TERMINAL_RESULT; cleanup=verified)\n")
+
+    def test_canary_scan_shell_blocks_encoded_text_after_verified_cleanup(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            content = json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "P004B_TEST_CANARY"}]}})
+            content = content.replace("P004B_TEST_CANARY", "".join(f"\\u{ord(char):04x}" for char in "P004B_TEST_CANARY"))
+            stream.write_text(content + "\n")
+            result, cleaned = self._workflow_shell_probe(stream)
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (CANARY_EXPOSED; source=ASSISTANT_TEXT; cleanup=verified)\n")
+
+    def test_canary_scan_shell_never_copies_forged_source_or_retries(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "synthetic.jsonl"
+            stream.write_text('{"type":"result","result":"P004B_TEST_CANARY"}\n')
+            result, cleaned = self._workflow_shell_probe(
+                stream, classifier='python3(){ if [[ "${2:-}" == --workflow-canary-source ]]; then '
+                "printf '%s\\n' SYNTH_SECRET_FORGED_SOURCE; else command python3 \"$@\"; fi; }",
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(cleaned)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "BLOCKED: allow workflow evidence rejected (CANARY_EXPOSED; source=UNKNOWN; cleanup=verified)\n")
 
     def test_workflow_shell_rejects_untrusted_classifier_output_without_copying_it(self) -> None:
         import tempfile

@@ -286,6 +286,18 @@ tag. Tagged versions correspond to repository tags.
   absence checks passed. No retry occurred; provider-backed acceptance remains
   unsatisfied.
 
+- Strengthened the browser canary detector with bounded decoded-JSON scanning
+  and correlated text/thinking recomposition. User input, tool results,
+  metadata, unknown fields, and invalid literal records are not exempted.
+  Added closed source-shape diagnostics, with a second shell allowlist and
+  raw cleanup before reporting. Unicode escapes no longer bypass the detector;
+  unrelated channels or native message identities are not concatenated.
+  Invalid records reset correlation without hiding later valid fragments;
+  traversal fan-out is checked before allocation, and malformed known
+  message/channel and hook field types cannot support a passing phase.
+  This provider-free correction does not establish the source of historical
+  exposure, relax acceptance, or authorize an authenticated retry.
+
 ### 0.14.0 (unreleased) - declared 2026-08-25
 
 - Added one global installed authority policy and a canonical untrusted-input reference that treat external content as data, preserve the operator's authority, and prohibit embedded instructions from authorizing actions.
