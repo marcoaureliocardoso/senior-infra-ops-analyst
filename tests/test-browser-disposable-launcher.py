@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Provider-free process-boundary tests: all child programs are synthetic."""
 import copy
+import errno
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 MODULE = Path(__file__).with_name("browser_disposable_launcher.py")
@@ -28,6 +30,42 @@ AGGREGATE = {
     "cleanup": "verified", "permission": {"mode": "synthetic-deterministic",
         "allow": "not-observed", "deny": "not-observed", "callCount": 0},
 }
+
+
+def process_running(pid):
+    """Test-only Linux observer; disappearance is distinct from read failure."""
+    try:
+        # An unreaped zombie has terminated; kill(pid, 0) alone cannot
+        # distinguish that from a live orphan under WSL.
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        return state not in {"Z", "X"}
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+
+
+class ProcessObserverTests(unittest.TestCase):
+    def test_absent_process_is_not_running(self):
+        for error_code in (errno.ENOENT, errno.ESRCH):
+            with self.subTest(error_code=error_code):
+                with patch.object(Path, "read_text", side_effect=OSError(error_code, "synthetic")):
+                    self.assertFalse(process_running(123))
+
+    def test_live_and_terminated_states_remain_distinct(self):
+        for state, expected in (("R", True), ("S", True), ("Z", False), ("X", False)):
+            with self.subTest(state=state):
+                with patch.object(Path, "read_text", return_value=f"123 (synthetic (child)) {state} 1 2"):
+                    self.assertEqual(process_running(123), expected)
+
+    def test_unrelated_read_failures_and_malformed_stat_are_not_absence(self):
+        for error_code in (errno.EACCES, errno.EIO):
+            with self.subTest(error_code=error_code):
+                with patch.object(Path, "read_text", side_effect=OSError(error_code, "synthetic")):
+                    with self.assertRaises(OSError) as caught:
+                        process_running(123)
+                    self.assertEqual(caught.exception.errno, error_code)
+        with patch.object(Path, "read_text", return_value="malformed"):
+            with self.assertRaises(IndexError):
+                process_running(123)
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX pipe and process-group boundary")
@@ -115,27 +153,32 @@ class DisposableLauncherTests(unittest.TestCase):
                 self.assertTrue(ready.is_file())
                 descendant = int(ready.read_text(encoding="ascii"))
 
-                def running():
-                    try:
-                        # An unreaped zombie has terminated; kill(pid, 0) alone
-                        # cannot distinguish that from a live orphan under WSL.
-                        state = Path(f"/proc/{descendant}/stat").read_text().rsplit(")", 1)[1].split()[0]
-                        return state not in {"Z", "X"}
-                    except FileNotFoundError:
-                        return False
-
                 try:
                     deadline = time.monotonic()+2
-                    while running() and time.monotonic() < deadline:
+                    while process_running(descendant) and time.monotonic() < deadline:
                         time.sleep(.01)
-                    self.assertFalse(running(), "synthetic descendant survived supervisor cleanup")
+                    self.assertFalse(process_running(descendant), "synthetic descendant survived supervisor cleanup")
                     self.assertEqual(result["reasonCode"], "TIMEOUT")
                     self.assertEqual(result["launcherCleanup"], "verified")
                 finally:
-                    if running():
+                    if process_running(descendant):
                         os.kill(descendant, signal.SIGKILL)
                     ready.unlink()
                 self.assertEqual(list(Path(self.parent.name).iterdir()), [])
+
+    def test_process_disappearance_during_stat_read_does_not_abort_cleanup_check(self):
+        original_read = Path.read_text
+        for error_code in (errno.ENOENT, errno.ESRCH):
+            with self.subTest(error_code=error_code):
+                def vanished(path, *args, **kwargs):
+                    if path.name == "stat" and path.parent.parent == Path("/proc"):
+                        raise OSError(error_code, "synthetic process disappeared")
+                    return original_read(path, *args, **kwargs)
+
+                # Only the kernel stat read is doubled; the real supervisor,
+                # synthetic descendants and cleanup assertions still execute.
+                with patch.object(Path, "read_text", vanished):
+                    self.test_parent_exit_does_not_leave_descendant_holding_pipes()
 
     def test_duplicate_keys_nonfinite_and_invalid_utf8_cannot_supply_aggregate(self):
         payloads = (b'{"status":"pass","status":"fail"}', b'{"status":NaN}', b'{"status":"\xff"}')

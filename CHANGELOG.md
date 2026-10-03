@@ -7,6 +7,11 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Stabilized the test-only Linux process observer when a descendant disappears
+  during `/proc` stat reading. Only missing-file and missing-process errors
+  count as disappearance; live states, unrelated read errors and malformed
+  records retain their checks. Supervisor termination, cleanup, timeouts and
+  authentication behavior are unchanged.
 - Added `browser-operations` as the 26th first-class skill, with a canonical operation envelope, effect classes, authorization requirements, origin policy, credential handling, human-only challenge pauses, artifact limits, and unknown-outcome reconciliation.
 - Added fail-closed runtime capability states and deterministic route precedence across a recognized main-session MCP and a recognized protected runner, without installing or pinning an MCP, adapter, browser, Claude Code, Nori, provider, model, or context window.
 - Added transactional project-local browser hook configuration with conflict detection, exact ownership, idempotent apply, and owned-only rollback. Configuration and persisted ownership remain `CONFIGURED_UNPROVEN`; only current correlated runtime evidence can establish an active route.

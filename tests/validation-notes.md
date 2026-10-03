@@ -2644,3 +2644,57 @@ its own scoped change, and decide how the disposable acceptance harness will
 satisfy native API-key approval under exact authorization. The repaired driver
 stops rather than providing that approval. No new authenticated attempt,
 push/PR/merge or definitive TODO completion occurred during this correction.
+
+### P0-04B test-only process-disappearance observer correction (2026-10-03)
+
+The separately approved correction is limited to
+`tests/test-browser-disposable-launcher.py`. The original nested Linux observer
+was extracted into a test-only helper without changing its state parsing;
+it now treats only `FileNotFoundError` (`ENOENT`) and `ProcessLookupError`
+(`ESRCH`) during `/proc/<pid>/stat` reading as process disappearance. It does
+not catch general `OSError`, permission failures or malformed records. Live
+states remain running; zombie/dead states remain terminated. The supervisor,
+process-group signals, cleanup assertions, timeouts, credential transport and
+native authentication gates were not changed.
+
+TDD evidence: the original 19-test launcher suite passed as the baseline.
+The new process-disappearance integration regression then failed in both
+termination-mode subcases for `ESRCH`, while the existing `ENOENT` handling
+passed. After helper extraction, the direct absence regression also reproduced
+`ESRCH`; live-state, permission/I/O failure and malformed-record controls
+passed. The minimal exception-tuple fix made the complete 23-test suite pass.
+The deterministic integration regression doubles only the kernel stat read;
+real synthetic descendants, supervision and owned-root cleanup still run.
+Its injected absence is not independent proof of descendant termination;
+the unchanged real-stat integration test remains the process check.
+
+No configured credential or operator setting was supplied to these synthetic
+checks, and no authenticated provider execution was requested. This is not a
+runtime file-access audit. Native API-key approval and authenticated P0-04B
+acceptance remain separate pending work; prior consumed authorization was not
+reused.
+
+Ten additional repetitions of the real-stat integration test passed (20
+termination-mode subcases, covering default TERM and TERM-ignore descendants).
+Independent read-only review reported no Critical, Important or Minor findings
+in the scoped three-file diff. It independently ran the 23-test suite and an
+in-memory old-handler substitution: the direct ESRCH regression failed while
+live-state and unrelated-error/malformed-record controls passed. No reviewer
+file changes were made.
+
+The review did not independently establish the original baseline/integration
+RED history, repetitions, full package gate, or this later evidence append.
+Non-Linux behavior, full supervisor correctness, adversarial process escape,
+uncatchable interruption, native authentication/provider/browser acceptance,
+historical failure cause and CI/PR/merge status were outside that scoped
+review; this test-only correction makes no new claim for those properties.
+
+The complete provider-free package gate completed with exit 0 and
+`package validation passed`, including the 23-test launcher suite, remaining
+package suites, mutation gate and self-tests. Platform/capability-specific
+skips and the optional PowerShell syntax check (PowerShell unavailable in WSL)
+are not real-browser or Windows coverage. Local CI-workflow validation is not
+remote CI/Security. The package remains at its existing unreleased `0.15.0`
+state; this test-only correction adds no new runtime feature or release.
+No authenticated attempt, push, PR, merge or definitive TODO completion was
+performed as part of this correction.
