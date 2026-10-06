@@ -3080,3 +3080,85 @@ authenticated cause, complete runtime behavior and live acceptance remain
 unproved. No behavior change or authenticated retry was implemented during
 diagnosis. A separate bounded design must be approved before correcting
 transition-scoped readiness and adding sanitized failure-phase reporting.
+
+### P0-04B transition-scoped startup correction (2026-10-06)
+
+The operator approved a bounded test-harness correction following the diagnosis
+at source `60589f12e4e7711cf0b3366bb004dfe03afa8e0b`. No authenticated execution
+was authorized or attempted in this correction. The earlier grant bound to
+`1c8fafd4bb9f14c8e713a1217724cfb5b456f83b` remains consumed.
+
+TDD reproduced premature `/context` input in four theme/trust cases with an
+unused startup decision: stale menu plus progress, and a fresh complete menu.
+Independent review then reproduced a partial unnumbered option (`Dark`) with
+no repeated heading; the expanded regression failed in both menu variants.
+Context-status text alone is also a negative control. The correction preserves
+the caller's post-transition byte boundary and any post-confirmation boundary,
+requires a recognized input row, and rejects selection-menu readiness.
+Another RED control covered a partial blank-chevron redraw with its menu
+heading still visible. The current full rendered screen must also have left
+that menu, and readiness is rechecked after the final settling interval.
+The trust success fixture now clears the departed menu, rather than leaving a
+synthetic prompt alongside the old heading. Positive controls cover a ready
+marker, a blank input and a quoted input suggestion after the departed menu
+has been cleared. The regression also includes an operational prompt replaced
+by a menu during final settling; there are 18 menu/transition subcases.
+The one-use decision, claim expiry and source/session/endpoint/configuration/
+executable bindings are unchanged. Non-context continuity dialogues retain
+their existing readiness contract.
+
+The new failure diagnostic reads a bounded regular no-follow private event
+file with unique JSON keys. It retains only at most 16 closed stage/outcome
+pairs, including optional `api_key_approval`, never numeric values, screen,
+prompt, transcript, session, paths, configuration or credential material.
+Unknown, incomplete, duplicate, nonregular, linked and oversized evidence is
+unavailable. A delimiter-injection regression initially demonstrated that
+joining an unknown stage could manufacture extra closed pairs; field membership
+is now checked before joining. The shell removes raw files and the complete
+owned root, verifies absence and the sticky cleanup result, then reports phases
+and the existing leaf failure. Failed or incomplete cleanup emits no phases.
+The line reducer revalidates the closed template. Reported phase/cleanup values
+remain diagnostic claims, not acceptance or authorization.
+
+Review also found that a new global Python dependency broke the single-file
+dispatch sandbox. The first 132-test safety run failed in 13 isolated-dispatch
+cases; a standalone isolated Python CLI test also failed. The dependency is
+now imported only on the phase-reader path. That standalone test and the
+following complete 133-test safety run passed. No native executable, provider,
+operator settings or credentials were used for these reproductions.
+
+The real disposable supervisor's synthetic child test retained phase diagnostics
+alongside the leaf code while returning `CHILD_FAILED`, exit 2, no aggregate,
+and independently verified launcher cleanup. All 24 supervisor tests passed.
+The closed diagnostic suite passed all 31 tests. These focused results do not
+establish authenticated P0-04B acceptance.
+
+Final verification completed through Debian WSL using the established Node
+24.17.0 PATH and a credential-free environment. `tests/validate-package.sh`
+exited 0 with `package validation passed`; schema and local CI workflow
+validation also passed. The focused suites passed 25 PTY, 11 startup-claim,
+six dedicated context-driver, 133 harness-safety, 31 diagnostic and 24 supervisor
+tests (230 total). The final permanent 18-subcase readiness regression also
+passed separately. The full gate includes the existing mutation and self-test
+checks. Optional PowerShell syntax validation was skipped because no PowerShell
+runtime was available on the selected WSL PATH; reported platform/capability
+skips are not coverage. Local workflow validation is not a remote CI/Security run.
+
+Independent read-only review found no remaining Critical, Important or Minor
+issues after the import, partial-option and partial-blank fixes. It separately
+reproduced no context input for partial blank menu frames and a prompt replaced
+by a menu during final settling, checked the permanent test extension, and
+confirmed `git diff --check`. It declined to establish native prompt compatibility,
+general terminal-emulator correctness, historical authenticated cause, provider
+behavior, human consent, malicious same-user race coverage or coordinator-owned
+full-gate results. The scoped verdict permits a local commit after verification,
+not merge or live-execution approval.
+
+Version remains the existing unreleased 0.15.0: only test harness/tests and
+documentation changed, with no installed package behavior or new release.
+CHANGELOG, indexed ADR-010 and the test-only caller contract were updated.
+The primary checkout and operator preferences were not changed, and the
+definitive unversioned TODO remains untouched. Authenticated P0-04B acceptance,
+remote CI/Security and merge gates remain pending. A new grant bound to the
+final clean commit is required before another authenticated attempt; no consumed
+authorization was reused, and no push, PR, merge or release was performed.

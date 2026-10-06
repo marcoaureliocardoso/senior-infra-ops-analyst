@@ -476,9 +476,26 @@ def drive(
             raise RuntimeError("startup authentication requires an independent decision")
 
     def prompt_ready(data: bytes) -> bool:
+        # Keep the caller's post-transition boundary even while an unused
+        # approval object exists. Auth handling can append a new prompt.
+        observation_offset = len(retained) - len(data)
         require_startup_auth_clear(data)
         if startup_approval is not None:
-            data = terminal_screen_text(bytes(retained[startup_prompt_offset:])).encode("utf-8")
+            data = bytes(retained[max(observation_offset, startup_prompt_offset):])
+        if dialogue == "context":
+            screen = terminal_screen_text(data)
+            folded = folded_letters(screen.encode("utf-8"))
+            current_folded = folded_letters(terminal_screen_text(bytes(retained)).encode("utf-8"))
+            if (b"choosethetextstylethatlooksbestwithyourterminal" in folded
+                    or b"yesitrustthisfolder" in folded
+                    or b"choosethetextstylethatlooksbestwithyourterminal" in current_folded
+                    or b"yesitrustthisfolder" in current_folded
+                    or re.search(r"(?m)^\s*❯\s*\d+[.)]", screen)):
+                return False
+            # Empty input, the controlled readiness fixture, or the native
+            # quoted input suggestion. Arbitrary unnumbered menu options
+            # (including partial redraws with no heading) are not prompts.
+            return bool(re.search(r'(?m)^\s*❯[ \t]*(?:$|ready[ \t]*$|Try[ \t]+"[^"\r\n]+"[ \t]*$)', screen))
         return (
             b"ctx" in folded_letters(data)
             or "❯".encode("utf-8") in data
@@ -561,6 +578,8 @@ def drive(
             )
             settle(1.0)
             require_startup_auth_clear(bytes(retained))
+            if dialogue == "context" and not prompt_ready(bytes(retained[startup_offset:])):
+                raise RuntimeError("interactive prompt changed before readiness settled")
             record(current_stage, "passed")
             startup_open = False
             if startup_approval is not None:

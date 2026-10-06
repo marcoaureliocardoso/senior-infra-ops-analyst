@@ -823,6 +823,38 @@ def pty_failure_reason(path: Path) -> str:
         return rejected
 
 
+def pty_failure_phases(path: Path) -> str:
+    """Read bounded private events; return only closed stage/outcome pairs."""
+    # Dispatch probes mount this module alone. Phase diagnostics are not used
+    # there and must not add a dependency to that isolated execution path.
+    from browser_launch_diagnostics import context_failure_phases, MAX_CONTEXT_PHASES, CONTEXT_PHASE_STAGES
+
+    try:
+        lines = _read_regular_lines_nofollow(path, MAX_PTY_EVENT_BYTES)
+        if not 1 <= len(lines) <= MAX_CONTEXT_PHASES:
+            return "unavailable"
+        pairs = []
+        for line in lines:
+            value = json.loads(line, object_pairs_hook=_unique_json_object)
+            if (not isinstance(value, dict)
+                    or not {"kind", "stage", "outcome"} <= set(value) <= PTY_EVENT_FIELDS
+                    or value["kind"] != "pty-driver"
+                    or not isinstance(value["stage"], str)
+                    or not isinstance(value["outcome"], str)
+                    or value["stage"] not in CONTEXT_PHASE_STAGES
+                    or value["outcome"] not in {"passed", "failed", "forced"}):
+                return "unavailable"
+            for field, maximum in (("percent", 100), ("outputBytes", 8 * 1024 * 1024)):
+                if field in value and (type(value[field]) is not int or not 0 <= value[field] <= maximum):
+                    return "unavailable"
+            pairs.append(value["stage"] + ":" + value["outcome"])
+        text = ",".join(pairs)
+        context_failure_phases(text)
+        return text
+    except (OSError, UnicodeError, ValueError, TypeError, RecursionError):
+        return "unavailable"
+
+
 def pty_context_observation(
     path: Path, session_id: str, output_stage: str,
 ) -> dict[str, Any]:
@@ -2536,6 +2568,9 @@ def main(argv: list[str]) -> int:
         return 0
     if len(argv) == 2 and argv[0] == "--pty-failure-reason":
         print(pty_failure_reason(Path(argv[1])))
+        return 0
+    if len(argv) == 2 and argv[0] == "--pty-failure-phases":
+        print(pty_failure_phases(Path(argv[1])))
         return 0
     if len(argv) in {4, 5} and argv[0] in {"--claude-failure-reason", "--claude-failure-observation"}:
         try:

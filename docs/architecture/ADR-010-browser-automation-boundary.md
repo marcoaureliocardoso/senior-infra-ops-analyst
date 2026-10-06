@@ -381,6 +381,16 @@ aggregate emission. A structural startup event cannot prove provider
 receipt, browser consent or workflow acceptance. See
 `tests/browser-launch-diagnostics.md` for the test-only caller contract.
 
+Startup readiness preserves the caller's post-transition observation boundary,
+even before a single-use API-key decision is used. A fresh recognized input row
+is required for numeric inspection; theme/trust selectors, partial option rows
+and status text cannot supply readiness. Unsupported prompt formats block.
+Failure diagnostics retain only a closed bounded sequence of stage/outcome
+pairs, after verified cleanup of the complete private root. The independent
+line reducer rejects unknown fields and labels. Such diagnostic claims neither
+establish acceptance nor renew consent; source/session/endpoint/configuration/
+executable/expiry bindings and live budgets remain unchanged.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

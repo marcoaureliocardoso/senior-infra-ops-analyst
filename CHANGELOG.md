@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected test-only startup readiness so an unused API-key decision cannot
+  restore a stale theme/trust selector across a transition. Numeric context
+  inspection requires a recognized fresh input prompt, not a menu chevron or
+  context-status text. Added a bounded closed failure-phase diagnostic emitted
+  only after verified disposal of the complete private root. Authorization,
+  aggregate acceptance, production installs and live budgets are unchanged;
+  this does not establish authenticated P0-04B acceptance.
 - Changed the test-only native numeric context probe to collapsed `/context`,
   avoiding the observed installed-profile/viewport sensitivity of `/context all`.
   Strict native header, percentage and completion checks remain unchanged;

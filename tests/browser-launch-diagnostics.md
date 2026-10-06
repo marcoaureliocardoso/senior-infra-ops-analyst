@@ -15,6 +15,10 @@ are read or changed by this module.
   reports remain distinct.
 - Output fields are closed categories, closed reason codes, closed probe,
   measurement, phase and source labels, or exit numbers from 1 through 255.
+  A failed numeric context probe may additionally report at most 16 ordered
+  stage/outcome pairs as `CONTEXT_PHASES / PTY_PHASES_REPORTED`. The closed
+  startup/context/exit vocabulary, unique stages and terminal failure are
+  required; arbitrary fields or labels reject the entire sequence.
   Unrecognized lines, labels, controls, invalid UTF-8, arbitrary JSON, and
   oversized lines become `UNKNOWN / DIAGNOSTIC_SUPPRESSED` without content.
 - The unsettled-top-level-await warning yields only a warning classification.
@@ -163,6 +167,28 @@ selector or any selector after prompt readiness stops the probe. Prompt readines
 also revokes an unused decision. The shared PTY CLI has no enabling option.
 The structural `api_key_approval` event is optional startup context evidence,
 not browser allow/deny, credential identity, native hook proof or provider receipt.
+
+An unused decision must not restore pre-transition output into readiness checks.
+The controller preserves the caller's byte boundary and, if confirmation adds
+output, also requires the post-confirmation boundary. Numeric context startup
+recognizes a fresh input row, rejecting known theme/trust menus, numbered
+selectors, unrecognized unnumbered option rows and context-status text alone.
+The current rendered screen must also have left a recognized theme/trust menu;
+a partial blank-chevron redraw while its heading remains visible is insufficient.
+Readiness is rechecked after the final quiet settling interval.
+Unknown prompt formats stop safely; this is not general terminal emulation.
+
+On numeric-probe failure, `--pty-failure-phases` securely reads one bounded
+regular no-follow event file (64 KiB, at most 16 records, unique JSON keys).
+Only allowlisted stage/outcome pairs leave the reader; numeric fields are
+validated but omitted. Malformed, linked, nonregular, oversized, incomplete
+or unknown evidence becomes `unavailable`, with no sequence emitted. The
+shell removes raw evidence and the complete owned root, verifies absence and
+the sticky cleanup result, then emits the closed phase template on stderr
+before the existing leaf failure code. Cleanup failure emits no phase report.
+The reducer independently revalidates the template; `cleanupReported` remains
+an observed claim, not proof or permission. This diagnostic does not enter the
+acceptance aggregate, recover deleted history or authorize another attempt.
 
 No credential, approved-key cache or key hash is copied into the claim or final
 evidence. Claude may remember its own decision only inside the disposable native

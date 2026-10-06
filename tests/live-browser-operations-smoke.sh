@@ -137,6 +137,18 @@ WORKFLOW_ALLOW|WORKFLOW_DENY|FIXTURE_ALLOW|FIXTURE_DENY|SIDECAR|AGGREGATE|CLEANU
 }
 trap 'finish "$?"' EXIT
 
+report_context_probe_failure() {
+  local label="$1" reason="$2" phases="$3"
+  # No phase report escapes until all owned private evidence is gone.
+  if ! cleanup || [[ -e "$WORK_REAL" || -L "$WORK_REAL" || "$CLEANUP_FAILED" != 0 ]]; then
+    blocked 'context failure diagnostic cleanup failed'
+  fi
+  if [[ "$phases" != unavailable ]]; then
+    printf 'DIAGNOSTIC: context phases: %s (%s; cleanup=verified)\n' "$label" "$phases" >&2
+  fi
+  blocked "trusted context probe failed: $label ($reason)"
+}
+
 HOME="$WORK/home"
 PROJECT="$WORK/project"
 INSTALL_ROOT="$WORK/install"
@@ -894,8 +906,11 @@ PY
   if [[ $status -ne 0 ]]; then
     failure_reason="$(python3 "$ROOT/tests/browser_operations_live.py" \
       --pty-failure-reason "$events")"
+    local failure_phases
+    failure_phases="$(python3 "$ROOT/tests/browser_operations_live.py" \
+      --pty-failure-phases "$events")"
     rm -f -- "$events" "$capture" "$transcript" "$status_events"
-    blocked "trusted context probe failed: $label ($failure_reason)"
+    report_context_probe_failure "$label" "$failure_reason" "$failure_phases"
   fi
   set +e
   python3 "$ROOT/tests/browser_operations_live.py" --status-context \

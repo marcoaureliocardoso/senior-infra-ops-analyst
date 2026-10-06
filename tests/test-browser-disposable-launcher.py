@@ -101,6 +101,23 @@ class DisposableLauncherTests(unittest.TestCase):
         self.assertEqual(result["aggregateReported"]["reasonCode"], "PREFLIGHT_READY")
         self.assertNotIn("observedRuntime", result["aggregateReported"])
 
+    def test_context_failure_phases_survive_supervision_without_becoming_acceptance(self):
+        result = self.run_child(
+            "import os,sys; os.write(2,b'DIAGNOSTIC: context phases: main-before '"
+            "b'(initial_screen:passed,api_key_approval:passed,prompt_ready:failed; cleanup=verified)\\n'); "
+            "os.write(2,b'BLOCKED: trusted context probe failed: main-before (PTY_PROMPT_READY_FAILED)\\n'); "
+            "sys.exit(2)")
+        self.assertEqual(result["reasonCode"], "CHILD_FAILED")
+        self.assertEqual(result["exitCode"], 2)
+        self.assertIsNone(result["aggregateReported"])
+        self.assertEqual(result["diagnostics"][0], {
+            "category": "CONTEXT_PHASES", "reasonCode": "PTY_PHASES_REPORTED",
+            "probe": "main-before", "cleanupReported": "verified", "phases": [
+                {"stage": "initial_screen", "outcome": "passed"},
+                {"stage": "api_key_approval", "outcome": "passed"},
+                {"stage": "prompt_ready", "outcome": "failed"}]})
+        self.assertEqual(result["diagnostics"][1]["reasonCode"], "PTY_PROMPT_READY_FAILED")
+
     def test_both_streams_are_drained_without_deadlock(self):
         result = self.run_child(
             "import os; [os.write(fd,b'secret\\n'*1000) for _ in range(12) for fd in (1,2)]")

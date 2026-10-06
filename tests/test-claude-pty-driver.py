@@ -30,6 +30,69 @@ def load_driver():
 
 class ClaudePtyDriverTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_unused_startup_approval_preserves_transition_scoped_readiness(self):
+        driver = load_driver()
+        spec = importlib.util.spec_from_file_location("approval", ROOT / "tests/browser_startup_approval.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for menu in ("Choose the text style that looks best with your terminal",
+                     "Yes, I trust this folder"):
+            for transition in ("pending", "menu", "partial-menu", "partial-blank", "ctx-only",
+                               "ready", "blank", "suggestion", "settling-menu"):
+                with self.subTest(menu=menu, transition=transition), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    fake, seen = root / "startup.py", root / "input"
+                    fake.write_text(textwrap.dedent(f'''
+                        import os, select, sys, time, tty
+                        from pathlib import Path
+                        tty.setraw(0)
+                        def line():
+                            value = bytearray()
+                            while select.select([0], [], [], 6)[0]:
+                                value.extend(os.read(0, 1))
+                                if value.endswith(b"\\r"): break
+                            with Path({str(seen)!r}).open("ab") as out: out.write(value)
+                            return bytes(value)
+                        menu = {menu!r} + "\\r\\n❯ 1. Selected option"
+                        os.write(1, menu.encode())
+                        line()
+                        if {transition!r} in ("ready", "blank", "suggestion", "settling-menu"):
+                            prompt = {{"ready": "❯ ready", "blank": "❯",
+                                       "suggestion": '❯ Try "fix tests"',
+                                       "settling-menu": "❯ ready"}}[{transition!r}]
+                            os.write(1, ("\\x1b[2J\\x1b[H" + prompt).encode())
+                            if {transition!r} == "settling-menu":
+                                time.sleep(0.8)
+                                os.write(1, ("\\x1b[2J\\x1b[H" + menu).encode())
+                                while line(): pass
+                                sys.exit(1)
+                            if line() != b"/context\\r": sys.exit(1)
+                            os.write(1, "Context Usage\\r\\nFree space: 90%\\r\\n❯ ready".encode())
+                            if line() != b"/exit\\r": sys.exit(1)
+                        else:
+                            output = {{"pending": "\\r\\napplying selection; no operational prompt yet",
+                                      "menu": "\\x1b[2J\\x1b[H" + menu,
+                                      "partial-menu": "\\r\\n❯ Dark",
+                                      "partial-blank": "\\r\\n❯",
+                                      "ctx-only": "\\r\\nctx loading"}}[{transition!r}]
+                            os.write(1, output.encode())
+                            while line(): pass
+                    '''), encoding="utf-8")
+                    approval = module.StartupApproval(1120, lambda: 1001)
+                    result = driver.drive([sys.executable, str(fake)], root / "capture", 5,
+                                          root / "events", dialogue="context", startup_approval=approval)
+                    inputs = seen.read_bytes()
+                    records = list(map(json.loads, (root / "events").read_text().splitlines()))
+                    self.assertEqual(result, 0 if transition in ("ready", "blank", "suggestion") else 2)
+                    if transition in ("ready", "blank", "suggestion"):
+                        self.assertIn(b"/context\r", inputs)
+                    else:
+                        self.assertNotIn(b"/context", inputs)
+                        self.assertFalse(any(e["stage"] == "prompt_ready" and e["outcome"] == "passed"
+                                             for e in records))
+                    self.assertFalse(any(e["stage"] == "api_key_approval" for e in records))
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_explicit_startup_decision_approves_only_the_recognized_option_once(self):
         driver = load_driver()
         spec = importlib.util.spec_from_file_location("approval", ROOT / "tests/browser_startup_approval.py")
@@ -554,7 +617,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                     selection.extend(os.read(sys.stdin.fileno(), 4 - len(selection)))
                 if bytes(selection) != b"\x1b[A\r":
                     raise SystemExit(8)
-                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                os.write(sys.stdout.fileno(), "\x1b[2J\x1b[H❯ ready".encode())
                 def line():
                     value = bytearray()
                     while True:

@@ -21,6 +21,33 @@ class LaunchDiagnosticsTests(unittest.TestCase):
         self.module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.module)
 
+    def test_context_phase_sequence_is_closed_and_cleanup_reported(self):
+        line = (b"DIAGNOSTIC: context phases: main-before (initial_screen:passed,"
+                b"api_key_approval:passed,theme_selection:failed; cleanup=verified)")
+        expected = {"category": "CONTEXT_PHASES", "reasonCode": "PTY_PHASES_REPORTED",
+                    "probe": "main-before", "cleanupReported": "verified", "phases": [
+                        {"stage": "initial_screen", "outcome": "passed"},
+                        {"stage": "api_key_approval", "outcome": "passed"},
+                        {"stage": "theme_selection", "outcome": "failed"}]}
+        self.assertEqual(self.module.reduce_line(line), expected)
+        output = io.StringIO()
+        self.assertEqual(self.module.reduce_stream(io.BytesIO(line + b"\n"), output), 0)
+        self.assertEqual(json.loads(output.getvalue()), expected)
+
+    def test_context_phase_sequence_rejects_private_malformed_or_incomplete_data(self):
+        valid = "initial_screen:passed,prompt_ready:failed"
+        cases = ("secret:failed", "initial_screen:passed,prompt_ready:secret",
+                 "initial_screen:passed,prompt_ready:passed", "prompt_ready:failed,exit:passed",
+                 "initial_screen:passed,initial_screen:passed,prompt_ready:failed",
+                 valid + ",secret=value", "initial_screen:passed,prompt_ready:failed; path=/private",
+                 ",".join(["initial_screen:passed"] * 17) + ",prompt_ready:failed")
+        for phases in cases:
+            line = f"DIAGNOSTIC: context phases: main-before ({phases}; cleanup=verified)".encode()
+            self.assertEqual(self.module.reduce_line(line), SUPPRESSED)
+        for probe, cleanup in (("operator-secret", "verified"), ("main-before", "failed")):
+            line = f"DIAGNOSTIC: context phases: {probe} ({valid}; cleanup={cleanup})".encode()
+            self.assertEqual(self.module.reduce_line(line), SUPPRESSED)
+
     def test_context_failure_does_not_become_generic_suppression(self):
         self.assertEqual(self.module.reduce_line(
             b"BLOCKED: trusted context probe failed: main-before (PTY_CONTEXT_INSPECTED_FAILED)\n"

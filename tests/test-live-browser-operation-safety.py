@@ -49,6 +49,89 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertTrue(HARNESS.is_file())
         self.assertTrue(PARSER.is_file())
 
+    def test_pty_failure_phases_are_bounded_structural_pairs_only(self):
+        import sys
+        import tempfile
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live as module
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events"
+            events = [{"kind": "pty-driver", "stage": stage, "outcome": outcome}
+                      for stage, outcome in (("initial_screen", "passed"),
+                          ("api_key_approval", "passed"), ("prompt_ready", "failed"))]
+            events[0]["outputBytes"] = 123
+            path.write_text("\n".join(map(json.dumps, events)))
+            expected = "initial_screen:passed,api_key_approval:passed,prompt_ready:failed"
+            self.assertEqual(module.pty_failure_phases(path), expected)
+            result = subprocess.run([sys.executable, str(PARSER), "--pty-failure-phases", str(path)],
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.strip(), expected)
+            for bad in (events + [events[-1]], [dict(events[0], prompt="private"), events[-1]],
+                        [events[0], dict(events[-1], stage="secret")],
+                        [dict(events[0], stage="initial_screen:passed,api_key_approval"), events[-1]],
+                        [events[0], dict(events[-1], outcome="passed")],
+                        [events[0]] * 17 + [events[-1]],
+                        [dict(events[0], percent=True), events[-1]]):
+                path.write_text("\n".join(map(json.dumps, bad)))
+                self.assertEqual(module.pty_failure_phases(path), "unavailable")
+            path.write_text('{"kind":"pty-driver","stage":"secret","stage":"prompt_ready","outcome":"failed"}')
+            self.assertEqual(module.pty_failure_phases(path), "unavailable")
+            path.write_bytes(b"x" * (module.MAX_PTY_EVENT_BYTES + 1))
+            self.assertEqual(module.pty_failure_phases(path), "unavailable")
+            path.unlink()
+            if os.name == "posix":
+                os.mkfifo(path)
+                self.assertEqual(module.pty_failure_phases(path), "unavailable")
+                path.unlink()
+                path.symlink_to(Path(directory) / "missing")
+                self.assertEqual(module.pty_failure_phases(path), "unavailable")
+
+    def test_non_phase_parser_commands_do_not_require_phase_module(self):
+        import sys
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            isolated = Path(directory) / "browser_operations_live.py"
+            shutil.copyfile(PARSER, isolated)
+            result = subprocess.run([sys.executable, "-I", str(isolated),
+                                     "--pty-failure-reason", str(Path(directory) / "missing")],
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "PTY_EVIDENCE_REJECTED\n")
+            self.assertEqual(result.stderr, "")
+
+    def test_context_phase_reporting_requires_complete_root_cleanup(self):
+        import tempfile
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        definition = "report_context_probe_failure() {" + self.script.split(
+            "report_context_probe_failure() {", 1)[1].split("\n}", 1)[0] + "\n}\n"
+        for failure in (False, True, "retained", "sticky"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "p0-04b-browser.synthetic"
+                root.mkdir()
+                (root / "private-stream").write_text("synthetic private content")
+                program = ("set -euo pipefail\nCLEANUP_FAILED=0\nWORK_REAL=" + shlex.quote(str(root)) + "\n"
+                    + ("cleanup() { CLEANUP_FAILED=1; return 2; }\n" if failure is True else
+                       "cleanup() { return 0; }\n" if failure == "retained" else
+                       "cleanup() { rm -rf -- \"$WORK_REAL\"; CLEANUP_FAILED=1; }\n" if failure == "sticky" else
+                       "cleanup() { rm -rf -- \"$WORK_REAL\"; }\n")
+                    + "blocked() { printf 'BLOCKED: %s\\n' \"$1\" >&2; exit 2; }\n"
+                    + definition + "report_context_probe_failure main-before PTY_PROMPT_READY_FAILED "
+                    + "initial_screen:passed,prompt_ready:failed\n")
+                result = subprocess.run([bash, "-c", program], capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, "")
+                if failure:
+                    self.assertEqual(root.exists(), failure != "sticky")
+                    self.assertNotIn("DIAGNOSTIC:", result.stderr)
+                else:
+                    self.assertFalse(root.exists())
+                    self.assertEqual(result.stderr.splitlines(), [
+                        "DIAGNOSTIC: context phases: main-before (initial_screen:passed,prompt_ready:failed; cleanup=verified)",
+                        "BLOCKED: trusted context probe failed: main-before (PTY_PROMPT_READY_FAILED)"])
+
     def test_startup_confirmation_requires_separate_live_opt_in_before_dependencies(self) -> None:
         bash = shutil.which("bash")
         if not bash:

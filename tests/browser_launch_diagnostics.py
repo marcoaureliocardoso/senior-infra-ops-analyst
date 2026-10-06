@@ -27,6 +27,42 @@ PROBES = frozenset((
     "main-before", "main-after-skill", "main-after-subagent", "main-after-discovery",
     "main-after-use", *(f"role-{n}" for n in range(12)),
 ))
+MAX_CONTEXT_PHASES = 16
+CONTEXT_PHASE_STAGES = frozenset((
+    "initial_screen", "theme_selection", "trust_selection", "prompt_ready", "exit",
+    "api_key_approval_required", "login_required", "api_key_approval", "context_inspected",
+    "context_header_missing", "context_free_space_missing", "context_values_invalid",
+    "context_prompt_missing", "context_free_value_separated", "context_free_value_missing",
+    "context_raw_percent_present",
+))
+
+
+def context_failure_phases(text: str) -> list[dict]:
+    """Validate a closed diagnostic sequence, not evidence of acceptance."""
+    if not isinstance(text, str) or len(text) > MAX_LINE_BYTES:
+        raise ValueError("invalid context phases")
+    pairs = text.split(",")
+    if not 1 <= len(pairs) <= MAX_CONTEXT_PHASES:
+        raise ValueError("invalid context phase count")
+    result = []
+    seen = set()
+    for pair in pairs:
+        fields = pair.split(":")
+        if len(fields) != 2:
+            raise ValueError("invalid context phase pair")
+        stage, outcome = fields
+        if (stage not in CONTEXT_PHASE_STAGES or stage in seen
+                or outcome not in {"passed", "failed", "forced"}):
+            raise ValueError("invalid context phase value")
+        seen.add(stage)
+        result.append({"stage": stage, "outcome": outcome})
+    if (result[0]["stage"] != "initial_screen"
+            or result[-1]["outcome"] not in {"failed", "forced"}
+            or any(item["outcome"] != "passed" for item in result[:-1])):
+        raise ValueError("incomplete context failure sequence")
+    return result
+
+
 PTY_REASONS = frozenset(f"PTY_{stage}_FAILED" for stage in (
     "INITIAL_SCREEN", "THEME_SELECTION", "TRUST_SELECTION", "PROMPT_READY", "EXIT",
     "API_KEY_APPROVAL_REQUIRED", "LOGIN_REQUIRED",
@@ -137,6 +173,14 @@ def reduce_line(raw: bytes) -> dict:
         return dict(SUPPRESSED)
     if text.startswith("Warning: Detected unsettled top-level await at "):
         return {"category": "RUNTIME_WARNING", "reasonCode": "UNSETTLED_TOP_LEVEL_AWAIT"}
+    match = re.fullmatch(r"DIAGNOSTIC: context phases: ([a-z0-9-]+) \(([^;]+); cleanup=verified\)", text)
+    if match and match[1] in PROBES:
+        try:
+            phases = context_failure_phases(match[2])
+        except ValueError:
+            return dict(SUPPRESSED)
+        return {"category": "CONTEXT_PHASES", "reasonCode": "PTY_PHASES_REPORTED",
+                "probe": match[1], "phases": phases, "cleanupReported": "verified"}
     if not text.startswith("BLOCKED: "):
         return dict(SUPPRESSED)
     message = text[9:]
