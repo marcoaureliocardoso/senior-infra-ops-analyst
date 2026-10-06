@@ -2778,3 +2778,49 @@ Windows runtime coverage. Local workflow validation is not remote CI/Security.
 No new authenticated attempt, push, PR, merge or definitive TODO completion
 occurred. A fresh final-commit-bound grant, explicitly covering one native
 API-key startup confirmation, remains required before live acceptance.
+
+### P0-04B single authorized attempt on 5001ede (2026-10-06)
+
+The operator explicitly authorized one attempt on
+`5001edecca6331f91151f050eac9a0e79dea4031`, including one native API-key startup
+confirmation and the unchanged exact DeepSeek endpoint, six provider-backed
+top-level invocations, 40-turn maximum, 120-second workflow and 1,800-second
+total bounds, synthetic prompts/loopback target, ordered allow/deny and no retry.
+The authorized checkout remained at that commit and clean throughout execution.
+No production settings, installed runtime, endpoint or configured model changed.
+
+Preparation verified the clean source, exact configured endpoint and model
+presence through the existing protected exec environment, without printing
+credential/configuration values. Existing Playwright modules/browser cache were
+used. The existing Windows-installed Nori JavaScript entrypoint was invoked by
+the already-installed WSL Node runtime through a disposable reference-only
+wrapper. Its credential-free disposable-HOME help check confirmed the required
+non-interactive/link/switch/install-dir interface. No runtime package was installed.
+
+The external one-attempt caller used the versioned supervisor and diagnostic
+reducer, set documented API retry controls to zero and consumed a one-use receipt
+before launching the immutable harness. Its final structural result was:
+
+- supervisor reason `CHILD_FAILED`, child exit 2;
+- context probe `main-before`, reason `PTY_CONTEXT_HEADER_MISSING_FAILED`;
+- secondary `UNSETTLED_TOP_LEVEL_AWAIT` warning and suppressed unknown output;
+- `aggregateReported=null`, `attemptConsumed=true`, `automaticRepeat=false`;
+- independently checked `launcherCleanup=verified` after whole-root removal.
+
+The context failure classifies missing recognized native context-header evidence;
+it does not identify the screen content, prove a version/provider failure, or
+independently establish that the native API-key decision succeeded. The warning
+does not identify its originating process or the root cause. The immutable
+harness orders this probe before its first model-backed measurement and before
+both browser workflows, so the planned six-invocation allow/deny sequence was
+not reached. No passing role/context/browser/permission aggregate was produced.
+This is not an independent audit of every native HTTP request or file access.
+
+The consumed grant was not retried. Raw prompts, streams, PTY captures, native
+cache, claims and private configuration left with the supervisor-owned root
+before the final report. External caller/check/wrapper files and the non-secret
+receipt were then deleted. Only closed codes and the aggregate absence remain
+as evidence. Authenticated P0-04B acceptance, CI/Security, PR, merge and definitive
+TODO completion remain pending. No behavior correction was implemented from this
+inconclusive observation; a provider-free startup/context investigation is the
+recommended next diagnostic, not another authenticated retry.
