@@ -103,6 +103,34 @@ the unchanged endpoint, six-invocation/40-turn/120-second/1,800-second limits.
 Neither a diagnostic nor a reported aggregate can grant or renew consent.
 No deleted historical diagnostic can be reconstructed by this integration.
 
+### Native session persistence compatibility
+
+Live measurement stages use native `--resume`, so an acceptance caller must
+omit `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`. The official
+[environment-variable reference](https://code.claude.com/docs/en/env-vars)
+states that this option also suppresses session transcripts and makes those
+sessions unavailable to resume/continue. Prompt history and native transcripts
+may exist only inside the already-owned private disposable HOME/config during
+the bounded synthetic test; existing cleanup removes them before aggregation.
+This is temporary native state, never a retained evidence artifact.
+
+The live harness rejects an enabled or unrecognized explicit value before
+resolving the source root, reading settings, creating private state or starting
+dependencies. Absent/empty values and exactly `0`, `false`, `no` or `off`
+(case-insensitive words) are compatible. Whitespace and other spellings are not
+silently normalized or overridden. The fixed message reduces to
+`CONTEXT / SESSION_PERSISTENCE_REQUIRED`, without the input value or any path.
+This is an explicit caller-environment gate, not a proof of every effective
+runtime/managed setting or a grant to launch. Later native/acceptance checks
+still fail closed.
+
+Self-test/preflight and the separate non-resuming local dispatch diagnostic
+retain their behavior. Production settings and the operator's environment are
+not changed. The existing resume sequence, workflow `--no-session-persistence`,
+exact authorization bindings, six-invocation/40-turn/120-second/1,800-second
+budgets, raw-evidence cleanup and no-repeat rule are preserved. Correcting the
+external caller does not enable a public live route or authorize another run.
+
 Python's official [selectors](https://docs.python.org/3/library/selectors.html),
 [subprocess](https://docs.python.org/3/library/subprocess.html), and
 [tempfile](https://docs.python.org/3/library/tempfile.html) documentation informs

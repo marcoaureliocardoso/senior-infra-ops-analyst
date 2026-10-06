@@ -3304,3 +3304,83 @@ are not an exhaustive native filesystem/syscall or HTTP audit and cannot prove
 the deleted paid failure's exact error payload or authenticated acceptance.
 The throwaway helper was then deleted, with its exact-path absence verified.
 The primary checkout remained clean and the definitive TODO was untouched.
+
+### P0-04B live persistence compatibility correction (2026-10-06)
+
+The operator approved the bounded caller/live-prelude correction after the
+offline diagnosis. Work began from clean source
+`4377529879126cd07af217d4d63e4e41204a1dc4` in the existing isolated worktree.
+No authenticated execution, real settings/credential read or provider request
+was authorized or attempted during implementation. The prior paid grant remains
+consumed. The public launcher still supports credential-free preflight only.
+
+TDD exercised the full real shell harness with synthetic authorization-shaped
+flags, an empty owned HOME and a dependency sentinel. Eight enabled or unknown
+history-disable values initially failed the expected early-stop assertions:
+without a compatibility gate the script exited 1 rather than the expected
+closed prelaunch rejection.
+The new live-only prelude returns 2 with a fixed message before source-root
+resolution, settings/private-state initialization or dependency execution.
+Absent/empty values and exactly 0/false/no/off are compatible (case-insensitive
+words); whitespace or other spellings block conservatively without printing
+the value or overriding it. Eleven false-value/non-live controls remained green.
+The new closed diagnostic failed RED, then the complete 32-test reducer suite
+passed GREEN with `CONTEXT / SESSION_PERSISTENCE_REQUIRED`.
+
+The external caller was restored only as a throwaway public-code template
+outside the source checkout, bound to an all-zero non-executable source commit
+for validation. A synthetic checker executed only its environment-construction
+AST, not its CLI, settings loader, claim, runtime or supervisor. It used the
+actual provider-key allowlist with synthetic inputs, including an inherited
+history-disable value and unrelated input. The old caller failed with
+`HISTORY_DISABLE_FLAG_PRESENT`; removing the explicit flag made the check pass.
+The corrected builder omitted the flag, scrubbed unrelated environment input,
+and preserved model/credential transport fields and the exact endpoint and
+six-invocation/40-turn limits. No real protected values were loaded or emitted.
+The temporary checker/caller are validation artifacts, not a new packaged live
+entrypoint, authorization mechanism or retained credential/evidence store.
+
+The approved fix leaves native `--resume`, workflow `--no-session-persistence`,
+the separate non-resuming dispatch probe, operator preferences, source/session/
+endpoint/configuration/executable/expiry bindings and cleanup rules unchanged.
+Native history remains temporary under the already-owned private HOME/config
+and is removed before aggregation. The prelude checks explicit caller values;
+it does not prove every effective managed/runtime setting or grant permission
+to run. All later native and acceptance gates still fail closed. The optional
+SDK session-missing classifier was not implemented in this minimal change.
+
+The clean baseline passed 133 harness-safety and 31 reducer tests. The package
+remains the existing unreleased 0.15.0 because only
+test harness/tests and documentation changed; no installed behavior or new
+release is introduced. CHANGELOG, indexed ADR-010 and the caller contract were
+updated. Authenticated acceptance, remote CI/Security, PR and merge gates remain
+pending; the definitive TODO must not be marked complete from local tests.
+
+Independent read-only review found no Critical, Important or Minor findings.
+It independently passed the 32-test diagnostic suite, both compatibility tests
+covering 19 subcases, the caller AST-only environment check and `git diff --check`.
+It confirmed that resume/workflow flags, authorization and limits were unchanged,
+and declined to establish complete caller execution, all effective managed/native
+settings, real provider behavior, historical paid cause, human consent or the
+coordinator-owned full gate. No native/provider/settings/credential execution or
+reviewer mutation occurred. The two temporary caller/check files were then
+removed, with exact-path absence verified; only the contract and non-secret
+test results are retained.
+
+The final credential-free Debian WSL package gate using the established
+Node 24.17.0 PATH exited 0 with `package validation passed`. The focused suites
+passed 135 harness-safety, 32 diagnostic, 24 supervisor, 25 PTY, 11 startup-claim
+and six dedicated context-driver tests (233 total), alongside the remaining
+package suites, mutation checks, syntax checks, self-tests, schema and local
+CI-workflow validation. Optional PowerShell syntax validation remained skipped
+because that runtime was unavailable on the selected PATH; platform/capability
+skips are not exercised coverage. This is not a remote CI/Security result or
+authenticated acceptance.
+
+No production settings, runtime installation, source-session route, endpoint,
+configured model, request count or live deadline was changed. No push, PR,
+merge, release, authenticated retry or definitive TODO completion occurred.
+A fresh exact-final-commit grant remains required before a protected caller can
+launch one authenticated attempt with temporary native history confined to its
+private disposable HOME/config and removed before aggregation. The previous
+grant is consumed and cannot be reused.

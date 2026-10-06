@@ -49,6 +49,59 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertTrue(HARNESS.is_file())
         self.assertTrue(PARSER.is_file())
 
+    def test_live_history_disable_blocks_before_dependencies_without_exposing_values(self):
+        import tempfile
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        for value in ("1", "true", "TRUE", "yes", "on", "unknown", " 0", "SYNTH_PRIVATE_VALUE\nextra"):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                home = root / "home"
+                home.mkdir()
+                marker = root / "dependency-started"
+                node = root / "node"
+                node.write_text("#!/bin/sh\ntouch " + shlex.quote(str(marker)) + "\nexit 1\n")
+                node.chmod(0o700)
+                env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(root),
+                       "NODE_BIN": str(node), "CLAUDE_BIN": "/missing/native", "NORI_BIN": "/missing/nori",
+                       "P004B_LIVE_AUTHORIZED": "1", "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+                       "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6", "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+                       "P004B_AUTHORIZED_PROVIDER_ENDPOINT": "https://example.invalid/anthropic",
+                       "ANTHROPIC_BASE_URL": "https://example.invalid/anthropic",
+                       "CLAUDE_CODE_SKIP_PROMPT_HISTORY": value}
+                result = subprocess.run([bash, str(HARNESS), "--run-live"], env=env,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(result.stderr, "BLOCKED: live measurements require native session persistence\n")
+                self.assertFalse(marker.exists())
+                self.assertEqual(list(root.glob("p0-04b-browser.*")), [])
+                self.assertEqual(list(home.iterdir()), [])
+
+    def test_history_guard_preserves_disabled_false_values_and_non_live_modes(self):
+        # Exercise the real prelude without reaching any runtime/settings loader.
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        prelude = self.script.split('\nROOT="$(cd ', 1)[0]
+        for mode, values in (("--run-live", (None, "", "0", "false", "FALSE", "no", "Off")),
+                             ("--self-test", ("1", "unknown")), ("--preflight", ("1", "unknown"))):
+            for value in values:
+                with self.subTest(mode=mode, value=value):
+                    env = {"PATH": "/usr/bin:/bin", "P004B_LIVE_AUTHORIZED": "1",
+                           "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+                           "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6", "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+                           "P004B_AUTHORIZED_PROVIDER_ENDPOINT": "https://example.invalid/anthropic",
+                           "ANTHROPIC_BASE_URL": "https://example.invalid/anthropic"}
+                    if value is not None:
+                        env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] = value
+                    result = subprocess.run([bash, "-c", prelude + "\nprintf 'PRELUDE_COMPLETE\\n'\n", "probe", mode],
+                                            env=env, capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "PRELUDE_COMPLETE\n")
+                    self.assertEqual(result.stderr, "")
+
     def test_pty_failure_phases_are_bounded_structural_pairs_only(self):
         import sys
         import tempfile

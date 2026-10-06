@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added a test-only live prelaunch compatibility gate for native session
+  persistence. Enabled or unrecognized `CLAUDE_CODE_SKIP_PROMPT_HISTORY` values
+  fail before runtime/settings initialization and yield a closed diagnostic;
+  preferences are never overwritten. Acceptance callers must omit the disabling
+  flag and confine native history to the existing disposable HOME, removed
+  before aggregation. Resume routing, workflow non-persistence, authorization,
+  counts, deadlines and production installs remain unchanged.
 - Corrected test-only startup readiness so an unused API-key decision cannot
   restore a stale theme/trust selector across a transition. Numeric context
   inspection requires a recognized fresh input prompt, not a menu chevron or

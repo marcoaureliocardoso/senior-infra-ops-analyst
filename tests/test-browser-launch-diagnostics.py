@@ -54,6 +54,12 @@ class LaunchDiagnosticsTests(unittest.TestCase):
         ), {"category": "CONTEXT", "reasonCode": "PTY_CONTEXT_INSPECTED_FAILED",
             "probe": "main-before"})
 
+    def test_history_incompatibility_is_a_closed_prelaunch_failure(self):
+        line = b"BLOCKED: live measurements require native session persistence"
+        self.assertEqual(self.module.reduce_line(line), {
+            "category": "CONTEXT", "reasonCode": "SESSION_PERSISTENCE_REQUIRED"})
+        self.assertEqual(self.module.reduce_line(line + b" (private-value)"), SUPPRESSED)
+
     def test_native_status_and_pty_fallback_failures_are_distinct(self):
         cases = (
             (b"BLOCKED: trusted status context failed: main-after-use (STATUS_CONTEXT_REJECTED)",

@@ -101,6 +101,7 @@ FINGERPRINT = re.compile(
 # Exact repository-owned messages, mapped to closed codes, never forwarded.
 STATIC = {
     "use --self-test, --preflight, or --run-live": ("STARTUP", "MODE_REJECTED"),
+    "live measurements require native session persistence": ("CONTEXT", "SESSION_PERSISTENCE_REQUIRED"),
     "set P004B_LIVE_AUTHORIZED=1 and I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES only after exact operator authorization": ("AUTHORIZATION", "LIVE_AUTHORIZATION_MISSING"),
     "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES is required": ("AUTHORIZATION", "LIVE_ACK_MISSING"),
     "external permission handlers and variable request counts are unsupported": ("AUTHORIZATION", "AUTHORIZATION_OVERRIDE_REJECTED"),

@@ -391,6 +391,18 @@ line reducer rejects unknown fields and labels. Such diagnostic claims neither
 establish acceptance nor renew consent; source/session/endpoint/configuration/
 executable/expiry bindings and live budgets remain unchanged.
 
+Native measurement continuity requires temporary session persistence. The
+acceptance caller omits the history-disabling flag rather than overriding an
+operator preference. A live-only prelaunch gate rejects enabled or unknown
+explicit `CLAUDE_CODE_SKIP_PROMPT_HISTORY` values before settings/dependencies
+or private-state creation; the closed diagnostic never includes the value.
+Absence or a recognized false value is not proof of all effective native
+settings and does not relax subsequent checks. Native history remains confined
+to the existing private disposable HOME and is removed before aggregation.
+The current `--resume` sequence and non-resuming workflow persistence policy
+remain unchanged; no fake history, new provider call, retry, public live CLI
+or production configuration is introduced.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between

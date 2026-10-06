@@ -13,6 +13,15 @@ MODE="${1:---self-test}"
 [[ $# -le 1 && ("$MODE" == "--self-test" || "$MODE" == "--preflight" || "$MODE" == "--run-live") ]] || \
   blocked 'use --self-test, --preflight, or --run-live'
 
+if [[ "$MODE" == "--run-live" ]]; then
+  # Measurement stages resume native conversations within the private HOME.
+  # Never override an incompatible caller preference or echo its value.
+  case "${CLAUDE_CODE_SKIP_PROMPT_HISTORY:-}" in
+    ''|0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) ;;
+    *) blocked 'live measurements require native session persistence' ;;
+  esac
+fi
+
 STARTUP_APPROVAL_ENABLED=0
 if [[ -n "${P004B_STARTUP_API_KEY_APPROVAL:-}" ]]; then
   [[ "$MODE" == "--run-live" \
