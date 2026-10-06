@@ -3222,3 +3222,85 @@ boundary and its bounded evidence classification, not another paid retry or an
 unjustified provider/runtime change. Any behavior correction needs its own
 approved design and validation; any subsequent authenticated attempt needs a
 fresh final-commit-bound operator grant.
+
+### P0-04B offline session-persistence diagnosis (2026-10-06)
+
+The operator requested the proposed offline investigation after the consumed
+98ab1e8 attempt. Runtime source remained unchanged at documentary commit
+`82572f03627b0a0cf9512ffb883bfa3a464588a9`. No real provider request, operator
+settings/credential read, installed-runtime update or authenticated retry was
+performed. A throwaway helper ran the existing native executable inside
+Bubblewrap user/PID/IPC/UTS/network namespaces with all capabilities dropped.
+Only public helper modules, the resolved executable, `/usr`, fresh process/device
+views and one private temporary root were mounted. Host HOME and `/mnt/c` were
+absent, and the namespace exposed only loopback. Configuration, key, model,
+endpoint and prompt were synthetic; all private outputs were deleted before
+the final structural report. The observed runtime label was 2.1.286, not a pin.
+
+Source tracing found that the first model-backed `skill` measurement uses
+`-p --resume` after `main-before` ran native `/context` and `/exit`. The initial
+hypothesis was that context-only inspection failed to create a resumable
+conversation. An initial two-case probe matched the paid failure fingerprint,
+but independent review identified a confound: both controls also disabled
+history with `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`. That initial observation cannot
+establish the context-only hypothesis and is explicitly superseded below.
+
+The reviewed corrected comparison changed only whether that flag was set,
+using separate fresh disposable state and native session IDs:
+
+| Control | History disabled | Context complete | Session file | Records / user-assistant records | Resume session-not-found error |
+|---|---|---|---|---|---|
+| Missing session | No | Not run | Absent | 0 / 0 | Yes |
+| Context-only session | No | Yes, driver exit 0 | Present | 9 / 1 | No |
+| Context-only session | Yes | Yes, driver exit 0 | Absent | 0 / 0 | Yes |
+
+Both missing-session controls returned measured native exit 1 and
+`CLAUDE_FAILURE_EXIT_1_STREAM_RESULT_ERROR_TERMINAL_EXECUTION_MODEL_ADVISORY_ABSENT_REASON_PROCESS`.
+The persistence-enabled context control instead returned measured native exit 1
+and `CLAUDE_FAILURE_EXIT_1_STREAM_RESULT_ERROR_TERMINAL_SUCCESS_MODEL_ADVISORY_PRESENT_REASON_PROCESS`.
+That is a different failure, not a successful model/tool/provider result; the
+synthetic endpoint was unreachable, but these retained flags do not independently
+identify its failure cause. All three case roots and the enclosing disposable
+root were verified absent before final report emission. Two existing synthetic fingerprint
+tests also passed, confirming the current terminal-shape/privacy behavior.
+
+The official [environment-variable reference](https://code.claude.com/docs/en/env-vars)
+states that `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1` suppresses both prompt history and
+session transcripts and leaves sessions unavailable to resume/continue. The
+official [CLI reference](https://code.claude.com/docs/en/cli-reference) defines
+`--resume` as loading an existing conversation. The corrected runtime controls
+refute the initial context-only hypothesis: in this observed runtime with native
+persistence enabled, `/context` alone did leave conversation state available.
+The current resume sequence should therefore be preserved, not changed based
+on the confounded experiment.
+
+There is a concrete caller incompatibility: the external caller reconstructed
+and used for the 98ab1e8 attempt explicitly set the history-disabling flag while
+the immutable harness depended on resume. The harness does not set this flag
+itself. Its separate local-model dispatch probe does intentionally set it for a
+standalone non-resuming diagnostic; that unrelated path should not be changed.
+The deleted paid capture cannot retrospectively prove which native error text
+it contained, and the many-to-one fingerprint alone cannot prove historical
+cause. The caller configuration defect and the corrected offline contrast are
+independently actionable evidence, not authenticated acceptance.
+
+The bounded proposed correction is to omit the disabling flag only in the
+acceptance caller's disposable environment and add a live-only early rejection
+for incompatible explicit persistence settings. Native history would remain
+confined to the existing private disposable HOME/config, then deleted by the
+existing failure/timeout/success cleanup before aggregation. Never override
+operator preferences globally, fabricate conversation history, add a provider
+call, change budgets, relax acceptance or automatically retry. A closed
+session-missing diagnostic from strictly validated final SDK execution-error
+records is an optional targeted improvement; it must discard all error text and
+IDs and cannot authorize a retry. Implementation requires separate design
+approval. No runtime/harness behavior change was implemented in this diagnosis.
+
+Independent read-only review reproduced the corrected three-case comparison
+and the two fingerprint tests, confirmed that the initial hypothesis was
+refuted, and endorsed the conditional minimal caller/fail-fast design. A minor
+cleanup-order wording mismatch in this record was corrected. These observations
+are not an exhaustive native filesystem/syscall or HTTP audit and cannot prove
+the deleted paid failure's exact error payload or authenticated acceptance.
+The throwaway helper was then deleted, with its exact-path absence verified.
+The primary checkout remained clean and the definitive TODO was untouched.
