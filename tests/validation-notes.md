@@ -3384,3 +3384,66 @@ A fresh exact-final-commit grant remains required before a protected caller can
 launch one authenticated attempt with temporary native history confined to its
 private disposable HOME/config and removed before aggregation. The previous
 grant is consumed and cannot be reused.
+
+### P0-04B single authorized attempt on 1d2f109 (2026-10-06)
+
+The operator explicitly authorized one execution on
+`1d2f1095abbe18e33f57056d37846c7adcf1eefd`, including one native API-key
+confirmation and temporary native history confined to the disposable HOME.
+The exact DeepSeek endpoint, configured runtime model, protected credential
+transport, six provider-backed invocations, 40-turn maximum, 120-second workflow
+and 1,800-second total limits, synthetic prompts/loopback target, ordered
+allow/deny, deletion before aggregation and no-repeat conditions were retained.
+The source was verified clean at that commit before launch and after exit.
+
+The corrected external caller was restored outside the checkout with the fresh
+commit/receipt binding and no history-disabling flag. Protected preparation
+confirmed source cleanliness, exact endpoint matching, configured model presence
+and existing runtimes, without printing values or starting a provider invocation.
+An exclusive receipt was then consumed before launching the immutable harness
+once through the existing versioned supervisor. Retry controls remained zero;
+no production preferences, runtime installation, endpoint or model was changed.
+
+The final sanitized result was:
+
+- supervisor `reasonCode=CHILD_FAILED`, harness child `exitCode=2`;
+- `CONTEXT_PHASES / PTY_PHASES_REPORTED`, probe `main-after-skill`, with exactly
+  `initial_screen:passed,prompt_ready:failed` and `cleanupReported=verified`;
+- leaf context failure `PTY_PROMPT_READY_FAILED` for the same probe;
+- suppressed unknown output and secondary `UNSETTLED_TOP_LEVEL_AWAIT` warning;
+- `aggregateReported=null`, `attemptConsumed=true`, `automaticRepeat=false`;
+- independently checked `launcherCleanup=verified` after whole-root removal.
+
+The outer Windows/WSL command reported exit 1, distinct from the harness child
+exit 2. Source order establishes that `main-before` returned and the first
+model-backed skill measurement's CLI process passed its exit-status check
+before `main-after-skill` started. This is progress beyond the earlier skill
+process failure, but is not independent proof of a valid Skill tool-call sample:
+the measurement parser can write an incomplete sample without a nonzero parser
+exit, and complete measurement validation occurs later. The sample was deleted
+with private state, and no complete passing aggregate was produced.
+
+The resumed interactive context probe observed initial output but did not
+establish recognized prompt readiness. The closed phases do not identify screen
+content, a particular native UI, authentication completion, provider behavior,
+or root cause. No native context command was accepted as measured in this probe.
+The remaining model-backed measurements, role probes and browser allow/deny
+workflows were not reached; the planned six-invocation sequence did not complete.
+Neither the warning nor the structural stage is a complete native HTTP/file
+audit or permission to repeat.
+
+The private prompts, streams, PTY, native histories/configuration/cache and
+claims were removed before the final sanitized report; cleanup was verified.
+The external caller, reference-only Nori wrapper and non-secret receipt were
+then deleted, with all three exact-path absence checks passing. The grant is
+consumed and was not retried. Only closed structural results remain; deleted
+raw evidence will not be recovered or retained to reinterpret the failure.
+No behavior correction, push, PR, merge, release or definitive TODO completion
+occurred. Authenticated acceptance and remote CI/Security/merge remain pending.
+
+The next proposed investigation is provider-free reproduction of the native
+SDK-to-interactive `--resume` prompt/context transition using only synthetic
+conversation state inside an OS-isolated disposable environment. The complete
+transition should be characterized before proposing another readiness change
+or paid attempt. Any behavior change requires its own approved design and tests;
+any later authenticated run requires a fresh final-commit-bound grant.
