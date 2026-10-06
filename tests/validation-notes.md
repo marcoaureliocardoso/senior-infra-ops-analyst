@@ -2976,3 +2976,50 @@ test is not general Windows or `.ps1` syntax coverage. Local workflow validation
 is not remote CI/Security. No authenticated retry, push, PR, merge, release or
 definitive TODO completion occurred; a fresh final-commit grant remains required
 for authenticated acceptance.
+
+### P0-04B single authorized collapsed-context attempt (2026-10-06)
+
+The operator explicitly authorized one attempt on
+`1c8fafd4bb9f14c8e713a1217724cfb5b456f83b`, including one native API-key startup
+confirmation, the exact `https://api.deepseek.com/anthropic` endpoint, configured
+runtime model and protected credential transport, six provider-backed top-level
+invocations, at most 40 turns, 120 seconds per workflow and 1,800 seconds overall,
+synthetic prompts/loopback target, allow then deny and no automatic repetition.
+The source remained at that commit and clean throughout execution.
+
+The external caller verified source cleanliness, exact configured endpoint,
+model presence and existing runtimes without emitting credential/configuration
+values or starting a model request during preparation. It reused the installed
+Nori JavaScript entrypoint/WSL Node and existing Playwright modules/cache, used
+the protected exec-environment loader, disabled documented API retry controls
+and consumed a one-attempt receipt before the immutable harness was launched.
+
+The final structural supervisor result was again `CHILD_FAILED`, child exit 2,
+`aggregateReported=null`, `attemptConsumed=true`, `automaticRepeat=false` and
+`launcherCleanup=verified`. Diagnostics identified context probe `main-before`
+with `PTY_CONTEXT_HEADER_MISSING_FAILED`, plus a secondary
+`UNSETTLED_TOP_LEVEL_AWAIT` warning and suppressed unknown output.
+
+This source used collapsed `/context`; it was not the earlier expanded-command
+implementation. The native context-header acceptance requirement was still not
+met, and the harness stopped before the first model-backed measurement and the
+allow/deny browser workflows. The planned six-invocation sequence was not
+reached. This does not independently audit every native HTTP request, identify
+the warning's originating process, or prove that native API-key approval completed.
+The deleted raw output cannot be recovered to supply those missing facts.
+
+The successful isolated installed-profile comparison therefore does not fully
+reproduce this real startup/configuration path. It justified the bounded command
+choice but did not establish remediation of the authenticated stop. No further
+behavioral fix or authenticated retry was attempted. Before proposing another
+fix or paid run, the remaining startup/context boundary needs better closed,
+content-free phase evidence and a faithful provider-free reproduction; a new
+blind command/timeout/cache adjustment is not supported by this result.
+
+The supervisor removed the owned private root before emitting the final report,
+including raw prompts/streams/captures, native cache/configuration and claims.
+The external caller, reference-only wrapper and non-secret receipt were deleted.
+Only sanitized codes and aggregate absence were retained. Authenticated
+acceptance, remote CI/Security, PR, merge and definitive TODO completion remain
+pending. No production setting, provider/model selection, credential transport,
+runtime installation or acceptance gate was changed by this attempt.
