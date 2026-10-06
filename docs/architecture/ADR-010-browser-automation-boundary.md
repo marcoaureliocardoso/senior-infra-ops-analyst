@@ -349,6 +349,14 @@ and the complete pair aggregate; this gate cannot establish acceptance alone.
 
 ## Acceptance-only native API-key startup
 
+The bounded numeric context dialogue uses collapsed `/context` rather than
+expanded `/context all`. Numeric aggregate measurement does not need per-item
+detail, and offline installed-profile comparisons exposed viewport sensitivity
+in the expanded form. The original geometry and strict native header/percentage/
+completion validators are retained; no retry or enlarged-terminal assumption
+is introduced. This test-only inspection choice does not alter production,
+authorization, credential transport or live request/turn/time budgets.
+
 The disposable acceptance harness may perform one separately operator-authorized
 native API-key startup confirmation, only during its initial `main-before`
 context probe. This is not browser permission and is not installed in production.

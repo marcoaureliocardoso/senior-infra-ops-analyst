@@ -2917,3 +2917,62 @@ evidence. It did not reproduce the native comparisons, isolation/file access,
 cleanup, Esc processing, historical failure, provider behavior or live acceptance.
 The throwaway probe was deleted after the comparisons and review. No source
 behavior, credential transport, production settings or acceptance gate changed.
+
+### P0-04B collapsed numeric context correction (2026-10-06)
+
+The operator approved the bounded correction recommended by the offline
+comparison. The only executable behavior change is the context dialogue's
+inspection command: `/context` replaces `/context all`. PTY geometry remains
+40 rows by 120 columns, and native header/percentage/coherence/completion
+validation, startup approval, credential transport, live budgets and no-retry
+behavior remain unchanged. Other dialogues and production installs are not
+modified. The existing unreleased package state remains `0.15.0`.
+
+Baseline: the complete 23-test synthetic PTY suite passed. TDD then added a real
+PTY child fixture that exposes the required numeric grid only for the collapsed
+form and records the actual input. The regression failed on the exact mismatch
+`/context all` versus `/context`, before implementation changed. The minimal
+command replacement made it pass, including numeric percent 10 and successful
+exit evidence. Existing context/auth/trust/unrelated-percent/forced-exit fixtures
+were updated to the new command contract, including exact byte lengths. The
+complete 24-test PTY suite then passed. This fixture characterizes the consumer
+boundary; it is not a native UI implementation or independent historical-cause
+proof. Parser and event-reducer acceptance were not relaxed.
+
+A separate native check loaded the actual changed driver in the existing
+Bubblewrap filesystem/network/PID/user allowlist, with public installed Node/
+Nori runtimes, local staging/link/switch, one private HOME/project, an invalid
+synthetic key/model, non-listening namespace-loopback endpoint and empty strict
+MCP configuration. No operator home/settings or credential was supplied.
+Only the synthetic onboarding-completed control was seeded; no native approved-key
+cache was forged or copied. A private synthetic claim was loaded and consumed
+by the actual claim loader before driving the selector/context dialogue.
+
+The installed profile contained 27 observed skills and 12 agents. Driver exit
+was 0, with ordered passed stages `initial_screen`, `trust_selection`,
+`api_key_approval`, `prompt_ready`, `context_inspected`, `exit`; the report included
+`claimConsumed=true`, `externalNetworkUnavailable=true`, `operatorPathsAbsent=true`
+and `disposableRootAbsent=true`. Raw files and the owned root were removed before
+the final structural report. These are coordinator observations, not an
+independent syscall/HTTP or cleanup audit. The synthetic commit binding does not
+prove real source cleanliness, human consent or the dedicated entrypoint's
+complete source-binding path. Authenticated P0-04B acceptance is not established,
+and the consumed 5001ede grant was not reused.
+
+Independent read-only review reported no Critical, Important or Minor findings
+in the scoped correction. It independently passed all 24 Python-only PTY tests
+and `git diff --check`. Native outcomes/isolation/file access/cleanup, human
+consent, complete real-source entrypoint binding, historical cause, provider/
+browser acceptance and the final package gate were not independently established
+by that review. The external validation helper was deleted after review.
+
+The final provider-free package gate exited 0 with `package validation passed`,
+including 24 PTY, 11 startup-claim, six dedicated context-driver and 130 harness
+safety tests (171 tests across these four focused suites), the remaining package
+suites, mutation checks, content/schema/CI-workflow validation and self-tests.
+Capability/platform skips remain non-coverage. PowerShell syntax checks were
+unavailable on the selected WSL PATH; the separate boolean-only Windows bridge
+test is not general Windows or `.ps1` syntax coverage. Local workflow validation
+is not remote CI/Security. No authenticated retry, push, PR, merge, release or
+definitive TODO completion occurred; a fresh final-commit grant remains required
+for authenticated acceptance.

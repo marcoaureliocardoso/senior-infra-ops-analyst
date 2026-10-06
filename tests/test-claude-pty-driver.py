@@ -64,7 +64,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         read(1)
                         sys.exit(1)
                     os.write(1, '❯ ready'.encode())
-                    if read(13) != b'/context all\\r': sys.exit(1)
+                    if read(9) != b'/context\\r': sys.exit(1)
                     if {repeated!r} == 'late':
                         os.write(1, b'\\x1b[2J\\x1b[H' + dialogue.encode())
                         read(1)
@@ -78,8 +78,8 @@ class ClaudePtyDriverTests(unittest.TestCase):
                                       root / "events", dialogue="context", **extra)
                 self.assertEqual(result, 2 if repeated else 0)
                 self.assertEqual(seen.read_bytes() if seen.exists() else b"",
-                                 b"\x1b[A\r/context all\r" if repeated == "late" else
-                                 b"\x1b[A\r" if repeated else b"\x1b[A\r/context all\r/exit\r")
+                                 b"\x1b[A\r/context\r" if repeated == "late" else
+                                 b"\x1b[A\r" if repeated else b"\x1b[A\r/context\r/exit\r")
                 if repeated == "not-ready":
                     events = list(map(json.loads, (root / "events").read_text().splitlines()))
                     self.assertFalse(any(e["stage"] == "prompt_ready" and e["outcome"] == "passed" for e in events))
@@ -89,6 +89,42 @@ class ClaudePtyDriverTests(unittest.TestCase):
 
     def test_driver_exists(self) -> None:
         self.assertTrue(DRIVER.is_file())
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_keeps_numeric_grid_visible_without_expansion(self) -> None:
+        # Expanding the per-item view hides the required grid in the installed-profile fixture.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            received = root / "input"
+            fake = root / "bounded_context_view.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                from pathlib import Path
+                tty.setraw(0)
+                os.write(1, "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while not value.endswith(b"\r"):
+                        value.extend(os.read(0, 1))
+                    return bytes(value)
+                command = line()
+                Path(sys.argv[1]).write_bytes(command)
+                if command == b"/context\r":
+                    os.write(1, "Context Usage\r\nFree space: 90%\r\n❯ ready".encode())
+                    if line() != b"/exit\r": sys.exit(1)
+                else:
+                    os.write(1, "❯ expanded items without visible grid".encode())
+            '''), encoding="utf-8")
+            events = root / "events"
+            result = load_driver().drive([sys.executable, str(fake), str(received)],
+                root / "capture", 8, events, dialogue="context")
+            self.assertEqual(received.read_bytes(), b"/context\r")
+            self.assertEqual(result, 0)
+            records = list(map(json.loads, events.read_text().splitlines()))
+            self.assertEqual(records[-2:], [
+                {"kind": "pty-driver", "stage": "context_inspected", "outcome": "passed", "percent": 10},
+                {"kind": "pty-driver", "stage": "exit", "outcome": "passed"},
+            ])
 
     def test_large_prompt_writer_retries_partial_pty_writes(self) -> None:
         driver = load_driver()
@@ -481,7 +517,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         character = os.read(sys.stdin.fileno(), 1)
                         if character == b"\r": return value.decode()
                         value.extend(character)
-                assert line() == "/context all"
+                assert line() == "/context"
                 os.write(sys.stdout.fileno(), (
                     b"\x1b[2J\x1b[HContext Usage"
                     b"\x1b[3;30H90.0%"
@@ -525,7 +561,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         character = os.read(sys.stdin.fileno(), 1)
                         if character == b"\r": return value.decode()
                         value.extend(character)
-                assert line() == "/context all"
+                assert line() == "/context"
                 os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
                 assert line() == "/exit"
             '''), encoding="utf-8")
@@ -553,7 +589,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                     character = os.read(sys.stdin.fileno(), 1)
                     if character == b"\r": break
                     value.extend(character)
-                assert value.decode() == "/context all"
+                assert value.decode() == "/context"
                 os.write(sys.stdout.fileno(), "unrelated progress 7%\r\n❯ ready".encode())
                 time.sleep(10)
             '''), encoding="utf-8")
@@ -580,7 +616,7 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         character = os.read(sys.stdin.fileno(), 1)
                         if character == b"\r": return value.decode()
                         value.extend(character)
-                assert line() == "/context all"
+                assert line() == "/context"
                 os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
                 assert line() == "/exit"
                 time.sleep(10)

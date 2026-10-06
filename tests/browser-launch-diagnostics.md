@@ -107,6 +107,15 @@ pipes are intentional; native Windows pipe supervision is not claimed.
 
 ## Provider-free validation
 
+Numeric PTY inspection uses collapsed `/context`, not per-item expansion.
+The required native header, coherent numeric percentage and successful exit
+are still mandatory. Installed-profile comparisons exposed format/viewport
+sensitivity in the expanded view at the bounded 40-row geometry; enlarging the
+terminal is not the remedy. Both forms are documented in the official
+[command reference](https://code.claude.com/docs/en/commands). This choice adds
+no fallback retry, cache provisioning, provider/model assumption or acceptance
+relaxation; it does not require an absolute context-window size.
+
 ### Optional acceptance-only native startup decision
 
 Interactive Claude Code requires a one-time approval for `ANTHROPIC_API_KEY`,

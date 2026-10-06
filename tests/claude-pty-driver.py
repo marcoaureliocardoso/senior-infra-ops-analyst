@@ -570,7 +570,8 @@ def drive(
                 current_stage = "context_inspected"
                 context_offset = len(retained)
                 context_probe_offset = context_offset
-                send("/context all")
+                # Aggregate percentages do not require the viewport-sensitive per-item expansion.
+                send("/context")
                 wait_for(
                     lambda data: context_usage_percent(data[context_offset:]) is not None,
                     "native context inspection",

@@ -7,6 +7,11 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Changed the test-only native numeric context probe to collapsed `/context`,
+  avoiding the observed installed-profile/viewport sensitivity of `/context all`.
+  Strict native header, percentage and completion checks remain unchanged;
+  no terminal enlargement, parser fallback, retry, authorization change or
+  authenticated acceptance is added.
 - Added an explicit, acceptance-only, single-use native API-key startup decision
   for the disposable P0-04B `main-before` context probe. It requires a separately
   authorized clean source commit, exact run/session/endpoint/executable/private
@@ -125,7 +130,7 @@ tag. Tagged versions correspond to repository tags.
   to allowlisted content-free stage codes. Native status-line percentages remain
   primary; when a bound status-line invocation proves that context metadata is
   not yet available before the first model turn, the harness accepts only the
-  official `/context all` command's strictly ordered, numeric, content-free PTY
+  native context inspection command's strictly ordered, numeric, content-free PTY
   result in a fresh `before` probe. The fallback reconstructs only the bounded
   ANSI screen state, requires exact `Context Usage` and `Free space` labels,
   accepts the native optional `Compact buffer` or `Autocompact buffer` category,
