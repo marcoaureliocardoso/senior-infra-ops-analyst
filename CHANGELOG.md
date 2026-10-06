@@ -7,6 +7,15 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added an explicit, acceptance-only, single-use native API-key startup decision
+  for the disposable P0-04B `main-before` context probe. It requires a separately
+  authorized clean source commit, exact run/session/endpoint/executable/private
+  config binding and a 120-second claim; unknown, repeated, login and post-startup
+  selectors fail closed. The shared PTY CLI and production installs cannot
+  enable it. No credential or derived credential identity enters the claim or
+  final evidence. Native approval state remains disposable; browser permission
+  decisions, protected credential transport and live budgets are unchanged.
+  This does not establish authenticated P0-04B acceptance.
 - Stabilized the test-only Linux process observer when a descendant disappears
   during `/proc` stat reading. Only missing-file and missing-process errors
   count as disappearance; live states, unrelated read errors and malformed

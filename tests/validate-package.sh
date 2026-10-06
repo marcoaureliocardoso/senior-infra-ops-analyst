@@ -66,6 +66,8 @@ python3 tests/test-confirmed-window-diagnostic.py
 python3 tests/test-live-context-window-recorder.py
 python3 tests/test-live-compact-event-recorder.py
 python3 tests/test-claude-pty-driver.py
+python3 tests/test-browser-startup-approval.py
+python3 tests/test-browser-context-driver.py
 python3 tests/test-smoke-command-guard.py
 python3 tests/test-ci-workflows.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh

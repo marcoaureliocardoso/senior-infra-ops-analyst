@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import os
 import sys
@@ -28,6 +29,64 @@ def load_driver():
 
 
 class ClaudePtyDriverTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_explicit_startup_decision_approves_only_the_recognized_option_once(self):
+        driver = load_driver()
+        spec = importlib.util.spec_from_file_location("approval", ROOT / "tests/browser_startup_approval.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for repeated in (False, True, "late", "not-ready"):
+            with self.subTest(repeated=repeated), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "native_double.py"
+                seen = root / "input"
+                fake.write_text(textwrap.dedent(f"""
+                    import os, select, sys, tty
+                    from pathlib import Path
+                    tty.setraw(0)
+                    seen = Path({str(seen)!r})
+                    def read(n):
+                        value = bytearray()
+                        while len(value) < n and select.select([0], [], [], 5)[0]:
+                            value.extend(os.read(0, n-len(value)))
+                        with seen.open('ab') as out: out.write(value)
+                        return bytes(value)
+                    dialogue = 'Do you want to use this API key?\\r\\n  1. Yes\\r\\n❯ 2. No (recommended)\\r\\n'
+                    os.write(1, dialogue.encode())
+                    if read(4) != b'\\x1b[A\\r': sys.exit(1)
+                    os.write(1, b'\\x1b[2J\\x1b[H')
+                    if {repeated!r} == 'not-ready':
+                        os.write(1, b'Please wait')
+                        read(1)
+                        sys.exit(1)
+                    if {repeated!r} is True:
+                        os.write(1, dialogue.encode())
+                        read(1)
+                        sys.exit(1)
+                    os.write(1, '❯ ready'.encode())
+                    if read(13) != b'/context all\\r': sys.exit(1)
+                    if {repeated!r} == 'late':
+                        os.write(1, b'\\x1b[2J\\x1b[H' + dialogue.encode())
+                        read(1)
+                        sys.exit(1)
+                    os.write(1, 'Context Usage\\r\\nFree space: 90%\\r\\n❯ ready'.encode())
+                    if read(6) != b'/exit\\r': sys.exit(1)
+                """), encoding="utf-8")
+                approval = module.StartupApproval(1120, lambda: 1001)
+                extra = {"startup_approval": approval} if "startup_approval" in inspect.signature(driver.drive).parameters else {}
+                result = driver.drive([sys.executable, str(fake)], root / "capture", 9,
+                                      root / "events", dialogue="context", **extra)
+                self.assertEqual(result, 2 if repeated else 0)
+                self.assertEqual(seen.read_bytes() if seen.exists() else b"",
+                                 b"\x1b[A\r/context all\r" if repeated == "late" else
+                                 b"\x1b[A\r" if repeated else b"\x1b[A\r/context all\r/exit\r")
+                if repeated == "not-ready":
+                    events = list(map(json.loads, (root / "events").read_text().splitlines()))
+                    self.assertFalse(any(e["stage"] == "prompt_ready" and e["outcome"] == "passed" for e in events))
+                if repeated == "late":
+                    self.assertEqual(json.loads((root / "events").read_text().splitlines()[-1])["stage"],
+                                     "api_key_approval_required")
+
     def test_driver_exists(self) -> None:
         self.assertTrue(DRIVER.is_file())
 

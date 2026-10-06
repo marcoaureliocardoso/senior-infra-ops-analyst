@@ -2698,3 +2698,83 @@ remote CI/Security. The package remains at its existing unreleased `0.15.0`
 state; this test-only correction adds no new runtime feature or release.
 No authenticated attempt, push, PR, merge or definitive TODO completion was
 performed as part of this correction.
+
+### P0-04B acceptance-only native startup decision (2026-10-05)
+
+The approved change is confined to disposable acceptance initialization. A
+separate opt-in requires the exact authorized clean source commit; the dedicated
+context entrypoint verifies that this is its own checkout, not another repository.
+Only `main-before` with its new main session receives a private, owner-only claim
+binding commit, run nonce, native session, exact endpoint, canonical executable
+and private configuration directory. Claims expire within 120 seconds, are
+consumed before launch and leave an exclusive spent marker. Flags and claims
+remain bookkeeping for a separately checked human grant, not authorization
+proof. Shared PTY CLI and production package contents do not enable this path.
+
+TDD reproduced missing startup/wrapper implementations, mismatched native
+unnumbered options, non-string binding errors, access-time-only metadata changes,
+missing opt-in guards and context-prefix rejection before their corrections.
+Subsequent regressions reproduced a mixed API/login screen being approved,
+another checkout supplying the source binding, a stale selector chevron causing
+`/context all` input without an actual prompt, and missing pre-aggregation native
+state cleanup. The corrections reject all recognized mixed-login headings,
+require readiness on rendered post-approval output, tie source to the running
+driver, and remove native HOME/config/cache plus claim/spent before sidecar
+construction and aggregate computation. Structured measurements remain until
+computation; the complete disposable root is removed before final emission.
+Scope cleanup refuses symlinked targets and preserves unrelated synthetic files.
+
+The focused provider-free suites passed: 11 startup-claim tests and six dedicated
+context-driver tests. The latter include a real synthetic Git checkout and a
+Windows PowerShell boolean-only check proving the explicit WSLENV whitelist
+forwards Git's system/global isolation variables. Git reads disable optional
+index writes and filesystem-monitor helpers, and use command-local safe-directory
+configuration. No Git network operation or global configuration change occurs.
+The PTY regression covers one recognized decision, repeated startup selector,
+post-startup selector and cleared/unknown post-approval output, with exact input
+byte assertions. An expired, revoked or already consumed decision cannot select.
+Unsafe, linked, oversized, duplicate-key and nonregular claims also reject.
+
+A separate offline native check observed installed Claude Code `2.1.286` without
+pinning or updating it. The diagnostic ran inside a user/network namespace with
+only a down loopback interface and no network routes, fresh disposable
+HOME/config/project, a deliberately invalid synthetic API key, a synthetic model,
+a non-listening loopback HTTPS endpoint and an empty strict MCP configuration.
+Only diagnostic onboarding/theme state was seeded; no approved-key cache was
+forged or copied. No real credential or operator setting was supplied. This is
+input/egress isolation evidence, not an audit of all native file accesses.
+
+The installed selector used an unnumbered Yes/No block. Unknown shape initially
+stopped without approval; after closed recognition was added, the final composition
+consumed the synthetic claim and reported driver exit 0 with ordered passed stages
+`initial_screen`, `trust_selection`, `api_key_approval`, `prompt_ready`,
+`context_inspected`, `exit`. The temporary root and raw native files were deleted
+before the boolean/stage-only report, which reported `disposableRootAbsent=true`.
+The external diagnostic script was subsequently deleted. These are coordinator
+observations, not independently reproduced native-runtime or cleanup proof.
+There was no authenticated provider run; offline synthetic repetitions are not
+retries of a live authorization. The consumed historical grant was not reused.
+
+Independent read-only review identified the mixed-login, stale-readiness,
+source-root, WSL environment-forwarding and cleanup/documentation issues. After
+the corrections, it reported no remaining Critical, Important or Minor findings,
+independently ran 19 targeted provider-free tests and verified synthetic WSL
+forwarding plus `git diff --check`. It did not exercise native Claude/provider,
+credentials or operator settings. Actual human consent, authenticated acceptance,
+malicious same-user races, generic terminal emulation, final full-package result,
+operational authorization and merge readiness were explicitly not established by
+that scoped review. The package remains at unreleased `0.15.0`; no installed
+runtime/component behavior or release is added by this test-only change.
+
+The final provider-free package gate concluded on 2026-10-06 with exit 0 and
+`package validation passed`. Its focused suites passed 23 PTY-driver tests,
+11 startup-claim tests, six dedicated context-driver tests and 130 live-harness
+safety tests (170 tests across those four suites), alongside the remaining
+package suites, mutation checks, content/schema/CI-workflow validation and
+self-tests. Capability/platform skips are not exercised coverage. The optional
+PowerShell syntax check was unavailable on the selected gate PATH; the direct
+Windows boolean-only WSLENV check does not establish `.ps1` syntax or general
+Windows runtime coverage. Local workflow validation is not remote CI/Security.
+No new authenticated attempt, push, PR, merge or definitive TODO completion
+occurred. A fresh final-commit-bound grant, explicitly covering one native
+API-key startup confirmation, remains required before live acceptance.

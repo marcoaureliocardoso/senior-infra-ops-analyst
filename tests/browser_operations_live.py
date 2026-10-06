@@ -103,7 +103,7 @@ MEASUREMENT_SOURCE_FIELDS = {
 PTY_EVENT_FIELDS = {"kind", "stage", "outcome", "percent", "outputBytes"}
 PTY_STAGES = {
     "initial_screen", "theme_selection", "trust_selection", "prompt_ready", "exit",
-    "api_key_approval_required", "login_required",
+    "api_key_approval_required", "login_required", "api_key_approval",
     "context_inspected", "mock_response", "mock_second_response", "clear_observed",
     "context_header_missing", "context_free_space_missing",
     "context_values_invalid", "context_prompt_missing",
@@ -838,10 +838,11 @@ def pty_context_observation(
     allowed_prefix = [
         "initial_screen", "theme_selection", "trust_selection", "prompt_ready",
     ]
+    ordinary_stages = [stage for stage in prefix_stages if stage != "api_key_approval"]
     if (not prefix_stages or prefix_stages[0] != "initial_screen"
             or prefix_stages[-1] != "prompt_ready"
             or len(prefix_stages) != len(set(prefix_stages))
-            or prefix_stages != [stage for stage in allowed_prefix if stage in prefix_stages]
+            or ordinary_stages != [stage for stage in allowed_prefix if stage in ordinary_stages]
             or any(set(event) != {"kind", "stage", "outcome"}
                    or event["outcome"] != "passed" for event in prefix)):
         raise ValueError("invalid PTY context prefix")

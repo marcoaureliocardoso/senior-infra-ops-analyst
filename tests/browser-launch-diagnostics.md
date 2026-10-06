@@ -107,7 +107,65 @@ pipes are intentional; native Windows pipe supervision is not claimed.
 
 ## Provider-free validation
 
+### Optional acceptance-only native startup decision
+
+Interactive Claude Code requires a one-time approval for `ANTHROPIC_API_KEY`,
+whereas print mode uses it directly; this is documented in the official
+[environment-variable reference](https://code.claude.com/docs/en/env-vars).
+Changing credential transport to avoid that decision is not this test's remedy.
+
+Only a fresh operator grant covering both the bounded authenticated run and
+one native API-key confirmation permits the trusted caller to set:
+
 ```bash
+P004B_STARTUP_API_KEY_APPROVAL=I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION
+P004B_AUTHORIZED_COMMIT=<exact-final-40-character-commit>
+```
+
+These flags and the resulting claim are bookkeeping, never proof of human
+consent. Existing live authorization, exact endpoint and fixed budgets still
+apply. The public disposable launcher still rejects `--run-live`. Its internal
+supervisor cannot grant authorization or read credentials for the caller.
+Self-test/preflight reject the opt-in; absent opt-in retains fail-closed PTY
+behavior. A missing, changed, dirty or untracked source checkout rejects the
+opt-in before dependencies run. Linux Git handles native checkouts; the installed
+Windows Git plus `wslpath` handles Windows-linked WSL worktrees, or blocks if that
+bridge is unavailable. Neither route configures Git globally or accesses GitHub.
+Git reads disable optional index writes and filesystem-monitor helpers. The WSL
+bridge explicitly forwards only Git's system/global configuration-isolation
+variables through the official [WSLENV interface](https://learn.microsoft.com/en-us/windows/wsl/interop).
+It does not rely on Linux HOME being inherited by a Windows executable.
+
+The shell pins live `CLAUDE_CONFIG_DIR` to the disposable HOME after remembering
+the existing source-settings path. Only `main-before`, with a fresh session and
+no agent/resume flags, creates an owner-only claim. The dedicated context driver
+rechecks the clean commit and exact command, run nonce, native session, endpoint,
+canonical executable and private configuration root. It consumes the claim
+before launching and creates an exclusive spent marker, so recreating a claim
+cannot replay it. The 120-second expiry bounds the selector decision, not an
+increase to any workflow deadline. The parent still owns source immutability
+during execution; this is not a sandbox against malicious same-user processes.
+
+After the API-key heading is fully drawn, only the closed two-option Yes/No
+block (numbered or unnumbered) with exactly one selection is recognized. The
+controller selects the recognized Yes option and confirms once. Unknown or
+ambiguous content consumes the decision without input; native login, a repeated
+selector or any selector after prompt readiness stops the probe. Prompt readiness
+also revokes an unused decision. The shared PTY CLI has no enabling option.
+The structural `api_key_approval` event is optional startup context evidence,
+not browser allow/deny, credential identity, native hook proof or provider receipt.
+
+No credential, approved-key cache or key hash is copied into the claim or final
+evidence. Claude may remember its own decision only inside the disposable native
+configuration. The native HOME/config/cache and claim/spent directory are
+removed before sidecar construction and aggregate computation, alongside the
+earlier raw PTY deletion. Structured measurement files remain until computation;
+the entire root is removed before final aggregate emission. This adds no production handler,
+permission bypass, retry, authenticated invocation or model turn.
+
+```bash
+python3 tests/test-browser-startup-approval.py
+python3 tests/test-browser-context-driver.py
 python3 tests/test-browser-launch-diagnostics.py
 python3 tests/test-browser-disposable-launcher.py
 bash tests/live-browser-operations-smoke.sh --self-test

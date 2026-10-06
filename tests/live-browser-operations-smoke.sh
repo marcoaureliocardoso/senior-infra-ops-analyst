@@ -13,6 +13,15 @@ MODE="${1:---self-test}"
 [[ $# -le 1 && ("$MODE" == "--self-test" || "$MODE" == "--preflight" || "$MODE" == "--run-live") ]] || \
   blocked 'use --self-test, --preflight, or --run-live'
 
+STARTUP_APPROVAL_ENABLED=0
+if [[ -n "${P004B_STARTUP_API_KEY_APPROVAL:-}" ]]; then
+  [[ "$MODE" == "--run-live" \
+    && "$P004B_STARTUP_API_KEY_APPROVAL" == I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION \
+    && "${P004B_AUTHORIZED_COMMIT:-}" =~ ^[0-9a-f]{40}$ ]] || \
+    blocked 'invalid acceptance-only startup approval scope'
+  STARTUP_APPROVAL_ENABLED=1
+fi
+
 if [[ "$MODE" == "--run-live" && "${P004B_LIVE_AUTHORIZED:-}" != "1" ]]; then
   blocked 'set P004B_LIVE_AUTHORIZED=1 and I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES only after exact operator authorization'
 fi
@@ -56,6 +65,21 @@ if [[ "$MODE" == "--run-live" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+if [[ "$STARTUP_APPROVAL_ENABLED" == 1 ]]; then
+  python3 - "$ROOT" "$P004B_AUTHORIZED_COMMIT" <<'PY' || blocked 'startup approval requires the authorized clean source commit'
+import importlib.util, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "tests"))
+spec = importlib.util.spec_from_file_location("source_check", Path(sys.argv[1]) / "tests/browser-context-driver.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+try:
+    if module.source_head(sys.argv[1]) != sys.argv[2]:
+        raise ValueError
+except (OSError, ValueError, UnicodeError, module.subprocess.SubprocessError):
+    raise SystemExit(2) from None
+PY
+fi
 OPERATOR_HOME="${HOME:?HOME is required}"
 SOURCE_CLAUDE_SETTINGS="${CLAUDE_SETTINGS_SOURCE:-${CLAUDE_CONFIG_DIR:-$OPERATOR_HOME/.claude}/settings.json}"
 TMP_PARENT_REAL="$(readlink -f "${TMPDIR:-/tmp}")"
@@ -123,6 +147,25 @@ STAGING="$WORK/staging"
 MEASUREMENT_DIR="$WORK/measurement"
 mkdir -p "$HOME" "$PROJECT/.claude" "$INSTALL_ROOT" "$PROMPT_DIR" "$STREAM_DIR" "$RESULT_DIR" "$MEASUREMENT_DIR"
 export HOME
+if [[ "$MODE" == "--run-live" ]]; then
+  mkdir -p "$HOME/.claude"
+  export CLAUDE_CONFIG_DIR="$HOME/.claude"
+fi
+
+cleanup_native_startup_state() {
+  local target native_home="$WORK_REAL/home" claim_dir="$WORK_REAL/startup-approval"
+  [[ "$HOME" == "$native_home" && "$WORK" == "$WORK_REAL" ]] || \
+    blocked 'refusing unsafe disposable native-state cleanup'
+  for target in "$native_home" "$claim_dir"; do
+    [[ ! -L "$target" ]] || blocked 'refusing unsafe disposable native-state cleanup'
+    if [[ -e "$target" && "$(readlink -f "$target")" != "$target" ]]; then
+      blocked 'refusing unsafe disposable native-state cleanup'
+    fi
+  done
+  rm -rf -- "$native_home" "$claim_dir"
+  [[ ! -e "$native_home" && ! -L "$native_home" && ! -e "$claim_dir" \
+    && ! -L "$claim_dir" ]] || blocked 'disposable native state retained'
+}
 RUN_NONCE="p004b-$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
 TRUSTED_MEASUREMENT="$RESULT_DIR/trusted-measurement.json"
 EMPTY_MCP_CONFIG="$MEASUREMENT_DIR/empty-mcp.json"
@@ -577,6 +620,11 @@ if [[ "$MODE" == "--preflight" ]]; then
 fi
 
 [[ -n "$CLAUDE_BIN" ]] || blocked 'Claude Code CLI not found'
+if [[ "$STARTUP_APPROVAL_ENABLED" == 1 ]]; then
+  CLAUDE_BIN="$(readlink -f "$CLAUDE_BIN")"
+  [[ "$CLAUDE_BIN" == /* && -f "$CLAUDE_BIN" && -x "$CLAUDE_BIN" && ! -L "$CLAUDE_BIN" ]] || \
+    blocked 'startup approval requires a canonical native executable'
+fi
 [[ -n "$NORI_BIN" ]] || blocked 'Nori CLI not found'
 "$CLAUDE_BIN" --help 2>/dev/null | grep -q -- '--permission-prompt-tool' || \
   blocked 'Claude Code does not advertise --permission-prompt-tool'
@@ -788,6 +836,7 @@ run_context_probe() {
   local status_events="$MEASUREMENT_DIR/$label.status.jsonl"
   local limit driver_limit status
   local session_args=() role_args=()
+  local driver="$ROOT/tests/claude-pty-driver.py" startup_args=()
   if [[ -n "$role" ]]; then FAILURE_STAGE=CONTEXT_ROLE; fi
   limit="$(remaining_timeout)" || blocked 'total timeout reached during trusted measurement'
   driver_limit=$((limit - 5))
@@ -813,8 +862,28 @@ value["statusLine"] = {
 }
 path.write_text(json.dumps(value, separators=(",", ":")) + "\n", encoding="utf-8")
 PY
+  if [[ "$STARTUP_APPROVAL_ENABLED" == 1 && "$label" == main-before ]]; then
+    [[ "$mode" == new && -z "$role" && "$session_id" == "$MAIN_MEASUREMENT_SESSION" ]] || \
+      blocked 'invalid initial startup approval binding'
+    local claim="$WORK/startup-approval/claim.json"
+    mkdir -m 0700 "$WORK/startup-approval"
+    python3 - "$claim" "$P004B_AUTHORIZED_COMMIT" "$RUN_NONCE" "$session_id" \
+      "$ANTHROPIC_BASE_URL" "$CLAUDE_CONFIG_DIR" "$CLAUDE_BIN" <<'PY'
+import json, os, sys, time
+fields = ("commit", "runNonce", "sessionId", "endpoint", "configDir", "executable")
+value = dict(zip(fields, sys.argv[2:]))
+value.update(probe="main-before", issuedAt=int(time.time()))
+value["expiresAt"] = value["issuedAt"] + 120
+descriptor = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+    json.dump(value, stream)
+PY
+    driver="$ROOT/tests/browser-context-driver.py"
+    startup_args=(--claim "$claim" --commit "$P004B_AUTHORIZED_COMMIT" \
+      --run-nonce "$RUN_NONCE" --source-root "$ROOT")
+  fi
   set +e
-  timeout "$limit" python3 "$ROOT/tests/claude-pty-driver.py" \
+  timeout "$limit" python3 "$driver" "${startup_args[@]}" \
     --capture "$capture" --events "$events" --dialogue context \
     --timeout "$driver_limit" -- \
     "$CLAUDE_BIN" "${session_args[@]}" "${role_args[@]}" \
@@ -1027,12 +1096,7 @@ snapshot_fixture "$DENY_FIXTURE_STATE"
 FAILURE_STAGE=SIDECAR
 rm -f -- "$EMPTY_MCP_CONFIG" "$MEASUREMENT_MCP_CONFIG" "$ALLOW_MCP_CONFIG" "$DENY_MCP_CONFIG" \
   "$MEASUREMENT_DIR"/*.claim "$MEASUREMENT_DIR"/*.signal.json
-SESSION_STORE="$HOME/.claude/projects"
-case "$SESSION_STORE" in
-  "$WORK_REAL"/home/.claude/projects) rm -rf -- "$SESSION_STORE" ;;
-  *) blocked 'refusing unsafe disposable session-store cleanup' ;;
-esac
-[[ ! -e "$SESSION_STORE" ]] || blocked 'disposable Claude session store retained'
+cleanup_native_startup_state
 if find "$WORK_REAL" -type f \( -name '*.prompt' -o -name '*.stream.jsonl' \
   -o -name '*.transcript' -o -name '*.pty' -o -name '*.driver.jsonl' \) -print -quit | grep -q .; then
   blocked 'raw prompt, stream, PTY, or transcript retained before sidecar construction'

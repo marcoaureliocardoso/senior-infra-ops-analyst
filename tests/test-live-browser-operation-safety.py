@@ -49,6 +49,103 @@ class LiveBrowserOperationSafetyTests(unittest.TestCase):
         self.assertTrue(HARNESS.is_file())
         self.assertTrue(PARSER.is_file())
 
+    def test_startup_confirmation_requires_separate_live_opt_in_before_dependencies(self) -> None:
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        for mode, acknowledgement, commit in (
+            ("--self-test", "I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION", "a" * 40),
+            ("--preflight", "I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION", "a" * 40),
+            ("--run-live", "1", "a" * 40),
+            ("--run-live", "I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION", "invalid"),
+        ):
+            with self.subTest(mode=mode, acknowledgement=acknowledgement, commit=commit):
+                env = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"],
+                       "P004B_STARTUP_API_KEY_APPROVAL": acknowledgement,
+                       "P004B_AUTHORIZED_COMMIT": commit}
+                result = subprocess.run([bash, str(HARNESS), mode], env=env, cwd=ROOT,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stderr.strip(), "BLOCKED: invalid acceptance-only startup approval scope")
+
+    def test_completed_startup_confirmation_is_only_context_prefix_evidence(self) -> None:
+        import sys
+        import tempfile
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live
+        prefix = [{"kind": "pty-driver", "stage": stage, "outcome": "passed"}
+                  for stage in ("initial_screen", "trust_selection", "api_key_approval", "prompt_ready")]
+        suffix = [{"kind": "pty-driver", "stage": "context_inspected", "outcome": "passed", "percent": 7},
+                  {"kind": "pty-driver", "stage": "exit", "outcome": "passed"}]
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory) / "events.jsonl"
+            def write(value):
+                events.write_text("\n".join(map(json.dumps, value)) + "\n")
+            write(prefix + suffix)
+            self.assertEqual(browser_operations_live.pty_context_observation(events, "session-001", "before"),
+                             {"stage": "before", "sessionId": "session-001", "usedPercentage": 7})
+            for value in (prefix[:3] + [prefix[2]] + prefix[3:] + suffix,
+                          prefix[:2] + prefix[3:] + [prefix[2]] + suffix,
+                          prefix + suffix[:1] + [prefix[2]] + suffix[1:]):
+                write(value)
+                with self.assertRaises(ValueError):
+                    browser_operations_live.pty_context_observation(events, "session-001", "before")
+
+    def test_startup_confirmation_wrong_commit_blocks_before_runtime(self) -> None:
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        env = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"],
+               "P004B_STARTUP_API_KEY_APPROVAL": "I_ACKNOWLEDGE_ONE_NATIVE_API_KEY_CONFIRMATION",
+               "P004B_AUTHORIZED_COMMIT": "a" * 40,
+               "P004B_LIVE_AUTHORIZED": "1", "P004B_LIVE_ACK": "I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES",
+               "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS": "6", "P004B_AUTHORIZED_MAX_MODEL_TURNS": "40",
+               "P004B_AUTHORIZED_PROVIDER_ENDPOINT": "https://api.deepseek.com/anthropic",
+               "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+               "CLAUDE_BIN": "/nonexistent/never-start", "NODE_BIN": "/nonexistent/never-start"}
+        result = subprocess.run([bash, str(HARNESS), "--run-live"], env=env, cwd=ROOT,
+                                capture_output=True, text=True, timeout=40)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr.strip(), "BLOCKED: startup approval requires the authorized clean source commit")
+
+    def test_native_startup_cleanup_removes_private_state_and_refuses_symlinks(self) -> None:
+        import tempfile
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is required")
+        marker = "cleanup_native_startup_state() {"
+        self.assertTrue(marker in self.script, "bounded native-state cleanup function is missing")
+        definition = marker + self.script.split(marker, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        for linked in (False, True):
+            with self.subTest(linked=linked), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                work = root / "p0-04b-browser.synthetic"
+                work.mkdir()
+                home = work / "home"
+                external = root / "external"
+                external.mkdir()
+                (external / "keep").write_text("synthetic")
+                if linked:
+                    home.symlink_to(external, target_is_directory=True)
+                else:
+                    home.mkdir()
+                    (home / ".claude.json").write_text("synthetic")
+                private = work / "startup-approval"
+                private.mkdir()
+                (private / "spent").write_text("synthetic")
+                measurement = work / "measurement"
+                measurement.mkdir()
+                (measurement / "keep.json").write_text("{}")
+                program = "set -euo pipefail\nblocked() { exit 2; }\n" + definition + "cleanup_native_startup_state\n"
+                result = subprocess.run([bash, "-c", program], capture_output=True,
+                    env={"PATH": os.environ["PATH"], "HOME": str(home), "WORK": str(work), "WORK_REAL": str(work)}, timeout=10)
+                self.assertEqual(result.returncode, 2 if linked else 0)
+                self.assertTrue((external / "keep").is_file())
+                self.assertTrue((measurement / "keep.json").is_file())
+                if not linked:
+                    self.assertFalse(home.exists())
+                    self.assertFalse(private.exists())
+
     def test_pty_failure_reason_is_stage_bound_and_content_free(self) -> None:
         import sys
         import tempfile
@@ -1898,7 +1995,7 @@ raise SystemExit(1)
             self.script.index('MEASUREMENT_SOURCE="$MEASUREMENT_DIR/source.json"'),
         )
         self.assertLess(
-            self.script.index('rm -rf -- "$SESSION_STORE"'),
+            self.script.index('\ncleanup_native_startup_state\n'),
             self.script.index('MEASUREMENT_SOURCE="$MEASUREMENT_DIR/source.json"'),
         )
 

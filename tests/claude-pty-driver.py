@@ -338,9 +338,10 @@ def drive(
     dialogue: str = "manual",
     filler_path: Path | None = None,
     compact_events_path: Path | None = None,
+    startup_approval=None,
 ) -> int:
     """Run the fixed continuity dialogue and retain only the temporary PTY capture."""
-    if os.name != "posix" or not drive_request_valid(
+    if (startup_approval is not None and dialogue != "context") or os.name != "posix" or not drive_request_valid(
         command, timeout_seconds, dialogue, filler_path, compact_events_path,
     ):
         return 2
@@ -394,8 +395,11 @@ def drive(
     retained = bytearray()
     current_stage = "initial_screen"
     context_probe_offset: int | None = None
+    startup_open = True
+    startup_prompt_offset = 0
 
     def pump(wait: float = 0.2) -> bool:
+        nonlocal current_stage
         if len(retained) > MAX_CAPTURE_BYTES:
             raise RuntimeError("PTY capture exceeds limit")
         readable, _, _ = select.select([master], [], [], wait)
@@ -410,6 +414,11 @@ def drive(
         retained.extend(chunk)
         capture.write(chunk)
         capture.flush()
+        if not startup_open:
+            authentication = startup_authentication_stage(bytes(retained))
+            if authentication is not None:
+                current_stage = authentication
+                raise RuntimeError("authentication appeared after startup")
         return True
 
     def wait_for(predicate, label: str) -> None:
@@ -440,14 +449,36 @@ def drive(
         return _folded_letters(data)
 
     def require_startup_auth_clear(data: bytes) -> None:
-        nonlocal current_stage
+        nonlocal current_stage, startup_prompt_offset
         stage = startup_authentication_stage(data)
         if stage is not None:
+            previous_stage = current_stage
             current_stage = stage
+            if stage == "api_key_approval_required" and startup_open and startup_approval is not None:
+                # Recognition may occur before the selector is fully drawn.
+                settle(0.6)
+                screen = terminal_screen_text(bytes(retained))
+                selection = startup_approval.selection(screen)
+                if selection is not None:
+                    startup_prompt_offset = len(retained)
+                    if selection:
+                        write_all(master, selection)
+                        time.sleep(0.1)
+                    send("")
+                    wait_for(lambda value: startup_authentication_stage(value) is None,
+                             "approved API-key selector transition")
+                    settle()
+                    if startup_authentication_stage(bytes(retained)) is not None:
+                        raise RuntimeError("startup authentication reappeared")
+                    record("api_key_approval", "passed")
+                    current_stage = previous_stage
+                    return
             raise RuntimeError("startup authentication requires an independent decision")
 
     def prompt_ready(data: bytes) -> bool:
         require_startup_auth_clear(data)
+        if startup_approval is not None:
+            data = terminal_screen_text(bytes(retained[startup_prompt_offset:])).encode("utf-8")
         return (
             b"ctx" in folded_letters(data)
             or "❯".encode("utf-8") in data
@@ -531,6 +562,9 @@ def drive(
             settle(1.0)
             require_startup_auth_clear(bytes(retained))
             record(current_stage, "passed")
+            startup_open = False
+            if startup_approval is not None:
+                startup_approval.revoke()
 
             if dialogue == "context":
                 current_stage = "context_inspected"

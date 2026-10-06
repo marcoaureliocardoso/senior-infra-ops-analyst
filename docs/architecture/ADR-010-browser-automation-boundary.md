@@ -347,6 +347,32 @@ and then emits its closed reason. Cleanup failure cannot claim verified
 cleanup. Valid phase proof still requires the independent fixture-state check
 and the complete pair aggregate; this gate cannot establish acceptance alone.
 
+## Acceptance-only native API-key startup
+
+The disposable acceptance harness may perform one separately operator-authorized
+native API-key startup confirmation, only during its initial `main-before`
+context probe. This is not browser permission and is not installed in production.
+The explicit opt-in requires a clean immutable authorized commit and retains
+the existing endpoint, credential transport, six-invocation/40-turn and
+120-second/1,800-second limits. An owner-only, no-follow claim binds that commit,
+run nonce, native session, exact endpoint, canonical executable and private
+configuration directory; it expires within 120 seconds and is consumed before
+launch with an exclusive spent marker. Flags and claims are trusted-caller
+bookkeeping, not proof of a human grant or a sandbox against same-user races.
+
+The controller recognizes only the fully drawn API-key heading and exact
+two-option Yes/No semantics. It confirms once; unknown, ambiguous, repeated,
+login or post-startup selectors block. Prompt readiness revokes an unused
+decision. The shared PTY CLI stays fail-closed without an enabling option.
+Native approval may be remembered by Claude only in the disposable config;
+no credential or derived credential identity enters the claim or aggregate.
+Claim, spent marker and native HOME/config/cache are deleted before sidecar
+construction and aggregate computation, after raw PTY deletion. Structured
+measurements remain until computation; the whole root is removed before final
+aggregate emission. A structural startup event cannot prove provider
+receipt, browser consent or workflow acceptance. See
+`tests/browser-launch-diagnostics.md` for the test-only caller contract.
+
 ## Alternatives rejected
 
 A prompt-only policy was rejected because prose cannot prove the binding between
