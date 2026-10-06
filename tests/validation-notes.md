@@ -2824,3 +2824,96 @@ as evidence. Authenticated P0-04B acceptance, CI/Security, PR, merge and definit
 TODO completion remain pending. No behavior correction was implemented from this
 inconclusive observation; a provider-free startup/context investigation is the
 recommended next diagnostic, not another authenticated retry.
+
+### P0-04B offline installed-profile context comparison (2026-10-06)
+
+The operator requested the recommended offline startup/context investigation.
+No authenticated run was repeated and no behavior correction was applied.
+The driver, claim loader, dedicated entrypoint and live harness remained unchanged
+from the authorized implementation; checkout HEAD was `260adb0` during diagnosis.
+
+A throwaway probe used Bubblewrap user/PID/IPC/UTS/network namespaces, dropped
+capabilities and an explicit filesystem allowlist: public system runtime,
+resolved native executable, driver/selector code, diagnostic helper, existing
+Node/Nori package when required and one owned temporary work root. Operator homes,
+the Windows drive tree, host runtime sockets and configuration were absent.
+Namespace-local loopback was up, with no other interfaces or host routes. An
+initial probe rejected that up-loopback state before invoking Claude; the guard
+was corrected to enforce namespace-only loopback/no external routes, not a down
+interface requirement. That rejected setup is not a native startup observation.
+
+Every native case used an invalid synthetic key/model, non-listening loopback
+HTTPS endpoint, empty strict MCP configuration and private HOME/project. No real
+credential or operator setting was supplied. Raw PTY files stayed in the private
+root; other raw subprocess output remained in transient memory. All roots were
+removed before final structural reports. This is
+allowlisted-input/egress evidence, not an audit of every syscall or attempted
+HTTP request. It is not a browser or provider-backed acceptance run.
+
+Installed Claude Code `2.1.286` was observed, not pinned or updated. The minimal
+prepared control passed the selector and complete context dialogue. A fully
+fresh HOME instead exited 1 before controller input, reporting known connectivity
+failure/default-service-hostname labels; these labels identify output, not an
+independent network destination audit. Seeding only the diagnostic
+`hasCompletedOnboarding=true` state restored the minimal pass, without preparing
+theme, version or approved-key cache. This is synthetic control data, not a
+proposed production onboarding bypass or proof of human consent. An exploratory
+undocumented initial-network-check variable was neither found in official docs
+nor as an exact name in the installed executable and was not used.
+
+The installed-profile comparisons used local Nori link/switch with the existing
+public Windows-installed JavaScript package and WSL Node, inside the same
+isolated environment. Both commands exited 0 and produced 27 observed skills
+and 12 agents. Source package inventory and this effective installed count are
+different observations; the extra item was not identified by this probe.
+All comparisons below used the same single synthetic onboarding state:
+
+| Case | PTY/renderer rows | Context form | Observed result |
+|---|---:|---|---|
+| Minimal HOME, no Nori profile | 40/40 | `/context all` | Complete dialogue, driver/native exit 0 |
+| Full Nori profile | 40/40 | `/context all` | API-key decision and prompt readiness passed; context header missing |
+| Full profile, copied hooks removed | 40/40 | `/context all` | Same missing-header stop |
+| Profile, copied context-continuity skill removed | 40/40 | `/context all` | Same missing-header stop |
+| Full profile, Esc before context submission | 40/40 | `/context all` | Same missing-header stop |
+| Full profile, collapsed command only | 40/40 | `/context` | Complete dialogue, driver/native exit 0 |
+| Full profile, enlarged matched geometry | 160/160 | `/context all` | Complete dialogue, driver/native exit 0 |
+
+The normal-profile expanded failure and collapsed success were each confirmed
+in another new private root. The confirmation instrumentation explicitly
+recorded expanded-versus-collapsed input kinds at the PTY write boundary; command
+echo alone is not dispatch proof. Failed context cases stopped at the probe's
+35-second bound; native exit 143 followed controller termination. The first
+tall experiment used a 160-row PTY with the unchanged 40-row renderer and failed
+earlier at readiness; it is nonprobative for context layout and was excluded
+from the table. The corrected case changed terminal and renderer together.
+Hook/skill removal establishes only that those individual items were not
+necessary for this fixture's failure, not that every profile interaction is
+eliminated. Esc processing by the native app was not independently established.
+
+The probe directly constructed a synthetic `StartupApproval` object. It tested
+selector recognition and the PTY dialogue, not private-claim consumption,
+source/session binding, spent-marker enforcement or the complete dedicated
+acceptance entrypoint. Earlier tests establish those separate contracts.
+Substring-based screen labels were exploratory signals; they were not error,
+permission or dispatch proof, and ambiguous generic labels were not used to
+identify a cause.
+
+The paired command and geometry results support an installed-profile,
+format/viewport-sensitive failure of the expanded inspection path. They do not
+prove the native internal mechanism or the cause of the deleted authenticated
+capture. Official [command documentation](https://code.claude.com/docs/en/commands)
+supports `/context [all]` and describes `all` as expanding per-item breakdowns;
+the argument is not declared unsupported. The bounded recommendation is to use
+the collapsed `/context` form for aggregate numeric measurement, preserving
+strict header/percentage validation, fail-closed behavior, authorization and
+live budgets. Arbitrarily enlarging the terminal would remain sensitive to
+future component growth. No fallback retry, parser relaxation, cache provisioning,
+provider change, credential transport change or production edit is proposed.
+Any behavioral correction requires separate approval and verification.
+
+Independent read-only review found no Critical, Important or Minor issues in
+this documentation diff and accepted it as qualified coordinator-observed
+evidence. It did not reproduce the native comparisons, isolation/file access,
+cleanup, Esc processing, historical failure, provider behavior or live acceptance.
+The throwaway probe was deleted after the comparisons and review. No source
+behavior, credential transport, production settings or acceptance gate changed.
