@@ -3162,3 +3162,63 @@ definitive unversioned TODO remains untouched. Authenticated P0-04B acceptance,
 remote CI/Security and merge gates remain pending. A new grant bound to the
 final clean commit is required before another authenticated attempt; no consumed
 authorization was reused, and no push, PR, merge or release was performed.
+
+### P0-04B single authorized attempt on 98ab1e8 (2026-10-06)
+
+The operator authorized one execution on
+`98ab1e8b0f662798f3b07256505695c3500ab2b6`, including one native API-key
+confirmation, exclusively the exact DeepSeek endpoint, the configured runtime
+model and protected credential transport. The six provider-backed invocation,
+40-turn maximum, 120-second workflow and 1,800-second total limits, synthetic
+prompts/loopback target, ordered allow/deny and no-repeat conditions were retained.
+The source commit and clean checkout were checked before launch and after exit.
+No runtime, production settings, endpoint or configured model was changed.
+
+The existing external one-attempt caller and reference-only Nori wrapper were
+restored outside the source checkout, with only the authorized commit/receipt
+binding changed. Protected preparation confirmed the exact configured endpoint,
+model presence and existing runtimes without emitting values. It started no
+provider-backed invocation. The caller then consumed an exclusive one-use
+receipt and launched the immutable harness once through the versioned supervisor,
+with documented API retry controls set to zero. The final sanitized result was:
+
+- `reasonCode=CHILD_FAILED`, harness child `exitCode=2`;
+- measurement `skill`, with the closed fingerprint
+  `CLAUDE_FAILURE_EXIT_1_STREAM_RESULT_ERROR_TERMINAL_EXECUTION_MODEL_ADVISORY_ABSENT_REASON_PROCESS`;
+- suppressed unknown output and a secondary `UNSETTLED_TOP_LEVEL_AWAIT` warning;
+- `aggregateReported=null`, `attemptConsumed=true`, `automaticRepeat=false`;
+- independently checked `launcherCleanup=verified` after whole-root removal.
+
+The outer Windows/WSL command reported exit 1. That is distinct from the harness
+child exit 2 and the fingerprint's measured Claude process exit 1. No passing
+acceptance aggregate was produced.
+
+Source order is significant: `main-before` context inspection must return before
+the `skill` measurement launches. Unlike the preceding context-header failures,
+this attempt reached that first model-backed measurement stage. Its failure
+prevented the post-skill measurement, remaining model-backed stages, role probes
+and both allow/deny workflows. The planned six-invocation sequence was therefore
+not completed. This does not prove the number of received provider HTTP requests,
+successful skill invocation, completion of the optional API-key confirmation,
+or general native prompt compatibility.
+
+`RESULT_ERROR / EXECUTION` classifies a result error with the recognized terminal
+execution subtype. `PROCESS` is the classifier's unresolved/multiple-signature
+fallback, not an identified root cause. `MODEL_ADVISORY_ABSENT` means no recognized
+advisory signature was found, not that provider/model behavior was verified.
+The warning cannot identify the originating process or cause. Deleted raw
+evidence will not be recovered or retained to reinterpret this observation.
+
+The private prompts, streams, PTY, native cache, claims and configuration were
+removed before the sanitized report; supervisor cleanup was verified. The
+external caller, reference-only wrapper and non-secret receipt were subsequently
+deleted, with all three exact-path absence checks passing. Only closed structural
+results remain. The grant is consumed and was not repeated. No behavior fix,
+push, PR, merge, release or definitive TODO completion occurred.
+
+Authenticated P0-04B acceptance remains pending. The next proposed step is a
+provider-free investigation of the skill measurement/resume/terminal-error
+boundary and its bounded evidence classification, not another paid retry or an
+unjustified provider/runtime change. Any behavior correction needs its own
+approved design and validation; any subsequent authenticated attempt needs a
+fresh final-commit-bound operator grant.
