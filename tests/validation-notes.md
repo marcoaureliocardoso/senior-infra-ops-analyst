@@ -3023,3 +3023,60 @@ Only sanitized codes and aggregate absence were retained. Authenticated
 acceptance, remote CI/Security, PR, merge and definitive TODO completion remain
 pending. No production setting, provider/model selection, credential transport,
 runtime installation or acceptance gate was changed by this attempt.
+
+### P0-04B pre-decision startup-readiness diagnosis (2026-10-06)
+
+The operator requested further investigation without another authenticated run.
+The source at `5881542` remained unchanged while a throwaway Python-only PTY
+probe exercised the existing driver with synthetic theme/trust menus and a
+synthetic startup decision object. It executed no Claude, model/provider,
+network call or operator-settings read. Capture/input/event files existed only
+inside owned temporary directories, removed before the structural report.
+
+After the fixture's initial theme/trust selection, it emitted only an applying
+status and retained the selection-menu chevron; it never exposed an operational
+prompt. A separate ready control exposed the prompt and the required numeric
+context grid. The existing driver produced these results:
+
+| Synthetic UI | Startup decision object | `/context` received | Recorded result |
+|---|---|---|---|
+| Pending theme transition | Present, not invoked | Yes | Readiness passed, context header missing, exit 2 |
+| Pending trust transition | Present, not invoked | Yes | Readiness passed, context header missing, exit 2 |
+| Actual ready control | Present, not invoked | Yes | Numeric context and normal exit passed, exit 0 |
+| Pending theme transition | Absent | No | Theme transition failed, exit 2 |
+| Pending trust transition | Absent | No | Trust transition failed, exit 2 |
+
+No selector-decision callback was invoked in any case. The complete five-case
+comparison reproduced the initial three observations and isolated the presence
+of the unused decision object as the relevant branch difference.
+
+Source tracing identifies the mechanism in `prompt_ready`: when a startup
+decision object exists, it replaces the caller's transition-scoped `data` with
+rendered `retained[startup_prompt_offset:]`. That offset starts at zero and moves
+only after an API-key selector decision. Before that decision, older theme/trust
+menu chevrons can re-enter readiness evaluation and satisfy its generic prompt
+heuristic. The driver can then record readiness and send `/context` before the
+new operational prompt exists. The unchanged numeric acceptance gate rejects
+the missing context header; this is premature input/false readiness, not a
+passing context or browser-authorization result.
+
+The successful native offline control had synthetic onboarding already marked
+complete and did not characterize this unused-decision/theme path. The synthetic
+defect is consistent with the real failure code, but does not prove the cause
+of either deleted authenticated capture or establish provider behavior.
+
+There is also an evidence-retention gap: the live shell reduces private PTY
+events to the last failed stage and deletes events/capture/transcript/status
+files. Thus the final code cannot distinguish an absent API-key decision,
+completed decision, or the preceding theme/trust/readiness sequence. Existing
+closed stage/outcome records could support a bounded content-free diagnostic
+without retaining screen, prompt, transcript, paths, IDs, configuration or keys;
+this would remain diagnostic, never authorization or acceptance proof.
+
+Independent read-only review reproduced all five Python-only cases and confirmed
+both source paths. It classified the premature-readiness/input bug as Important
+and did not implement a fix or invoke native/provider/settings access. Historical
+authenticated cause, complete runtime behavior and live acceptance remain
+unproved. No behavior change or authenticated retry was implemented during
+diagnosis. A separate bounded design must be approved before correcting
+transition-scoped readiness and adding sanitized failure-phase reporting.
