@@ -3699,3 +3699,33 @@ approved next investigation may add content-free lifecycle diagnostics, but
 cannot infer a bidirectional contract, consent or historical paid failure cause.
 P0-04B authenticated acceptance, CI/Security and merge remain pending. The
 definitive unversioned TODO remains incomplete.
+
+### Independent final adapter review and remaining material findings
+
+The fresh-context, read-only review assessed `8846bee..bf0ccbc`, with detailed
+adapter focus on `09b1651..bf0ccbc`. It read the final specification, plan,
+ledger/rulings, adapter and selected integrations, plus bounded whole-branch
+authorization/runner/packaging passes. This was not an exhaustive reading of
+every historical test/evidence/configuration line or a security certification.
+It did not repeat native controls or provider calls. The full package gate
+passed on `bf0ccbc`; a separate Windows AST-only parse also passed without
+executing the PowerShell target or altering the operator's execution policy.
+
+Three Important findings remain unresolved; no Critical or Minor was reported:
+
+1. A split status redraw can move the cursor away and back, permanently latching
+   input freshness while the old prompt remains unchanged. The reviewer
+   reproduced this with in-memory cell fixtures, without native execution.
+2. Default SIGTERM/SIGHUP termination can skip Python cleanup and leave selected
+   native/helper process groups detached from the outer timeout/supervisor.
+   KeyboardInterrupt coverage does not prove this signal route.
+3. The historical production browser runner freezes `now` across awaited
+   execution/validation steps and uses a reparsed request expiry instead of the
+   pending approval's original deadline. Later effects can outlive approval.
+
+The first two require the planned author fix pass with RED-to-GREEN synthetic
+regressions and a fresh full package run. The third is outside the approved
+test-only adapter plan and requires an explicit operator scope decision before
+production behavior is changed. No fix has been implemented for these findings.
+Native offline acceptance is independently incomplete. The review verdict is
+not ready to merge; no passing test or review renews a consumed live grant.
