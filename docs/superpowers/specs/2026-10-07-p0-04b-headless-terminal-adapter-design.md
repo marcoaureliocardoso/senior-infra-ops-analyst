@@ -1,8 +1,8 @@
 # P0-04B test-only headless terminal adapter
 
-Status: written specification awaiting operator review; conversational scope
-approved. No implementation or authenticated execution is authorized by this
-document. Baseline: `aee77a866c72ab1379a849935d4aec25cc0c2a29`.
+Status: operator-approved written specification; implementation plan awaiting
+review and execution-method selection. No authenticated execution is authorized
+by this document. Baseline: `aee77a866c72ab1379a849935d4aec25cc0c2a29`.
 
 ## Intent and evidence
 
@@ -184,7 +184,7 @@ the checkout. Do not restore approvals or present legacy fallback as acceptance.
 
 ## Approval sequence
 
-Review this written specification next. After approval, write and review a
-task-based implementation plan and select its execution method. Then implement
+The written specification is approved. Next, review the task-based
+implementation plan and select its execution method. Then implement
 with TDD in the existing isolated worktree. No provider call, push, PR, merge
 or release is included in the specification-writing stage.
