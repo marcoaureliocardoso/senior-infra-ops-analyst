@@ -3539,3 +3539,115 @@ The primary checkout remained clean, the definitive TODO was untouched, and no
 push, PR, merge, release or behavioral correction occurred. Content validation
 and `git diff --check` passed for this documentary record. Full native input
 state, real-provider acceptance and a specific renderer fix remain unresolved.
+
+### P0-04B passive headless terminal feasibility probe (2026-10-07)
+
+The operator approved the offline comparison and explicitly allowed the
+downloaded dependency to remain. `@xterm/headless` 6.0.0 was installed only in
+the outer workspace's `.review-runtime/p004b-terminal-state`, outside the
+versioned checkout, with `--ignore-scripts --no-audit --no-fund`, an explicit
+public npm registry, clean environment and dedicated npm HOME/cache/configs.
+An initial npm bootstrap rejected using the same `/dev/null` path for both
+config scopes; distinct empty test-owned config files resolved that bootstrap
+error. The generated lockfile records the resolved archive and integrity. One
+package was installed, with no additional dependencies in the lockfile. No
+global installation, operator npm configuration or skillset dependency adoption
+occurred. The dependency and its isolated package-manager files remain local.
+
+The disposable comparison reused the previous loopback-only namespace fixture
+and unchanged public project driver/parser. The existing Node runtime and only
+the downloaded package were mounted read-only. The decoder accepted bounded
+private captures, awaited the documented asynchronous write callback and read
+the active/normal/alternate buffers through the public API. Terminal-generated
+replies were classified and discarded, never forwarded to the PTY. The
+[official headless README](https://github.com/xtermjs/xterm.js/tree/master/headless)
+and installed public typings were consulted; headless/buffer APIs include
+experimental surfaces, so this is feasibility evidence, not an adoption gate.
+
+Seven controlled fixtures passed: alternate entry, alternate restoration,
+cursor save/restore, restricted scroll-region behavior, delayed wrapping,
+next-cell wrapping and wide/combining character handling. A preliminary fixture
+incorrectly expected alternate entry to home the cursor; it failed closed
+before SDK comparison. Its expectation was corrected to preserved cursor
+position, and all seven checks passed before proceeding. No runtime readiness
+rule was changed.
+
+Three complete offline comparison runs observed native Claude Code 2.1.292,
+not pinned or updated by this work. Earlier investigation observed 2.1.286;
+the current same-capture decoder comparison remains valid, but cross-date
+runtime behavior cannot be assumed identical. Each completed run used the
+same native initial `/context`, same-session print SDK turn and interactive
+resume sequence, with one text-only and one real native Skill mock control.
+
+| Observation | Text control | Skill control |
+|---|---|---|
+| Initial context driver | 0, complete | 0, complete |
+| SDK exit / validated Skill sample | 0 / incomplete, 0 calls | 0 / valid, 1 correlated call |
+| Local Messages requests | 1 | 2 |
+| Resumed driver | 2, `initial_screen:passed,prompt_ready:failed` | Same |
+| Native alive before controller stop | true | true |
+| Legacy final chevron rows | 2 | 2 |
+| Headless active buffer / chevron rows | alternate / 3 | alternate / 3 |
+| Headless cursor coordinates, zero-based | x=2, y=37 | Same |
+
+The final refinement classified the active cursor row as a chevron followed
+only by whitespace, including one nonbreaking space (`U+00A0`). This
+row was Unicode-blank after the marker but not recognized by the standalone
+ASCII-space/tab predicate applied directly to headless text. Both controls had
+the same result. Headless preserved an additional decoded row absent from the
+simplified model. However, the current project's renderer applies Python
+`rstrip()` to each line before its readiness predicate, which removes NBSP.
+A bounded source/stdlib check observed direct-predicate=false and
+after-renderer-rstrip=true for that synthetic padding. Therefore the headless
+standalone predicate does not establish a second defect or NBSP rejection in
+the existing driver pipeline. Adapter normalization must be specified. This
+comparison does not
+identify which unsupported control sequence caused the row discrepancy, prove
+that native input can operationally accept a command, or establish the cause
+of the deleted authenticated capture.
+
+The passive resumed captures elicited one primary device-attributes reply in
+the headless engine, with zero cursor-position/status/secondary/unknown replies.
+That reply was not delivered to the live native CLI. Thus passive decoding is
+not a faithful bidirectional terminal adapter, and a terminal-feedback effect
+remains unresolved. The initial capture was decoded only after its full
+context/exit sequence; it is not an isolated initial-readiness snapshot. Other
+local requests remained 16 per complete case, with zero malformed Messages
+bodies; these are whole-case counters, not a phase-specific network audit.
+
+Independent source review requested explicit terminal-feedback and version-
+drift limitations. It also identified that string slices at `cursorX` and
+codepoint distances are not general cell-coordinate measurements. Those
+derived fields were excluded from conclusions; the NBSP classification uses
+the complete cursor row, and cursor coordinates come directly from the buffer
+API. Future adapters must inspect cells, not assume UTF-16/codepoint offsets
+equal terminal columns. Text matches for slash commands or synthetic prompts
+do not independently establish their operational role.
+The reviewer inspected source and package metadata, but did not independently
+execute native controls or fixtures. The existing local lockfile should be
+reused for later probes rather than resolving the manifest's caret range anew.
+Review also caught the renderer's `rstrip()` normalization boundary, preventing
+the direct headless predicate result from being misreported as a second
+proven current-pipeline defect. The final source-only review reported no
+remaining findings and approved only a documentary commit, not delivery or
+acceptance.
+
+Recommended next design, requiring separate approval: keep a terminal-state
+adapter confined to the test harness, separate it from operational readiness,
+and validate strict current-input semantics with cell-based cursor checks,
+explicit NBSP padding, fresh transition boundaries, settling and independent
+auth/theme/trust/menu rejection. Preserve fail-closed unknown states and negative
+history/menu tests; do not accept arbitrary chevrons or generic Unicode blanks.
+Any bidirectional protocol support needs a bounded separately reviewed contract,
+not forwarding every generated terminal reply. Do not add a runtime dependency
+to the distributed skillset merely to repair its acceptance harness.
+
+All completed case roots and enclosing roots were absent before their reports;
+no native screen, prompt, stream or temporary history was retained. The
+dependency remains as authorized. Both exact throwaway helper files were
+removed and their absence verified; their local source is no longer retained.
+No real provider or credential was used, and operator settings were
+not accessed. No product behavior change, authenticated retry, push, PR, merge
+or release occurred.
+P0-04B real-provider acceptance, independent final delivery review, CI/Security
+and merge remain pending; the definitive TODO was not marked complete.
