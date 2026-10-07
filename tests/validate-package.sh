@@ -13,6 +13,7 @@ python3 tests/test-terminal-input-policy.py
 python3 tests/test-headless-context-driver.py
 python3 tests/test-terminal-runtime-provisioning.py
 python3 tests/test-terminal-wiring.py
+python3 tests/test-offline-terminal-resume-safety.py
 node tests/run-command-guard-tests.mjs
 node --test tests/browser-operations/contract.test.mjs
 node --test tests/browser-operations/capabilities.test.mjs

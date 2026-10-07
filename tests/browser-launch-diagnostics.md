@@ -245,3 +245,39 @@ The deleted diagnostics from the 2026-10-01 attempt remain unrecoverable. This
 change does not reclassify that attempt or the earlier canary exposure, alter
 provider endpoint/model policy, relax acceptance, add retries, or change the
 six-invocation/40-turn/120-second/1,800-second live authorization limits.
+
+## Explicit test-only headless terminal runtime
+
+P0-04B context probes select `--terminal-engine headless --terminal-node ABS
+--terminal-module-root ABS` before the native command separator. The default
+shared driver remains legacy; headless is valid only for `dialogue=context`.
+No fallback or module search is permitted. The live caller requires
+`P004B_TERMINAL_NODE` and `P004B_TERMINAL_MODULE_ROOT`, validates the immutable
+source grant first when applicable, then preflights the terminal before private
+state, operator settings, native startup or one-use claim consumption.
+
+Provision once with `tests/provision-terminal-runtime.py --target ABS --npm ABS
+--node ABS`. The destination must be new and external to the checkout. The
+private lock is copied and installed with clean npm configuration and disabled
+lifecycle scripts. Existing targets are not overwritten; a failed partial target
+remains owned by that attempt. Reuse a verified retained target through explicit
+paths rather than reinstalling automatically. CI provisioning is a separate
+credential-free step. No runtime dependency enters Nori staging/installation.
+
+The passive Node engine reports bounded active-buffer cells/cursor state over
+private pipes. Python validates framing/schema, fresh current input and exact
+numeric context; snapshots are not consent. No raw screen or helper error is
+public. `terminal_preflight`, `terminal_state` and `terminal_cleanup` are closed
+failure stages, never acceptance evidence. Terminal replies are counted and
+discarded. Cleanup errors override apparent native success.
+
+The optional offline CLI accepts only `--audit-isolation` or `--run-offline`,
+plus explicit `--source`, `--node`, `--module-root` and, for controls, `--claude`.
+It requires Bubblewrap user/PID/network isolation with capabilities dropped,
+operator paths hidden and loopback-only networking before native startup. No
+real settings, credential reader, live mode or automatic retry exists. Temporary
+synthetic key/history, screens and streams are removed before its closed report.
+The package suite runs only safety tests, never the native control. A missing
+Bubblewrap test capability is an explicit skip, not proof of isolation; the
+offline control itself blocks. The 2026-10-07 native control was inconclusive;
+see `tests/validation-notes.md`. No paid retry is authorized by this setup.

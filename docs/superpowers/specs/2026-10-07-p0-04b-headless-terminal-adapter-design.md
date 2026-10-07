@@ -1,7 +1,7 @@
 # P0-04B test-only headless terminal adapter
 
-Status: operator-approved written specification; implementation plan awaiting
-review and execution-method selection. No authenticated execution is authorized
+Status: operator-approved specification and inline execution. Adapter tasks
+1..4 implemented; offline native acceptance inconclusive. No authenticated execution is authorized
 by this document. Baseline: `aee77a866c72ab1379a849935d4aec25cc0c2a29`.
 
 ## Intent and evidence
@@ -184,7 +184,7 @@ the checkout. Do not restore approvals or present legacy fallback as acceptance.
 
 ## Approval sequence
 
-The written specification is approved. Next, review the task-based
-implementation plan and select its execution method. Then implement
-with TDD in the existing isolated worktree. No provider call, push, PR, merge
-or release is included in the specification-writing stage.
+The written specification and task-based implementation plan were approved.
+The operator selected native inline execution with TDD and one final independent
+whole-branch review. No provider call, push, PR, merge or release is included.
+The 2026-10-07 offline result is inconclusive; see `tests/validation-notes.md`.

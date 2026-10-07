@@ -563,6 +563,11 @@ use a symlink, junction, reparse point, or linked ancestor.
 
 ```bash
 # Full local validation (content + schema + CI workflows)
+# Provision once into a new external test-owned directory; never overwrite one.
+python3 tests/provision-terminal-runtime.py --target /absolute/test-runtime \
+  --npm /absolute/bin/npm --node /absolute/bin/node
+export P004B_TERMINAL_NODE=/absolute/bin/node
+export P004B_TERMINAL_MODULE_ROOT=/absolute/test-runtime/node_modules
 bash tests/validate-package.sh
 
 # Schema-only check
@@ -590,6 +595,10 @@ PowerShell parser validation requires a host with `pwsh` or Windows PowerShell i
 
 For credential-free P0-04B launcher diagnostic checks, see
 [the test-only diagnostic boundary](tests/browser-launch-diagnostics.md).
+The terminal dependency is test-only and excluded from Nori staging. The gate
+does not install packages, start Claude, or call a provider. Native offline
+controls are separate explicit probes and require proven Bubblewrap isolation;
+an unavailable namespace test is reported as a skip, never native acceptance.
 
 ## Docs
 

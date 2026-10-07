@@ -3651,3 +3651,51 @@ not accessed. No product behavior change, authenticated retry, push, PR, merge
 or release occurred.
 P0-04B real-provider acceptance, independent final delivery review, CI/Security
 and merge remain pending; the definitive TODO was not marked complete.
+
+## 2026-10-07 selected headless adapter: offline native control
+
+The operator-approved inline implementation completed the passive state engine,
+private Python transport, current-cell input policy and explicit P0-04B wiring.
+The private `tests/terminal-runtime/` lock records `@xterm/headless` 6.0.0 as
+test reproducibility metadata, not a production/runtime/provider version pin.
+The retained external dependency was reused without reinstalling. Other
+shared-driver dialogues still default to legacy, and live authorization scope,
+startup decision binding, staging and production settings are unchanged.
+
+Nine offline safety tests passed, including actual Bubblewrap isolation, CLI
+scope, first-failure stopping, interrupted root disposal and cleanup suppression.
+The namespace audit is mandatory in the explicit native control. Package tests
+report its capability as skipped if Bubblewrap is absent, never as proved;
+no implicit system-package installation was added. Public runner-image metadata
+does not guarantee Bubblewrap availability, so CI cannot silently assume it.
+
+One native offline comparison was attempted, using only synthetic fixture data,
+fresh disposable native history, the selected headless engine and loopback.
+Observed runtime: Claude Code 2.1.293, not updated or pinned by the probe.
+
+| Structural observation | Text control |
+|---|---|
+| Isolation | network isolated, operator state hidden, effective capabilities zero |
+| Initial phases | initial screen, API-key decision, trust selection, readiness passed |
+| Numeric `/context` | passed, 16% |
+| Subsequent phases | `context_inspected:failed`, `terminal_cleanup:failed` |
+| Initial context driver exit | 2 |
+| Local Messages requests | 0 |
+| SDK and resumed native phases | not started |
+| Skill control | not started; stopped at first incomplete case |
+| Private case and enclosing roots | absent before reporting |
+
+Result: `OFFLINE_CONTROLS_INCONCLUSIVE`. A numeric inspection is not operational
+acceptance: natural exit and same-session SDK/resumed context were not proved.
+The structural report does not establish why the later phase or helper cleanup
+failed. No raw screen/stream/history remains for retrospective diagnosis. The
+outer cleanup removed temporary native state despite the helper-level failure.
+No provider request, operator credential/configuration access, automatic retry,
+readiness widening or terminal-reply forwarding occurred.
+
+The approved specification requires stopping on this result. Native resume
+acceptance remains a gate before any authenticated attempt. A separately
+approved next investigation may add content-free lifecycle diagnostics, but
+cannot infer a bidirectional contract, consent or historical paid failure cause.
+P0-04B authenticated acceptance, CI/Security and merge remain pending. The
+definitive unversioned TODO remains incomplete.

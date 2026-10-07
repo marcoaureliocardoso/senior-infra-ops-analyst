@@ -197,7 +197,8 @@ push/PR/merge and TODO completion are separate, not inferred from this plan.
 
 ## Execution decision
 
-Plan awaiting operator review and execution-method selection. Recommended:
-native implementation in this session with TDD for each task and one final
-independent whole-branch review, because the five tasks share ordered state/
-lifecycle interfaces and should not be implemented concurrently.
+Plan approved; operator selected native inline implementation with TDD for each
+task and one final independent whole-branch review. The five tasks share ordered
+state/lifecycle interfaces and are not implemented concurrently. Tasks 1..4 are
+implemented; Task 5 native acceptance is inconclusive, not complete. See
+`tests/validation-notes.md` for the stopped offline control and pending gates.

@@ -16,3 +16,9 @@ This index is the versioned architectural history for implemented AI-first contr
 | [ADR-010](ADR-010-browser-automation-boundary.md) | Accepted | Capability-detected, fail-closed browser operations for infrastructure UIs |
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
+
+ADR-010 also indexes the test-only
+[headless terminal design](../superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md)
+and [implementation plan](../superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md).
+This harness addition does not establish native resume or provider-backed
+acceptance; the observed offline limitation remains in its evidence record.

@@ -7,6 +7,18 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added an explicitly selected, test-only passive headless terminal-state
+  adapter for P0-04B numeric context probes, with cell-based current-input
+  checks, bounded private IPC, deadlines and owned process cleanup. Other
+  shared-driver dialogues retain their legacy default. Test provisioning uses
+  an external locked dependency with lifecycle scripts disabled; CI provisions
+  it explicitly, and probes never install or discover operator modules.
+  Native consent, credentials, provider policy, live budgets and Nori staging
+  are unchanged. The 2026-10-07 offline control observed Claude Code 2.1.293
+  and initial numeric context at 16%, but did not complete natural exit and
+  reported helper cleanup failure. Private roots were removed before reporting;
+  no Messages request or Skill control occurred. Native resume and authenticated
+  acceptance remain unproven; no retry or terminal-reply forwarding was added.
 - Added a test-only live prelaunch compatibility gate for native session
   persistence. Enabled or unrecognized `CLAUDE_CODE_SKIP_PROMPT_HISTORY` values
   fail before runtime/settings initialization and yield a closed diagnostic;

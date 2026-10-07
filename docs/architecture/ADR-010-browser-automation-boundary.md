@@ -405,6 +405,31 @@ or production configuration is introduced.
 
 ## Alternatives rejected
 
+### Test-only terminal observation boundary
+
+P0-04B numeric context probes explicitly select a passive `@xterm/headless`
+engine; the distributed skillset and other PTY dialogues do not adopt it.
+An external test-owned dependency is provisioned with its private lock and
+lifecycle scripts disabled. Runtime paths are explicit and validated before
+native startup or one-use claim consumption; selection never falls back.
+The adapter preserves cells, active buffers and cursor columns. Readiness,
+freshness, auth/menu rejection and numeric semantics remain separate Python
+policy. Legacy `rstrip()` normalization is retained, with deliberate NBSP
+padding support and rejection of unsupported invisible cells/whitespace.
+Private IPC is bounded, fail-closed and deadline-bound. Terminal-generated
+replies are discarded, not sent to Claude. Helpers and native descendants are
+terminated/reaped, and cleanup failure cannot yield successful acceptance.
+
+The isolated offline control on 2026-10-07 reached initial numeric context,
+but not natural exit. Native resumed-context acceptance is therefore unproven.
+No failed control is repeated automatically, no readiness rule is relaxed and
+no bidirectional terminal contract is inferred. A new authenticated run still
+requires a fresh immutable-final-commit grant after all prerequisite gates.
+Rollback reverts the explicit caller selection and adapter/provisioning
+changes together; retained external dependencies may remain. Legacy fallback
+does not become acceptance. See the specification, plan and validation notes
+linked below for test ownership, evidence and unresolved gates.
+
 A prompt-only policy was rejected because prose cannot prove the binding between
 one authorized operation and one tool call. A mandatory single MCP was rejected
 because it would pin deployment topology and could make the package install or
@@ -432,6 +457,9 @@ ownership procedure. Pending operations and credential reuse are not restored.
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
 - Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
+- Test-only terminal design: `docs/superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md`
+- Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
+- Test-only terminal evidence: `tests/validation-notes.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md`
 - One-shot workflow plan: `docs/superpowers/plans/2026-09-02-p0-04b-one-shot-workflow.md`
 - Canonical contract: `references/browser-operations.md`
