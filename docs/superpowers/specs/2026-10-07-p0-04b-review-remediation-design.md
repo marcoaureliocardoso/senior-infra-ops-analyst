@@ -1,7 +1,7 @@
 # P0-04B review remediation: freshness, cancellation and approval deadlines
 
-Status: conversational design approved; written specification awaiting operator
-review. No implementation plan or behavior change is approved by this document.
+Status: operator-approved written specification at commit `1084a40`;
+implementation plans awaiting operator review. No behavior has been changed.
 Source baseline: `01414cb192da4c2e9947463f4fb810d46a3d0972`.
 Working branch: `p0-04b-browser-automation` in its existing isolated worktree.
 
@@ -276,6 +276,8 @@ Hosted CI/Security, push/PR/merge and TODO completion remain separate gates.
 - [ADR-010](../../architecture/ADR-010-browser-automation-boundary.md).
 - [Canonical browser contract](../../../references/browser-operations.md).
 
-Next stage: operator review of this written specification, then a task-based
-implementation plan and execution-method selection. Conversational approval
-does not skip the written-specification or implementation-plan gates.
+Written specification approved. Next stage: operator review of the separate
+[harness author-fix plan](../plans/2026-10-07-p0-04b-harness-review-fixes.md) and
+[approval-lifetime plan](../plans/2026-10-07-p0-04b-approval-lifetime-remediation.md).
+Preserve the Native execution method already selected, subject to confirmation
+that these written plans capture the intended scope before implementation.
