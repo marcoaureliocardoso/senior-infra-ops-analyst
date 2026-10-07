@@ -34,6 +34,7 @@ def preflight_environment(source: dict[str, str]) -> dict[str, str]:
     """No inheritance of credentials, authorization, settings or startup hooks."""
     return {key: source[key] for key in (
         "HOME", "PATH", "P004B_BROWSER_NODE_MODULES", "P004B_PLAYWRIGHT_BROWSERS_PATH",
+        "P004B_TERMINAL_NODE", "P004B_TERMINAL_MODULE_ROOT",
     ) if key in source}
 
 

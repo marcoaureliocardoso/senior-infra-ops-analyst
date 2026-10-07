@@ -89,6 +89,13 @@ except (OSError, ValueError, UnicodeError, module.subprocess.SubprocessError):
     raise SystemExit(2) from None
 PY
 fi
+if [[ "$MODE" != "--self-test" ]]; then
+  [[ -n "${P004B_TERMINAL_NODE:-}" && -n "${P004B_TERMINAL_MODULE_ROOT:-}" ]] || \
+    blocked 'test terminal runtime paths are required'
+  python3 "$ROOT/tests/terminal-runtime-preflight.py" \
+    --node "$P004B_TERMINAL_NODE" --module-root "$P004B_TERMINAL_MODULE_ROOT" \
+    >/dev/null 2>&1 || blocked 'test terminal runtime unavailable'
+fi
 OPERATOR_HOME="${HOME:?HOME is required}"
 SOURCE_CLAUDE_SETTINGS="${CLAUDE_SETTINGS_SOURCE:-${CLAUDE_CONFIG_DIR:-$OPERATOR_HOME/.claude}/settings.json}"
 TMP_PARENT_REAL="$(readlink -f "${TMPDIR:-/tmp}")"
@@ -858,6 +865,8 @@ run_context_probe() {
   local limit driver_limit status
   local session_args=() role_args=()
   local driver="$ROOT/tests/claude-pty-driver.py" startup_args=()
+  local terminal_args=(--terminal-engine headless --terminal-node "$P004B_TERMINAL_NODE" \
+    --terminal-module-root "$P004B_TERMINAL_MODULE_ROOT")
   if [[ -n "$role" ]]; then FAILURE_STAGE=CONTEXT_ROLE; fi
   limit="$(remaining_timeout)" || blocked 'total timeout reached during trusted measurement'
   driver_limit=$((limit - 5))
@@ -905,6 +914,7 @@ PY
   fi
   set +e
   timeout "$limit" python3 "$driver" "${startup_args[@]}" \
+    "${terminal_args[@]}" \
     --capture "$capture" --events "$events" --dialogue context \
     --timeout "$driver_limit" -- \
     "$CLAUDE_BIN" "${session_args[@]}" "${role_args[@]}" \

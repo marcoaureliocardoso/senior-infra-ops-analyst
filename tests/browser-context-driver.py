@@ -7,8 +7,10 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 from browser_startup_approval import load_approval
+from terminal_state_adapter import TerminalState, TerminalStateError
 
 
 def source_head(root):
@@ -71,9 +73,22 @@ def main():
     parser.add_argument("--events", required=True, type=Path)
     parser.add_argument("--dialogue", choices=("context",), required=True)
     parser.add_argument("--timeout", type=int, required=True)
+    parser.add_argument("--terminal-engine", choices=("legacy", "headless"), default="legacy")
+    parser.add_argument("--terminal-node", type=Path)
+    parser.add_argument("--terminal-module-root", type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    terminal = None
+    if args.terminal_engine == "headless":
+        try:
+            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout)
+        except TerminalStateError:
+            print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+            return 2
+    elif args.terminal_node is not None or args.terminal_module_root is not None:
+        print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+        return 2
     try:
         approval = prepare_approval(args.claim, args.commit, args.run_nonce, args.source_root, command)
         root = args.claim.parent.parent
@@ -81,13 +96,22 @@ def main():
                for path in (args.capture, args.events)):
             raise ValueError("invalid startup output location")
     except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
+        if terminal is not None:
+            try: terminal.close()
+            except TerminalStateError: pass
         print("BLOCKED: startup approval scope rejected", file=sys.stderr)
         return 2
     spec = importlib.util.spec_from_file_location("acceptance_pty", Path(__file__).with_name("claude-pty-driver.py"))
     driver = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(driver)
-    result = driver.drive(command, args.capture, args.timeout, args.events,
-                          dialogue="context", startup_approval=approval)
+    try:
+        result = driver.drive(command, args.capture, args.timeout, args.events,
+                              dialogue="context", startup_approval=approval, terminal_state=terminal)
+    finally:
+        if terminal is not None:
+            try: terminal.close()
+            except TerminalStateError:
+                result = 2
     if result:
         print("Claude PTY dialogue did not complete.", file=sys.stderr)
     return result

@@ -34,6 +34,7 @@ CONTEXT_PHASE_STAGES = frozenset((
     "context_header_missing", "context_free_space_missing", "context_values_invalid",
     "context_prompt_missing", "context_free_value_separated", "context_free_value_missing",
     "context_raw_percent_present",
+    "terminal_preflight", "terminal_state", "terminal_cleanup",
 ))
 
 
@@ -56,7 +57,8 @@ def context_failure_phases(text: str) -> list[dict]:
             raise ValueError("invalid context phase value")
         seen.add(stage)
         result.append({"stage": stage, "outcome": outcome})
-    if (result[0]["stage"] != "initial_screen"
+    early_terminal = result == [{"stage": "terminal_preflight", "outcome": "failed"}]
+    if ((result[0]["stage"] != "initial_screen" and not early_terminal)
             or result[-1]["outcome"] not in {"failed", "forced"}
             or any(item["outcome"] != "passed" for item in result[:-1])):
         raise ValueError("incomplete context failure sequence")
@@ -74,6 +76,7 @@ PTY_REASONS = frozenset(f"PTY_{stage}_FAILED" for stage in (
     "POST_REWIND_TASKS", "POST_REWIND_CONTEXT", "AUTOMATIC_TASK_CREATED", "AUTOMATIC_CONTEXT_INSPECTED",
     "AUTOMATIC_COMPACTION", "TASKS_CREATED", "MANUAL_COMPACTION", "POST_COMPACTION_TASKS",
     "MANUAL_UNFOCUSED_COMPACTION",
+    "TERMINAL_PREFLIGHT", "TERMINAL_STATE", "TERMINAL_CLEANUP",
 )) | {"PTY_EVIDENCE_REJECTED"}
 STATUS_REASONS = frozenset((
     "STATUS_CONTEXT_MISSING", "STATUS_CONTEXT_AVAILABLE", "STATUS_CONTEXT_METADATA_UNAVAILABLE",
@@ -100,6 +103,8 @@ FINGERPRINT = re.compile(
 )
 # Exact repository-owned messages, mapped to closed codes, never forwarded.
 STATIC = {
+    "test terminal runtime paths are required": ("RUNTIME", "TERMINAL_PATHS_REQUIRED"),
+    "test terminal runtime unavailable": ("RUNTIME", "TERMINAL_DEPENDENCY_UNAVAILABLE"),
     "use --self-test, --preflight, or --run-live": ("STARTUP", "MODE_REJECTED"),
     "live measurements require native session persistence": ("CONTEXT", "SESSION_PERSISTENCE_REQUIRED"),
     "set P004B_LIVE_AUTHORIZED=1 and I_ACKNOWLEDGE_BOUNDED_SYNTHETIC_BROWSER_PROBES only after exact operator authorization": ("AUTHORIZATION", "LIVE_AUTHORIZATION_MISSING"),

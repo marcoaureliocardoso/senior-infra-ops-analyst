@@ -875,14 +875,35 @@ def main() -> int:
     parser.add_argument("--filler", type=Path)
     parser.add_argument("--compact-events", type=Path)
     parser.add_argument("--timeout", required=True, type=int)
+    parser.add_argument("--terminal-engine", choices=("legacy", "headless"), default="legacy")
+    parser.add_argument("--terminal-node", type=Path)
+    parser.add_argument("--terminal-module-root", type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    result = drive(
-        command, args.capture, args.timeout, args.events,
-        dialogue=args.dialogue, filler_path=args.filler,
-        compact_events_path=args.compact_events,
-    )
+    terminal = None
+    from terminal_state_adapter import TerminalState, TerminalStateError
+    if args.terminal_engine == "headless":
+        try:
+            if args.dialogue != "context": raise TerminalStateError("TERMINAL_DEPENDENCY_UNAVAILABLE")
+            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout)
+        except TerminalStateError:
+            print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+            return 2
+    elif args.terminal_node is not None or args.terminal_module_root is not None:
+        print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+        return 2
+    try:
+        result = drive(
+            command, args.capture, args.timeout, args.events,
+            dialogue=args.dialogue, filler_path=args.filler,
+            compact_events_path=args.compact_events, terminal_state=terminal,
+        )
+    finally:
+        if terminal is not None:
+            try: terminal.close()
+            except TerminalStateError:
+                result = 2
     if result != 0:
         print("Claude PTY dialogue did not complete.", file=sys.stderr)
     return result

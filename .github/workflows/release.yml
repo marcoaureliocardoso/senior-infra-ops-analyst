@@ -18,6 +18,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Provision test-only terminal runtime
+        run: |
+          terminal_node="$(readlink -f "$(command -v node)")"
+          terminal_npm="$(readlink -f "$(command -v npm)")"
+          python3 tests/provision-terminal-runtime.py --target "$RUNNER_TEMP/p004b-terminal-runtime" --npm "$terminal_npm" --node "$terminal_node"
+          printf 'P004B_TERMINAL_NODE=%s\n' "$terminal_node" >> "$GITHUB_ENV"
+          printf 'P004B_TERMINAL_MODULE_ROOT=%s\n' "$RUNNER_TEMP/p004b-terminal-runtime/node_modules" >> "$GITHUB_ENV"
       - name: Full package validation
         run: bash tests/validate-package.sh
       - name: Schema validation

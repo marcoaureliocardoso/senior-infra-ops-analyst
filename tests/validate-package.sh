@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ -z "${P004B_TERMINAL_NODE:-}" || -z "${P004B_TERMINAL_MODULE_ROOT:-}" ]]; then
+  printf 'test terminal runtime paths are required\n' >&2
+  exit 2
+fi
+python3 tests/terminal-runtime-preflight.py --node "$P004B_TERMINAL_NODE" \
+  --module-root "$P004B_TERMINAL_MODULE_ROOT"
+node --test tests/terminal-state-adapter.test.mjs
+python3 tests/test-terminal-state-adapter.py
+python3 tests/test-terminal-input-policy.py
+python3 tests/test-headless-context-driver.py
+python3 tests/test-terminal-runtime-provisioning.py
+python3 tests/test-terminal-wiring.py
 node tests/run-command-guard-tests.mjs
 node --test tests/browser-operations/contract.test.mjs
 node --test tests/browser-operations/capabilities.test.mjs
