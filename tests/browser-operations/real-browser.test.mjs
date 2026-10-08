@@ -337,7 +337,7 @@ async function runProtectedWorkflow(harness, operationId, { mode = 'change', fai
   };
   try {
     const result = await executeBrowserWorkflow(request, {
-      env, now: Date.now(), adapterFactory,
+      env, now: () => Date.now(), adapterFactory,
     });
     harness.retainedResults.push(result);
     return Object.freeze({ result, factoryCalls, mutationCalls });

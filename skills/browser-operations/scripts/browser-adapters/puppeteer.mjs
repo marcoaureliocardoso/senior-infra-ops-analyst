@@ -1,6 +1,7 @@
 import {
   PUPPETEER_CAPABILITIES, adapterError, assertAllowedUrl, assertCurrentOrigin, closeAdapterResources,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
+  createAdapterLifetime, rethrowLifetime,
 } from './common.mjs';
 import { normalizeOrigin } from '../browser-contract.mjs';
 
@@ -36,6 +37,7 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
   if (!runtime || typeof runtime.launch !== 'function') throw adapterError('ADAPTER_RUNTIME_INVALID');
   const allowedOrigins = normalizedAllowedOrigins(options.allowedOrigins);
   const artifactManager = options.artifactManager ?? null;
+  const live = createAdapterLifetime(options);
   let browser = null;
   let context = null;
   let page = null;
@@ -43,20 +45,28 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
   let activeStepOrigin = null;
 
   function requirePage() {
+    live.check();
     if (!opened || !page) throw adapterError('ADAPTER_NOT_OPEN');
     return page;
   }
 
   function locator(selected, request) {
+    live.check();
     const descriptor = locatorDescriptor(request);
+    let found;
     if (typeof selected.getByRole === 'function') {
-      return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
-    }
-    if (typeof selected.locator === 'function') {
+      found = selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
+    } else if (typeof selected.locator === 'function') {
       const name = descriptor.name === undefined ? '' : `[name="${descriptor.name.replace(/["\\]/gu, '')}"]`;
-      return selected.locator(`::-p-aria(${descriptor.role}${name})`);
+      found = selected.locator(`::-p-aria(${descriptor.role}${name})`);
+    } else {
+      throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
     }
-    throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
+    if (live.lifetime && typeof found.setTimeout === 'function') {
+      live.check();
+      return found.setTimeout(live.timeout());
+    }
+    return found;
   }
 
   function topLevelNavigation(runtimeRequest) {
@@ -73,6 +83,7 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
     activeStepOrigin = assertCurrentOrigin(selected, request.origin);
     try {
       const result = await action(selected);
+      live.check();
       assertCurrentOrigin(selected, request.origin);
       return result;
     } finally {
@@ -95,6 +106,7 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
     activeStepOrigin = normalizeOrigin(destination);
     try {
       const result = await action(selected, destination);
+      live.check();
       assertCurrentOrigin(selected, request.origin);
       return result;
     } finally {
@@ -105,23 +117,38 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
   const adapter = {
     id: options.id ?? 'puppeteer',
     observedVersion: observedVersion(runtime),
-    capabilities: PUPPETEER_CAPABILITIES,
+    operationLifetime: live.lifetime,
+    capabilities: Object.freeze({ ...PUPPETEER_CAPABILITIES, operationLifetime: live.lifetime !== null }),
     async open() {
+      live.check();
       if (opened) return { status: 'ok', observation: 'adapter-already-open' };
       try {
-        browser = await runtime.launch({ headless: true });
+        live.check();
+        browser = await runtime.launch({ headless: true,
+          ...(live.lifetime ? { timeout: live.timeout() } : {}) });
+        live.check();
         const createContext = browser.createBrowserContext ?? browser.createIncognitoBrowserContext;
         if (typeof createContext !== 'function') throw adapterError('EPHEMERAL_CONTEXT_UNAVAILABLE');
         context = await createContext.call(browser);
+        live.check();
         page = await context.newPage();
+        live.check();
+        if (live.lifetime) {
+          page.setDefaultTimeout?.(live.timeout());
+          live.check();
+          page.setDefaultNavigationTimeout?.(live.timeout());
+          live.check();
+        }
         await page.setRequestInterception(true);
+        live.check();
         page.on('request', async (request) => {
           try {
+            live.check();
             assertAllowedUrl(request.url(), allowedOrigins);
             if (activeStepOrigin !== null && topLevelNavigation(request)) {
               assertAllowedUrl(request.url(), new Set([activeStepOrigin]));
             }
-            await request.continue();
+            await live.dispatch(() => request.continue());
           } catch {
             await request.abort();
           }
@@ -131,52 +158,56 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
         });
         opened = true;
         return { status: 'ok', observation: 'ephemeral-context-open' };
-      } catch {
-        await page?.close?.().catch(() => {});
-        await context?.close?.().catch(() => {});
-        await browser?.close?.().catch(() => {});
-        page = null; context = null; browser = null; opened = false;
+      } catch (error) {
+        try {
+          await closeAdapterResources([page, context, browser]);
+        } finally {
+          page = null; context = null; browser = null; opened = false;
+        }
+        rethrowLifetime(error);
         throw adapterError('ADAPTER_OPEN_FAILED');
       }
     },
     async inspect(request) {
       if (request.origin) {
         await withNavigationOrigin(request, (selected, destination) =>
-          selected.goto(destination, { waitUntil: 'domcontentloaded' }));
+          live.dispatch(() => selected.goto(destination, { waitUntil: 'domcontentloaded', timeout: live.timeout() })));
       }
       await withBoundOrigin(request, async (selected) => {
         if (typeof selected.evaluate === 'function') {
-          await selected.evaluate((element) => element.textContent);
+          await live.dispatch(() => selected.evaluate((element) => element.textContent));
         } else {
-          await selected.textContent();
+          await live.dispatch(() => selected.textContent());
         }
       });
       return { status: 'ok', observation: 'element-present' };
     },
     async navigate(request) {
       await withNavigationOrigin(request, (selected, destination) =>
-        selected.goto(destination, { waitUntil: 'domcontentloaded' }));
+        live.dispatch(() => selected.goto(destination, { waitUntil: 'domcontentloaded', timeout: live.timeout() })));
       return { status: 'ok', observation: 'navigation-complete' };
     },
-    async fill(request) { await withBoundOrigin(request, (selected) => selected.fill(request.credential)); return { status: 'ok', observation: 'field-filled' }; },
-    async select(request) { await withBoundOrigin(request, (selected) => selected.select(request.credential)); return { status: 'ok', observation: 'option-selected' }; },
-    async click(request) { await withBoundOrigin(request, (selected) => selected.click()); return { status: 'ok', observation: 'control-clicked' }; },
-    async submit(request) { await withBoundOrigin(request, (selected) => selected.click()); return { status: 'ok', observation: 'form-submitted' }; },
+    async fill(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.fill(request.credential))); return { status: 'ok', observation: 'field-filled' }; },
+    async select(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.select(request.credential))); return { status: 'ok', observation: 'option-selected' }; },
+    async click(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.click())); return { status: 'ok', observation: 'control-clicked' }; },
+    async submit(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.click())); return { status: 'ok', observation: 'form-submitted' }; },
     async upload(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
-      await withBoundOrigin(request, (selected) =>
-        selected.uploadFile(artifactManager.materialize(request.artifactRef)));
+      await withBoundOrigin(request, async (selected) => {
+        const materialized = await live.dispatch(() => artifactManager.materialize(request.artifactRef));
+        await live.dispatch(() => selected.uploadFile(materialized));
+      });
       return { status: 'ok', observation: 'upload-staged' };
     },
     async download() { throw adapterError('DOWNLOAD_DEFAULT_DENIED'); },
     async screenshot(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
       const data = await withBoundPageOrigin(request, (selectedPage) =>
-        selectedPage.screenshot({ type: 'png' }));
-      const handle = await artifactManager.capture({
+        live.dispatch(() => selectedPage.screenshot({ type: 'png' })));
+      const handle = await live.dispatch(() => artifactManager.capture({
         type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
         mimeType: 'image/png', data,
-      });
+      }));
       return { status: 'ok', observation: handle.artifactId };
     },
     async trace() { throw adapterError('TRACE_NOT_ACTIVE'); },
@@ -184,23 +215,23 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
     async verify(request) {
       const met = await withBoundOrigin(request, async (selected) => {
         if (request.predicate === 'present') {
-          if (typeof selected.textContent === 'function') await selected.textContent();
-          else await selected.evaluate((element) => element.textContent);
+          if (typeof selected.textContent === 'function') await live.dispatch(() => selected.textContent());
+          else await live.dispatch(() => selected.evaluate((element) => element.textContent));
           return true;
         }
         if (request.predicate === 'text-equals') {
           const value = typeof selected.textContent === 'function'
-            ? await selected.textContent()
-            : await selected.evaluate((element) => element.textContent);
+            ? await live.dispatch(() => selected.textContent())
+            : await live.dispatch(() => selected.evaluate((element) => element.textContent));
           return String(value ?? '') === request.expected;
         }
         if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
           if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await selected.inputValue()) === request.expected;
+          return String(await live.dispatch(() => selected.inputValue())) === request.expected;
         }
         if (request.predicate === 'checked') {
           if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await selected.isChecked()) === request.expected;
+          return String(await live.dispatch(() => selected.isChecked())) === request.expected;
         }
         throw adapterError('INVALID_PREDICATE');
       });

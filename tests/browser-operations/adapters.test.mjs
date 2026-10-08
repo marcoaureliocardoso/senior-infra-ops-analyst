@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {
+  createOperationClock, createOperationLifetime, hasOperationLifetime,
+} from '../../skills/browser-operations/scripts/browser-operation-lifetime.mjs';
 
 import {
   resolveBrowserAdapter,
@@ -793,5 +796,245 @@ test('adapters verify predicates structurally without returning observed page va
       assert.doesNotMatch(JSON.stringify(result), /untrusted page text|selected-value/u);
     }
     await adapter.close();
+  }
+});
+
+
+function lifetimeFixture() {
+  let now = 999;
+  return {
+    lifetime: createOperationLifetime({ expiresAt: 1000 }, createOperationClock(() => now)),
+    expire() { now = 1000; },
+  };
+}
+
+
+const LIFETIME_ORIGIN = 'https://router.example.invalid:443';
+const expired = (error) => error?.code === 'OPERATION_EXPIRED';
+
+
+test('built-in adapters install exact immutable lifetime identity, never a forged callback', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const { lifetime } = lifetimeFixture();
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: lifetime });
+    assert.equal(hasOperationLifetime(adapter, lifetime), true);
+    const standalone = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN] });
+    assert.equal(hasOperationLifetime(standalone, lifetime), false);
+    await assert.rejects(() => create(fake.runtime, {
+      allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: { ...lifetime },
+    }), (error) => error?.code === 'OPERATION_LIFETIME_UNPROVEN');
+  }
+});
+
+
+test('Playwright expiry inside link metadata blocks the following click and permits cleanup', async () => {
+  const fake = playwrightRuntime();
+  const clock = lifetimeFixture();
+  const calls = [];
+  fake.resources.page.getByRole = () => ({
+    async getAttribute(name) { assert.equal(name, 'download'); calls.push('attribute'); clock.expire(); return null; },
+    async click() { calls.push('click'); },
+  });
+  const adapter = await createPlaywrightAdapter(fake.runtime, {
+    allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime,
+  });
+  await adapter.open();
+  fake.state.currentUrl = LIFETIME_ORIGIN;
+  await assert.rejects(() => adapter.click({ origin: LIFETIME_ORIGIN, locatorRole: 'link' }), expired);
+  assert.deepEqual(calls, ['attribute']);
+  await adapter.close();
+  assert.equal(fake.state.closed, 3);
+});
+
+
+for (const [family, create, makeRuntime] of [
+  ['Playwright', createPlaywrightAdapter, playwrightRuntime],
+  ['Puppeteer', createPuppeteerAdapter, puppeteerRuntime],
+]) {
+  test(`${family} expiry during navigation blocks the later inspection read`, async () => {
+    const fake = makeRuntime();
+    const clock = lifetimeFixture();
+    const calls = [];
+    fake.resources.page.goto = async () => { calls.push('navigate'); fake.state.currentUrl = LIFETIME_ORIGIN; clock.expire(); };
+    fake.resources.page.getByRole = () => ({
+      async textContent() { calls.push('read'); return 'fixture'; },
+      async evaluate() { calls.push('read'); return 'fixture'; },
+    });
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+    await adapter.open();
+    await assert.rejects(() => adapter.inspect({ origin: LIFETIME_ORIGIN, locatorRole: 'status' }), expired);
+    assert.deepEqual(calls, ['navigate']);
+    await adapter.close();
+    assert.equal(fake.state.closed, 3);
+  });
+
+  test(`${family} expiry after screenshot blocks artifact capture`, async () => {
+    const fake = makeRuntime();
+    const clock = lifetimeFixture();
+    const calls = [];
+    fake.resources.page.screenshot = async () => { calls.push('screenshot'); clock.expire(); return Buffer.from('fixture'); };
+    const adapter = await create(fake.runtime, {
+      allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime,
+      artifactManager: { async capture() { calls.push('capture'); return { artifactId: 'fixture-artifact' }; } },
+    });
+    await adapter.open();
+    fake.state.currentUrl = LIFETIME_ORIGIN;
+    await assert.rejects(() => adapter.screenshot({ origin: LIFETIME_ORIGIN }), expired);
+    assert.deepEqual(calls, ['screenshot']);
+    await adapter.close();
+    assert.equal(fake.state.closed, 3);
+  });
+
+  test(`${family} expiry during materialization blocks the browser upload`, async () => {
+    const fake = makeRuntime();
+    const clock = lifetimeFixture();
+    const calls = [];
+    fake.resources.page.getByRole = () => ({
+      async setInputFiles() { calls.push('upload'); },
+      async uploadFile() { calls.push('upload'); },
+    });
+    const adapter = await create(fake.runtime, {
+      allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime,
+      artifactManager: { materialize(ref) { assert.equal(ref, 'fixture-artifact'); calls.push('materialize'); clock.expire(); return '/fixture'; } },
+    });
+    await adapter.open();
+    fake.state.currentUrl = LIFETIME_ORIGIN;
+    await assert.rejects(() => adapter.upload({ origin: LIFETIME_ORIGIN, locatorRole: 'button', artifactRef: 'fixture-artifact' }), expired);
+    assert.deepEqual(calls, ['materialize']);
+    await adapter.close();
+    assert.equal(fake.state.closed, 3);
+  });
+
+  test(`${family} expired delayed requests abort without any network dispatch`, async () => {
+    const fake = makeRuntime();
+    const clock = lifetimeFixture();
+    const calls = [];
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+    await adapter.open();
+    clock.expire();
+    const request = {
+      url: () => LIFETIME_ORIGIN, frame: () => ({ page: () => fake.resources.page }),
+      async continue() { calls.push('continue'); }, async abort() { calls.push('abort'); },
+    };
+    if (family === 'Playwright') {
+      await fake.state.contextRoute({
+        request: () => request, continue: request.continue, abort: request.abort,
+        async fetch() { calls.push('fetch'); return {}; }, async fulfill() { calls.push('fulfill'); },
+      });
+    } else {
+      await fake.pageEvents.get('request')(request);
+    }
+    assert.deepEqual(calls, ['abort']);
+    await adapter.close();
+    assert.equal(fake.state.closed, 3);
+  });
+
+  test(`${family} a live numeric control succeeds but a late locator result is not success`, async () => {
+    const fake = makeRuntime();
+    const clock = lifetimeFixture();
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+    await adapter.open();
+    fake.state.currentUrl = LIFETIME_ORIGIN;
+    assert.equal((await adapter.fill({ origin: LIFETIME_ORIGIN, locatorRole: 'textbox', credential: 'fixture-value' })).status, 'ok');
+    fake.resources.page.getByRole = () => ({ async inputValue() { clock.expire(); return 'fixture-value'; } });
+    await assert.rejects(() => adapter.verify({
+      origin: LIFETIME_ORIGIN, locatorRole: 'textbox', predicate: 'value-equals', expected: 'fixture-value', expectRef: 'fixture-state',
+    }), expired);
+    await adapter.close();
+    assert.equal(fake.state.closed, 3);
+  });
+}
+
+
+test('Playwright late fetched responses are aborted and disposed rather than fulfilled', async () => {
+  const fake = playwrightRuntime();
+  const clock = lifetimeFixture();
+  const calls = [];
+  const adapter = await createPlaywrightAdapter(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+  await adapter.open();
+  await fake.state.contextRoute({
+    request: () => ({ url: () => LIFETIME_ORIGIN, frame: () => ({ page: () => fake.resources.page }) }),
+    async fetch() { calls.push('fetch'); clock.expire(); return { headers: () => ({}), async dispose() { calls.push('dispose'); } }; },
+    async fulfill() { calls.push('fulfill'); }, async abort() { calls.push('abort'); },
+  });
+  assert.deepEqual(calls, ['fetch', 'abort', 'dispose']);
+  await adapter.close();
+  assert.equal(fake.state.closed, 3);
+});
+
+
+test('expiry during browser launch captures ownership before blocking context creation', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const clock = lifetimeFixture();
+    let contexts = 0;
+    const launch = async () => { clock.expire(); return fake.resources.browser; };
+    if (create === createPlaywrightAdapter) {
+      fake.runtime.chromium.launch = launch;
+      fake.resources.browser.newContext = async () => { contexts += 1; return fake.resources.context; };
+    } else {
+      fake.runtime.launch = launch;
+      fake.resources.browser.createBrowserContext = async () => { contexts += 1; return fake.resources.context; };
+    }
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+    await assert.rejects(() => adapter.open(), expired);
+    assert.equal(contexts, 0);
+    assert.equal(fake.state.closed, 1);
+    await adapter.close();
+    assert.equal(fake.state.closed, 1);
+  }
+});
+
+
+test('untrusted route error codes cannot masquerade as lifetime failures', async () => {
+  const fake = playwrightRuntime();
+  const { lifetime } = lifetimeFixture();
+  fake.resources.page.goto = async () => {
+    let aborted = false;
+    await fake.state.contextRoute({
+      request: () => ({ url: () => LIFETIME_ORIGIN, frame: () => ({ page: () => fake.resources.page }) }),
+      async fetch() { throw Object.assign(new Error('fixture failure'), { code: 'OPERATION_UNRECOGNIZED' }); },
+      async fulfill() { assert.fail('failed fetch cannot fulfill'); },
+      async abort() { aborted = true; },
+    });
+    if (aborted) throw new Error('REQUEST_BLOCKED');
+  };
+  const adapter = await createPlaywrightAdapter(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: lifetime });
+  await adapter.open();
+  await assert.rejects(() => adapter.navigate({ origin: LIFETIME_ORIGIN }),
+    (error) => error?.code === 'ADAPTER_NAVIGATION_FAILED');
+  await adapter.close();
+});
+
+
+test('supported fetch interfaces narrow timeouts without limiting the detected major version', async () => {
+  for (const version of ['1.33.0', '2.0.0']) {
+    const fake = playwrightRuntime(version);
+    const { lifetime } = lifetimeFixture();
+    const calls = [];
+    const adapter = await createPlaywrightAdapter(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: lifetime });
+    await adapter.open();
+    await fake.state.contextRoute({
+      request: () => ({ url: () => LIFETIME_ORIGIN, frame: () => ({ page: () => fake.resources.page }) }),
+      async fetch(options) { calls.push(options); return { headers: () => ({}), async dispose() {} }; },
+      async fulfill() {}, async abort() { assert.fail('live request must not abort'); },
+    });
+    assert.deepEqual(calls, [{ maxRedirects: 0, timeout: 1 }]);
+    await adapter.close();
+  }
+});
+
+
+test('failed disposal after a late launch is reported rather than hidden by expiry', async () => {
+  for (const create of [createPlaywrightAdapter, createPuppeteerAdapter]) {
+    const fake = create === createPlaywrightAdapter ? playwrightRuntime() : puppeteerRuntime();
+    const clock = lifetimeFixture();
+    const launch = async () => { clock.expire(); return fake.resources.browser; };
+    if (create === createPlaywrightAdapter) fake.runtime.chromium.launch = launch;
+    else fake.runtime.launch = launch;
+    fake.resources.browser.close = async () => { throw new Error('fixture disposal failure'); };
+    const adapter = await create(fake.runtime, { allowedOrigins: [LIFETIME_ORIGIN], operationLifetime: clock.lifetime });
+    await assert.rejects(() => adapter.open(), (error) => error?.code === 'ADAPTER_CLOSE_FAILED');
   }
 });

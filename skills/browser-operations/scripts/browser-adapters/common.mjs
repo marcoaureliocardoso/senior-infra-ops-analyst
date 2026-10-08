@@ -1,4 +1,34 @@
 import { normalizeOrigin } from '../browser-contract.mjs';
+import { BrowserLifetimeError, isOperationLifetime } from '../browser-operation-lifetime.mjs';
+
+
+export function createAdapterLifetime(options, ceiling = 30_000) {
+  const lifetime = options.operationLifetime ?? null;
+  if (lifetime !== null && !isOperationLifetime(lifetime)) {
+    throw new BrowserLifetimeError('OPERATION_LIFETIME_UNPROVEN');
+  }
+  const check = () => lifetime?.assertLive();
+  const timeout = () => lifetime === null ? ceiling : Math.min(ceiling, lifetime.remainingMs());
+  return Object.freeze({
+    lifetime, check, timeout,
+    async dispatch(call) {
+      check();
+      const result = await call();
+      check();
+      return result;
+    },
+  });
+}
+
+
+export function rethrowLifetime(error) {
+  if (error instanceof BrowserLifetimeError) throw error;
+}
+
+
+export function lifetimeFailureCode(error) {
+  return error instanceof BrowserLifetimeError ? error.code : null;
+}
 
 
 export const ADAPTER_CAPABILITIES = Object.freeze({

@@ -27,6 +27,7 @@ node --test tests/browser-operations/hook.test.mjs
 node --test tests/browser-operations/settings.test.mjs
 node --test tests/browser-operations/workflow.test.mjs
 node --test tests/browser-operations/runner-contract.test.mjs
+node --test tests/browser-operations/runner-lifetime.test.mjs
 node --test tests/browser-operations/adapters.test.mjs
 node --test tests/browser-operations/artifacts.test.mjs
 node --test tests/browser-operations/fixture-server.test.mjs

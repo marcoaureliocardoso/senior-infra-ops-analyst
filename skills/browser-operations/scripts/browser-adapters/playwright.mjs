@@ -1,6 +1,7 @@
 import {
   ADAPTER_CAPABILITIES, adapterError, assertAllowedUrl, assertCurrentOrigin, closeAdapterResources,
   locatorDescriptor, normalizedAllowedOrigins, observedVersion,
+  createAdapterLifetime, rethrowLifetime, lifetimeFailureCode,
 } from './common.mjs';
 import { normalizeOrigin } from '../browser-contract.mjs';
 
@@ -8,6 +9,7 @@ import { normalizeOrigin } from '../browser-contract.mjs';
 const SPECIFIERS = Object.freeze(['playwright', 'playwright-core']);
 const DEFAULT_OPERATION_TIMEOUT_MS = 30_000;
 const REDIRECT_FETCH_MINIMUM = Object.freeze([1, 31, 0]);
+const FETCH_TIMEOUT_MINIMUM = Object.freeze([1, 33, 0]);
 const TRUSTED_ACTION_FAILURES = new Set([
   'ORIGIN_ESCAPE', 'ORIGIN_UNPROVEN', 'TOOL_TIMEOUT', 'BROWSER_CRASH',
   'DOWNLOAD_DEFAULT_DENIED', 'ARTIFACT_POLICY_REQUIRED', 'ARTIFACT_BYTE_LIMIT',
@@ -25,13 +27,13 @@ function runtimeValue(module) {
 }
 
 
-function supportsRedirectFetch(version) {
+function supportsRedirectFetch(version, minimum = REDIRECT_FETCH_MINIMUM) {
   const match = /^(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/u.exec(version);
   if (!match) return false;
   const observed = match.slice(1).map(Number);
-  for (let index = 0; index < REDIRECT_FETCH_MINIMUM.length; index += 1) {
-    if (observed[index] !== REDIRECT_FETCH_MINIMUM[index]) {
-      return observed[index] > REDIRECT_FETCH_MINIMUM[index];
+  for (let index = 0; index < minimum.length; index += 1) {
+    if (observed[index] !== minimum[index]) {
+      return observed[index] > minimum[index];
     }
   }
   return true;
@@ -88,6 +90,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
   }
   const allowedOrigins = normalizedAllowedOrigins(options.allowedOrigins);
   const artifactManager = options.artifactManager ?? null;
+  const live = createAdapterLifetime(options, DEFAULT_OPERATION_TIMEOUT_MS);
   let browser = null;
   let context = null;
   let page = null;
@@ -96,11 +99,13 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
   let activeRouteFailureCode = null;
 
   function requirePage() {
+    live.check();
     if (!opened || !page) throw adapterError('ADAPTER_NOT_OPEN');
     return page;
   }
 
   function locator(selected, request) {
+    live.check();
     const descriptor = locatorDescriptor(request);
     if (typeof selected.getByRole !== 'function') throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
     return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
@@ -141,6 +146,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     activeStepOrigin = assertCurrentOrigin(selected, request.origin);
     try {
       const result = await action(selected);
+      live.check();
       if (activeRouteFailureCode !== null) throw adapterError(activeRouteFailureCode);
       assertCurrentOrigin(selected, request.origin);
       return result;
@@ -156,6 +162,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
       try {
         return await action(selectedLocator, selected);
       } catch (error) {
+        rethrowLifetime(error);
         if (activeRouteFailureCode !== null) throw adapterError(activeRouteFailureCode);
         const code = typeof error?.code === 'string' ? error.code : null;
         if (code !== null && TRUSTED_ACTION_FAILURES.has(code)) throw adapterError(code);
@@ -175,9 +182,11 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
       let result;
       try {
         result = await action(selected, destination);
-      } catch {
+      } catch (error) {
+        rethrowLifetime(error);
         throw adapterError(activeRouteFailureCode ?? 'ADAPTER_NAVIGATION_FAILED');
       }
+      live.check();
       if (activeRouteFailureCode !== null) throw adapterError(activeRouteFailureCode);
       assertCurrentOrigin(selected, request.origin);
       return result;
@@ -189,17 +198,30 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
   const adapter = {
     id: options.id ?? 'playwright',
     observedVersion: observedVersion(runtime),
-    capabilities: ADAPTER_CAPABILITIES,
+    operationLifetime: live.lifetime,
+    capabilities: Object.freeze({ ...ADAPTER_CAPABILITIES, operationLifetime: live.lifetime !== null }),
     async open() {
+      live.check();
       if (opened) return { status: 'ok', observation: 'adapter-already-open' };
       try {
-        browser = await runtime.chromium.launch({ headless: true });
+        live.check();
+        browser = await runtime.chromium.launch({ headless: true,
+          ...(live.lifetime ? { timeout: live.timeout() } : {}) });
+        live.check();
         context = await browser.newContext({
           acceptDownloads: false, serviceWorkers: 'block', storageState: undefined,
         });
-        context.setDefaultTimeout?.(DEFAULT_OPERATION_TIMEOUT_MS);
-        context.setDefaultNavigationTimeout?.(DEFAULT_OPERATION_TIMEOUT_MS);
+        live.check();
+        context.setDefaultTimeout?.(live.timeout());
+        live.check();
+        context.setDefaultNavigationTimeout?.(live.timeout());
+        live.check();
         await context.route('**/*', async (route) => {
+          try { live.check(); } catch (error) {
+            activeRouteFailureCode = error.code;
+            await route.abort().catch(() => {});
+            return;
+          }
           const runtimeRequest = route.request();
           const requestUrl = runtimeRequest.url();
           const isTopLevel = topLevelNavigation(runtimeRequest);
@@ -220,7 +242,11 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
           if (isTopLevel && typeof route.fetch === 'function' && typeof route.fulfill === 'function') {
             let response = null;
             try {
-              response = await route.fetch({ maxRedirects: 0 });
+              live.check();
+              response = await route.fetch({ maxRedirects: 0,
+                ...(live.lifetime && supportsRedirectFetch(observedVersion(runtime), FETCH_TIMEOUT_MINIMUM)
+                  ? { timeout: live.timeout() } : {}) });
+              live.check();
               const headers = response.headers();
               const location = headers.location;
               const disposition = headers['content-disposition'];
@@ -242,9 +268,11 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
                   return;
                 }
               }
-              await route.fulfill({ response });
+              await live.dispatch(() => route.fulfill({ response }));
               return;
-            } catch {
+            } catch (error) {
+              const reason = lifetimeFailureCode(error);
+              if (reason !== null) activeRouteFailureCode = reason;
               await route.abort().catch(() => {});
               return;
             } finally {
@@ -252,76 +280,84 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
             }
           }
           try {
-            await route.continue();
-          } catch {
+            await live.dispatch(() => route.continue());
+          } catch (error) {
+            const reason = lifetimeFailureCode(error);
+            if (reason !== null) activeRouteFailureCode = reason;
             await route.abort().catch(() => {});
           }
         });
+        live.check();
         page = await context.newPage();
+        live.check();
         context.on('page', async (popup) => { await popup.close().catch(() => {}); });
         opened = true;
         return { status: 'ok', observation: 'ephemeral-context-open' };
-      } catch {
-        await page?.close?.().catch(() => {});
-        await context?.close?.().catch(() => {});
-        await browser?.close?.().catch(() => {});
-        page = null; context = null; browser = null; opened = false;
+      } catch (error) {
+        try {
+          await closeAdapterResources([page, context, browser]);
+        } finally {
+          page = null; context = null; browser = null; opened = false;
+        }
+        rethrowLifetime(error);
         throw adapterError('ADAPTER_OPEN_FAILED');
       }
     },
     async inspect(request) {
       if (request.origin) {
         await withNavigationOrigin(request, (selected, destination) =>
-          selected.goto(destination, { waitUntil: 'domcontentloaded' }));
+          live.dispatch(() => selected.goto(destination, { waitUntil: 'domcontentloaded', timeout: live.timeout() })));
       }
-      await withBoundOrigin(request, (selected) => selected.textContent());
+      await withBoundOrigin(request, (selected) => live.dispatch(() => selected.textContent({ timeout: live.timeout() })));
       return { status: 'ok', observation: 'element-present' };
     },
     async navigate(request) {
       denyUnmanagedArtifactDispatch(request);
       await withNavigationOrigin(request, (selected, destination) =>
-        selected.goto(destination, { waitUntil: 'domcontentloaded' }));
+        live.dispatch(() => selected.goto(destination, { waitUntil: 'domcontentloaded', timeout: live.timeout() })));
       return { status: 'ok', observation: 'navigation-complete' };
     },
     async fill(request) {
-      await withBoundOrigin(request, (selected) => selected.fill(request.credential));
+      await withBoundOrigin(request, (selected) => live.dispatch(() => selected.fill(request.credential, { timeout: live.timeout() })));
       return { status: 'ok', observation: 'field-filled' };
     },
     async select(request) {
-      await withBoundOrigin(request, (selected) => selected.selectOption(request.credential));
+      await withBoundOrigin(request, (selected) => live.dispatch(() => selected.selectOption(request.credential, { timeout: live.timeout() })));
       return { status: 'ok', observation: 'option-selected' };
     },
     async click(request) {
       denyUnmanagedArtifactDispatch(request);
       await withBoundOrigin(request, async (selected) => {
         if (request.locatorRole === 'link' && typeof selected.getAttribute === 'function'
-            && await selected.getAttribute('download') !== null) {
+            && await live.dispatch(() => selected.getAttribute('download', { timeout: live.timeout() })) !== null) {
           throw adapterError('DOWNLOAD_DEFAULT_DENIED');
         }
-        await selected.click();
+        await live.dispatch(() => selected.click({ timeout: live.timeout() }));
       });
       return { status: 'ok', observation: 'control-clicked' };
     },
     async submit(request) {
       denyUnmanagedArtifactDispatch(request);
-      await withBoundOrigin(request, (selected) => selected.click());
+      await withBoundOrigin(request, (selected) => live.dispatch(() => selected.click({ timeout: live.timeout() })));
       return { status: 'ok', observation: 'form-submitted' };
     },
     async upload(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
-      await withBoundOrigin(request, (selected) =>
-        selected.setInputFiles(artifactManager.materialize(request.artifactRef)));
+      await withBoundOrigin(request, async (selected) => {
+        const materialized = await live.dispatch(() => artifactManager.materialize(request.artifactRef));
+        await live.dispatch(() => selected.setInputFiles(materialized, { timeout: live.timeout() }));
+      });
       return { status: 'ok', observation: 'upload-staged' };
     },
     async download() { throw adapterError('DOWNLOAD_DEFAULT_DENIED'); },
     async screenshot(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
       const data = await withBoundPageOrigin(request, (selectedPage) =>
-        selectedPage.screenshot({ type: 'png' }));
-      const handle = await artifactManager.capture({
+        live.dispatch(() => selectedPage.screenshot({ type: 'png', timeout: live.timeout() })));
+      const handle = await live.dispatch(() => artifactManager.capture({
         type: 'screenshot', sourceClass: 'browser-viewport', destinationClass: 'operation-temp',
         mimeType: 'image/png', data,
-      });
+      }));
       return { status: 'ok', observation: handle.artifactId };
     },
     async trace() { throw adapterError('TRACE_NOT_ACTIVE'); },
@@ -329,19 +365,19 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     async verify(request) {
       const met = await withBoundOrigin(request, async (selected) => {
         if (request.predicate === 'present') {
-          await selected.textContent();
+          await live.dispatch(() => selected.textContent({ timeout: live.timeout() }));
           return true;
         }
         if (request.predicate === 'text-equals') {
-          return String(await selected.textContent() ?? '') === request.expected;
+          return String(await live.dispatch(() => selected.textContent({ timeout: live.timeout() })) ?? '') === request.expected;
         }
         if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
           if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await selected.inputValue()) === request.expected;
+          return String(await live.dispatch(() => selected.inputValue({ timeout: live.timeout() }))) === request.expected;
         }
         if (request.predicate === 'checked') {
           if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await selected.isChecked()) === request.expected;
+          return String(await live.dispatch(() => selected.isChecked({ timeout: live.timeout() }))) === request.expected;
         }
         throw adapterError('INVALID_PREDICATE');
       });

@@ -5,7 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-  authorizeRunnerStep, executeBrowserWorkflow, executeRunnerStep, parseRunnerArgs,
+  authorizeRunnerStep, executeBrowserWorkflow as realExecuteBrowserWorkflow,
+  executeRunnerStep as realExecuteRunnerStep, parseRunnerArgs,
 } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 import {
   activateOperation, activatePendingWorkflow, readActiveOperation, readPendingOperation,
@@ -13,6 +14,17 @@ import {
 import { NOW, capabilityFixture } from './helpers.mjs';
 import { evaluateApprovalHook } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
 import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
+import { lifetimeFixtureDependencies } from './lifetime-helpers.mjs';
+
+
+function executeBrowserWorkflow(request, dependencies) {
+  return realExecuteBrowserWorkflow(request, lifetimeFixtureDependencies(request, dependencies));
+}
+
+
+function executeRunnerStep(request, dependencies) {
+  return realExecuteRunnerStep(request, lifetimeFixtureDependencies(request, dependencies));
+}
 
 
 const OPEN = [
@@ -1473,6 +1485,7 @@ test('one-shot workflow derives fresh validation capability before opening the v
       'execution:fill:SYNTH_SECRET_WORKFLOW_PASSWORD',
       'execution:submit',
       'execution:close',
+      'validation:close',
     ]);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
   });
