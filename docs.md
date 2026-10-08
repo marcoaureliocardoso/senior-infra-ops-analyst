@@ -43,6 +43,11 @@ window reporting.
 
 ## Guarded browser operations
 
+The protected runner and selected adapter share the original stored approval
+deadline and a fresh per-dispatch lifetime check. Late results cannot establish
+success, and expired authority cannot validate or retry. Owned cleanup remains
+permitted; see the lifetime contract in `references/browser-operations.md`.
+
 Browser capability detection uses this route precedence: a recognized
 main-session MCP, then a recognized protected runner. Unavailable,
 unrecognized, conflicting, or guard-unproven states stop. Nori installation

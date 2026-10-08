@@ -3785,6 +3785,103 @@ configuration was used in this pass. Synthetic PID fixtures and private roots
 were removed by their tests; the retained headless dependency was reused.
 The Claude 2.1.293 offline result is still inconclusive; these tests do not
 explain its historical cause or prove SDK/resumed-context acceptance.
-The production approval-expiry finding remains pending in the companion plan.
+At this harness checkpoint, production approval expiry remained pending in the
+companion plan; the subsequent implementation is recorded below.
 Authenticated acceptance, hosted CI/Security, external delivery, merge and
 definitive TODO completion remain separate and unperformed.
+
+## 2026-10-08 production approval lifetime correction
+
+The approved companion plan followed the harness author fix pass, with Native
+inline implementation and no new dependency. Source commits are `549581d`
+(immutable lifetime and owned consumption) and `fbd3244` (runner/adapter fences).
+The scoped review ownership fix pass is `d0698f3`.
+Root `0.15.0` remains unreleased; browser component metadata is Nori `1.0.1`,
+skill `0.1.1`. Skill instructions remain unchanged; only version/date metadata
+changed after the mechanical package-contract test was observed RED.
+
+Lifetime tests first failed on the missing module, then passed 15 controls:
+exact deadline equality, last live millisecond, fresh default clock, numeric
+constant clock, invalid/backward/throwing samples and rejected copied identity.
+Binding tests observed eight new RED cases before owned consumption; an
+ambiguous orphan-call case separately failed before correction. Final binding
+suite: 20 passed, including expired physical removal, later-grant preservation,
+inconsistent expiry, linked/malformed state and failed atomic write.
+
+Fourteen adapter regressions were RED before concrete fencing. Additional
+typed-route-error, supported-timeout and failed late-launch-disposal cases were
+RED before their corrections. Final adapter suite: 39 passed. Cleanup captures
+new resource handles before post-await checks; close/abort/disposal are exempt
+from the lifetime fence, not from truthful cleanup-failure reporting.
+
+Runner fixtures use actual synthetic PreToolUse/PostToolUse paths and assert
+the stored original expiry. Initial unsupported reference/missing-field fixture
+errors were corrected, not counted as security proof. The PreToolUse evaluator
+uses Date.now rather than a third injected argument; fixture stage time was
+scoped correctly before asserting the original-deadline invariant. A narrow
+mutation using the reparsed envelope made the forbidden fill consumer appear
+and the regression fail; restoring the stored envelope returned GREEN.
+
+Runner coverage includes expiry during discovery/open, fill/select reference
+resolution, successful/late persistent steps, execution close, fresh validation
+discovery/open/preparation/expectation/verification and legacy read-only waits.
+Early-return cleanup and acquired-but-unavailable adapter ownership were
+separately RED before correction. Invalid/backward clocks, absent/forged or
+different installed lifetime identity and lost completion state remain closed.
+Existing contract fixtures install the genuine lifetime and run pre/post checks;
+they do not supply no-op assertions. Generic pre-effect open failure retains its
+prior denied outcome, while acquired validation adapters are now always closed.
+
+Task 2 focused results: runner lifetime 24, runner contract 37, adapters 39,
+binding 20 and lifetime 15: 135 passed. Both implementation tasks completed
+their full package command with exit `0` and `package validation passed`;
+Task 1 first exposed a stale archive total (236 versus 235), corrected to assert
+the required shipped lifetime module while retaining complete ZIP verification.
+Existing optional/capability and WSL PowerShell skips are not acceptance.
+
+No provider, native Claude, actual browser matrix, operator configuration or
+credential read, installation or external delivery was performed. These proofs
+do not explain the historical Claude 2.1.293 inconclusive control. The three
+prior findings have regression proofs; the scoped independent review and its
+confirmed ownership fix pass are complete. Final package verification passed
+after the fix pass, with the remaining native/hosted gates below. Native offline
+acceptance needs a separate grant; authenticated acceptance additionally needs
+a fresh final-commit-bound grant. Hosted CI/Security, push/PR/merge and definitive
+TODO completion remain unperformed.
+
+### Scoped candidate review and original-grant write correction
+
+The single fresh bypass/regression review inspected remediation base `fe38e17`
+through the candidate at `fbd3244` plus contract/metadata edits. Its immutable
+managed candidate digest was
+`6e4cea02add15b720c7aaf82dda8396da7a03eb8347c69641b2d4305c9af0ba2`.
+It reported one P2 validation-state integrity finding: while an older workflow
+awaited verification, a later active grant could replace it, and completion
+selected the replacement by operation ID/shared validation reference rather
+than original approval identity. This was not a new post-expiry dispatch proof.
+
+The parent reproduced both ordinary completion and ambiguous reconciliation
+through actual modules, native synthetic staging and private filesystem state:
+both returned unsafe `ok` before correction. Seven store regressions were RED
+for call staging, outcome, reconciliation, validation, native call success/failure
+and substitution during activation. The corrected shared boundary checks the
+original session, operation, tool-use ID, invocation fingerprint and deadline
+under the existing lock. Native callbacks also match the stored call approval
+tag; mismatch returns false without changing the later grant. A full runner
+control preserves a later identical invocation approval before activation.
+Initial corrected ownership/runner/hook suites passed 58 tests. Final focused
+runner/contract/adapters/binding/lifetime/hook suites passed 150; final full
+verification after this fix pass completed exit `0` with `package validation
+passed`, schema validation and local CI workflow validation. Its first final
+run exposed one stale browser-component version expectation (`1.0.0` versus
+`1.0.1`); the four-test policy suite passed after alignment, and the complete
+gate was rerun successfully. Code was unchanged during the successful run.
+Optional/capability and WSL PowerShell skips remain, not acceptance. No re-review
+was dispatched, and no provider/native/browser experiment was run.
+
+The reviewer set aside cancellation of already-dispatched browser APIs,
+adversarial injected adapter/clock implementations, cross-invocation wall-clock
+rollback and real provider/native-consent behavior. These are explicit residual
+boundaries: in-flight effects cannot be unsent; dependency injection is a trusted
+in-process seam, not model authority; no global clock service is introduced;
+real native/provider acceptance still needs separately approved evidence.

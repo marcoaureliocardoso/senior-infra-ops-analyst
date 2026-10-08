@@ -446,6 +446,36 @@ boundary, with unchanged legacy routing, consent, provider scope and budgets.
 Synthetic regression/full-package evidence addresses the two harness findings,
 not the real native resume gate or the production expiry correction.
 
+The 2026-10-08 production lifetime correction anchors execution and validation
+to the exact stored grant. One branded immutable deadline and fresh clock are
+shared with the selected adapter; numeric clocks remain only a trusted test
+seam. Invalid/backward samples fail closed rather than renewing authority.
+An installed lifetime identity is required in addition to discovery, native
+consent and the unchanged role/origin/effect/credential/artifact gates.
+
+The runner and both adapters fence concrete dispatch before and after awaits,
+including protected-value reads, startup, link metadata, upload materialization,
+screenshots and delayed interception. Resource ownership is captured before
+post-await expiry checks so disposal remains possible. Supported timeouts are
+narrowed, but no guard can unsend an already-dispatched browser API. Late
+results are inconclusive; expired authority cannot validate or retry.
+
+Owned one-shot consumption uses bounded raw-state validation and the existing
+lock, independent of current-time admission. It removes only the original
+approval and tagged calls; later approvals are preserved and ambiguous legacy
+ownership blocks completion. Cleanup remains permitted after expiry. Failed
+completion or cleanup overrides success. Synthetic proofs address the prior
+production expiry finding; scoped candidate review and real native/provider
+acceptance are separate gates, not implied by those tests.
+
+The scoped candidate review identified one validation-state ownership gap:
+completion selected an active record by operation ID/reference after an await
+and could reconcile a different later approval. The fix pass binds activation,
+call staging, outcomes and completion to the captured original grant under the
+existing lock. Native callbacks additionally match the call's approval tag.
+Replacement approvals remain unchanged; mismatched writes cannot report
+validated success. No second review cycle or broader historical scan is used.
+
 A prompt-only policy was rejected because prose cannot prove the binding between
 one authorized operation and one tool call. A mandatory single MCP was rejected
 because it would pin deployment topology and could make the package install or
@@ -477,7 +507,7 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
-- Pending production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`
+- Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`
 - Test-only terminal evidence: `tests/validation-notes.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md`
 - One-shot workflow plan: `docs/superpowers/plans/2026-09-02-p0-04b-one-shot-workflow.md`

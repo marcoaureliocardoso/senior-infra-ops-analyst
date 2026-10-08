@@ -137,6 +137,60 @@ Playwright may satisfy mutable workflow capability when its detected context
 proves pre-navigation popup containment. Puppeteer cannot currently prove that
 guarantee and therefore remains read-only for authentication and mutation.
 
+## Protected runner approval lifetime
+
+The protected runner uses the original stored approval envelope and deadline,
+not the expiry recomputed when the same CLI is parsed later. Invocation
+fingerprints still bind the requested duration without binding parser time.
+Execution and fresh-context validation share one branded immutable lifetime
+and one invocation-owned clock. Default checks read current time; invalid,
+fractional, negative or backward samples make authority unproven. Numeric
+constant clocks and callable clocks are trusted in-process test seams, not
+CLI flags, environment overrides or model-provided authority.
+
+Operational selection requires the exact read-only `operationLifetime` object
+and `capabilities.operationLifetime === true`. An `ACTIVE` discovery result,
+copied callback, capability flag or serialized object alone is insufficient.
+Standalone adapter diagnostics without this installed identity are not an
+operational route. Lifetime enforcement supplements, never replaces, native
+consent and role, origin, effect, identity, credential and artifact checks.
+
+At `now >= originalExpiresAt`, no new operational dispatch is permitted.
+Checks surround asynchronous reference resolution, startup, each step,
+verification and completion; concrete adapter calls recheck after intervening
+awaits. This includes link metadata before click, navigation before read,
+materialization before upload and screenshot before artifact capture. Delayed
+requests are aborted rather than continued, fetched or fulfilled after expiry;
+already-acquired responses are disposed. Supported timeouts are narrowed to
+the remaining lifetime without using zero as an unlimited timeout.
+
+An already-dispatched browser API cannot be unsent. A late result is
+inconclusive, including successful verification. Expiry before an effect is
+denied; after possible persistence or a late result it is `OUTCOME_UNKNOWN`
+with validation required. Expired authority cannot validate, compensate or
+retry; fresh matching authority is needed. Legacy calls remain read-only.
+
+Cleanup, route abort and owned disposal remain permitted after expiry.
+One-shot cleanup physically consumes only the original grant and correlated
+calls under the existing lock, even when ordinary reads filter expired state.
+A different later approval sharing the operation ID is preserved.
+Activation, call staging, outcome and completion writes also match the captured
+original grant under the same lock; an older validator cannot reconcile a
+replacement approval. Native call callbacks match their stored approval tag.
+An ownership mismatch returns failure without modifying the replacement.
+
+Store APIs are trusted programmatic integration seams, not model/CLI authority.
+Their optional owner parameter preserves current-grant semantics for existing
+synchronous consumers; packaged operational callers always supply the original
+correlation, while native call callbacks require their stored approval tag.
+External asynchronous integrations must adopt the same ownership contract.
+
+Ambiguous legacy call ownership, inconsistent expiry copies and failed cleanup or
+completion writes cannot produce a validated success. Closed lifetime reasons
+are `OPERATION_EXPIRED`, `OPERATION_CLOCK_UNPROVEN`,
+`APPROVAL_BINDING_INVALID` and `OPERATION_LIFETIME_UNPROVEN`; no clock samples,
+grant contents or arbitrary runtime errors are reported.
+
 ## Effect taxonomy
 
 - `PUBLIC_READ`: bounded information intended for unauthenticated public access.

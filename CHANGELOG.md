@@ -7,6 +7,20 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Updated the browser component to Nori `1.0.1` / skill metadata `0.1.1`.
+  Protected runner workflows now retain the original stored approval deadline
+  and share one branded lifetime/fresh clock with both built-in adapters.
+  Checks fence concrete dispatch after asynchronous waits; late results and
+  failed completion/cleanup cannot become validated success. Owned one-shot
+  consumption physically removes the original grant after expiry without
+  deleting a later approval. In-flight calls cannot be unsent, and expired
+  authority cannot validate or retry. Scoped review additionally identified
+  stale validation writes against a replacement approval; activation, call
+  staging, outcome/completion and native callbacks now preserve original-grant
+  ownership under the lock. Legacy read-only scope, native consent,
+  origin/effect/credential gates and live acceptance budgets remain unchanged.
+  Synthetic regression proofs do not complete native/provider acceptance.
+
 - Corrected test-only freshness so split status/cursor redraws and partial
   context labels cannot refresh an unchanged historical input candidate.
   Supported input and controlled echo transitions remain covered. Added scoped
@@ -17,7 +31,7 @@ tag. Tagged versions correspond to repository tags.
   Linux pidfd/subreaper capabilities are checked, not assumed; unproven ownership
   blocks. Legacy defaults, native consent, live budgets and staging remain
   unchanged. This closes two harness review findings, not the inconclusive
-  native resume gate or the separately planned production expiry finding.
+  native resume gate; production lifetime enforcement is a separate correction.
 - Added an explicitly selected, test-only passive headless terminal-state
   adapter for P0-04B numeric context probes, with cell-based current-input
   checks, bounded private IPC, deadlines and owned process cleanup. Other

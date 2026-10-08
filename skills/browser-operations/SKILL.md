@@ -1,8 +1,8 @@
 ---
 name: Browser Operations
 description: Use for browser-based infrastructure diagnosis, authenticated UI workflows, and approved UI changes when a recognized route can enforce the browser operation contract.
-version: 0.1.0
-last_updated: 2026-09-07
+version: 0.1.1
+last_updated: 2026-10-08
 maintainer: Marco Aurelio Cardoso
 triggers:
   - browser operations

@@ -72,6 +72,11 @@ blocks before the exceptional automatic probe.
 
 ## Guarded browser operations
 
+Protected runner effects use the original approval deadline and a fresh
+per-dispatch clock shared with the adapter. Expiry blocks new effects; late
+results are inconclusive and cleanup still runs. See the
+[browser contract](references/browser-operations.md#protected-runner-approval-lifetime).
+
 Browser capability detection uses this route precedence: an existing recognized
 main-session MCP first, then a recognized protected runner. Unavailable,
 unrecognized, conflicting, or guard-unproven routes

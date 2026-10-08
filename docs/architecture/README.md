@@ -25,5 +25,7 @@ acceptance; the observed offline limitation remains in its evidence record.
 
 The approved [remediation design](../superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md)
 separates the [harness author fix pass](../superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md)
-from the still-pending [production lifetime correction](../superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md).
-Implemented input/cancellation fixes do not complete native/provider acceptance.
+from the [production lifetime correction](../superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md).
+Implemented input/cancellation/lifetime corrections do not complete native/provider
+acceptance. The scoped production review identified an ownership gap; its
+original-grant fix pass and verification are recorded in ADR-010/validation notes.
