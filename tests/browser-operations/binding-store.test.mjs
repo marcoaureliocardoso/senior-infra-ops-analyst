@@ -556,3 +556,60 @@ test('failed atomic cleanup writes cannot report consumption or reveal the throw
     assert.notEqual(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW), null);
   });
 });
+
+
+for (const writer of ['stage', 'outcome', 'reconcile', 'validate', 'complete-call', 'fail-call']) {
+  test(`an older approval cannot ${writer} a replacement operation`, async () => {
+    await withState(async (env) => {
+      const old = parseOperationEnvelope(browserEnvelope(), NOW);
+      writePendingOperation(old, proof(), env, NOW);
+      activateOperation(ownedCorrelation(old), env, NOW + 1);
+      stageBrowserCall(old.sessionId, old.operationId, {
+        toolUseId: 'call-before-replacement', action: 'click', effect: 'LOW_RISK_CHANGE',
+      }, env, NOW + 2);
+      const fresh = parseOperationEnvelope(browserEnvelope({ target: 'replacement-router', expiresAt: old.expiresAt + 500 }), NOW + 3);
+      const newer = proof({ toolUseId: 'tool-new' });
+      writePendingOperation(fresh, newer, env, NOW + 3);
+      activateOperation(ownedCorrelation(fresh, newer), env, NOW + 4);
+      if (writer === 'reconcile') recordOutcomeUnknown(fresh.sessionId, fresh.operationId, {
+        reasonCode: 'TOOL_FAILURE', action: 'click', effect: 'LOW_RISK_CHANGE',
+      }, env, NOW + 5);
+      const before = (await rawState(env)).state;
+      const owner = ownedCorrelation(old);
+      let changed;
+      if (writer === 'stage') changed = bindingStore.stageBrowserCall(old.sessionId, old.operationId,
+        { toolUseId: 'stale-call', action: 'click', effect: 'LOW_RISK_CHANGE' }, env, NOW + 6, owner);
+      if (writer === 'outcome') changed = bindingStore.recordOutcomeUnknown(old.sessionId, old.operationId,
+        { reasonCode: 'TOOL_FAILURE', action: 'click', effect: 'LOW_RISK_CHANGE' }, env, NOW + 6, owner);
+      if (writer === 'reconcile') changed = bindingStore.reconcileOutcomeUnknown(old.sessionId, old.operationId,
+        'independent-interface-state', 'applied', env, NOW + 6, owner);
+      if (writer === 'validate') changed = bindingStore.completeIndependentValidation(old.sessionId, old.operationId,
+        'independent-interface-state', env, NOW + 6, owner);
+      if (writer === 'complete-call') changed = bindingStore.completeBrowserCall(old.sessionId,
+        'call-before-replacement', env, NOW + 6);
+      if (writer === 'fail-call') changed = bindingStore.failBrowserCall(old.sessionId,
+        'call-before-replacement', 'TOOL_FAILURE', env, NOW + 6);
+      assert.equal(changed, false);
+      assert.deepEqual((await rawState(env)).state, before);
+      assert.equal(readActiveOperation(fresh.sessionId, fresh.operationId, env, NOW + 6).envelope.target, 'replacement-router');
+    });
+  });
+}
+
+
+test('workflow activation cannot substitute a later approval with an identical invocation', async () => {
+  await withState(async (env) => {
+    const old = parseOperationEnvelope(browserEnvelope(), NOW);
+    const approved = workflowApprovalProof();
+    writePendingOperation(old, approved, env, NOW);
+    const fresh = parseOperationEnvelope(browserEnvelope({ expiresAt: old.expiresAt + 500 }), NOW + 3);
+    writePendingOperation(fresh, workflowApprovalProof({ toolUseId: 'tool-new' }), env, NOW + 3);
+    assert.equal(activatePendingWorkflow({
+      sessionId: old.sessionId, operationId: old.operationId,
+      invocationFingerprint: approved.invocationFingerprint,
+      effectiveCapability: effectiveWorkflowCapability(), ownedApproval: ownedCorrelation(old, approved),
+    }, env, NOW + 4), false);
+    assert.equal(readActiveOperation(old.sessionId, old.operationId, env, NOW + 4), null);
+    assert.equal(readPendingOperation(old.sessionId, old.operationId, env, NOW + 4).toolUseId, 'tool-new');
+  });
+});

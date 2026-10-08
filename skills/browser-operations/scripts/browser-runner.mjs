@@ -15,6 +15,7 @@ import {
   stageBrowserCall,
   writePendingOperation,
   consumeOwnedOperation,
+  ownedOperationCorrelation,
 } from './browser-binding-store.mjs';
 import {
   BrowserLifetimeError, createOperationClock, createOperationLifetime, hasOperationLifetime,
@@ -690,10 +691,7 @@ function workflowOutput(status, reasonCode, request) {
 
 
 function ownedGrant(entry) {
-  return {
-    sessionId: entry.sessionId, operationId: entry.operationId, toolUseId: entry.toolUseId,
-    invocationFingerprint: entry.invocationFingerprint, expiresAt: entry.expiresAt,
-  };
+  return ownedOperationCorrelation(entry);
 }
 
 
@@ -737,6 +735,7 @@ async function executeBrowserWorkflowCore(request, dependencies, scope) {
     if (!activatePendingWorkflow({
       sessionId, operationId: request.operationId, invocationFingerprint: request.invocationFingerprint,
       effectiveCapability: capability,
+      ownedApproval: scope.owned,
     }, env, lifetime.assertLive())) return workflowOutput('denied', 'CAPABILITY_UNAVAILABLE', request);
     try {
       lifetime.assertLive();
@@ -753,7 +752,7 @@ async function executeBrowserWorkflowCore(request, dependencies, scope) {
       if (!recordOutcomeUnknown(sessionId, request.operationId, {
         reasonCode: execution.reasonCode, action: execution.outcomeObservation.action,
         effect: execution.outcomeObservation.effect,
-      }, env, lifetime.assertLive())) throw new BrowserRunnerError('BROWSER_RUNNER_WORKFLOW_COMPLETION_FAILED');
+      }, env, lifetime.assertLive(), scope.owned)) throw new BrowserRunnerError('BROWSER_RUNNER_WORKFLOW_COMPLETION_FAILED');
     }
   } finally {
     await closeOwnedAdapter(executionAdapter);
@@ -785,15 +784,15 @@ async function executeBrowserWorkflowCore(request, dependencies, scope) {
   lifetime.assertLive();
   if (validation.outcome === 'WORKFLOW_VALIDATED') {
     const completed = executionAmbiguous
-      ? reconcileOutcomeUnknown(sessionId, request.operationId, pending.envelope.validationRef, 'applied', env, lifetime.assertLive())
-      : completeIndependentValidation(sessionId, request.operationId, pending.envelope.validationRef, env, lifetime.assertLive());
+      ? reconcileOutcomeUnknown(sessionId, request.operationId, pending.envelope.validationRef, 'applied', env, lifetime.assertLive(), scope.owned)
+      : completeIndependentValidation(sessionId, request.operationId, pending.envelope.validationRef, env, lifetime.assertLive(), scope.owned);
     if (!completed) return workflowOutput('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request);
     lifetime.assertLive();
     return workflowOutput('ok', 'WORKFLOW_VALIDATED', request);
   }
   if (validation.outcome === 'WORKFLOW_NOT_APPLIED') {
     if (executionAmbiguous && !reconcileOutcomeUnknown(
-      sessionId, request.operationId, pending.envelope.validationRef, 'not-applied', env, lifetime.assertLive(),
+      sessionId, request.operationId, pending.envelope.validationRef, 'not-applied', env, lifetime.assertLive(), scope.owned,
     )) return workflowOutput('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request);
     lifetime.assertLive();
     return workflowOutput('ok', 'WORKFLOW_NOT_APPLIED', request);
@@ -901,10 +900,10 @@ export async function executeRunnerStep(request, dependencies = {}) {
         let reason = 'VALIDATED';
         if (active.outcome === 'OUTCOME_UNKNOWN') {
           if (!['applied', 'not-applied'].includes(observed.outcome)) return output('denied', 'VALIDATION_FAILED', request.operationId, request.step, effect, true);
-          completed = reconcileOutcomeUnknown(sessionId, request.operationId, request.expectRef, observed.outcome, env, lifetime.assertLive());
+          completed = reconcileOutcomeUnknown(sessionId, request.operationId, request.expectRef, observed.outcome, env, lifetime.assertLive(), ownedGrant(active));
           reason = observed.outcome === 'applied' ? 'RECONCILED_APPLIED' : 'RECONCILED_NOT_APPLIED';
         } else {
-          completed = completeIndependentValidation(sessionId, request.operationId, request.expectRef, env, lifetime.assertLive());
+          completed = completeIndependentValidation(sessionId, request.operationId, request.expectRef, env, lifetime.assertLive(), ownedGrant(active));
         }
         if (!completed) return output('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request.operationId, request.step, effect, true);
         lifetime.assertLive();
@@ -917,7 +916,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
         if (!adapter || detected.state !== 'ACTIVE') return output('denied', 'CAPABILITY_UNAVAILABLE', request.operationId, request.step, effect, active.validationRequired);
         if (!hasOperationLifetime(adapter, lifetime)) throw new BrowserLifetimeError('OPERATION_LIFETIME_UNPROVEN');
         const callId = 'runner-' + randomUUID();
-        if (!stageBrowserCall(sessionId, request.operationId, { toolUseId: callId, action: request.step, effect }, env, lifetime.assertLive())) {
+        if (!stageBrowserCall(sessionId, request.operationId, { toolUseId: callId, action: request.step, effect }, env, lifetime.assertLive(), ownedGrant(active))) {
           return output('denied', 'CALL_BINDING_FAILED', request.operationId, request.step, effect, active.validationRequired);
         }
         lifetime.assertLive();
@@ -930,7 +929,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
         const observed = await method.call(adapter, { ...request, credential });
         lifetime.assertLive();
         if (observed?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
-        if (!completeBrowserCall(sessionId, callId, env, lifetime.assertLive())) {
+        if (!completeBrowserCall(sessionId, callId, env, lifetime.assertLive(), ownedGrant(active))) {
           consume = true;
           result = output('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request.operationId, request.step, effect, true);
         } else {
@@ -949,7 +948,7 @@ export async function executeRunnerStep(request, dependencies = {}) {
         try {
           if (!recordOutcomeUnknown(sessionId, request.operationId, {
             reasonCode: 'ADAPTER_FAILURE', action: request.step, effect,
-          }, env, lifetime.assertLive())) consume = true;
+          }, env, lifetime.assertLive(), ownedGrant(active))) consume = true;
         } catch { consume = true; }
       }
       result = output('outcome-unknown', runnerErrorReason(error, request.step === 'validate' ? 'VALIDATION_FAILED' : 'OUTCOME_UNKNOWN'),

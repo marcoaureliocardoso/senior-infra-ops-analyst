@@ -6,6 +6,7 @@ import { consumeOwnedOperation, readActiveOperation, readPendingOperation } from
 import { createOperationClock, createOperationLifetime } from '../../skills/browser-operations/scripts/browser-operation-lifetime.mjs';
 import { bindLifetimeAdapter, EXPIRES, OPERATION, ORIGIN, SESSION, stageLifetimeApproval,
   T0, withLifetimeState, workflowLifetimeFixture } from './lifetime-helpers.mjs';
+import { replaceWorkflowApproval } from './lifetime-helpers.mjs';
 
 
 for (const [point, forbidden, status] of [
@@ -185,6 +186,72 @@ test('ACTIVE discovery without exact installed lifetime cannot open or mutate', 
       assert.equal(readPendingOperation(SESSION, OPERATION, env, T0), null);
     });
   }
+});
+
+
+for (const ambiguous of [false, true]) {
+  test(`older ${ambiguous ? 'ambiguous' : 'successful'} workflow cannot validate a replacement grant`, async () => {
+    await withLifetimeState(async (env) => {
+      const request = stageLifetimeApproval(env);
+      const fixture = workflowLifetimeFixture(env);
+      const factory = fixture.dependencies.adapterFactory;
+      let phase = 0;
+      fixture.dependencies.adapterFactory = async (options) => {
+        const detected = await factory(options);
+        const adapter = detected.adapter;
+        const execution = phase++ === 0;
+        return { ...detected, adapter: Object.freeze({
+          ...adapter,
+          async submit(...args) {
+            const value = await adapter.submit(...args);
+            if (ambiguous && execution) throw new Error('fixture ambiguous submission');
+            return value;
+          },
+          async verify(...args) {
+            const value = await adapter.verify(...args);
+            const old = readActiveOperation(SESSION, OPERATION, env, T0 + 900);
+            const replacement = replaceWorkflowApproval(env, old.capability, ambiguous);
+            if (!ambiguous) {
+              assert.equal(replacement.outcome, 'READY');
+              // A real native call tag marks replacement validation as required.
+              const store = await import('../../skills/browser-operations/scripts/browser-binding-store.mjs');
+              assert.equal(store.stageBrowserCall(SESSION, OPERATION, {
+                toolUseId: 'replacement-call', action: 'submit', effect: 'LOW_RISK_CHANGE',
+              }, env, T0 + 900), true);
+              assert.equal(store.completeBrowserCall(SESSION, 'replacement-call', env, T0 + 900), true);
+            }
+            return value;
+          },
+        }) };
+      };
+      const result = await executeBrowserWorkflow(request, fixture.dependencies);
+      assert.equal(result.status, 'outcome-unknown');
+      assert.equal(result.reasonCode, 'WORKFLOW_COMPLETION_FAILED');
+      const replacement = readActiveOperation(SESSION, OPERATION, env, T0 + 900);
+      assert.equal(replacement.toolUseId, 'tool-replacement-001');
+      assert.equal(replacement.envelope.target, 'replacement-router');
+      assert.equal(replacement.outcome, ambiguous ? 'OUTCOME_UNKNOWN' : 'READY');
+      assert.equal(replacement.validationRequired, true);
+    });
+  });
+}
+
+
+test('older discovery cannot activate a later identical invocation approval', async () => {
+  await withLifetimeState(async (env) => {
+    const request = stageLifetimeApproval(env);
+    const fixture = workflowLifetimeFixture(env);
+    const factory = fixture.dependencies.adapterFactory;
+    fixture.dependencies.adapterFactory = async (options) => {
+      replaceWorkflowApproval(env, null, false, false, false);
+      return factory(options);
+    };
+    const result = await executeBrowserWorkflow(request, fixture.dependencies);
+    assert.equal(result.status, 'denied');
+    assert.equal(fixture.calls.includes('execution:open'), false);
+    assert.equal(readPendingOperation(SESSION, OPERATION, env, T0 + 900).toolUseId, 'tool-replacement-001');
+    assert.equal(readActiveOperation(SESSION, OPERATION, env, T0 + 900), null);
+  });
 });
 
 

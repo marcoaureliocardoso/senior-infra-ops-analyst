@@ -5,6 +5,7 @@ import {
   failBrowserCall,
   readSingleActiveOperation,
   stageBrowserCall,
+  ownedOperationCorrelation,
 } from './browser-binding-store.mjs';
 import { mapBrowserMcpCall } from './browser-mcp-registry.mjs';
 import { evaluateBrowserCall } from './browser-policy.mjs';
@@ -132,7 +133,7 @@ export function evaluateHookEvent(raw, mode, env = process.env, now = Date.now()
       toolUseId: event.toolUseId,
       action: call.action,
       effect: call.effect,
-    }, env, now);
+    }, env, now, ownedOperationCorrelation(active));
     if (!staged) return response('deny', 'DENY_OPERATION_MISMATCH');
   }
   return response(policy.decision, policy.reasonCode);

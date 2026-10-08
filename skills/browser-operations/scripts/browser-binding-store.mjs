@@ -65,6 +65,30 @@ function clone(value) {
 }
 
 
+export function ownedOperationCorrelation(entry) {
+  return Object.freeze({
+    sessionId: entry.sessionId, operationId: entry.operationId, toolUseId: entry.toolUseId,
+    invocationFingerprint: entry.invocationFingerprint, expiresAt: entry.expiresAt,
+  });
+}
+
+
+function matchesOwnedGrant(entry, owner) {
+  if (owner === undefined) return true;
+  return Boolean(owner && typeof owner === 'object' && !Array.isArray(owner)
+    && entry.sessionId === owner.sessionId && entry.operationId === owner.operationId
+    && entry.toolUseId === owner.toolUseId && entry.invocationFingerprint === owner.invocationFingerprint
+    && entry.expiresAt === owner.expiresAt);
+}
+
+
+function matchesCallGrant(call, operation) {
+  return call.approvalToolUseId === operation.toolUseId
+    && call.sessionId === operation.sessionId && call.operationId === operation.operationId
+    && call.expiresAt === operation.expiresAt;
+}
+
+
 function validateStateEntry(entry, kind) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('INVALID_BROWSER_STATE');
   bounded(entry.sessionId, 'INVALID_BROWSER_STATE');
@@ -323,6 +347,7 @@ export function activatePendingWorkflow(correlation, env = process.env, now = Da
       && entry.permissionModes[0] === entry.envelope.permissionModeAtApproval);
     if (index < 0) return false;
     const pending = state.pending[index];
+    if (!matchesOwnedGrant(pending, correlation.ownedApproval)) return false;
     if (!workflowApprovalMarker(pending.capability)) return false;
     const effectiveCapability = effectiveWorkflowCapability(correlation?.effectiveCapability, pending);
     if (!effectiveCapability) return false;
@@ -367,7 +392,7 @@ export function readSingleActiveOperation(sessionId, env = process.env, now = Da
 }
 
 
-export function stageBrowserCall(sessionId, operationId, call, env = process.env, now = Date.now()) {
+export function stageBrowserCall(sessionId, operationId, call, env = process.env, now = Date.now(), owner) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
   const toolUseId = bounded(call?.toolUseId, 'INVALID_BROWSER_CALL');
@@ -376,7 +401,7 @@ export function stageBrowserCall(sessionId, operationId, call, env = process.env
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const operation = state.active.find((entry) => entry.operationId === boundedOperation);
-    if (!operation || operation.outcome !== 'READY') return false;
+    if (!operation || !matchesOwnedGrant(operation, owner) || operation.outcome !== 'READY') return false;
     state.calls = state.calls.filter((entry) => entry.toolUseId !== toolUseId);
     pushBounded(state.calls, {
       sessionId: boundedSession,
@@ -393,16 +418,17 @@ export function stageBrowserCall(sessionId, operationId, call, env = process.env
 }
 
 
-export function completeBrowserCall(sessionId, toolUseId, env = process.env, now = Date.now()) {
+export function completeBrowserCall(sessionId, toolUseId, env = process.env, now = Date.now(), owner) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedToolUse = bounded(toolUseId, 'INVALID_BROWSER_CALL');
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const index = state.calls.findIndex((entry) => entry.toolUseId === boundedToolUse);
     if (index < 0) return false;
-    const [call] = state.calls.splice(index, 1);
+    const call = state.calls[index];
     const operation = state.active.find((entry) => entry.operationId === call.operationId);
-    if (!operation) return false;
+    if (!operation || !matchesCallGrant(call, operation) || !matchesOwnedGrant(operation, owner)) return false;
+    state.calls.splice(index, 1);
     if (!['PUBLIC_READ', 'SENSITIVE_READ'].includes(call.effect)) operation.validationRequired = true;
     atomicWrite(target, state);
     return true;
@@ -410,7 +436,7 @@ export function completeBrowserCall(sessionId, toolUseId, env = process.env, now
 }
 
 
-export function recordOutcomeUnknown(sessionId, operationId, observation, env = process.env, now = Date.now()) {
+export function recordOutcomeUnknown(sessionId, operationId, observation, env = process.env, now = Date.now(), owner) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
   const reasonCode = bounded(observation?.reasonCode, 'INVALID_OUTCOME');
@@ -419,7 +445,7 @@ export function recordOutcomeUnknown(sessionId, operationId, observation, env = 
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const operation = state.active.find((entry) => entry.operationId === boundedOperation);
-    if (!operation) return false;
+    if (!operation || !matchesOwnedGrant(operation, owner)) return false;
     operation.outcome = 'OUTCOME_UNKNOWN';
     operation.outcomeObservation = { reasonCode, action, effect, observedAt: now };
     operation.validationRequired = true;
@@ -430,7 +456,7 @@ export function recordOutcomeUnknown(sessionId, operationId, observation, env = 
 }
 
 
-export function failBrowserCall(sessionId, toolUseId, reasonCode, env = process.env, now = Date.now()) {
+export function failBrowserCall(sessionId, toolUseId, reasonCode, env = process.env, now = Date.now(), owner) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedToolUse = bounded(toolUseId, 'INVALID_BROWSER_CALL');
   const boundedReason = bounded(reasonCode, 'INVALID_OUTCOME');
@@ -438,9 +464,10 @@ export function failBrowserCall(sessionId, toolUseId, reasonCode, env = process.
     const state = readState(boundedSession, env, now);
     const index = state.calls.findIndex((entry) => entry.toolUseId === boundedToolUse);
     if (index < 0) return false;
-    const [call] = state.calls.splice(index, 1);
+    const call = state.calls[index];
     const operation = state.active.find((entry) => entry.operationId === call.operationId);
-    if (!operation) return false;
+    if (!operation || !matchesCallGrant(call, operation) || !matchesOwnedGrant(operation, owner)) return false;
+    state.calls.splice(index, 1);
     operation.outcome = 'OUTCOME_UNKNOWN';
     operation.outcomeObservation = {
       reasonCode: boundedReason, action: call.action, effect: call.effect, observedAt: now,
@@ -453,7 +480,7 @@ export function failBrowserCall(sessionId, toolUseId, reasonCode, env = process.
 
 
 export function reconcileOutcomeUnknown(
-  sessionId, operationId, validationRef, outcome, env = process.env, now = Date.now(),
+  sessionId, operationId, validationRef, outcome, env = process.env, now = Date.now(), owner,
 ) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
@@ -462,7 +489,7 @@ export function reconcileOutcomeUnknown(
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const operation = state.active.find((entry) => entry.operationId === boundedOperation);
-    if (!operation || operation.outcome !== 'OUTCOME_UNKNOWN'
+    if (!operation || !matchesOwnedGrant(operation, owner) || operation.outcome !== 'OUTCOME_UNKNOWN'
         || operation.envelope.validationRef !== boundedValidation) return false;
     operation.outcome = outcome === 'applied' ? 'APPLIED_CONFIRMED' : 'READY';
     operation.validationRequired = false;
@@ -474,7 +501,7 @@ export function reconcileOutcomeUnknown(
 
 
 export function completeIndependentValidation(
-  sessionId, operationId, validationRef, env = process.env, now = Date.now(),
+  sessionId, operationId, validationRef, env = process.env, now = Date.now(), owner,
 ) {
   const boundedSession = bounded(sessionId, 'INVALID_SESSION');
   const boundedOperation = bounded(operationId, 'INVALID_OPERATION');
@@ -482,7 +509,7 @@ export function completeIndependentValidation(
   return withLock(boundedSession, env, (target) => {
     const state = readState(boundedSession, env, now);
     const operation = state.active.find((entry) => entry.operationId === boundedOperation);
-    if (!operation || operation.outcome !== 'READY'
+    if (!operation || !matchesOwnedGrant(operation, owner) || operation.outcome !== 'READY'
         || operation.envelope.validationRef !== boundedValidation) return false;
     operation.validationRequired = false;
     atomicWrite(target, state);

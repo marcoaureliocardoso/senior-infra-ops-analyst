@@ -8,6 +8,7 @@ import { parseRunnerArgs } from '../../skills/browser-operations/scripts/browser
 import { evaluateHook } from '../../skills/command-driven-operations/scripts/validate-ops-command.mjs';
 import { evaluateApprovalHook } from '../../skills/command-driven-operations/scripts/record-command-approval.mjs';
 import { readPendingOperation, readActiveOperation } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
+import { activatePendingWorkflow, recordOutcomeUnknown } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 
 
 export const T0 = 1_000_000;
@@ -158,4 +159,32 @@ export function workflowLifetimeFixture(env, expireAt = null) {
     },
   };
   return { dependencies, calls, now: () => now, expire: () => { now = EXPIRES; } };
+}
+
+
+export function replaceWorkflowApproval(env, capability, unknown = true, differentTarget = true, activate = true) {
+  const args = lifetimeArgs();
+  if (differentTarget) args[args.indexOf('--target') + 1] = 'replacement-router';
+  const previous = Date.now;
+  let decision;
+  try {
+    Date.now = () => T0 + 500;
+    decision = evaluateHook(JSON.stringify({
+      session_id: SESSION, tool_use_id: 'tool-replacement-001', hook_event_name: 'PreToolUse',
+      tool_name: 'Bash', permission_mode: 'normal',
+      tool_input: { command: ['node', JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs')), ...args].join(' ') },
+    }), env);
+  } finally { Date.now = previous; }
+  assert.equal(decision.hookSpecificOutput.permissionDecision, 'ask');
+  const pending = readPendingOperation(SESSION, OPERATION, env, T0 + 900);
+  assert.equal(pending.toolUseId, 'tool-replacement-001');
+  if (!activate) return pending;
+  assert.equal(activatePendingWorkflow({
+    sessionId: SESSION, operationId: OPERATION, invocationFingerprint: pending.invocationFingerprint,
+    effectiveCapability: capability,
+  }, env, T0 + 900), true);
+  if (unknown) assert.equal(recordOutcomeUnknown(SESSION, OPERATION, {
+    reasonCode: 'TOOL_FAILURE', action: 'submit', effect: 'LOW_RISK_CHANGE',
+  }, env, T0 + 900), true);
+  return readActiveOperation(SESSION, OPERATION, env, T0 + 900);
 }
