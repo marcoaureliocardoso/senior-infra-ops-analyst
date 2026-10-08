@@ -53,6 +53,7 @@ def parse_context_percent(
 class TerminalInputPolicy:
     def __init__(self):
         self._input_last = None
+        self._input_anchor = None
         self._context_barrier = ()
         self._position_barrier = None
         self._fresh_input = False
@@ -72,7 +73,7 @@ class TerminalInputPolicy:
 
     def _profile(self, snapshot):
         row = self._cursor_row(snapshot)
-        return (snapshot.active, snapshot.cursorX, row) if row is not None else None
+        return (snapshot.active, row) if row is not None else None
 
     def _context_signature(self, snapshot):
         return tuple(self._row_text(row) for row in snapshot.rows
@@ -81,20 +82,32 @@ class TerminalInputPolicy:
 
     def mark_transition(self, snapshot: TerminalSnapshot) -> None:
         self._input_last = self._profile(snapshot)
+        row = self._cursor_row(snapshot)
+        self._input_anchor = ((snapshot.active, snapshot.baseY + snapshot.cursorY)
+            if row is not None and self._candidate(row) is not None else None)
         self._context_barrier = self._context_signature(snapshot)
         self._position_barrier = (snapshot.active, snapshot.cursorY, snapshot.baseY, snapshot.viewportY)
         self._fresh_input = self._fresh_context = self._fresh_location = False
 
     def _observe(self, snapshot):
         profile = self._profile(snapshot)
-        if profile is not None:
+        row = self._cursor_row(snapshot)
+        position = (snapshot.active, snapshot.baseY + snapshot.cursorY)
+        controlled_echo = (row is not None and
+            re.match(r'^\s*❯\s*(?:/(?:context|exit)\b|P0-04B synthetic context measurement\.)', self._row_text(row)))
+        relevant = (row is not None and
+            (self._candidate(row) is not None or (self._input_anchor is not None and controlled_echo)))
+        if relevant and (self._input_anchor is None or position == self._input_anchor):
             if self._input_last is not None and profile != self._input_last:
                 self._fresh_input = True
             self._input_last = profile
+            if self._input_anchor is None:
+                self._input_anchor = position
         if self._context_signature(snapshot) != self._context_barrier:
             self._fresh_context = True
         position = (snapshot.active, snapshot.cursorY, snapshot.baseY, snapshot.viewportY)
-        if self._fresh_context and position != self._position_barrier:
+        if (self._fresh_context and position != self._position_barrier
+                and parse_context_percent(self.screen_text(snapshot), allow_rendered_row_order=True) is not None):
             self._fresh_location = True
 
     def _auth(self, snapshot):

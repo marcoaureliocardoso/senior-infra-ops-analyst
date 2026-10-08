@@ -73,6 +73,34 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertFalse(marker.exists())
         with self.assertRaises(RuntimeError): state.snapshot()
 
+    def test_split_status_after_context_cannot_enable_exit(self):
+        seen=self.root/'input'; fake=self.root/'native.py'
+        fake.write_text('import os,select,time,tty\nfrom pathlib import Path\n'
+            'tty.setraw(0)\n'
+            'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
+            'def line():\n'
+            ' value=bytearray()\n'
+            ' while select.select([0],[],[],8)[0]:\n'
+            '  value.extend(os.read(0,1))\n'
+            '  if value.endswith(b"\\r"): break\n'
+            ' with Path('+repr(str(seen))+').open("ab") as stream: stream.write(value)\n'
+            ' return bytes(value)\n'
+            'if line()!=b"/context\\r": raise SystemExit(1)\n'
+            'os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 90%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
+            'if os.read(0,1)!=b"\\x1b": raise SystemExit(1)\n'
+            'os.write(1,b"\\x1b[6;1Hnew status\\x1b[6;11H")\ntime.sleep(.3)\n'
+            'os.write(1,b"\\x1b[38;3H")\n'
+            'if line()!=b"/exit\\r": raise SystemExit(1)\n',encoding='utf-8')
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+8)
+        result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',4,
+            self.root/'events',dialogue='context',terminal_state=state)
+        self.assertEqual(result,2)
+        self.assertEqual(seen.read_bytes(),b'/context\r')
+        records=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertIn({'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':7},records)
+        self.assertEqual(records[-1]['outcome'],'failed')
+        with self.assertRaises(RuntimeError): state.snapshot()
+
     def test_unsupported_platform_rejects_before_importing_posix_controller(self):
         state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+8)
         try:

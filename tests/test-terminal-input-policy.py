@@ -76,11 +76,41 @@ class TerminalInputPolicyTests(unittest.TestCase):
         self.policy.mark_transition(snapshot(['❯ '],x=2))
         self.assertFalse(self.policy.ready(snapshot(['status','❯ '],x=2,y=1)))
 
+    def test_split_status_cursor_visit_cannot_refresh_stale_input(self):
+        old=snapshot(['status','❯ '],x=2,y=1)
+        for unrelated in ('new status','❯ Dark','❯ /exit'):
+            with self.subTest(unrelated=unrelated):
+                self.policy.mark_transition(old)
+                for _ in range(3):
+                    visiting=snapshot([unrelated,'❯ '],x=10,y=0)
+                    self.assertFalse(self.policy.ready(visiting))
+                    # Auth/context consumers observe redraws too; neither may latch input freshness.
+                    self.policy.authentication(visiting)
+                    self.policy.context_percent(visiting)
+                    restored=snapshot([unrelated,'❯ '],x=2,y=1)
+                    self.assertFalse(self.policy.ready(restored))
+                self.assertFalse(self.policy.ready(old))
+
     def test_input_change_then_return_to_blank_is_fresh(self):
         blank=snapshot(['❯ '],x=2)
         self.policy.mark_transition(blank)
         self.assertFalse(self.policy.ready(snapshot(['❯ /context'],x=10)))
         self.assertTrue(self.policy.ready(blank))
+
+    def test_cursor_column_jitter_does_not_refresh_unchanged_input(self):
+        old=snapshot(['❯ '],x=2)
+        self.policy.mark_transition(old)
+        self.assertFalse(self.policy.ready(snapshot(['❯ '],x=0)))
+        self.assertFalse(self.policy.ready(old))
+
+    def test_partial_context_status_cannot_refresh_stale_location(self):
+        old=snapshot(['status','❯ '],x=2,y=1)
+        for label in ('Free space: 90%','Context Usage','Autocompact buffer: 3%'):
+            self.policy.mark_transition(old)
+            visiting=snapshot([label,'❯ '],x=10,y=0)
+            self.assertIsNone(self.policy.context_percent(visiting))
+            self.assertFalse(self.policy.ready(visiting))
+            self.assertFalse(self.policy.ready(snapshot([label,'❯ '],x=2,y=1)))
 
     def test_normalization_does_not_hide_unsupported_padding(self):
         state=snapshot(['❯\u00a0'],x=2)
