@@ -22,3 +22,8 @@ ADR-010 also indexes the test-only
 and [implementation plan](../superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md).
 This harness addition does not establish native resume or provider-backed
 acceptance; the observed offline limitation remains in its evidence record.
+
+The approved [remediation design](../superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md)
+separates the [harness author fix pass](../superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md)
+from the still-pending [production lifetime correction](../superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md).
+Implemented input/cancellation fixes do not complete native/provider acceptance.

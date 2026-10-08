@@ -3729,3 +3729,62 @@ test-only adapter plan and requires an explicit operator scope decision before
 production behavior is changed. No fix has been implemented for these findings.
 Native offline acceptance is independently incomplete. The review verdict is
 not ready to merge; no passing test or review renews a consumed live grant.
+
+## 2026-10-08 harness author fix pass
+
+The operator approved the remediation specification and both implementation
+plans. Native inline execution preserves the existing independent review's
+author-fix pass; the production expiry patch will receive its own scoped
+security candidate review, not another review of all historical branch work.
+
+The first two material findings have executable regression evidence:
+
+- Split status/menu/history cursor visits produced three RED restoration
+  failures. Cursor-column jitter produced another RED; input content and an
+  anchored position now establish freshness, not arbitrary cursor visits.
+- Partial context-status labels also produced RED. Location freshness now
+  requires the existing complete numeric context grammar, not a label alone.
+- A controlled PTY regression prevented `/exit` after the stale redraw. Removing
+  the anchor condition made it RED with unsafe driver exit `0`; restoring the
+  fix returned the expected blocked result `2`.
+- Managed-signal tests initially exited through default SIGTERM/SIGHUP (`-15`
+  and `-1`). After integration, selected public/dedicated CLIs return closed
+  failure `2`, with owned helper/native/escaped-descendant processes reaped.
+- Cancellation during the synthetic source-read wait leaves the real fixture
+  claim unconsumed; no fake key decision is renewed. The preflight cannot
+  report ready after cancellation. The fake namespace child is stopped before
+  the enclosing private root is removed and a closed interrupted report exits.
+
+The cooperative token records signals without asynchronously unwinding child
+creation. A private pipe releases each single-target supervisor only after
+ownership publication. The supervisor preserves target argv/environment/stdio,
+uses process-local subreaper adoption and identity-bound pidfd signals, and
+cannot finish successfully while an owned orphan remains. One owned root can
+be stopped without closing another; an unrelated caller sibling is untouched.
+This is test-only supervision, not a new browser/production runtime or grant.
+
+Actual focused results: input policy 15, selected driver 7, Python transport 11,
+wiring 9, cancellation 11, signal suite 5 (10 parameterized signal cases) and
+offline safety 10 passed. With the existing Node engine/provisioning suites,
+the full package run included 96 focused tests and all 135 browser-safety tests.
+The complete Task 2 command exited `0` with `package validation passed`.
+Existing optional/capability skips and the WSL PowerShell syntax skip remain
+explicit; skipped checks are not acceptance. Source commits: `4b0ca04` and
+`09eded4`.
+
+Ownership checks require the detected Linux main-thread signal, pidfd,
+subreaper and process-metadata interfaces. Identity records are bounded to 128,
+with at most 256 thread entries inspected per owned process. Missing or
+ambiguous capabilities fail closed. No same-principal tampering guarantee,
+cleanup after SIGKILL/host failure, or cancellation of already-dispatched remote
+effects is claimed. No terminal reply is forwarded and no readiness pattern
+is broadened. Unknown native redraws can still block safely.
+
+No native Claude, browser UI, real provider, configured operator credential or
+configuration was used in this pass. Synthetic PID fixtures and private roots
+were removed by their tests; the retained headless dependency was reused.
+The Claude 2.1.293 offline result is still inconclusive; these tests do not
+explain its historical cause or prove SDK/resumed-context acceptance.
+The production approval-expiry finding remains pending in the companion plan.
+Authenticated acceptance, hosted CI/Security, external delivery, merge and
+definitive TODO completion remain separate and unperformed.

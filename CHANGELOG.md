@@ -7,6 +7,17 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected test-only freshness so split status/cursor redraws and partial
+  context labels cannot refresh an unchanged historical input candidate.
+  Supported input and controlled echo transitions remain covered. Added scoped
+  SIGTERM/SIGHUP handling, safe ownership publication and identity-bound cleanup
+  of selected helper/native families, including descendants in other sessions.
+  Synthetic signal tests cover startup, IPC, PTY, pre-claim source reads,
+  preflight and offline-launcher disposal; they do not run Claude or a provider.
+  Linux pidfd/subreaper capabilities are checked, not assumed; unproven ownership
+  blocks. Legacy defaults, native consent, live budgets and staging remain
+  unchanged. This closes two harness review findings, not the inconclusive
+  native resume gate or the separately planned production expiry finding.
 - Added an explicitly selected, test-only passive headless terminal-state
   adapter for P0-04B numeric context probes, with cell-based current-input
   checks, bounded private IPC, deadlines and owned process cleanup. Other

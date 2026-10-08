@@ -281,3 +281,26 @@ The package suite runs only safety tests, never the native control. A missing
 Bubblewrap test capability is an explicit skip, not proof of isolation; the
 offline control itself blocks. The 2026-10-07 native control was inconclusive;
 see `tests/validation-notes.md`. No paid retry is authorized by this setup.
+
+### Managed cancellation of selected test processes
+
+The selected public/dedicated context entrypoints, terminal preflight and offline
+launcher install scoped cooperative SIGTERM/SIGHUP cancellation before helper
+creation. Signals set a flag; bounded checkpoints run only after process-handle
+publication and before claim consumption/input. Existing handlers are restored;
+unrestorable handlers or missing Linux ownership interfaces block startup.
+
+A private release pipe gates a per-target supervisor; no target starts before
+its owner publishes it. The supervisor's subreaper scope has only that one
+target, so later orphan adoptions belong to the same family. Exact pidfds,
+bounded metadata and selective reaping avoid a host-wide process kill. Native
+argv/environment/stdio and one-use claims remain unchanged. Failed ownership
+or cleanup cannot become acceptance. Neither scope masks SIGKILL nor promises
+recovery from interpreter/host failure.
+
+The helper `tests/terminal_cancellation.py` and its internal supervisor mode
+are test-only, excluded from Nori staging, and never authorization interfaces.
+The offline namespace mounts it read-only; no implicit install or live mode
+was added. Provider-free fixtures verify both signal families at startup, IPC,
+PTY, pre-claim source waits and namespace disposal. Real native SDK/resume
+acceptance remains pending; these fixes authorize no repetition.

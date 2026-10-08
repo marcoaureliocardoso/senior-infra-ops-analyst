@@ -430,6 +430,22 @@ changes together; retained external dependencies may remain. Legacy fallback
 does not become acceptance. See the specification, plan and validation notes
 linked below for test ownership, evidence and unresolved gates.
 
+The 2026-10-08 harness author fix pass anchors freshness to input content rather
+than transient status/cursor visits. A location transition requires a complete
+numeric context view. Supported input/controlled echo fixtures remain positive
+controls, while unsupported redraws block without widening recognition.
+
+Selected POSIX entrypoints use cooperative managed-signal checkpoints and a
+gated single-target supervisor before execution. Identity-bound Linux pidfds
+and scoped subreaper adoption prove owned descendant termination/reaping even
+when descendants create other sessions. Ownership publication precedes release
+to the target, and claim consumption is rechecked after source reads.
+Unproved capability, unrestorable handlers and cleanup failures block; no
+SIGKILL/host-failure cleanup guarantee is inferred. This remains a test harness
+boundary, with unchanged legacy routing, consent, provider scope and budgets.
+Synthetic regression/full-package evidence addresses the two harness findings,
+not the real native resume gate or the production expiry correction.
+
 A prompt-only policy was rejected because prose cannot prove the binding between
 one authorized operation and one tool call. A mandatory single MCP was rejected
 because it would pin deployment topology and could make the package install or
@@ -459,6 +475,9 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
 - Test-only terminal design: `docs/superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md`
 - Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
+- Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
+- Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
+- Pending production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`
 - Test-only terminal evidence: `tests/validation-notes.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md`
 - One-shot workflow plan: `docs/superpowers/plans/2026-09-02-p0-04b-one-shot-workflow.md`
