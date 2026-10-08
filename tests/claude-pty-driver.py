@@ -881,12 +881,27 @@ def main() -> int:
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    if args.terminal_engine == "headless":
+        from terminal_cancellation import TerminalCancellation
+        cancellation = TerminalCancellation()
+        try:
+            with cancellation:
+                result = _run_selected_args(args, command, cancellation)
+            return 2 if cancellation.requested else result
+        except RuntimeError:
+            print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+            return 2
+    return _run_selected_args(args, command)
+
+
+def _run_selected_args(args, command, cancellation=None):
     terminal = None
     from terminal_state_adapter import TerminalState, TerminalStateError
     if args.terminal_engine == "headless":
         try:
             if args.dialogue != "context": raise TerminalStateError("TERMINAL_DEPENDENCY_UNAVAILABLE")
-            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout)
+            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout,
+                                     cancellation=cancellation)
         except TerminalStateError:
             print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
             return 2

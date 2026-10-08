@@ -16,6 +16,7 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from terminal_cancellation import TerminalCancellation, TerminalCancelled
 
 
 def validate_mode(arguments):
@@ -75,7 +76,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False):
             '--ro-bind',str(source/'skills/context-continuity'),'/opt/skill',
             '--dir','/opt/probe/terminal-runtime',
             '--ro-bind',str(source/'tests/terminal-runtime/package-lock.json'),'/opt/probe/terminal-runtime/package-lock.json']
-        for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py',
+        for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
                      'terminal_state_adapter.py','terminal-state-adapter.mjs','browser_startup_approval.py',
                      'browser_operations_live.py'):
             command += ['--ro-bind',str(source/'tests'/name),'/opt/probe/'+name]
@@ -85,14 +86,20 @@ def _namespace(*,source,node,module_root,claude=None,audit=False):
             command += ['--ro-bind',str(claude),'/opt/probe/claude']
         command += ['--clearenv','--setenv','PATH','/usr/bin:/bin','--setenv','PYTHONDONTWRITEBYTECODE','1',
             '/usr/bin/python3','/opt/probe/probe.py','--inner-audit' if audit else '--inner-controls']
-        with tempfile.TemporaryFile(dir=root) as output:
-            result=subprocess.run(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
-                stdout=output,stderr=subprocess.DEVNULL,timeout=165)
+        with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
+            deadline=time.monotonic()+165
+            result=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
+                stdout=output,stderr=subprocess.DEVNULL,start_new_session=True)
+            while result.poll() is None:
+                cancellation.check()
+                if time.monotonic()>=deadline: raise TimeoutError
+                time.sleep(.02)
+            cancellation.check()
             output.seek(0); data=output.read(16385)
         if result.returncode or len(data)>16384: raise ValueError
         report=json.loads(data)
-    except KeyboardInterrupt: report={'reasonCode':'OFFLINE_PROBE_INTERRUPTED'}
-    except (OSError,ValueError,TypeError,UnicodeError,subprocess.SubprocessError): pass
+    except (KeyboardInterrupt,TerminalCancelled): report={'reasonCode':'OFFLINE_PROBE_INTERRUPTED'}
+    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError): pass
     return finalize_owned(root,identity,report)
 
 

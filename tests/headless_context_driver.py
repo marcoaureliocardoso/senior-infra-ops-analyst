@@ -42,6 +42,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
 
     def pump(wait=.2):
         nonlocal total,snapshot,current_stage
+        state.check_cancelled()
         readable,_,_=select.select([master],[],[],min(wait,max(0,deadline-time.monotonic())))
         if not readable: return False
         try: chunk=os.read(master,65536)
@@ -107,7 +108,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         snapshot=state.snapshot(); policy.mark_transition(snapshot)
         master,slave=pty.openpty()
         fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,120,0,0))
-        process=subprocess.Popen(command,stdin=slave,stdout=slave,stderr=slave,
+        state.check_cancelled()
+        launch=state.cancellation.spawn if state.cancellation is not None else subprocess.Popen
+        process=launch(command,stdin=slave,stdout=slave,stderr=slave,
             close_fds=True,start_new_session=True)
         os.close(slave); slave=None
         capture=capture_path.open('wb',buffering=0)
@@ -141,14 +144,18 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         current_stage='exit'; settle(.8); send('/exit')
         process.wait(timeout=min(8,max(.2,deadline-time.monotonic())))
         if process.returncode!=0: raise RuntimeError('nonzero context exit')
+        state.check_cancelled()
         record(current_stage,'passed'); result=0
     except (OSError,RuntimeError,TimeoutError,subprocess.SubprocessError) as error:
         if isinstance(error,TerminalStateError): current_stage='terminal_state'
         record(current_stage,'failed')
     finally:
+        if startup_approval is not None: startup_approval.revoke()
         try:
-            _terminate(process)
-        except (OSError,subprocess.SubprocessError):
+            if process is not None and state.cancellation is not None:
+                state.cancellation.terminate_child(process)
+            else: _terminate(process)
+        except (OSError,RuntimeError,subprocess.SubprocessError):
             record('terminal_cleanup','failed'); result=2
         if capture is not None: capture.close()
         for descriptor in (master,slave):

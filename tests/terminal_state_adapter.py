@@ -13,6 +13,7 @@ import subprocess
 import time
 from types import MappingProxyType
 from typing import Mapping
+from terminal_cancellation import TerminalCancelled
 
 MAX_FRAME = 131072
 MAX_FEED = 65536
@@ -130,17 +131,20 @@ def _snapshot(value) -> TerminalSnapshot:
 
 
 class TerminalState:
-    def __init__(self,node:Path,module_root:Path,deadline:float):
+    def __init__(self,node:Path,module_root:Path,deadline:float,*,cancellation=None):
         self._process = None
         self._closed = False
         self._id = 0
         self._total = 0
         self._deadline = deadline
+        self.cancellation = cancellation
         try:
+            self.check_cancelled()
             if isinstance(deadline,bool) or not math.isfinite(deadline): raise TerminalStateError(DEADLINE)
             validate_terminal_runtime(node,module_root)
             if time.monotonic()>=deadline: raise TerminalStateError(DEADLINE)
-            self._process = subprocess.Popen([str(node),str(Path(__file__).with_name('terminal-state-adapter.mjs')),
+            launch = cancellation.spawn if cancellation is not None else subprocess.Popen
+            self._process = launch([str(node),str(Path(__file__).with_name('terminal-state-adapter.mjs')),
                 '--module-root',str(module_root)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                 env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'},cwd=Path(__file__).parent,
                 start_new_session=True,close_fds=True)
@@ -149,7 +153,7 @@ class TerminalState:
             self._exchange('init')
         except BaseException as error:
             self._shutdown()
-            if isinstance(error,(KeyboardInterrupt,SystemExit,TerminalStateError)): raise
+            if isinstance(error,(KeyboardInterrupt,SystemExit,TerminalStateError,TerminalCancelled)): raise
             raise TerminalStateError(DEPENDENCY) from None
 
     def _exchange(self,op,data=None):
@@ -167,6 +171,7 @@ class TerminalState:
                 selector.register(self._process.stdout,selectors.EVENT_READ,'stdout')
                 selector.register(self._process.stderr,selectors.EVENT_READ,'stderr')
                 while True:
+                    self.check_cancelled()
                     remaining=deadline-time.monotonic()
                     if remaining<=0: raise TerminalStateError(DEADLINE)
                     for key,_events in selector.select(min(.1,remaining)):
@@ -201,7 +206,7 @@ class TerminalState:
                         return _snapshot(reply['snapshot']) if op=='snapshot' else None
         except BaseException as error:
             self._shutdown()
-            if isinstance(error,(KeyboardInterrupt,SystemExit,TerminalStateError)): raise
+            if isinstance(error,(KeyboardInterrupt,SystemExit,TerminalStateError,TerminalCancelled)): raise
             raise TerminalStateError(PROTOCOL) from None
 
     def feed(self,data:bytes)->None:
@@ -214,6 +219,9 @@ class TerminalState:
     def snapshot(self)->TerminalSnapshot:
         return self._exchange('snapshot')
 
+    def check_cancelled(self)->None:
+        if self.cancellation is not None: self.cancellation.check()
+
     def _shutdown(self,graceful=False):
         if self._closed: return
         self._closed=True
@@ -221,18 +229,21 @@ class TerminalState:
         failed=False
         try:
             if process is not None:
-                if graceful:
+                if self.cancellation is not None:
+                    self.cancellation.terminate_child(process)
+                elif graceful:
                     try: process.wait(timeout=.05)
                     except subprocess.TimeoutExpired: pass
-                try: os.killpg(process.pid,signal.SIGTERM)
-                except ProcessLookupError: pass
-                try: process.wait(timeout=.05)
-                except subprocess.TimeoutExpired: pass
-                # Always clean the group, even if its leader exited first.
-                try: os.killpg(process.pid,signal.SIGKILL)
-                except ProcessLookupError: pass
-                process.wait(timeout=.2)
-        except (OSError,subprocess.SubprocessError): failed=True
+                if self.cancellation is None:
+                    try: os.killpg(process.pid,signal.SIGTERM)
+                    except ProcessLookupError: pass
+                    try: process.wait(timeout=.05)
+                    except subprocess.TimeoutExpired: pass
+                    # Always clean the group, even if its leader exited first.
+                    try: os.killpg(process.pid,signal.SIGKILL)
+                    except ProcessLookupError: pass
+                    process.wait(timeout=.2)
+        except (OSError,RuntimeError,subprocess.SubprocessError): failed=True
         finally:
             if process is not None:
                 for stream in (process.stdin,process.stdout,process.stderr):
@@ -241,5 +252,7 @@ class TerminalState:
 
     def close(self)->None:
         if self._closed: return
+        if self.cancellation is not None and self.cancellation.requested:
+            self._shutdown(); return
         try: self._exchange('close')
         finally: self._shutdown(graceful=True)

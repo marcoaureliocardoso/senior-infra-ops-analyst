@@ -43,7 +43,7 @@ def source_head(root):
     return head
 
 
-def prepare_approval(claim, commit, nonce, source_root, command):
+def prepare_approval(claim, commit, nonce, source_root, command, *, cancellation=None):
     if (Path(source_root).resolve(strict=True) != Path(__file__).resolve().parents[1]
             or len(command) != 6 or command[1] != "--session-id"
             or command[3:5] != ["--strict-mcp-config", "--mcp-config"]
@@ -60,6 +60,7 @@ def prepare_approval(claim, commit, nonce, source_root, command):
                "endpoint": os.environ.get("ANTHROPIC_BASE_URL", ""),
                "configDir": os.environ.get("CLAUDE_CONFIG_DIR", ""),
                "executable": command[0], "probe": "main-before"}
+    if cancellation is not None: cancellation.check()
     return load_approval(claim, binding)
 
 
@@ -79,10 +80,25 @@ def main():
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    if args.terminal_engine == "headless":
+        from terminal_cancellation import TerminalCancellation
+        cancellation = TerminalCancellation()
+        try:
+            with cancellation:
+                result = _run_selected_args(args, command, cancellation)
+            return 2 if cancellation.requested else result
+        except RuntimeError:
+            print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
+            return 2
+    return _run_selected_args(args, command)
+
+
+def _run_selected_args(args, command, cancellation=None):
     terminal = None
     if args.terminal_engine == "headless":
         try:
-            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout)
+            terminal = TerminalState(args.terminal_node, args.terminal_module_root, time.monotonic() + args.timeout,
+                                     cancellation=cancellation)
         except TerminalStateError:
             print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
             return 2
@@ -90,7 +106,12 @@ def main():
         print("BLOCKED: test terminal runtime unavailable", file=sys.stderr)
         return 2
     try:
-        approval = prepare_approval(args.claim, args.commit, args.run_nonce, args.source_root, command)
+        if cancellation is not None:
+            cancellation.check()
+            approval = prepare_approval(args.claim, args.commit, args.run_nonce, args.source_root, command,
+                                        cancellation=cancellation)
+        else:
+            approval = prepare_approval(args.claim, args.commit, args.run_nonce, args.source_root, command)
         root = args.claim.parent.parent
         if any(not path.is_absolute() or path.resolve() != path or not path.is_relative_to(root)
                for path in (args.capture, args.events)):

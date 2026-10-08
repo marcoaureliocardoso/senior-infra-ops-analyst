@@ -6,6 +6,9 @@ from pathlib import Path
 import tempfile
 import sys
 import shutil
+import signal
+import subprocess
+import time
 import unittest
 from unittest import mock
 
@@ -98,7 +101,7 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             owned=Path(parent)/'owned'; owned.mkdir(mode=0o700)
             with mock.patch.object(self.module.tempfile,'mkdtemp',return_value=str(owned)),\
                     mock.patch.object(self.module.shutil,'which',return_value='/usr/bin/bwrap'),\
-                    mock.patch.object(self.module.subprocess,'run',side_effect=KeyboardInterrupt):
+                    mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=KeyboardInterrupt):
                 report=self.module.run_isolation_audit(source=ROOT,
                     node=Path(os.environ['P004B_TERMINAL_NODE']),module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
             self.assertFalse(owned.exists())
@@ -107,6 +110,44 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
     def test_bad_paths_return_closed_result(self):
         report=self.module.run_isolation_audit(source=ROOT/'absent',node=Path('/absent'),module_root=Path('/absent'))
         self.assertEqual(report,{'reasonCode':'OFFLINE_PROBE_BLOCKED'})
+
+    def test_namespace_launcher_signal_reaps_fake_child_before_disposal(self):
+        for signum in (signal.SIGTERM,signal.SIGHUP):
+            with tempfile.TemporaryDirectory(prefix='namespace-signal-fixture-') as directory:
+                root=Path(directory); owned=root/'owned'; owned.mkdir(mode=0o700)
+                pidfile=root/'child.pid'; fake=root/'fake-bwrap'; wrapper=root/'wrapper.py'
+                fake.write_text('#!/usr/bin/python3\nimport os,time\nfrom pathlib import Path\n'
+                    'Path('+repr(str(pidfile))+').write_text(str(os.getpid()))\ntime.sleep(60)\n')
+                fake.chmod(0o700)
+                wrapper.write_text('import importlib.util,json,sys\nfrom pathlib import Path\n'
+                    'sys.path.insert(0,'+repr(str(ROOT/'tests'))+')\n'
+                    'spec=importlib.util.spec_from_file_location("probe",'+repr(str(MODULE))+')\n'
+                    'm=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n'
+                    'm.shutil.which=lambda _name:'+repr(str(fake))+'\n'
+                    'm.tempfile.mkdtemp=lambda **_kwargs:'+repr(str(owned))+'\n'
+                    'report=m.run_isolation_audit(source=Path('+repr(str(ROOT))+'),'
+                    'node=Path('+repr(os.environ['P004B_TERMINAL_NODE'])+'),'
+                    'module_root=Path('+repr(os.environ['P004B_TERMINAL_MODULE_ROOT'])+'))\n'
+                    'print(json.dumps(report),flush=True)\n')
+                process=subprocess.Popen([sys.executable,str(wrapper)],stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,env={'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'})
+                pid=None
+                try:
+                    deadline=time.monotonic()+3
+                    while not pidfile.exists() and process.poll() is None and time.monotonic()<deadline: time.sleep(.01)
+                    self.assertTrue(pidfile.exists()); pid=int(pidfile.read_text())
+                    os.kill(process.pid,signum)
+                    stdout,_stderr=process.communicate(timeout=5)
+                    self.assertEqual(process.returncode,0)
+                    self.assertEqual(json.loads(stdout),{'reasonCode':'OFFLINE_PROBE_INTERRUPTED','disposableRootAbsent':True})
+                    self.assertFalse(owned.exists())
+                    self.assertFalse(Path(f'/proc/{pid}').exists(),'namespace child was not reaped')
+                finally:
+                    for target in (pid,process.pid):
+                        if target is not None:
+                            try: os.kill(target,signal.SIGKILL)
+                            except ProcessLookupError: pass
+                    process.communicate(timeout=2)
 
 
 if __name__=='__main__': unittest.main()
