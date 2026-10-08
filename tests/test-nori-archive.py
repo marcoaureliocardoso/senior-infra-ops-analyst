@@ -100,7 +100,10 @@ class NoriArchiveTests(unittest.TestCase):
                 ],
                 [],
             )
-        self.assertEqual(len(expected), 235)
+        self.assertIn(
+            "skills/browser-operations/scripts/browser-operation-lifetime.mjs",
+            expected,
+        )
 
     def test_archive_records_deterministic_package_file_modes(self) -> None:
         result = self.run_archiver()

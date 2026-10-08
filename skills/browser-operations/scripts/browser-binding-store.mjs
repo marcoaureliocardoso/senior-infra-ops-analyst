@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { operationFingerprint, parseOperationEnvelope } from './browser-contract.mjs';
+import { BrowserLifetimeError } from './browser-operation-lifetime.mjs';
 
 
 const VERSION = 1;
@@ -69,12 +70,21 @@ function validateStateEntry(entry, kind) {
   bounded(entry.sessionId, 'INVALID_BROWSER_STATE');
   bounded(entry.operationId, 'INVALID_BROWSER_STATE');
   if (!Number.isSafeInteger(entry.expiresAt) || entry.expiresAt <= 0) throw new Error('INVALID_BROWSER_STATE');
-  if (kind === 'call') bounded(entry.toolUseId, 'INVALID_BROWSER_STATE');
+  bounded(entry.toolUseId, 'INVALID_BROWSER_STATE');
+  if (kind === 'operation') {
+    if (!entry.envelope || entry.envelope.expiresAt !== entry.expiresAt
+        || (entry.invocationFingerprint !== null
+          && !INVOCATION_FINGERPRINT.test(entry.invocationFingerprint))) {
+      throw new Error('INVALID_BROWSER_STATE');
+    }
+  } else if (entry.approvalToolUseId !== undefined) {
+    bounded(entry.approvalToolUseId, 'INVALID_BROWSER_STATE');
+  }
   return entry;
 }
 
 
-function readState(sessionId, env, now) {
+function readRawState(sessionId, env) {
   const target = statePath(sessionId, env);
   if (!existsSync(target)) return emptyState();
   const info = lstatSync(target);
@@ -86,15 +96,25 @@ function readState(sessionId, env, now) {
       || !Array.isArray(parsed.active) || !Array.isArray(parsed.calls)
       || parsed.pending.length > MAX_ENTRIES || parsed.active.length > MAX_ENTRIES
       || parsed.calls.length > MAX_ENTRIES) throw new Error('INVALID_BROWSER_STATE');
-  return {
+  const state = {
     version: VERSION,
-    pending: parsed.pending.map((entry) => validateStateEntry(entry, 'operation'))
-      .filter(({ expiresAt }) => expiresAt > now),
-    active: parsed.active.map((entry) => validateStateEntry(entry, 'operation'))
-      .filter(({ expiresAt }) => expiresAt > now),
-    calls: parsed.calls.map((entry) => validateStateEntry(entry, 'call'))
-      .filter(({ expiresAt }) => expiresAt > now),
+    pending: parsed.pending.map((entry) => validateStateEntry(entry, 'operation')),
+    active: parsed.active.map((entry) => validateStateEntry(entry, 'operation')),
+    calls: parsed.calls.map((entry) => validateStateEntry(entry, 'call')),
   };
+  if ([...state.pending, ...state.active, ...state.calls].some((entry) => entry.sessionId !== sessionId)) {
+    throw new Error('INVALID_BROWSER_STATE');
+  }
+  return state;
+}
+
+
+function readState(sessionId, env, now) {
+  const state = readRawState(sessionId, env);
+  for (const kind of ['pending', 'active', 'calls']) {
+    state[kind] = state[kind].filter(({ expiresAt }) => expiresAt > now);
+  }
+  return state;
 }
 
 
@@ -362,6 +382,7 @@ export function stageBrowserCall(sessionId, operationId, call, env = process.env
       sessionId: boundedSession,
       operationId: boundedOperation,
       toolUseId,
+      approvalToolUseId: operation.toolUseId,
       action,
       effect,
       expiresAt: operation.expiresAt,
@@ -484,4 +505,42 @@ export function invalidateOperation(sessionId, operationId, reasonCode, env = pr
     atomicWrite(target, state);
     return true;
   });
+}
+
+
+export function consumeOwnedOperation(correlation, env = process.env) {
+  try {
+    const sessionId = bounded(correlation?.sessionId, 'INVALID_BROWSER_CORRELATION');
+    const operationId = bounded(correlation?.operationId, 'INVALID_BROWSER_CORRELATION');
+    const toolUseId = bounded(correlation?.toolUseId, 'INVALID_BROWSER_CORRELATION');
+    const invocationFingerprint = correlation?.invocationFingerprint;
+    const expiresAt = correlation?.expiresAt;
+    if (!Number.isSafeInteger(expiresAt) || expiresAt <= 0
+        || (invocationFingerprint !== null
+          && (typeof invocationFingerprint !== 'string' || !INVOCATION_FINGERPRINT.test(invocationFingerprint)))) {
+      throw new Error('INVALID_BROWSER_CORRELATION');
+    }
+    return withLock(sessionId, env, (target) => {
+      const state = readRawState(sessionId, env);
+      const sameGrant = (entry) => entry.operationId === operationId
+        && entry.toolUseId === toolUseId && entry.expiresAt === expiresAt
+        && entry.invocationFingerprint === invocationFingerprint;
+      const grants = [...state.pending, ...state.active];
+      if (grants.some((entry) => entry.operationId === operationId
+          && entry.toolUseId === toolUseId && !sameGrant(entry))) return false;
+      if (state.calls.some((entry) => entry.operationId === operationId
+          && (entry.approvalToolUseId === undefined
+            || (entry.approvalToolUseId === toolUseId && entry.expiresAt !== expiresAt)))) return false;
+      const sameCall = (entry) => entry.operationId === operationId
+        && entry.approvalToolUseId === toolUseId && entry.expiresAt === expiresAt;
+      const removed = grants.some(sameGrant) || state.calls.some(sameCall);
+      state.pending = state.pending.filter((entry) => !sameGrant(entry));
+      state.active = state.active.filter((entry) => !sameGrant(entry));
+      state.calls = state.calls.filter((entry) => !sameCall(entry));
+      if (removed) atomicWrite(target, state);
+      return true;
+    });
+  } catch {
+    throw new BrowserLifetimeError('APPROVAL_BINDING_INVALID');
+  }
 }

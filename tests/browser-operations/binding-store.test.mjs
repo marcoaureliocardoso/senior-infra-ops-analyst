@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { lstat, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -20,6 +22,7 @@ import {
 } from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 import { authorizeRunnerStep, parseRunnerArgs } from '../../skills/browser-operations/scripts/browser-runner.mjs';
 import { browserEnvelope, capabilityFixture, NOW } from './helpers.mjs';
+import * as bindingStore from '../../skills/browser-operations/scripts/browser-binding-store.mjs';
 
 
 async function withState(run) {
@@ -362,5 +365,194 @@ test('expired operations are removed and entry count remains bounded', async () 
     const state = JSON.parse(await readFile(path.join(env.OPS_BROWSER_STATE_DIR, entries[0]), 'utf8'));
     assert.equal(state.pending.length, 16);
     assert.equal(readActiveOperation('session-browser-001', 'op-browser-001', env, NOW + 700_000), null);
+  });
+});
+
+
+function ownedCorrelation(envelope, grant = proof()) {
+  return {
+    sessionId: envelope.sessionId, operationId: envelope.operationId,
+    toolUseId: grant.toolUseId, invocationFingerprint: grant.invocationFingerprint ?? null,
+    expiresAt: envelope.expiresAt,
+  };
+}
+
+
+async function rawState(env) {
+  const name = (await readdir(env.OPS_BROWSER_STATE_DIR)).find((entry) => entry.endsWith('.json'));
+  const target = path.join(env.OPS_BROWSER_STATE_DIR, name);
+  return { target, state: JSON.parse(await readFile(target, 'utf8')) };
+}
+
+
+test('owned cleanup physically consumes expired active calls and is idempotent', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope({ expiresAt: NOW + 1000 }), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    activateOperation(ownedCorrelation(envelope), env, NOW + 1);
+    stageBrowserCall(envelope.sessionId, envelope.operationId, {
+      toolUseId: 'call-old', action: 'inspect', effect: 'SENSITIVE_READ',
+    }, env, NOW + 2);
+    assert.equal(readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 1000), null);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), true);
+    assert.equal(readActiveOperation(envelope.sessionId, envelope.operationId, env, NOW + 2), null);
+    assert.equal(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW + 2), null);
+    assert.deepEqual((await rawState(env)).state.calls, []);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), true);
+  });
+});
+
+
+test('owned cleanup removes an expired pending grant without authorizing it', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope({ expiresAt: NOW + 1000 }), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    assert.equal(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW + 1000), null);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), true);
+    assert.equal(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW), null);
+  });
+});
+
+
+test('old cleanup preserves a later grant and its calls sharing the operation ID', async () => {
+  await withState(async (env) => {
+    const old = parseOperationEnvelope(browserEnvelope({ expiresAt: NOW + 1000 }), NOW);
+    const fresh = parseOperationEnvelope(browserEnvelope({ expiresAt: NOW + 2000 }), NOW + 10);
+    writePendingOperation(old, proof(), env, NOW);
+    activateOperation(ownedCorrelation(old), env, NOW + 1);
+    stageBrowserCall(old.sessionId, old.operationId, {
+      toolUseId: 'call-old', action: 'inspect', effect: 'SENSITIVE_READ',
+    }, env, NOW + 2);
+    const newer = proof({ toolUseId: 'tool-new' });
+    writePendingOperation(fresh, newer, env, NOW + 10);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(old), env), true);
+    assert.equal(readPendingOperation(fresh.sessionId, fresh.operationId, env, NOW + 11).toolUseId, 'tool-new');
+    activateOperation(ownedCorrelation(fresh, newer), env, NOW + 12);
+    stageBrowserCall(fresh.sessionId, fresh.operationId, {
+      toolUseId: 'call-new', action: 'inspect', effect: 'SENSITIVE_READ',
+    }, env, NOW + 13);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(old), env), true);
+    const state = (await rawState(env)).state;
+    assert.equal(state.active[0].toolUseId, 'tool-new');
+    assert.deepEqual(state.calls.map((entry) => entry.toolUseId), ['call-new']);
+    assert.equal(state.calls[0].approvalToolUseId, 'tool-new');
+  });
+});
+
+
+test('different workflow fingerprints cannot be consumed through another correlation', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    const grant = workflowApprovalProof();
+    writePendingOperation(envelope, grant, env, NOW);
+    assert.equal(bindingStore.consumeOwnedOperation({
+      ...ownedCorrelation(envelope, grant), invocationFingerprint: 'b'.repeat(64),
+    }, env), false);
+    assert.notEqual(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW), null);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope, grant), env), true);
+  });
+});
+
+
+test('inconsistent expiry copies are rejected even in expired state', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    const { target, state } = await rawState(env);
+    state.pending[0].expiresAt += 1;
+    await writeFile(target, JSON.stringify(state));
+    assert.throws(() => readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW),
+      /INVALID_BROWSER_STATE/u);
+    assert.throws(() => bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env),
+      /APPROVAL_BINDING_INVALID/u);
+  });
+});
+
+
+test('untagged legacy calls prevent a falsely complete cleanup or deletion of newer authority', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    activateOperation(ownedCorrelation(envelope), env, NOW + 1);
+    stageBrowserCall(envelope.sessionId, envelope.operationId, {
+      toolUseId: 'call-legacy', action: 'inspect', effect: 'SENSITIVE_READ',
+    }, env, NOW + 2);
+    const { target, state } = await rawState(env);
+    delete state.calls[0].approvalToolUseId;
+    await writeFile(target, JSON.stringify(state));
+    writePendingOperation(envelope, proof({ toolUseId: 'tool-new' }), env, NOW + 3);
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), false);
+    assert.equal(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW + 4).toolUseId, 'tool-new');
+    assert.equal((await rawState(env)).state.calls.length, 1);
+  });
+});
+
+
+test('malformed or linked cleanup state cannot consume protected targets', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    const { target } = await rawState(env);
+    await writeFile(target, '{');
+    assert.throws(() => bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), /APPROVAL_BINDING_INVALID/u);
+    if (process.platform !== 'win32') {
+      const protectedTarget = path.join(env.OPS_BROWSER_STATE_DIR, 'protected');
+      await writeFile(protectedTarget, 'unchanged');
+      await rm(target);
+      await symlink(protectedTarget, target);
+      assert.throws(() => bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), /APPROVAL_BINDING_INVALID/u);
+      assert.equal(await readFile(protectedTarget, 'utf8'), 'unchanged');
+    }
+  });
+});
+
+
+test('a call with the same approval ID but a different deadline prevents idempotent success', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    activateOperation(ownedCorrelation(envelope), env, NOW + 1);
+    stageBrowserCall(envelope.sessionId, envelope.operationId, {
+      toolUseId: 'call-ambiguous', action: 'inspect', effect: 'SENSITIVE_READ',
+    }, env, NOW + 2);
+    const { target, state } = await rawState(env);
+    state.active = [];
+    state.calls[0].expiresAt += 1;
+    await writeFile(target, JSON.stringify(state));
+    assert.equal(bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env), false);
+    assert.equal((await rawState(env)).state.calls.length, 1);
+  });
+});
+
+
+test('malformed cleanup correlations fail closed without changing the grant', async () => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    for (const changes of [{ toolUseId: null }, { expiresAt: '1000' },
+      { invocationFingerprint: undefined }, { invocationFingerprint: 'invalid' }]) {
+      assert.throws(() => bindingStore.consumeOwnedOperation({
+        ...ownedCorrelation(envelope), ...changes,
+      }, env), /APPROVAL_BINDING_INVALID/u);
+      assert.notEqual(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW), null);
+    }
+  });
+});
+
+
+test('failed atomic cleanup writes cannot report consumption or reveal the thrown detail', async (context) => {
+  await withState(async (env) => {
+    const envelope = parseOperationEnvelope(browserEnvelope(), NOW);
+    writePendingOperation(envelope, proof(), env, NOW);
+    const rename = context.mock.method(fs, 'renameSync', () => { throw new Error('private filesystem detail'); });
+    syncBuiltinESMExports();
+    try {
+      assert.throws(() => bindingStore.consumeOwnedOperation(ownedCorrelation(envelope), env),
+        (error) => error.message === 'APPROVAL_BINDING_INVALID');
+    } finally {
+      rename.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.notEqual(readPendingOperation(envelope.sessionId, envelope.operationId, env, NOW), null);
   });
 });

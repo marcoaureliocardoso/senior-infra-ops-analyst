@@ -22,6 +22,7 @@ node --test tests/browser-operations/capabilities.test.mjs
 node --test tests/browser-operations/mcp-registry.test.mjs
 node --test tests/browser-operations/policy.test.mjs
 node --test tests/browser-operations/binding-store.test.mjs
+node --test tests/browser-operations/operation-lifetime.test.mjs
 node --test tests/browser-operations/hook.test.mjs
 node --test tests/browser-operations/settings.test.mjs
 node --test tests/browser-operations/workflow.test.mjs
