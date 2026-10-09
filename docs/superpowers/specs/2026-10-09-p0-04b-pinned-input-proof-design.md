@@ -1,7 +1,7 @@
 # P0-04B isolated pinned-input proof
 
-Status: conversational approach approved; written specification awaiting operator
-review. No implementation, native experiment or authenticated execution is
+Status: written specification operator-approved; implementation-plan review and
+execution-method selection pending. No implementation, native experiment or authenticated execution is
 authorized by this document. Source baseline:
 `c4b6a7a1d1079635598dd18ea0bbb37d14c9669f`.
 
@@ -211,8 +211,7 @@ Neither rollback nor spec approval restores a consumed execution grant.
 
 ## Approval sequence
 
-The operator approved the conversational approach and writing this document.
-Next: operator reviews this written specification. Only approval of this file
-permits writing the implementation plan. The plan then needs review and an
+The operator approved the conversational approach and this written specification.
+The [implementation plan](../plans/2026-10-09-p0-04b-pinned-input-proof.md) needs review and an
 execution-method choice before implementation. Native execution requires its
 own later exact-commit grant; no push, PR, merge or release is authorized here.
