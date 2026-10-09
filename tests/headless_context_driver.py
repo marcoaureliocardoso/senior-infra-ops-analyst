@@ -10,16 +10,35 @@ import struct
 import subprocess
 import termios
 import time
+from dataclasses import replace
 
 from terminal_input_policy import TerminalInputPolicy
 from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
 from terminal_structural_diagnostics import TerminalDiagnostics
+from terminal_input_challenge import NonceInputChallenge, InputProofError, validate_probe_scope
 
 
 class _ContextFailure(RuntimeError):
     def __init__(self,reason):
         self.reason=reason
         super().__init__(reason)
+
+
+def exit_input_owned(policy,snapshot,anchor,original_row,written):
+    """Structure of the already-authorized fixed command, never a new IO grant."""
+    if type(written) is not int or not 0<=written<=5: return False
+    if (snapshot.active!=anchor.buffer or snapshot.baseY!=anchor.baseY
+            or snapshot.viewportY!=anchor.viewportY
+            or snapshot.cursorY+snapshot.baseY-snapshot.viewportY!=anchor.row): return False
+    row=snapshot.rows[anchor.row]; count=snapshot.cursorX-anchor.cursorX
+    if not 0<=count<=written or row[:anchor.cursorX]!=original_row[:anchor.cursorX]: return False
+    if any(cell.width!=1 or cell.text!='/exit'[index]
+            for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count])): return False
+    if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0')
+            for cell in row[anchor.cursorX+count:]): return False
+    rows=list(snapshot.rows); rows[anchor.row]=original_row
+    normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
+    return policy.empty_input_anchor(normalized)==anchor
 
 
 def _terminate(process):
@@ -33,12 +52,15 @@ def _terminate(process):
     process.wait(timeout=.5)
 
 
-def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None):
+def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None,input_probe_scope=None):
     policy=TerminalInputPolicy()
     deadline=time.monotonic()+timeout_seconds
     process=None; master=slave=None; capture=None
     current_stage='initial_screen'; total=0; startup_open=True
     result=2; snapshot=None
+    frame=0; probe=None; transition=None
+    if input_probe_scope is not None:
+        deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None):
         if type(diagnostics) is not TerminalDiagnostics: return
@@ -60,7 +82,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             stream.write(json.dumps(value,sort_keys=True)+'\n')
 
     def pump(wait=.2):
-        nonlocal total,snapshot,current_stage
+        nonlocal total,snapshot,current_stage,frame
         state.check_cancelled()
         readable,_,_=select.select([master],[],[],min(wait,max(0,deadline-time.monotonic())))
         if not readable: return False
@@ -69,11 +91,12 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if not chunk: return False
         if total+len(chunk)>MAX_CAPTURE: raise RuntimeError('context capture limit')
         total+=len(chunk); capture.write(chunk)
-        state.feed(chunk); snapshot=state.snapshot()
+        state.feed(chunk); snapshot=state.snapshot(); frame+=1
         authentication=policy.authentication(snapshot)
         if authentication and not startup_open:
             current_stage=authentication
             raise RuntimeError('late authentication')
+        if probe is not None: probe.observe(snapshot,frame)
         return True
 
     def wait_for(predicate):
@@ -119,6 +142,35 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if not policy.ready(snapshot): raise _ContextFailure('INPUT_UNPROVEN')
         writer(master,line.encode('utf-8')+b'\r')
 
+    def operation_live():
+        state.check_cancelled()
+        if time.monotonic()>=deadline: raise InputProofError('INPUT_PROBE_DEADLINE')
+        if process.poll() is not None: raise InputProofError('INPUT_PROBE_REVOKED')
+        if probe is not None: probe._check()
+
+    def owned_write(payload,phase):
+        pending=memoryview(payload)
+        written=0
+        while pending:
+            while pump(0): pass
+            operation_live(); auth_clear()
+            if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
+            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written):
+                raise InputProofError('INPUT_PROBE_REVOKED')
+            if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
+            # Readiness/auth/deadline can change while waiting for writable IO.
+            while pump(0): pass
+            operation_live(); auth_clear()
+            if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
+            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written):
+                raise InputProofError('INPUT_PROBE_REVOKED')
+            try: count=os.write(master,pending)
+            except BlockingIOError: continue
+            except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
+            if not count: raise InputProofError('INPUT_PROBE_IO_FAILED')
+            written+=count
+            pending=pending[count:]
+
     try:
         capture_path.parent.mkdir(parents=True,exist_ok=True)
         if events_path is not None:
@@ -126,6 +178,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             events_path.write_text('',encoding='utf-8')
         snapshot=state.snapshot(); policy.mark_transition(snapshot)
         master,slave=pty.openpty()
+        if input_probe_scope is not None: os.set_blocking(master,False)
         fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,120,0,0))
         state.check_cancelled()
         launch=state.cancellation.spawn if state.cancellation is not None else subprocess.Popen
@@ -153,6 +206,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         diagnose('prompt_ready')
         if startup_approval is not None: startup_approval.revoke()
         current_stage='context_inspected'
+        transition=object()
         # Check current input first, then establish the numeric observation barrier.
         send('/context'); policy.mark_transition(snapshot)
         diagnose('context_sent')
@@ -160,13 +214,34 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         percentage=policy.context_percent(snapshot)
         record(current_stage,'passed',percentage)
         diagnose('context_numeric')
-        if not policy.ready(snapshot):
+        if input_probe_scope is not None:
+            while pump(0): pass
+            operation_live(); auth_clear()
+            probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame)
+            owned_write(probe.type_bytes(snapshot,frame),'ECHO_PENDING')
+            diagnose('input_probe_started',structural=False)
+            wait_for(lambda: probe.phase=='ECHO_MATCHED')
+            diagnose('input_probe_echo',structural=False)
+            while pump(0): pass
+            operation_live(); auth_clear()
+            owned_write(probe.clear_bytes(snapshot,frame),'CLEAR_PENDING')
+            wait_for(lambda: probe.phase=='PROVEN')
+            diagnose('input_probe_cleared',structural=False)
+        elif not policy.ready(snapshot):
             auth_clear(); policy.mark_transition(snapshot)
             writer(master,b'\x1b')
             diagnose('panel_close_sent')
             wait_for(lambda: policy.ready(snapshot)); settle(); auth_clear()
             diagnose('panel_closed')
-        current_stage='exit'; settle(.8); send('/exit')
+        current_stage='exit'; settle(.8)
+        if probe is not None:
+            while pump(0): pass
+            operation_live(); auth_clear()
+            proof=probe.ownership_proof()
+            if not probe.consume_exit(proof,snapshot,frame,process,transition):
+                raise InputProofError('INPUT_PROBE_REVOKED')
+            owned_write(b'/exit\r','CONSUMED')
+        else: send('/exit')
         diagnose('exit_ready')
         process.wait(timeout=min(8,max(.2,deadline-time.monotonic())))
         if process.returncode!=0: raise RuntimeError('nonzero context exit')
@@ -175,13 +250,14 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     except (OSError,RuntimeError,TimeoutError,subprocess.SubprocessError) as error:
         if isinstance(error,TerminalStateError): current_stage='terminal_state'
         record(current_stage,'failed')
-        reason=(error.reason if isinstance(error,(TerminalStateError,_ContextFailure)) else
+        reason=(error.reason if isinstance(error,(TerminalStateError,_ContextFailure,InputProofError)) else
             'EXIT_WAIT_DEADLINE' if isinstance(error,subprocess.TimeoutExpired) else
             'WAIT_DEADLINE' if isinstance(error,TimeoutError) else
             'IO_FAILED' if isinstance(error,OSError) else
             'SUBPROCESS_FAILED' if isinstance(error,subprocess.SubprocessError) else 'RUNTIME_REJECTED')
         diagnose('failure',reason)
     finally:
+        if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
         if startup_approval is not None: startup_approval.revoke()
         native_cleanup='CLEANUP_COMPLETED'
         try:

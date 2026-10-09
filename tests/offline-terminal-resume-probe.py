@@ -18,6 +18,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from terminal_cancellation import TerminalCancellation, TerminalCancelled
 from terminal_structural_diagnostics import TerminalDiagnostics
+from terminal_input_challenge import audit_offline_namespace, create_offline_probe_issuer, InputProofError, validate_probe_scope
 
 
 def context_stage_report(phase,rows,diagnostics):
@@ -51,13 +52,22 @@ def finalize_owned(root,identity,report):
 
 
 def _audit():
-    network={name for _,name in socket.if_nameindex()}=={'lo'}
-    hidden=not Path('/mnt/c').exists() and not list(Path('/home').iterdir()) and not list(Path('/root').iterdir())
-    text=Path('/proc/self/status').read_text()
-    cap=re.search(r'^CapEff:\s*([0-9a-fA-F]+)$',text,re.MULTILINE)
-    dropped=cap is not None and int(cap[1],16)==0
-    if not network or not hidden or not dropped: raise ValueError
-    return {'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}
+    try: return audit_offline_namespace()
+    except InputProofError: raise ValueError from None
+
+
+def audit_input_probe_scope(node,module_root):
+    """Audit-only seam: no Claude mount/launch, no PTY or synthetic submission."""
+    from terminal_state_adapter import TerminalState
+    issuer=create_offline_probe_issuer()
+    state=TerminalState(node,module_root,time.monotonic()+5)
+    try:
+        scope=issuer.issue_scope(state,object())
+        if validate_probe_scope(scope,state)!=state.operation_deadline: raise ValueError
+        try: issuer.issue_scope(state,object())
+        except InputProofError: pass
+        else: raise ValueError
+    finally: state.close()
 
 
 def _namespace(*,source,node,module_root,claude=None,audit=False):
@@ -84,6 +94,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False):
             '--dir','/opt/probe/terminal-runtime',
             '--ro-bind',str(source/'tests/terminal-runtime/package-lock.json'),'/opt/probe/terminal-runtime/package-lock.json']
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
+                     'terminal_input_challenge.py',
                      'terminal_structural_diagnostics.py',
                      'terminal_state_adapter.py','terminal-state-adapter.mjs','browser_startup_approval.py',
                      'browser_operations_live.py'):
@@ -204,11 +215,12 @@ def _controls():
                 diagnostics=TerminalDiagnostics()
                 state=TerminalState(node=Path('/opt/probe/node'),module_root=Path('/opt/modules'),
                     deadline=time.monotonic()+25)
+                scope=create_offline_probe_issuer().issue_scope(state,object())
                 events=root/(phase+'.events')
                 approval=StartupApproval(time.time()+25,time.time) if not resume else None
                 code=driver.drive(['/opt/probe/claude','--resume' if resume else '--session-id',session,*common],
                     root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,
-                    terminal_state=state,terminal_diagnostics=diagnostics)
+                    terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope)
                 rows=[json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
                 report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
@@ -250,8 +262,9 @@ def main():
         try:
             report=_audit()
             if sys.argv[1:] == ['--inner-controls']: report={**report,**_controls()}
+            else: audit_input_probe_scope(Path('/opt/probe/node'),Path('/opt/modules'))
             print(json.dumps(report,sort_keys=True)); return 0
-        except (OSError,ValueError): return 2
+        except (OSError,ValueError,RuntimeError): return 2
     parser=argparse.ArgumentParser(description=__doc__)
     modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--audit-isolation',dest='mode',action='store_const',const='--audit-isolation')

@@ -1,5 +1,6 @@
 """Isolated-scope and pinned echo/clear proof tests; no Claude or provider."""
 import copy
+from dataclasses import replace
 import importlib.util
 import os
 from pathlib import Path
@@ -98,6 +99,13 @@ class InputChallengeTests(unittest.TestCase):
         c.observe(self.echo_frame(marker[:4]),2)
         self.assertEqual(c.observe(self.echo_frame(marker),3),'ECHO_MATCHED')
         self.assertEqual(c.clear_bytes(self.echo_frame(marker),3),b'\x15')
+
+    def test_ascii_marker_must_occupy_exact_cells_not_one_string_cell(self):
+        c,_,_,empty=self.fixture_challenge(); marker=c.type_bytes(empty,1)
+        rows=list(empty.rows); row=list(rows[37]); row[2]=TerminalCell(marker.decode(),1)
+        rows[37]=tuple(row)
+        forged=replace(empty,rows=tuple(rows),cursorX=18)
+        self.assert_reason('INPUT_PROBE_ECHO_REJECTED',lambda:c.observe(forged,2))
 
     def test_wrong_echo_location_buffer_and_extra_text_revoke(self):
         for kind in ('wrong','row','buffer','extra','history'):

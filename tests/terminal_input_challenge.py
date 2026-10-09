@@ -153,14 +153,16 @@ class NonceInputChallenge:
         row=snapshot.rows[anchor.row]
         prefix=row[:anchor.cursorX]
         if prefix!=self._row[:anchor.cursorX]: self._fail(reason)
-        raw=''.join(cell.text or (' ' if cell.width else '') for cell in row[anchor.cursorX:])
-        tail=raw.rstrip(' \t\u00a0')
-        if (not self._marker.startswith(tail) or any(cell.width!=1 for cell in row[anchor.cursorX:])
-                or snapshot.cursorX!=anchor.cursorX+len(tail)): self._fail(reason)
+        count=snapshot.cursorX-anchor.cursorX
+        if not 0<=count<=16: self._fail(reason)
+        if any(cell.width!=1 or cell.text!=self._marker[index]
+                for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count])): self._fail(reason)
+        if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0')
+                for cell in row[anchor.cursorX+count:]): self._fail(reason)
         rows=list(snapshot.rows); rows[anchor.row]=self._row
         normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
         if self._policy.empty_input_anchor(normalized)!=anchor: self._fail('INPUT_PROBE_REVOKED')
-        return len(tail)
+        return count
 
     def observe(self,snapshot,frame):
         self._check(frame)

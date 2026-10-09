@@ -6,11 +6,14 @@ MAX_RECORDS=16
 # Four context phases fit the existing 16 KiB outer offline-report limit.
 MAX_BYTES=3072
 POINTS=frozenset(('initial','prompt_ready','context_sent','context_numeric','panel_close_sent',
-    'panel_closed','exit_ready','failure','native_cleanup','helper_cleanup'))
+    'panel_closed','exit_ready','failure','native_cleanup','helper_cleanup',
+    'input_probe_started','input_probe_echo','input_probe_cleared'))
 REASONS=frozenset(('CHECKPOINT','WAIT_DEADLINE','SETTLE_DEADLINE','EXIT_WAIT_DEADLINE','PROCESS_EXITED',
     'INPUT_UNPROVEN','RUNTIME_REJECTED','IO_FAILED','SUBPROCESS_FAILED','CLEANUP_COMPLETED',
     'NATIVE_CLEANUP_FAILED','TERMINAL_PROTOCOL_REJECTED','TERMINAL_DEPENDENCY_UNAVAILABLE',
-    'TERMINAL_DEADLINE_EXCEEDED','TERMINAL_CLEANUP_FAILED'))
+    'TERMINAL_DEADLINE_EXCEEDED','TERMINAL_CLEANUP_FAILED')) | frozenset(
+        'INPUT_PROBE_'+suffix for suffix in ('SCOPE_REJECTED','INELIGIBLE','ECHO_REJECTED',
+            'CLEAR_REJECTED','REVOKED','DEADLINE','STATE_REJECTED','IO_FAILED'))
 READINESS=frozenset(('READY','FRESHNESS_UNPROVEN','AUTHENTICATION_REQUIRED','STARTUP_SELECTION',
     'UNSUPPORTED_MARKER','CANDIDATE_COUNT','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH'))
 STRUCTURE_FIELDS=frozenset(('buffer','cursorX','cursorY','baseY','viewportY','candidateCount',

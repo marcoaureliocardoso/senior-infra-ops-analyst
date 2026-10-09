@@ -14,6 +14,9 @@ from unittest import mock
 
 from terminal_state_adapter import TerminalState, TerminalStateError
 from terminal_structural_diagnostics import TerminalDiagnostics
+import terminal_input_challenge as input_challenge
+import headless_context_driver as selected_controller
+from dataclasses import replace
 
 
 class HeadlessContextDriverTests(unittest.TestCase):
@@ -65,6 +68,99 @@ class HeadlessContextDriverTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): state.snapshot()
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
+
+    def run_pinned_probe(self,mode='success',fault=False):
+        self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
+            'offline selected-scope interface missing')
+        seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
+        fake.write_text('import os,time,tty\nfrom pathlib import Path\n'
+            'tty.setraw(0)\n'
+            'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
+            'def read(n):\n'
+            ' data=bytearray()\n'
+            ' while len(data)<n:\n'
+            '  value=os.read(0,1)\n'
+            '  if not value: raise SystemExit(1)\n'
+            '  with Path('+repr(str(seen))+').open("ab") as stream: stream.write(value)\n'
+            '  data.extend(value)\n'
+            ' return bytes(data)\n'
+            'if read(9)!=b"/context\\r": raise SystemExit(1)\n'
+            'os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
+            + ('os.write(1,b\'Try "fix tests"\\x1b[38;3H\')\n' if mode=='suggestion' else '') +
+            'marker=read(16)\n'
+            'os.write(1,b"\\x1b[38;3H"+marker)\n'
+            + ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;19H")\n' if mode=='auth' else '') +
+            'if read(1)!=b"\\x15": raise SystemExit(1)\n'
+            + ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n' if mode!='uncleared' else '') +
+            ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n' if mode=='postclear-menu' else '') +
+            'if read(6)!=b"/exit\\r": raise SystemExit(1)\n',encoding='utf-8')
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+12)
+        with mock.patch.object(input_challenge,'audit_offline_namespace',return_value={
+                'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
+            scope=input_challenge.create_offline_probe_issuer().issue_scope(state,object())
+        diagnostics=TerminalDiagnostics()
+        original=os.write; failed_fd=None
+        def partial_writer(fd,payload):
+            nonlocal failed_fd
+            if os.isatty(fd) and len(payload)==16 and all(char in b'0123456789abcdef' for char in payload):
+                failed_fd=fd; return original(fd,payload[:8])
+            if fd==failed_fd: raise OSError('synthetic write failed')
+            return original(fd,payload)
+        with mock.patch.dict(os.environ,{'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'},clear=True),\
+                mock.patch.object(os,'write',side_effect=partial_writer if fault else original):
+            result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
+                dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope)
+        data=seen.read_bytes() if seen.exists() else b''
+        self.assertEqual(result,0 if mode=='success' and not fault else 2)
+        self.assertEqual(data[:9],b'/context\r')
+        self.assertNotIn(b'\x1b',data)
+        report=diagnostics.report()
+        self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+        self.assertTrue(state.helper_reaped)
+        if mode=='suggestion': self.assertEqual(data,b'/context\r')
+        elif fault:
+            self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
+        else:
+            self.assertRegex(data[9:25],rb'^[0-9a-f]{16}$')
+            self.assertNotIn(data[9:25].decode(),json.dumps(report))
+            if mode=='success': self.assertEqual(data[25:],b'\x15/exit\r')
+            elif mode=='auth': self.assertEqual(data[25:],b'')
+            elif mode=='uncleared': self.assertEqual(data[25:],b'\x15')
+            elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
+        return report
+
+    def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
+    def test_probe_does_not_overwrite_visible_suggestion(self): self.run_pinned_probe('suggestion')
+    def test_auth_after_echo_prevents_clear_and_exit(self): self.run_pinned_probe('auth')
+    def test_missing_clear_ack_prevents_exit(self): self.run_pinned_probe('uncleared')
+    def test_partial_marker_write_failure_has_no_second_edit(self): self.run_pinned_probe(fault=True)
+    def test_menu_after_clear_prevents_exit(self): self.run_pinned_probe('postclear-menu')
+
+    def test_serialized_scope_rejects_before_native_startup(self):
+        self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
+            'offline selected-scope interface missing')
+        marker=self.root/'effect'; fake=self.root/'fake.py'
+        fake.write_text('from pathlib import Path\nPath('+repr(str(marker))+').write_text("effect")\n')
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+5)
+        self.assertEqual(self.driver.drive([sys.executable,str(fake)],self.root/'capture',4,
+            dialogue='context',terminal_state=state,input_probe_scope={'offline':True}),2)
+        self.assertFalse(marker.exists()); self.assertTrue(state.helper_reaped)
+
+    def test_exit_dispatch_rechecks_exact_owned_prefix_and_menu_state(self):
+        self.assertTrue(callable(getattr(selected_controller,'exit_input_owned',None)),
+            'concrete exit-shape fence missing')
+        from terminal_input_policy import TerminalInputPolicy
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+5)
+        try:
+            state.feed('❯\u00a0'.encode()); empty=state.snapshot()
+            policy=TerminalInputPolicy(); anchor=policy.empty_input_anchor(empty)
+            self.assertTrue(selected_controller.exit_input_owned(policy,empty,anchor,empty.rows[0],0))
+            state.feed(b'/ex'); partial=state.snapshot()
+            self.assertTrue(selected_controller.exit_input_owned(policy,partial,anchor,empty.rows[0],3))
+            self.assertFalse(selected_controller.exit_input_owned(policy,partial,anchor,empty.rows[0],2))
+            state.feed(b'\x1b[2;1HYes, I trust this folder\x1b[1;6H')
+            self.assertFalse(selected_controller.exit_input_owned(policy,state.snapshot(),anchor,empty.rows[0],3))
+        finally: state.close()
     def test_settling_auth_revokes_input_without_slash_command(self): self.run_case(True)
     def test_cleanup_failure_overrides_successful_native_exit(self): self.run_case(False,True)
 

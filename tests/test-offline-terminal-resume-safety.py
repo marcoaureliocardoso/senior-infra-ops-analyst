@@ -31,6 +31,20 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertEqual(report,{'networkIsolated':True,'operatorStateHidden':True,
             'capabilitiesDropped':True,'disposableRootAbsent':True})
 
+    def test_scope_audit_rejects_host_and_checks_real_helper_inside_namespace(self):
+        self.assertTrue(callable(getattr(self.module,'audit_input_probe_scope',None)),
+            'actual namespace scope audit missing')
+        with self.assertRaises(RuntimeError):
+            self.module.audit_input_probe_scope(Path(os.environ['P004B_TERMINAL_NODE']),
+                Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        if not shutil.which('bwrap'): self.skipTest('Bubblewrap unavailable; input scope NOT proven')
+        valid=self.module.run_isolation_audit(source=ROOT,node=Path(os.environ['P004B_TERMINAL_NODE']),
+            module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertTrue(valid['networkIsolated']); self.assertTrue(valid['disposableRootAbsent'])
+        invalid=self.module.run_isolation_audit(source=ROOT,node=Path('/usr/bin/false'),
+            module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertEqual(invalid,{'reasonCode':'OFFLINE_PROBE_BLOCKED','disposableRootAbsent':True})
+
     def test_private_cleanup_before_report(self):
         with tempfile.TemporaryDirectory(prefix='offline-finalize-test-') as parent:
             root=Path(parent)/'owned'; root.mkdir(mode=0o700)

@@ -32,6 +32,16 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
         self.assertLessEqual(len(json.dumps(report,separators=(',',':')).encode()),3072)
 
+    def test_probe_codes_are_structural_and_never_payload_fields(self):
+        for point in ('input_probe_started','input_probe_echo','input_probe_cleared'):
+            self.collector.add(point,'CHECKPOINT')
+        self.collector.add('failure','INPUT_PROBE_ECHO_REJECTED')
+        self.collector.add('input_probe_echo','CHECKPOINT',marker='synthetic marker')
+        report=self.collector.report()
+        self.assertEqual(len(report['records']),4)
+        self.assertTrue(report['rejected'])
+        self.assertNotIn('synthetic marker',json.dumps(report))
+
     def test_structure_is_whitelisted_and_numeric_coordinates_are_bounded(self):
         structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
             'candidateCount':1,'inputFresh':False,'contextFresh':True,'locationFresh':False,

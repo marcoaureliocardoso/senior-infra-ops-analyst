@@ -42,6 +42,20 @@ class TerminalWiringTests(unittest.TestCase):
         self.assertEqual(claim.read_text(),'owned test claim')
         self.assertFalse((self.root/'capture').exists())
 
+    def test_live_entrypoint_rejects_probe_activation_before_claim(self):
+        claim=self.root/'claim'; claim.write_text('owned test claim')
+        args=['context-entry','--claim',str(claim),'--commit','a'*40,'--run-nonce','p004b-'+'b'*32,
+            '--source-root',str(ROOT),'--capture',str(self.root/'capture'),'--events',str(self.root/'events'),
+            '--input-probe-scope','offline','--',sys.executable]
+        with mock.patch.object(sys,'argv',args),\
+                mock.patch.dict(os.environ,{'P004B_INPUT_PROBE':'1'}),\
+                mock.patch.object(self.module,'prepare_approval',side_effect=AssertionError('claim reached')),\
+                contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught: self.module.main()
+        self.assertEqual(caught.exception.code,2)
+        self.assertEqual(claim.read_text(),'owned test claim')
+        self.assertFalse((self.root/'capture').exists())
+
     def test_real_helper_is_initialized_before_single_claim_consumption(self):
         from terminal_state_adapter import TerminalState
         private=self.root/'startup'; private.mkdir(mode=0o700)
