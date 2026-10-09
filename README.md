@@ -606,6 +606,9 @@ controls are separate explicit probes and require proven Bubblewrap isolation;
 an unavailable namespace test is reported as a skip, never native acceptance.
 Offline context probes include bounded content-free structural diagnostics,
 separate from acceptance evidence; see [ADR-010](docs/architecture/ADR-010-browser-automation-boundary.md).
+The isolated offline route additionally uses an unsubmitted edit/echo/clear
+challenge for pinned input; it is not available to live callers and requires
+a fresh exact-commit grant before any native experiment.
 
 ## Docs
 

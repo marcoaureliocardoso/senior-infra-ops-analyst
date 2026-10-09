@@ -3991,3 +3991,126 @@ The final log is retained in the external test-owned runtime directory as
 behavior or its component versions. CHANGELOG, README and indexed ADR-010 describe
 the diagnostic boundary. No push, PR, remote CI/Security gate or merge was performed;
 the definitive unversioned TODO and native acceptance gates remain unchanged.
+
+## 2026-10-09 authorized offline control at c4b6a7a
+
+Exactly one offline run used clean source commit
+`c4b6a7a1d1079635598dd18ea0bbb37d14c9669f`, the installed Linux Claude Code
+`2.1.295`, at most two synthetic cases, a 165-second execution ceiling,
+loopback-only isolation, synthetic-key confirmation and disposable native
+history. No dependency, source behavior or operator preference was changed.
+
+Result: `OFFLINE_CONTROLS_INCONCLUSIVE`; the tool reported command exit 1 and
+the executed before-context dialogue reported `beforeExit=2`. Only `text-turn`
+started. Initial screen, synthetic API-key approval, trust selection, prompt
+readiness and initial numeric context at 16% passed. SDK/resume, after-context
+and `skill-turn` did not start. Their default exit fields are not execution or
+failure evidence. Loopback Messages and Skill-call counts were both zero.
+
+The passive collector retained eight records, with neither rejection nor
+truncation. At `prompt_ready`, alternate-buffer cursor `(2,37)` had one
+recognized candidate and `inputFresh=true`, `readiness=READY`. After `/context`,
+numeric context was fresh but input/location freshness remained false at those
+same coordinates. The Escape transition reset the barrier. At its final
+`WAIT_DEADLINE` failure, cursor and candidate count remained unchanged and all
+three freshness flags were false, with authentication classified `NONE`.
+Readiness was `FRESHNESS_UNPROVEN`; `panel_closed` and natural exit were not
+established. This proves the harness rejection condition, not whether the native
+panel actually closed or the exact native rendering/keyboard semantics. In
+particular, no changed context signature was detected after that last barrier;
+the earlier synthetic panel-erasure fixture is not an exact native trace.
+
+Native cleanup reported `CLEANUP_COMPLETED`, helper close reported
+`TERMINAL_DEADLINE_EXCEEDED`, and both owned leaders were observed reaped.
+The case and enclosing disposable roots were independently reported absent;
+leader polling alone is not complete family/root-disposal proof. The aggregate
+also confirmed loopback isolation, hidden operator state and dropped
+capabilities. Captures, streams, prompts and temporary native history were
+deleted before aggregation. Only the content-free aggregate is retained in
+the external test-owned runtime directory as
+`p004b-offline-c4b6a7a-20261009-aggregate.json`.
+
+The one-run authorization is consumed. No retry, provider-real execution,
+readiness relaxation, timeout extension, push, PR or merge occurred. Native
+acceptance remains pending. The next investigation should examine the native
+`/context` close/readiness contract using bounded structural evidence, not
+assume that another identical run or a larger timeout fixes the missing proof.
+
+### Read-only context closure/readiness contract investigation
+
+Current official [fullscreen documentation](https://code.claude.com/docs/en/fullscreen)
+states that the input remains at the bottom while output changes and the
+conversation uses the alternate buffer. The observed alternate buffer and fixed
+cursor `(2,37)` are consistent with that renderer; the current documentation
+does not independently prove every detail of installed runtime `2.1.295`.
+The [commands reference](https://code.claude.com/docs/en/commands) describes
+`/context` as a usage grid, with a collapsed per-item breakdown in fullscreen.
+It does not promise input-row movement or a modal requiring Escape to dismiss.
+The [interactive reference](https://code.claude.com/docs/en/interactive-mode)
+defines Escape contextually: interruption or closing an open dialog, not a
+universal redraw/fresh-input acknowledgement.
+
+Source tracing shows two distinct rejected proofs. Initially, numeric context
+changes but neither the anchored input cells nor their location change, so
+`contextFresh=true` alone cannot satisfy readiness. The driver's inferred
+Escape transition then resets the barrier against that numeric display. No
+subsequent input/context/location freshness is observed before the deadline.
+The positive fake UI moves its prompt from row 37 to row 3 while rendering
+context; this supplies the location proof absent from the native aggregate.
+Therefore that positive control does not cover a pinned fullscreen input.
+
+Four existing pure-cell controls and the existing moving-input fake-UI control
+were rerun successfully (five tests total) without Claude or provider access.
+The stationary-input rejection, including a genuinely erased synthetic panel,
+remains intentional fail-closed behavior. No policy was modified. Reusing the
+last accepted snapshot, accepting arbitrary status redraw, removing the
+freshness requirement or silently falling back to the legacy byte parser is
+not supported by these results.
+
+The evidence supports a harness/renderer proof-contract mismatch as the leading
+hypothesis, not a proven Claude bug, failed Escape transport or provider issue.
+The next design must establish current input ownership for a pinned renderer
+and distinguish modal versus inline command output before treating Escape as
+required. Merely extending the timeout cannot supply a missing transition
+proof. Any corrective behavior and a new native experiment require separate
+approval; the consumed authorization is not reused.
+
+## 2026-10-09 isolated pinned-input implementation
+
+The approved specification/plan were executed Native inline after the operator's
+method choice 2 superseded interrupted choice 1. Work stayed in the existing
+isolated branch; the previous offline/investigation notes were preserved.
+No Claude, real browser, provider, operator credential/config access, install,
+push, PR, merge or retry was performed during implementation.
+
+Task 1 watched five missing-eligibility tests fail, then passed 23 policy tests.
+Task 2 watched 15 absent-protocol contracts and one missing original-deadline-view
+test fail, then passed 15 protocol, 13 transport and 23 policy tests. Task 3
+observed RED for selected-scope routing, serialized-scope rejection, diagnostic
+points and the actual-namespace scope-audit seam. Its positive Python fake UI
+keeps the prompt at row 37, receives one unsubmitted marker, acknowledges one
+Ctrl+U and exits naturally only after proof-backed `/exit`.
+
+An additional RED case showed that concatenated text could accept a 16-character
+ASCII marker collapsed into one width-1 cell. The corrected matcher checks each
+expected cell/cursor column exactly. A separate RED fence covers already-owned
+partial `/exit` text and intervening menu state; current structure is rechecked
+after writable waits. Missing clear acknowledgement, visible suggestions, auth
+after echo and partial-write failures stop without another marker/clear/exit.
+Live CLI/env activation is rejected before claim consumption. Real Bubblewrap
+audit-only controls issue one private helper-bound scope and reject invalid
+helpers without mounting Claude or changing the audit report fields.
+
+Final per-task focused results: 23 policy, 16 protocol, 13 transport, 20 selected
+driver, 13 offline audit/safety, 6 structural diagnostics and 11 wiring tests;
+102 passed. These are synthetic/namespace/helper evidence, not the native
+text/Skill SDK-to-TUI acceptance gate. Full package validation and the single
+independent whole-branch review are the remaining implementation gates.
+
+The ledgered design rulings were: use Windows Git/Git Bash for bookkeeping
+because the linked gitdir uses a Windows path; add prelaunch scope validation;
+extend audit-only checks to prove issuer/helper binding; and add a pure structural
+fence for an already-consumed fixed exit command. Their costs are bookkeeping
+path failure or stricter rejection of unavailable/unusual targets, not expanded
+command/credential authority. Root/component versions remain unchanged because
+the addition is test-only and excluded from Nori staging.

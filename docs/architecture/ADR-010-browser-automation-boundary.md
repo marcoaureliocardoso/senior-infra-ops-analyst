@@ -466,6 +466,28 @@ A reaped leader is not independent proof of complete descendant/root disposal.
 No timeout extension, readiness relaxation, credential reuse or real retry
 is introduced. Existing native/provider acceptance remains unproven.
 
+The 2026-10-09 pinned-input extension separates pure empty-input eligibility
+from active proof. Only the audited isolated offline launcher supplies a private
+scope bound to its terminal and original deadline. A unique 16-character marker
+is typed without submission, matched cell-by-cell in the current anchored input,
+then removed using one guarded Ctrl+U. A newer empty frame produces an ephemeral
+one-shot proof for the fixed `/exit`; it does not authorize credentials, model
+input, tools or permission answers. Instance/transition substitution, auth/menu,
+replay, unknown shapes, draft/suggestion text, expiry and partial-write failure
+block. Concrete exit writes recheck only their already-owned prefix after waits.
+No changed context grid, stale prompt or diagnostic record creates this authority.
+
+The Node engine remains passive and terminal replies are not forwarded. Public
+CLI/env activation and live wrappers are unchanged/unavailable for this route.
+Audit-only namespace checks now also prove issuer/helper binding without mounting
+Claude or changing the existing audit report fields. Shortcut interpretation in
+an unproved UI remains a residual risk contained by offline isolation; this is
+not a production credential-entry remedy. Original context/run/capture/IPC and
+diagnostic budgets, startup consent and raw/history disposal remain enforced.
+Rollback removes active selection and protocol integration together, preserving
+the prior passive fail-closed behavior, not a recovery fallback. Native resume,
+Skill and authenticated acceptance still require separately granted evidence.
+
 The 2026-10-08 production lifetime correction anchors execution and validation
 to the exact stored grant. One branded immutable deadline and fresh clock are
 shared with the selected adapter; numeric clocks remain only a trusted test
@@ -525,6 +547,8 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
 - Test-only terminal design: `docs/superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md`
 - Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
+- Isolated pinned-input spec: `docs/superpowers/specs/2026-10-09-p0-04b-pinned-input-proof-design.md`
+- Isolated pinned-input plan: `docs/superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added an isolated offline-only pinned-input ownership challenge for context
+  probes. One unsubmitted 16-character marker must echo in exact current cells
+  and be cleared before an instance/transition/deadline-bound one-shot proof
+  permits the fixed `/exit`. Existing passive/live callers cannot activate it
+  from CLI/environment data; unknown input, drafts, menus and auth block.
+  Partial writes, expiry and cleanup remain fail-closed. Diagnostics exclude
+  marker/cell content. Synthetic proofs do not complete native/provider acceptance.
+
 - Added opt-in test-only structural context diagnostics to the offline probe.
   Closed reason codes, cursor/buffer coordinates, candidate counts and freshness
   flags remain separate from PTY acceptance events; cell text, hashes, prompts

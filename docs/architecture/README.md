@@ -29,3 +29,9 @@ from the [production lifetime correction](../superpowers/plans/2026-10-07-p0-04b
 Implemented input/cancellation/lifetime corrections do not complete native/provider
 acceptance. The scoped production review identified an ownership gap; its
 original-grant fix pass and verification are recorded in ADR-010/validation notes.
+
+ADR-010 also records the isolated offline
+[pinned-input proof spec](../superpowers/specs/2026-10-09-p0-04b-pinned-input-proof-design.md)
+and [implementation plan](../superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md).
+Synthetic echo/clear ownership proof does not establish native/provider acceptance
+or enable this route for production/live credential input.
