@@ -446,6 +446,26 @@ boundary, with unchanged legacy routing, consent, provider scope and budgets.
 Synthetic regression/full-package evidence addresses the two harness findings,
 not the real native resume gate or the production expiry correction.
 
+The 2026-10-09 diagnostic extension is test-only and opt-in at the selected
+driver seam; the offline probe supplies the collector. Sampling occurs at
+bounded transitions/failure/cleanup, never every redraw. Each phase retains
+at most 16 records and 3 KiB in compact JSON, below the approved 16 KiB ceiling
+and small enough for four phases within the existing 16 KiB outer report.
+Limit exhaustion is explicit `truncated`; invalid fields/observation failures
+set `rejected`. Neither flag nor any diagnostic record supplies acceptance.
+
+The collector retains only closed point/reason/authentication/readiness enums,
+bounded cursor/buffer coordinates, candidate count, freshness booleans and
+optional leader-reap booleans. It rejects cell text, hashes, arbitrary exception
+messages and unknown fields. The policy projection is pure: it performs no
+freshness observation, terminal IPC or authorization. PTY proof event schemas
+and their consumers remain unchanged; raw evidence/native history are still
+removed before aggregate reporting. Wait/settle deadlines, close-IPC rejection
+and observed process-leader reap are distinguished, not converted to success.
+A reaped leader is not independent proof of complete descendant/root disposal.
+No timeout extension, readiness relaxation, credential reuse or real retry
+is introduced. Existing native/provider acceptance remains unproven.
+
 The 2026-10-08 production lifetime correction anchors execution and validation
 to the exact stored grant. One branded immutable deadline and fresh clock are
 shared with the selected adapter; numeric clocks remain only a trusted test

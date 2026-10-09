@@ -155,5 +155,11 @@ class TerminalWiringTests(unittest.TestCase):
         self.assertTrue(pty_failure_phases(events).endswith('terminal_cleanup:failed'))
         with self.assertRaises(ValueError): pty_context_observation(events,'synthetic-session','before')
 
+    def test_structural_diagnostics_cannot_be_loaded_as_pty_acceptance(self):
+        events=self.root/'events'
+        events.write_text(json.dumps({'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED',
+            'leaderReaped':True})+'\n')
+        with self.assertRaises(ValueError): pty_context_observation(events,'synthetic-session','before')
+
 
 if __name__=='__main__': unittest.main()

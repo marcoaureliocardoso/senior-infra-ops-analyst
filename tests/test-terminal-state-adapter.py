@@ -153,6 +153,17 @@ class TerminalStateTests(unittest.TestCase):
         with self.assertRaises(self.module.TerminalStateError): failing.feed(b'x'*65537)
         failing.close()
 
+    def test_reap_observation_is_passive_and_does_not_hide_expired_close(self):
+        state=self.state()
+        self.assertTrue(hasattr(type(state),'helper_reaped'),'passive helper observation missing')
+        request_id=state._id
+        self.assertFalse(state.helper_reaped)
+        self.assertEqual(state._id,request_id)
+        state._deadline=time.monotonic()-1
+        with self.assertRaises(self.module.TerminalStateError) as error: state.close()
+        self.assertEqual(error.exception.reason,'TERMINAL_DEADLINE_EXCEEDED')
+        self.assertTrue(state.helper_reaped)
+
     def test_timeout_terminates_owned_descendant_group(self):
         pidfile=self.root/'child.pid'
         node=self.helper('import os, signal, subprocess, time\n'

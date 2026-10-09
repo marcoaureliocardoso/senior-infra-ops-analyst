@@ -17,6 +17,13 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from terminal_cancellation import TerminalCancellation, TerminalCancelled
+from terminal_structural_diagnostics import TerminalDiagnostics
+
+
+def context_stage_report(phase,rows,diagnostics):
+    """Separate structural diagnostics from the unchanged reduced proof stream."""
+    reduced=[{key:row[key] for key in ('stage','outcome','percent') if key in row} for row in rows]
+    return {'phase':phase,'events':reduced,'diagnostics':diagnostics.report()}
 
 
 def validate_mode(arguments):
@@ -77,6 +84,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False):
             '--dir','/opt/probe/terminal-runtime',
             '--ro-bind',str(source/'tests/terminal-runtime/package-lock.json'),'/opt/probe/terminal-runtime/package-lock.json']
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
+                     'terminal_structural_diagnostics.py',
                      'terminal_state_adapter.py','terminal-state-adapter.mjs','browser_startup_approval.py',
                      'browser_operations_live.py'):
             command += ['--ro-bind',str(source/'tests'/name),'/opt/probe/'+name]
@@ -193,15 +201,16 @@ def _controls():
             os.chdir(project); session=str(uuid.uuid4())
             common=['--strict-mcp-config','--mcp-config',str(mcp)]
             def context(phase,resume):
+                diagnostics=TerminalDiagnostics()
                 state=TerminalState(node=Path('/opt/probe/node'),module_root=Path('/opt/modules'),
                     deadline=time.monotonic()+25)
                 events=root/(phase+'.events')
                 approval=StartupApproval(time.time()+25,time.time) if not resume else None
                 code=driver.drive(['/opt/probe/claude','--resume' if resume else '--session-id',session,*common],
-                    root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,terminal_state=state)
+                    root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,
+                    terminal_state=state,terminal_diagnostics=diagnostics)
                 rows=[json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
-                reduced=[{key:row[key] for key in ('stage','outcome','percent') if key in row} for row in rows]
-                report['stages'].append({'phase':phase,'events':reduced})
+                report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
                     any(row.get('stage')=='exit' and row.get('outcome')=='passed' for row in rows)
             before,inspected,exited=context('before',False); report['beforeExit']=before

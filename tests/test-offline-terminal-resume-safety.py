@@ -11,6 +11,7 @@ import subprocess
 import time
 import unittest
 from unittest import mock
+from terminal_structural_diagnostics import TerminalDiagnostics
 
 ROOT=Path(__file__).resolve().parents[1]
 MODULE=ROOT/'tests/offline-terminal-resume-probe.py'
@@ -52,6 +53,39 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
                             ('caseRootAbsent',False),('validSkillSample',False),('skillCalls',0)]:
             changed={**case,field:value}
             self.assertFalse(self.module.case_complete(changed))
+
+    def test_phase_diagnostics_are_separate_and_cannot_supply_acceptance(self):
+        self.assertTrue(callable(getattr(self.module,'context_stage_report',None)),
+            'offline structural report integration missing')
+        diagnostics=TerminalDiagnostics(); diagnostics.add('helper_cleanup','CLEANUP_COMPLETED',leaderReaped=True)
+        events=[{'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':16},
+                {'kind':'pty-driver','stage':'context_inspected','outcome':'failed'}]
+        report=self.module.context_stage_report('before',events,diagnostics)
+        self.assertEqual(report,{'phase':'before','events':[
+            {'stage':'context_inspected','outcome':'passed','percent':16},
+            {'stage':'context_inspected','outcome':'failed'}],
+            'diagnostics':{'records':[{'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True}],
+                           'truncated':False,'rejected':False}})
+        self.assertFalse(self.module.case_complete({'case':'text-turn','stages':[report]}))
+
+    def test_four_maximal_context_diagnostics_fit_unchanged_outer_report_bound(self):
+        diagnostics=TerminalDiagnostics()
+        structure={'buffer':'normal','cursorX':120,'cursorY':39,'baseY':1000,'viewportY':1000,
+            'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'API_KEY_APPROVAL_REQUIRED','readiness':'AUTHENTICATION_REQUIRED'}
+        for _ in range(100): diagnostics.add('failure','WAIT_DEADLINE',structure=structure)
+        events=[{'kind':'pty-driver','stage':stage,'outcome':'passed'} for stage in
+            ('initial_screen','api_key_approval','theme_selection','trust_selection','prompt_ready')]
+        events += [{'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':100},
+                   {'kind':'pty-driver','stage':'exit','outcome':'passed'},
+                   {'kind':'pty-driver','stage':'terminal_cleanup','outcome':'failed'}]
+        cases=[{'case':name,'beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':1,'validSkillSample':True,'messages':4,
+            'stages':[self.module.context_stage_report(phase,events,diagnostics) for phase in ('before','after')]}
+            for name in ('text-turn','skill-turn')]
+        report={'reasonCode':'OFFLINE_CONTROLS_PASSED','runtime':'9999.9999.9999','cases':cases,
+            'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True,'disposableRootAbsent':True}
+        self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),16384)
 
     def test_no_live_mode_or_retry_authority(self):
         self.assertEqual(self.module.validate_mode(['--run-live']),False)

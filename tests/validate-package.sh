@@ -10,6 +10,7 @@ python3 tests/terminal-runtime-preflight.py --node "$P004B_TERMINAL_NODE" \
 node --test tests/terminal-state-adapter.test.mjs
 python3 tests/test-terminal-state-adapter.py
 python3 tests/test-terminal-input-policy.py
+python3 tests/test-terminal-structural-diagnostics.py
 python3 tests/test-headless-context-driver.py
 python3 tests/test-terminal-runtime-provisioning.py
 python3 tests/test-terminal-wiring.py

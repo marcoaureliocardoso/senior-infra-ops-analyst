@@ -222,6 +222,11 @@ class TerminalState:
     def check_cancelled(self)->None:
         if self.cancellation is not None: self.cancellation.check()
 
+    @property
+    def helper_reaped(self)->bool:
+        """Observe only the owned helper leader; no IPC or family-cleanup proof."""
+        return self._process is not None and self._process.poll() is not None
+
     def _shutdown(self,graceful=False):
         if self._closed: return
         self._closed=True

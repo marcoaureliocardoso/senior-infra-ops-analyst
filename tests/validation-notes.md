@@ -3885,3 +3885,109 @@ rollback and real provider/native-consent behavior. These are explicit residual
 boundaries: in-flight effects cannot be unsent; dependency injection is a trusted
 in-process seam, not model authority; no global clock service is introduced;
 real native/provider acceptance still needs separately approved evidence.
+
+## 2026-10-08 authorized offline control at 4ad45b9
+
+One operator-authorized run used clean source commit
+`4ad45b9ec208ce64450ac9d8e6410942ed28f6d9`, with at most two synthetic cases,
+a 165-second execution ceiling, loopback-only gateway, disposable native
+history, synthetic-key confirmation only and no automatic repetition.
+The installed Linux runtime reported Claude Code `2.1.295` inside the isolated
+harness; no runtime version was pinned or installed for this test.
+
+Result: `OFFLINE_CONTROLS_INCONCLUSIVE`. Only `text-turn` started. Initial screen,
+synthetic API-key approval, trust selection and prompt readiness passed. The
+first context observation passed at 16%; the subsequent `context_inspected`
+and `terminal_cleanup` stages failed. `beforeExit` was 2. SDK/resume and the
+after-context phase were not started; their default exit fields are not
+evidence that those phases executed or failed. `skill-turn` was not started.
+The loopback gateway message count and Skill-call count were both zero.
+
+The aggregate confirmed network isolation, hidden operator state, dropped
+capabilities, case-root absence and enclosing disposable-root absence.
+Raw captures, streams and temporary native history were removed before the
+aggregate. Natural terminal exit was not established; directory absence alone
+is not native SDK/resume acceptance. No real provider or operator credentials/
+configuration were used. The single-run authorization is consumed; no retry
+occurred. The bounded aggregate does not establish the cause of the readiness/
+cleanup failure. Native acceptance remains pending before authenticated testing.
+
+### Provider-free readiness/cleanup characterization
+
+Read-only source tracing and a disposable synthetic probe identified two
+separate mechanisms without repeating Claude. An unchanged supported input at
+the same cell position remains unready when a numeric context panel is closed
+after the driver resets its freshness barrier. A real passive terminal helper
+and Python fake UI reproduced context 16%, Escape, no `/exit`, and a closed
+dialogue result of 2. With a longer independent transport budget, this same
+readiness timeout did not produce a cleanup-failure event.
+
+Separately, allowing a real helper's operational deadline to expire before
+`TerminalState.close()` produced `TERMINAL_DEADLINE_EXCEEDED`; the helper was
+nevertheless reaped. Thus `terminal_cleanup=failed` can also reflect expired
+graceful-close IPC, not only failed process disposal. This does not justify
+suppressing genuine cleanup failures or allowing operational input after expiry.
+
+The synthetic probe emitted only booleans, a numeric percentage and a closed
+reason code, and deleted its capture/input fixtures before reporting. Native
+invocations and provider requests were zero. These observations explain a
+possible combined failure path, not the exact cause of the discarded native
+capture. No readiness, freshness, authorization or cleanup behavior was changed.
+The next useful evidence is bounded structural rejection/phase diagnostics,
+separate from accepted runtime-proof events and excluding all cell text/hashes.
+
+## 2026-10-09 structural diagnostic extension
+
+Implemented the approved bounded, passive diagnostic collector in the selected
+test-only context driver and offline aggregate. PTY proof events, readiness,
+authorization, operational deadlines, legacy dialogues and native cleanup
+failure results remain unchanged. The shared readiness decision tree exposes
+closed rejection reasons without observing or mutating freshness. Structural
+records contain no cell text/hashes, prompts, raw exception messages or secrets.
+Per-phase limits are 16 records and 3 KiB compact JSON; four maximal diagnostic
+phases fit the existing 16 KiB outer report. Truncation and rejected observations
+are explicit and cannot create acceptance.
+
+RED runs established three missing policy projections, five missing collector
+contracts, two missing selected-driver integrations, one missing passive helper
+observation and one missing offline report seam. An additional RED synthetic
+case exposed a reap-property exception escaping the diagnostic channel; moving
+that observation inside the passive error boundary restored the unchanged
+operational result. Focused suites passed 68 tests after correction. Fixtures
+cover unchanged-position panel closure, stale redraw rejection, ambiguous input,
+closed field/code retention, byte/record bounds, expired close with a reaped
+helper, disposal failure remaining failed, diagnostic faults not changing
+workflow results and diagnostic records rejected as PTY acceptance evidence.
+No Claude, real browser, provider or operator configuration/credential access
+occurred. The 2026-10-08 one-run offline authorization remains consumed.
+
+Independent read-only review found one P2: an exit-wait `subprocess.TimeoutExpired`
+was labelled generic `SUBPROCESS_FAILED`. A real helper/Python fake UI reproduced
+that classification as RED. The diagnostic mapping now reports the closed
+`EXIT_WAIT_DEADLINE` code, while preserving result 2, `exit=failed`, the original
+six-second driver budget and both cleanup paths. The reviewer set aside real
+native/SDK/Skill/browser/provider acceptance and authentication because no grant
+remained; the exact previous native cause because captures were discarded;
+family/root disposal inferred from leader polling because it cannot prove them;
+and pre-existing readiness/expired-close remediation because rules were to stay
+unchanged. Full-package completion was outside the review while its gate ran.
+Those boundaries remain unresolved or independently evidenced, not implicitly
+accepted by this diagnostic extension.
+
+The same reviewer independently executed the narrow exit-timeout regression
+after correction: one test passed in 6.159 seconds, exit 0, and the P2 was closed.
+The final focused set now has 69 passing tests (18 policy, 5 collector,
+12 selected driver, 12 transport, 12 offline safety and 10 wiring). An initial
+package run completed exit 0, but the timeout fix was made after its selected
+driver suite; that run is intermediate evidence, not final-candidate validation.
+
+A fresh final full-package run completed exit 0 with `package validation passed`,
+schema validation and local CI workflow validation. Source code stayed unchanged
+throughout that final run. Optional/capability skips and unavailable WSL
+PowerShell syntax checks remain explicit limitations, not runtime acceptance.
+The final log is retained in the external test-owned runtime directory as
+`p004b-structural-final-20261009-package.log`. Root package version remains
+`0.15.0` unreleased: this test-only extension does not change distributed skill
+behavior or its component versions. CHANGELOG, README and indexed ADR-010 describe
+the diagnostic boundary. No push, PR, remote CI/Security gate or merge was performed;
+the definitive unversioned TODO and native acceptance gates remain unchanged.

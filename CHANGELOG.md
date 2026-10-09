@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added opt-in test-only structural context diagnostics to the offline probe.
+  Closed reason codes, cursor/buffer coordinates, candidate counts and freshness
+  flags remain separate from PTY acceptance events; cell text, hashes, prompts
+  and secrets are excluded. Bounded sampling distinguishes operational timeout,
+  close-IPC failure and observed leader reap without promoting cleanup or native
+  acceptance. Readiness, authorization, deadlines and provider budgets are unchanged.
+
 - Updated the browser component to Nori `1.0.1` / skill metadata `0.1.1`.
   Protected runner workflows now retain the original stored approval deadline
   and share one branded lifetime/fresh clock with both built-in adapters.

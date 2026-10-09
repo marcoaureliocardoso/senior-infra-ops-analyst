@@ -13,6 +13,7 @@ import unittest
 from unittest import mock
 
 from terminal_state_adapter import TerminalState, TerminalStateError
+from terminal_structural_diagnostics import TerminalDiagnostics
 
 
 class HeadlessContextDriverTests(unittest.TestCase):
@@ -23,7 +24,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(prefix='headless-context-test-')
         self.addCleanup(self.temp.cleanup); self.root=Path(self.temp.name)
 
-    def run_case(self,blocked,cleanup_failure=False):
+    def run_case(self,blocked,cleanup_failure=False,diagnostics=None,exit_stalls=False):
         seen=self.root/'input'; fake=self.root/'native.py'
         fake.write_text('import os,select,time,tty\nfrom pathlib import Path\n'
             'tty.setraw(0)\n'
@@ -38,7 +39,8 @@ class HeadlessContextDriverTests(unittest.TestCase):
             ' return bytes(value)\n'
             'if line()!=b"/context\\r": raise SystemExit(1)\n'
             'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 90%\\r\\nAutocompact buffer: 3%\\r\\n❯\\u00a0".encode())\n'
-            'if line()!=b"/exit\\r": raise SystemExit(1)\n',encoding='utf-8')
+            'if line()!=b"/exit\\r": raise SystemExit(1)\n'
+            + ('time.sleep(10)\n' if exit_stalls else ''),encoding='utf-8')
         state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+10)
         original_close=state.close
         def failed_close():
@@ -46,8 +48,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
             raise TerminalStateError('TERMINAL_CLEANUP_FAILED')
         with mock.patch.object(state,'close',side_effect=failed_close if cleanup_failure else original_close):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
-                dialogue='context',terminal_state=state)
-        self.assertEqual(result,2 if blocked or cleanup_failure else 0)
+                dialogue='context',terminal_state=state,
+                **({'terminal_diagnostics':diagnostics} if diagnostics is not None else {}))
+        self.assertEqual(result,2 if blocked or cleanup_failure or exit_stalls else 0)
         data=seen.read_bytes() if seen.exists() else b''
         if blocked: self.assertNotIn(b'/context',data)
         else:
@@ -57,12 +60,81 @@ class HeadlessContextDriverTests(unittest.TestCase):
             if cleanup_failure:
                 self.assertEqual(records[-1],{'kind':'pty-driver','stage':'terminal_cleanup','outcome':'failed'})
             else:
-                self.assertEqual(records[-1]['stage'],'exit'); self.assertEqual(records[-1]['outcome'],'passed')
+                self.assertEqual(records[-1]['stage'],'exit')
+                self.assertEqual(records[-1]['outcome'],'failed' if exit_stalls else 'passed')
         with self.assertRaises(RuntimeError): state.snapshot()
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
     def test_settling_auth_revokes_input_without_slash_command(self): self.run_case(True)
     def test_cleanup_failure_overrides_successful_native_exit(self): self.run_case(False,True)
+
+    def test_separate_diagnostics_preserve_success_and_proof_schema(self):
+        self.assertIn('terminal_diagnostics',inspect.signature(self.driver.drive).parameters,
+            'selected diagnostic interface missing')
+        diagnostics=TerminalDiagnostics(); self.run_case(False,diagnostics=diagnostics)
+        report=diagnostics.report()
+        self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+        self.assertIn({'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+        records=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertTrue(all(set(row)<={'kind','stage','outcome','percent'} for row in records))
+        self.assertNotIn('❯',json.dumps(report))
+
+    def test_expired_close_and_same_position_readiness_are_distinct_diagnostics(self):
+        self.assertIn('terminal_diagnostics',inspect.signature(self.driver.drive).parameters,
+            'selected diagnostic interface missing')
+        seen=self.root/'input'; fake=self.root/'native.py'
+        fake.write_text('import os,time,tty\nfrom pathlib import Path\n'
+            'tty.setraw(0)\n'
+            'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
+            'value=bytearray()\n'
+            'while not value.endswith(b"\\r"): value.extend(os.read(0,1))\n'
+            'Path('+repr(str(seen))+').write_bytes(value)\n'
+            'os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
+            'value=os.read(0,1)\n'
+            'with Path('+repr(str(seen))+').open("ab") as stream: stream.write(value)\n'
+            'os.write(1,b"\\x1b[1;1H\\x1b[2K\\x1b[2;1H\\x1b[2K\\x1b[3;1H\\x1b[2K\\x1b[38;3H")\n'
+            'time.sleep(10)\n',encoding='utf-8')
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+3.8)
+        diagnostics=TerminalDiagnostics()
+        result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',4,self.root/'events',
+            dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics)
+        self.assertEqual(result,2); self.assertEqual(seen.read_bytes(),b'/context\r\x1b')
+        report=diagnostics.report(); self.assertFalse(report['truncated']); self.assertFalse(report['rejected'])
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['reasonCode'],'WAIT_DEADLINE')
+        self.assertEqual(failure['structure']['readiness'],'FRESHNESS_UNPROVEN')
+        self.assertEqual(failure['structure']['cursorY'],37)
+        self.assertFalse(failure['structure']['inputFresh'])
+        self.assertIn({'point':'helper_cleanup','reasonCode':'TERMINAL_DEADLINE_EXCEEDED','leaderReaped':True},report['records'])
+        records=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertIn({'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':16},records)
+        self.assertEqual(records[-1],{'kind':'pty-driver','stage':'terminal_cleanup','outcome':'failed'})
+
+    def test_reap_observation_failure_cannot_change_operational_result(self):
+        diagnostics=TerminalDiagnostics()
+        with mock.patch.object(TerminalState,'helper_reaped',new_callable=mock.PropertyMock,
+                side_effect=RuntimeError('synthetic private exception')):
+            try: self.run_case(False,diagnostics=diagnostics)
+            except RuntimeError: self.fail('passive observation failure escaped the diagnostic channel')
+        self.assertTrue(diagnostics.report()['rejected'])
+        self.assertNotIn('synthetic private exception',json.dumps(diagnostics.report()))
+
+    def test_cleanup_failure_not_promoted_by_reaped_leader(self):
+        diagnostics=TerminalDiagnostics(); self.run_case(False,True,diagnostics)
+        self.assertIn({'point':'helper_cleanup','reasonCode':'TERMINAL_CLEANUP_FAILED','leaderReaped':True},
+            diagnostics.report()['records'])
+
+    def test_exit_wait_timeout_has_closed_operational_reason_without_success(self):
+        diagnostics=TerminalDiagnostics(); started=time.monotonic()
+        self.run_case(False,diagnostics=diagnostics,exit_stalls=True)
+        self.assertLess(time.monotonic()-started,8)
+        report=diagnostics.report()
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['reasonCode'],'EXIT_WAIT_DEADLINE')
+        self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+        self.assertIn({'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+        records=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertNotIn({'kind':'pty-driver','stage':'exit','outcome':'passed'},records)
 
     def test_noncontext_selection_never_starts_native(self):
         marker=self.root/'native-effect'; fake=self.root/'native.py'

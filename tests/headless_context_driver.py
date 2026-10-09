@@ -13,6 +13,13 @@ import time
 
 from terminal_input_policy import TerminalInputPolicy
 from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
+from terminal_structural_diagnostics import TerminalDiagnostics
+
+
+class _ContextFailure(RuntimeError):
+    def __init__(self,reason):
+        self.reason=reason
+        super().__init__(reason)
 
 
 def _terminate(process):
@@ -26,12 +33,24 @@ def _terminate(process):
     process.wait(timeout=.5)
 
 
-def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer):
+def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None):
     policy=TerminalInputPolicy()
     deadline=time.monotonic()+timeout_seconds
     process=None; master=slave=None; capture=None
     current_stage='initial_screen'; total=0; startup_open=True
     result=2; snapshot=None
+
+    def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None):
+        if type(diagnostics) is not TerminalDiagnostics: return
+        try:
+            fields={}
+            if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
+            if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
+            elif reap=='helper': fields['leaderReaped']=state.helper_reaped
+            diagnostics.add(point,reason,**fields)
+        except (OSError,RuntimeError,TypeError,ValueError,AttributeError):
+            # Diagnostic loss cannot create input authority or alter proof events.
+            diagnostics.add('failure','DIAGNOSTIC_REJECTED')
 
     def record(stage,outcome,percent=None):
         if events_path is None: return
@@ -61,15 +80,15 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         while time.monotonic()<deadline:
             pump()
             if predicate(): return
-            if process.poll() is not None: raise RuntimeError('context process exited')
-        raise TimeoutError('context deadline')
+            if process.poll() is not None: raise _ContextFailure('PROCESS_EXITED')
+        raise _ContextFailure('WAIT_DEADLINE')
 
     def settle(seconds=.4):
         quiet=time.monotonic()+seconds
         while time.monotonic()<deadline:
             if pump(min(.1,max(0,quiet-time.monotonic()))): quiet=time.monotonic()+seconds
             elif time.monotonic()>=quiet: return
-        raise TimeoutError('context settle deadline')
+        raise _ContextFailure('SETTLE_DEADLINE')
 
     def text_folded():
         return re.sub('[^a-z]','',policy.screen_text(snapshot).lower())
@@ -97,7 +116,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         # Drain already-available redraws and re-evaluate immediately before IO.
         while pump(0): pass
         auth_clear()
-        if not policy.ready(snapshot): raise RuntimeError('input state unproven')
+        if not policy.ready(snapshot): raise _ContextFailure('INPUT_UNPROVEN')
         writer(master,line.encode('utf-8')+b'\r')
 
     try:
@@ -115,6 +134,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         os.close(slave); slave=None
         capture=capture_path.open('wb',buffering=0)
         wait_for(lambda: total>0); settle(); record('initial_screen','passed')
+        diagnose('initial')
         auth_clear()
         for stage,heading,selection in (
             ('theme_selection','choosethetextstylethatlooksbestwithyourterminal',b''),
@@ -128,20 +148,26 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         current_stage='prompt_ready'
         wait_for(lambda: (auth_clear() is None) and policy.ready(snapshot))
         settle(1); auth_clear()
-        if not policy.ready(snapshot): raise RuntimeError('input changed while settling')
+        if not policy.ready(snapshot): raise _ContextFailure('INPUT_UNPROVEN')
         record(current_stage,'passed'); startup_open=False
+        diagnose('prompt_ready')
         if startup_approval is not None: startup_approval.revoke()
         current_stage='context_inspected'
         # Check current input first, then establish the numeric observation barrier.
         send('/context'); policy.mark_transition(snapshot)
+        diagnose('context_sent')
         wait_for(lambda: policy.context_percent(snapshot) is not None)
         percentage=policy.context_percent(snapshot)
         record(current_stage,'passed',percentage)
+        diagnose('context_numeric')
         if not policy.ready(snapshot):
             auth_clear(); policy.mark_transition(snapshot)
             writer(master,b'\x1b')
+            diagnose('panel_close_sent')
             wait_for(lambda: policy.ready(snapshot)); settle(); auth_clear()
+            diagnose('panel_closed')
         current_stage='exit'; settle(.8); send('/exit')
+        diagnose('exit_ready')
         process.wait(timeout=min(8,max(.2,deadline-time.monotonic())))
         if process.returncode!=0: raise RuntimeError('nonzero context exit')
         state.check_cancelled()
@@ -149,20 +175,32 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     except (OSError,RuntimeError,TimeoutError,subprocess.SubprocessError) as error:
         if isinstance(error,TerminalStateError): current_stage='terminal_state'
         record(current_stage,'failed')
+        reason=(error.reason if isinstance(error,(TerminalStateError,_ContextFailure)) else
+            'EXIT_WAIT_DEADLINE' if isinstance(error,subprocess.TimeoutExpired) else
+            'WAIT_DEADLINE' if isinstance(error,TimeoutError) else
+            'IO_FAILED' if isinstance(error,OSError) else
+            'SUBPROCESS_FAILED' if isinstance(error,subprocess.SubprocessError) else 'RUNTIME_REJECTED')
+        diagnose('failure',reason)
     finally:
         if startup_approval is not None: startup_approval.revoke()
+        native_cleanup='CLEANUP_COMPLETED'
         try:
             if process is not None and state.cancellation is not None:
                 state.cancellation.terminate_child(process)
             else: _terminate(process)
         except (OSError,RuntimeError,subprocess.SubprocessError):
             record('terminal_cleanup','failed'); result=2
+            native_cleanup='NATIVE_CLEANUP_FAILED'
+        diagnose('native_cleanup',native_cleanup,structural=False,reap='native')
         if capture is not None: capture.close()
         for descriptor in (master,slave):
             if descriptor is not None:
                 try: os.close(descriptor)
                 except OSError: pass
+        helper_cleanup='CLEANUP_COMPLETED'
         try: state.close()
-        except TerminalStateError:
+        except TerminalStateError as error:
             record('terminal_cleanup','failed'); result=2
+            helper_cleanup=error.reason
+        diagnose('helper_cleanup',helper_cleanup,structural=False,reap='helper')
     return result

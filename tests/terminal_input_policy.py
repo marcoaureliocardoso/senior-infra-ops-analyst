@@ -141,12 +141,17 @@ class TerminalInputPolicy:
 
     def ready(self, snapshot: TerminalSnapshot) -> bool:
         self._observe(snapshot)
-        if not (self._fresh_input or self._fresh_location) or self._auth(snapshot): return False
+        return self._readiness(snapshot) == 'READY'
+
+    def _readiness(self, snapshot):
+        # Same fail-closed decision tree; diagnostic projection never observes.
+        if not (self._fresh_input or self._fresh_location): return 'FRESHNESS_UNPROVEN'
+        if self._auth(snapshot): return 'AUTHENTICATION_REQUIRED'
         text = self.screen_text(snapshot)
         folded = re.sub('[^a-z]', '', text.lower())
         if any(label in folded for label in
             ('choosethetextstylethatlooksbestwithyourterminal','yesitrustthisfolder')):
-            return False
+            return 'STARTUP_SELECTION'
         candidates = []
         for index,row in enumerate(snapshot.rows):
             line = self._row_text(row)
@@ -155,13 +160,23 @@ class TerminalInputPolicy:
                 if candidate is not None: candidates.append((index,candidate))
                 elif not (re.match(r'^\s*❯\s*/(?:context|exit)\b',line) or
                           re.match(r'^\s*❯\s*P0-04B synthetic context measurement\.',line)):
-                    return False
-        if len(candidates)!=1: return False
+                    return 'UNSUPPORTED_MARKER'
+        if len(candidates)!=1: return 'CANDIDATE_COUNT'
         index, (marker,padding_end,text_end,tail) = candidates[0]
-        if index != snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return False
+        if index != snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return 'CURSOR_ROW_MISMATCH'
         cursor = snapshot.cursorX
-        if tail == 'ready': return cursor == text_end
-        return marker < cursor <= padding_end
+        valid = cursor == text_end if tail == 'ready' else marker < cursor <= padding_end
+        return 'READY' if valid else 'CURSOR_COLUMN_MISMATCH'
+
+    def diagnostic_state(self, snapshot: TerminalSnapshot) -> dict:
+        """Pure structural projection: no cells, hashes, IPC or freshness mutation."""
+        auth=self._auth(snapshot)
+        return {'buffer':snapshot.active,'cursorX':snapshot.cursorX,'cursorY':snapshot.cursorY,
+            'baseY':snapshot.baseY,'viewportY':snapshot.viewportY,
+            'candidateCount':sum(self._candidate(row) is not None for row in snapshot.rows),
+            'inputFresh':self._fresh_input,'contextFresh':self._fresh_context,
+            'locationFresh':self._fresh_location,'authentication':auth.upper() if auth else 'NONE',
+            'readiness':self._readiness(snapshot)}
 
     def context_percent(self, snapshot: TerminalSnapshot) -> int | None:
         self._observe(snapshot)

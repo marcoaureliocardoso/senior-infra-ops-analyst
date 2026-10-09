@@ -35,6 +35,49 @@ class TerminalInputPolicyTests(unittest.TestCase):
                 self.policy.mark_transition(snapshot())
                 self.assertTrue(self.policy.ready(snapshot([text],x=x)))
 
+    def test_structural_projection_does_not_observe_or_refresh_input(self):
+        self.assertTrue(callable(getattr(self.policy,'diagnostic_state',None)),
+            'passive diagnostic projection missing')
+        old=snapshot(['status','❯ '],x=2,y=1)
+        self.policy.mark_transition(old)
+        # Merely sampling a changed input must not latch freshness.
+        changed=snapshot(['status','❯ Try "synthetic secret"'],x=2,y=1)
+        record=self.policy.diagnostic_state(changed)
+        self.assertEqual(record,{'buffer':'normal','cursorX':2,'cursorY':1,'baseY':0,'viewportY':0,
+            'candidateCount':1,'inputFresh':False,'contextFresh':False,'locationFresh':False,
+            'authentication':'NONE','readiness':'FRESHNESS_UNPROVEN'})
+        self.assertNotIn('synthetic secret',str(record))
+        self.assertFalse(self.policy.ready(old))
+
+    def test_structural_rejection_codes_follow_readiness_without_relaxing_it(self):
+        self.assertTrue(callable(getattr(self.policy,'diagnostic_state',None)),
+            'passive diagnostic projection missing')
+        cases=[(['❯ '],2,0,'READY'),(['❯ ','❯ '],2,1,'CANDIDATE_COUNT'),
+            (['❯ Dark','❯ '],2,1,'UNSUPPORTED_MARKER'),
+            (['❯ '],2,1,'CURSOR_ROW_MISMATCH'),(['❯ '],0,0,'CURSOR_COLUMN_MISMATCH'),
+            (['Do you want to use this API key?','❯ '],2,1,'AUTHENTICATION_REQUIRED'),
+            (['Yes, I trust this folder','❯ '],2,1,'STARTUP_SELECTION')]
+        for lines,x,y,reason in cases:
+            with self.subTest(reason=reason):
+                self.policy.mark_transition(snapshot())
+                current=snapshot(lines,x=x,y=y)
+                self.assertTrue(self.policy.ready(snapshot(['❯ '],x=2)))
+                allowed=self.policy.ready(current)
+                self.assertEqual(self.policy.diagnostic_state(current)['readiness'],reason)
+                self.assertEqual(allowed,reason=='READY')
+
+    def test_same_position_panel_close_reports_unproven_freshness(self):
+        self.assertTrue(callable(getattr(self.policy,'diagnostic_state',None)),
+            'passive diagnostic projection missing')
+        panel=snapshot(['Context Usage','Free space: 81%','Autocompact buffer: 3%','❯ '],x=2,y=3)
+        self.policy.mark_transition(panel)
+        restored=snapshot(['','','','❯ '],x=2,y=3)
+        self.assertFalse(self.policy.ready(restored))
+        record=self.policy.diagnostic_state(restored)
+        self.assertEqual(record['readiness'],'FRESHNESS_UNPROVEN')
+        self.assertEqual([record[key] for key in ('inputFresh','contextFresh','locationFresh')],
+            [False,True,False])
+
     def test_cursor_must_be_on_current_visible_candidate(self):
         for state in (snapshot(['❯ '],x=0),snapshot(['❯ '],x=2,y=1),
                       snapshot(['❯ '],x=2,base=50,view=0),

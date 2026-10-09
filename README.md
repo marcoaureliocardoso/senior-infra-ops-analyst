@@ -604,6 +604,8 @@ The terminal dependency is test-only and excluded from Nori staging. The gate
 does not install packages, start Claude, or call a provider. Native offline
 controls are separate explicit probes and require proven Bubblewrap isolation;
 an unavailable namespace test is reported as a skip, never native acceptance.
+Offline context probes include bounded content-free structural diagnostics,
+separate from acceptance evidence; see [ADR-010](docs/architecture/ADR-010-browser-automation-boundary.md).
 
 ## Docs
 
