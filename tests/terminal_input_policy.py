@@ -1,7 +1,18 @@
 """Cell-based acceptance input policy; observations never authorize an effect."""
 import re
 import unicodedata
+from dataclasses import dataclass
 from terminal_state_adapter import TerminalSnapshot
+
+
+@dataclass(frozen=True)
+class InputAnchor:
+    buffer: str
+    row: int
+    cursorX: int
+    baseY: int
+    viewportY: int
+    markerX: int
 
 def parse_context_percent(
     text: str, allow_rendered_row_order: bool = False,
@@ -142,6 +153,25 @@ class TerminalInputPolicy:
     def ready(self, snapshot: TerminalSnapshot) -> bool:
         self._observe(snapshot)
         return self._readiness(snapshot) == 'READY'
+
+    def empty_input_anchor(self, snapshot: TerminalSnapshot) -> InputAnchor | None:
+        """Pure edit eligibility; never observes freshness or authorizes a command."""
+        if self._auth(snapshot): return None
+        folded=re.sub('[^a-z]','',self.screen_text(snapshot).lower())
+        if any(label in folded for label in (
+                'choosethetextstylethatlooksbestwithyourterminal','yesitrustthisfolder',
+                'pressesctoclose','pressescapetoclose')): return None
+        candidates=[]
+        for index,row in enumerate(snapshot.rows):
+            if not re.match(r'^\s*❯',self._row_text(row)): continue
+            candidate=self._candidate(row)
+            if candidate is None or candidate[3]: return None
+            candidates.append((index,candidate))
+        if len(candidates)!=1: return None
+        index,(marker,padding_end,_text_end,_tail)=candidates[0]
+        if (index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+                or not marker<snapshot.cursorX<=padding_end or snapshot.cursorX+16>120): return None
+        return InputAnchor(snapshot.active,index,snapshot.cursorX,snapshot.baseY,snapshot.viewportY,marker)
 
     def _readiness(self, snapshot):
         # Same fail-closed decision tree; diagnostic projection never observes.

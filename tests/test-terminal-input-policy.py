@@ -1,5 +1,6 @@
 """Current-input semantic tests over explicit cell fixtures, without a model."""
 import importlib.util
+import dataclasses
 from pathlib import Path
 import unittest
 
@@ -34,6 +35,58 @@ class TerminalInputPolicyTests(unittest.TestCase):
             with self.subTest(x=x):
                 self.policy.mark_transition(snapshot())
                 self.assertTrue(self.policy.ready(snapshot([text],x=x)))
+
+    def require_active_anchor(self):
+        self.assertTrue(callable(getattr(self.policy,'empty_input_anchor',None)),
+            'pure empty-input eligibility missing')
+
+    def test_active_anchor_rejects_suggestion_without_changing_passive_ready(self):
+        self.require_active_anchor()
+        for text,x in [('❯ Try "fix tests"',2),('❯ ready',7)]:
+            self.policy.mark_transition(snapshot())
+            current=snapshot([text],x=x)
+            self.assertIsNone(self.policy.empty_input_anchor(current))
+            self.assertTrue(self.policy.ready(current))
+
+    def test_active_anchor_does_not_observe_stale_input(self):
+        self.require_active_anchor()
+        current=snapshot(['❯\u00a0'],x=2)
+        self.policy.mark_transition(current)
+        before=self.policy.diagnostic_state(current)
+        anchor=self.policy.empty_input_anchor(current)
+        self.assertEqual(vars(anchor),{'buffer':'normal','row':0,'cursorX':2,
+            'baseY':0,'viewportY':0,'markerX':0})
+        self.assertEqual(self.policy.diagnostic_state(current),before)
+        self.assertFalse(self.policy.ready(current))
+        with self.assertRaises(dataclasses.FrozenInstanceError): anchor.row=1
+
+    def test_active_anchor_pinned_alternate_and_supported_padding(self):
+        self.require_active_anchor()
+        for padding in (' ','\t','\u00a0'):
+            current=snapshot(['']*37+['❯'+padding],x=2,y=37,active='alternate')
+            anchor=self.policy.empty_input_anchor(current)
+            self.assertEqual((anchor.buffer,anchor.row,anchor.cursorX),('alternate',37,2))
+
+    def test_active_anchor_rejects_draft_history_auth_menus_and_modal(self):
+        self.require_active_anchor()
+        for lines in (['❯ /context'],['❯ existing draft'],['❯ /context','❯ '],
+                ['❯ ','❯ '],['❯ Dark','❯ '],['❯ 1. Yes','❯ '],
+                ['Do you want to use this API key?','❯ '],
+                ['How would you like to log in?','❯ '],
+                ['Yes, I trust this folder','❯ '],
+                ['Choose the text style that looks best with your terminal','❯ '],
+                ['Press Esc to close','❯ '],['Press Escape to close','❯ ']):
+            with self.subTest(count=len(lines)):
+                self.assertIsNone(self.policy.empty_input_anchor(snapshot(lines,x=2,y=len(lines)-1)))
+
+    def test_active_anchor_rejects_cursor_invisible_and_space_overflow(self):
+        self.require_active_anchor()
+        for current in (snapshot(['❯ '],x=0),snapshot(['❯ '],x=2,y=1),
+                snapshot(['❯ '],x=2,base=50),snapshot(['❯\u2003'],x=2),
+                snapshot(['❯\u200b'],x=2),snapshot(['界❯ '],x=4),
+                snapshot([' '*103+'❯ '],x=105)):
+            self.assertIsNone(self.policy.empty_input_anchor(current))
+        self.assertIsNotNone(self.policy.empty_input_anchor(snapshot([' '*102+'❯ '],x=104)))
 
     def test_structural_projection_does_not_observe_or_refresh_input(self):
         self.assertTrue(callable(getattr(self.policy,'diagnostic_state',None)),
