@@ -4114,3 +4114,29 @@ fence for an already-consumed fixed exit command. Their costs are bookkeeping
 path failure or stricter rejection of unavailable/unusual targets, not expanded
 command/credential authority. Root/component versions remain unchanged because
 the addition is test-only and excluded from Nori staging.
+
+One fresh whole-branch reviewer on the most capable available review model
+independently passed 59 policy/protocol/driver tests at immutable `ad74723` and
+identified one Important/P2: observed trust/menu state could be forgotten before
+challenge creation or after proof consumption. Two real fake-PTY regressions
+reproduced success where the dialogue should stop: before numeric context and
+between partial exit writes. A third pure protocol regression reproduced a
+consumed proof ignoring an observed menu. All three were RED before the fix.
+The active post-startup controller now terminates on every observed forbidden
+auth/menu frame, independent of challenge phase; protocol observation also
+revokes consumed state. Passive callers and startup selections are unchanged.
+The three regressions passed GREEN; the complete corrected-candidate gates are
+rerun rather than reusing the successful pre-fix package run.
+
+No other reviewer finding was reported. The author retained these explicit
+review boundaries: no real fullscreen/key interpretation/history/resume/Skill
+experiment; no authenticated/provider/browser acceptance; inherited adapters,
+stores/workflows/command-guard/lifetime history not exhaustively re-reviewed;
+historical packaging/roles/config/CI/evidence not newly audited; no exhaustive
+supervisor/platform audit; unsupported repaint/layout/menu shapes stay blocked;
+trusted Python mutation/clock/issuer/snapshot seams are not an adversarial
+sandbox; intermediate states wholly overwritten inside one feed are not observed
+snapshots; and remote CI/Security/delivery are not certified by this local review.
+The risk is missing native/historical/platform assurance or safe false-negative
+blocking, not permission to bypass a gate. Rulings and the review scope are
+reported to the operator. No second review or native experiment was dispatched.

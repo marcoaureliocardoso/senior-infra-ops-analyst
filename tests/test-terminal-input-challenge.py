@@ -152,6 +152,12 @@ class InputChallengeTests(unittest.TestCase):
                 object() if which=='transition' else transition))
             self.assertFalse(c.consume_exit(proof,empty,3,owner,transition))
 
+    def test_consumed_proof_still_revokes_observed_menu_without_recovery(self):
+        c,proof,owner,transition,empty=self.proven()
+        self.assertTrue(c.consume_exit(proof,empty,3,owner,transition))
+        self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.observe(snapshot(extra=((1,'Yes, I trust this folder'),)),4))
+        self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.observe(empty,5))
+
     def test_deadline_fences_each_next_action(self):
         for phase in ('type','echo','clear','proof','exit'):
             c,owner,transition,empty=self.fixture_challenge()

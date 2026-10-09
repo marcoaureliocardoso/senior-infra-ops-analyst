@@ -96,6 +96,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if authentication and not startup_open:
             current_stage=authentication
             raise RuntimeError('late authentication')
+        if input_probe_scope is not None and not startup_open and policy.active_input_forbidden(snapshot):
+            if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
+            raise InputProofError('INPUT_PROBE_REVOKED')
         if probe is not None: probe.observe(snapshot,frame)
         return True
 

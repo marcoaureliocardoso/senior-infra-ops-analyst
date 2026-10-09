@@ -166,6 +166,7 @@ class NonceInputChallenge:
 
     def observe(self,snapshot,frame):
         self._check(frame)
+        if self._policy.active_input_forbidden(snapshot): self._fail('INPUT_PROBE_REVOKED')
         if self.phase=='CONSUMED': return self.phase
         if self.phase=='ELIGIBLE':
             if self._policy.empty_input_anchor(snapshot)!=self._anchor: self._fail('INPUT_PROBE_INELIGIBLE')

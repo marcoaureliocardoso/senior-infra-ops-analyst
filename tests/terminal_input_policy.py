@@ -156,11 +156,7 @@ class TerminalInputPolicy:
 
     def empty_input_anchor(self, snapshot: TerminalSnapshot) -> InputAnchor | None:
         """Pure edit eligibility; never observes freshness or authorizes a command."""
-        if self._auth(snapshot): return None
-        folded=re.sub('[^a-z]','',self.screen_text(snapshot).lower())
-        if any(label in folded for label in (
-                'choosethetextstylethatlooksbestwithyourterminal','yesitrustthisfolder',
-                'pressesctoclose','pressescapetoclose')): return None
+        if self.active_input_forbidden(snapshot): return None
         candidates=[]
         for index,row in enumerate(snapshot.rows):
             if not re.match(r'^\s*❯',self._row_text(row)): continue
@@ -172,6 +168,14 @@ class TerminalInputPolicy:
         if (index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
                 or not marker<snapshot.cursorX<=padding_end or snapshot.cursorX+16>120): return None
         return InputAnchor(snapshot.active,index,snapshot.cursorX,snapshot.baseY,snapshot.viewportY,marker)
+
+    def active_input_forbidden(self,snapshot: TerminalSnapshot) -> bool:
+        """Pure auth/menu observation, even when input ownership is unavailable."""
+        if self._auth(snapshot): return True
+        folded=re.sub('[^a-z]','',self.screen_text(snapshot).lower())
+        return any(label in folded for label in (
+            'choosethetextstylethatlooksbestwithyourterminal','yesitrustthisfolder',
+            'pressesctoclose','pressescapetoclose'))
 
     def _readiness(self, snapshot):
         # Same fail-closed decision tree; diagnostic projection never observes.

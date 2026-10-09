@@ -73,6 +73,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
+        menu_ready=self.root/'menu-ready'; menu_seen=self.root/'menu-seen'; menu_erased=self.root/'menu-erased'
         fake.write_text('import os,time,tty\nfrom pathlib import Path\n'
             'tty.setraw(0)\n'
             'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -85,7 +86,8 @@ class HeadlessContextDriverTests(unittest.TestCase):
             '  data.extend(value)\n'
             ' return bytes(data)\n'
             'if read(9)!=b"/context\\r": raise SystemExit(1)\n'
-            'os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
+            + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
+            'os.write(1,b"\\x1b[1;1H\\x1b[2KContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
             + ('os.write(1,b\'Try "fix tests"\\x1b[38;3H\')\n' if mode=='suggestion' else '') +
             'marker=read(16)\n'
             'os.write(1,b"\\x1b[38;3H"+marker)\n'
@@ -93,21 +95,41 @@ class HeadlessContextDriverTests(unittest.TestCase):
             'if read(1)!=b"\\x15": raise SystemExit(1)\n'
             + ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n' if mode!='uncleared' else '') +
             ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n' if mode=='postclear-menu' else '') +
-            'if read(6)!=b"/exit\\r": raise SystemExit(1)\n',encoding='utf-8')
+            ('if read(2)!=b"/e": raise SystemExit(1)\n'
+                'os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n'
+                'Path('+repr(str(menu_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
+                'os.write(1,b"\\x1b[1;1H\\x1b[2KContext Usage\\x1b[38;3H")\n'
+                'Path('+repr(str(menu_erased))+').touch()\n'
+                'if read(4)!=b"xit\\r": raise SystemExit(1)\n' if mode=='partial-exit-menu' else
+                'if read(6)!=b"/exit\\r": raise SystemExit(1)\n'),encoding='utf-8')
         state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+12)
         with mock.patch.object(input_challenge,'audit_offline_namespace',return_value={
                 'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
             scope=input_challenge.create_offline_probe_issuer().issue_scope(state,object())
         diagnostics=TerminalDiagnostics()
-        original=os.write; failed_fd=None
+        original=os.write; failed_fd=None; original_snapshot=state.snapshot
+        def observed_snapshot():
+            value=original_snapshot()
+            if mode=='partial-exit-menu' and 'Yes, I trust this folder' in '\n'.join(
+                    ''.join(cell.text for cell in row) for row in value.rows):
+                menu_seen.touch()
+                until=time.monotonic()+1
+                while not menu_erased.exists() and time.monotonic()<until: time.sleep(.005)
+            return value
         def partial_writer(fd,payload):
             nonlocal failed_fd
-            if os.isatty(fd) and len(payload)==16 and all(char in b'0123456789abcdef' for char in payload):
+            if mode=='partial-exit-menu' and os.isatty(fd) and bytes(payload)==b'/exit\r':
+                count=original(fd,payload[:2]); until=time.monotonic()+1
+                while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
+                return count
+            if fault and os.isatty(fd) and len(payload)==16 and all(char in b'0123456789abcdef' for char in payload):
                 failed_fd=fd; return original(fd,payload[:8])
             if fd==failed_fd: raise OSError('synthetic write failed')
             return original(fd,payload)
         with mock.patch.dict(os.environ,{'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'},clear=True),\
-                mock.patch.object(os,'write',side_effect=partial_writer if fault else original):
+                mock.patch.object(state,'snapshot',side_effect=observed_snapshot),\
+                mock.patch.object(os,'write',side_effect=partial_writer if fault or mode=='partial-exit-menu' else original):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope)
         data=seen.read_bytes() if seen.exists() else b''
@@ -117,7 +139,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         report=diagnostics.report()
         self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
         self.assertTrue(state.helper_reaped)
-        if mode=='suggestion': self.assertEqual(data,b'/context\r')
+        if mode in ('suggestion','pre-menu'): self.assertEqual(data,b'/context\r')
         elif fault:
             self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
         else:
@@ -127,6 +149,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             elif mode=='auth': self.assertEqual(data[25:],b'')
             elif mode=='uncleared': self.assertEqual(data[25:],b'\x15')
             elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
+            elif mode=='partial-exit-menu': self.assertEqual(data[25:],b'\x15/e')
         return report
 
     def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
@@ -135,6 +158,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
     def test_missing_clear_ack_prevents_exit(self): self.run_pinned_probe('uncleared')
     def test_partial_marker_write_failure_has_no_second_edit(self): self.run_pinned_probe(fault=True)
     def test_menu_after_clear_prevents_exit(self): self.run_pinned_probe('postclear-menu')
+    def test_observed_menu_before_numeric_never_types_marker(self): self.run_pinned_probe('pre-menu')
+    def test_observed_menu_during_partial_exit_never_sends_remaining_bytes(self):
+        self.run_pinned_probe('partial-exit-menu')
 
     def test_serialized_scope_rejects_before_native_startup(self):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
