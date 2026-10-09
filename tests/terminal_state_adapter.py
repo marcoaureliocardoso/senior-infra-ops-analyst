@@ -223,6 +223,11 @@ class TerminalState:
         if self.cancellation is not None: self.cancellation.check()
 
     @property
+    def operation_deadline(self)->float:
+        """Original transport budget; observing it never extends the lifetime."""
+        return self._deadline
+
+    @property
     def helper_reaped(self)->bool:
         """Observe only the owned helper leader; no IPC or family-cleanup proof."""
         return self._process is not None and self._process.poll() is not None

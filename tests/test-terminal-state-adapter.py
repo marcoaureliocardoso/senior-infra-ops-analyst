@@ -70,6 +70,14 @@ class TerminalStateTests(unittest.TestCase):
         with self.assertRaises(dataclasses.FrozenInstanceError):
             snapshot.cursorX=1
 
+    def test_original_deadline_view_is_passive_and_read_only(self):
+        state=self.state()
+        self.assertTrue(hasattr(type(state),'operation_deadline'),'original deadline view missing')
+        request_id=state._id
+        self.assertEqual(state.operation_deadline,state._deadline)
+        self.assertEqual(state._id,request_id)
+        with self.assertRaises(AttributeError): state.operation_deadline=time.monotonic()+100
+
     def test_real_engine_restore_and_reply_counts(self):
         state = self.state()
         state.feed(b'MAIN\x1b[?1049hALT\x1b[c\x1b[6n')
