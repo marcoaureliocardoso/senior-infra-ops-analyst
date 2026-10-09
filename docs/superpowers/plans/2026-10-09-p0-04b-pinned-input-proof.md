@@ -72,7 +72,7 @@ baseY: int, viewportY: int, markerX: int)` and
 The method is pure: no `_observe`, freshness mutation, IPC, proof or IO authority.
 Existing `ready`, `context_percent` and diagnostic contracts remain unchanged.
 
-- [ ] **Step 1 — Write RED eligibility tests.** Reuse the file's existing `snapshot`
+- [x] **Step 1 — Write RED eligibility tests.** Reuse the file's existing `snapshot`
   fixture. Pin supported empty/NBSP cells and reject visible draft/suggestion,
   multiple/current-row/cursor errors, invisible padding, selector/auth/modal
   indicators and insufficient space for the marker. Include Review Focus 1.
@@ -90,14 +90,14 @@ def test_active_anchor_does_not_observe_stale_input(self):
     self.assertFalse(self.policy.ready(current))
 ```
 
-- [ ] **Step 2 — Observe RED.** Run `& wsl.exe @p004bWsl python3 tests/test-terminal-input-policy.py`; new assertions fail for absent eligibility while existing tests retain their result. Do not accept a typo/import crash as the RED behavior.
-- [ ] **Step 3 — Implement the exact pure interface.** Share structural predicates
+- [x] **Step 2 — Observe RED.** Run `& wsl.exe @p004bWsl python3 tests/test-terminal-input-policy.py`; new assertions fail for absent eligibility while existing tests retain their result. Do not accept a typo/import crash as the RED behavior.
+- [x] **Step 3 — Implement the exact pure interface.** Share structural predicates
   with existing policy where useful, keeping its fail-closed readiness order/reasons.
   Require an empty current supported candidate, all auth/menu/ambiguity negatives
   and `cursorX + 16 <= 120`. Do not broaden `_candidate` or treat arbitrary status
   as input freshness.
-- [ ] **Step 4 — Verify GREEN.** Repeat Step 2; expect `OK`, no failures, all old passive fixtures unchanged. Add explicit empty/draft/history/selector/wide-cell cases that would fail if the new method merely skipped freshness and returned any candidate.
-- [ ] **Step 5 — Commit this unit only.** Stage its two files with `git @p004bGit add -- ...`, check `git @p004bGit diff --cached --check`, then commit `test: separate empty input eligibility from freshness`.
+- [x] **Step 4 — Verify GREEN.** Repeat Step 2; expect `OK`, no failures, all old passive fixtures unchanged. Add explicit empty/draft/history/selector/wide-cell cases that would fail if the new method merely skipped freshness and returned any candidate.
+- [x] **Step 5 — Commit this unit only.** Stage its two files with `git @p004bGit add -- ...`, check `git @p004bGit diff --cached --check`, then commit `test: separate empty input eligibility from freshness`.
 
 ### Task 2: Private Scope, Echo/Clear Protocol and Consumable Proof
 
@@ -131,7 +131,7 @@ Only the exact issued proof object is consumable, not a reconstructed/copy objec
 samples the internal monotonic clock; callers cannot supply a stale timestamp.
 Expose only closed phase/reason state, never marker/owner details in `repr` or diagnostics.
 
-- [ ] **Step 1 — Write RED unit/protocol tests.** Add a complete 40x120 cell fixture
+- [x] **Step 1 — Write RED unit/protocol tests.** Add a complete 40x120 cell fixture
   locally in the new test file (including valid reply-count fields). Use real
   policy/snapshots and a narrowly mocked OS-audit boundary only for unit isolation;
   separately require actual namespace verification in Task 3. Assert the state
@@ -160,8 +160,8 @@ def test_exact_echo_clear_mints_one_exit_proof(self):
     self.assertFalse(challenge.consume_exit(proof, empty, 3, owner, transition))
 ```
 
-- [ ] **Step 2 — Observe RED.** Run `& wsl.exe @p004bWsl python3 tests/test-terminal-input-challenge.py` and the new deadline-view test; absent interfaces must fail explicitly, not silently skip or execute Claude.
-- [ ] **Step 3 — Implement the exact interfaces/state machine.** Generate
+- [x] **Step 2 — Observe RED.** Run `& wsl.exe @p004bWsl python3 tests/test-terminal-input-challenge.py` and the new deadline-view test; absent interfaces must fail explicitly, not silently skip or execute Claude.
+- [x] **Step 3 — Implement the exact interfaces/state machine.** Generate
   `secrets.token_hex(8)` internally. Require strictly post-write feed generations
   for echo and clear, exact anchored cells/cursor, bounded partial prefix handling
   and current auth/menu checks. Clear only the owned complete marker using one
@@ -169,7 +169,7 @@ def test_exact_echo_clear_mints_one_exit_proof(self):
   or observed forbidden transition becomes terminal failure. Proof construction/
   consumption is sealed and single-use; erase the marker reference after completion/
   revocation. Do not set passive freshness merely because the protocol exists.
-- [ ] **Step 4 — Verify protocol GREEN and transport regressions.** Run Step 2 plus
+- [x] **Step 4 — Verify protocol GREEN and transport regressions.** Run Step 2 plus
   `python3 tests/test-terminal-state-adapter.py` and
   `python3 tests/test-terminal-input-policy.py` through the prefix. Pin literal
   rejection outcomes for missing/extra/wrong-row/inactive-buffer echo, old-frame
@@ -177,7 +177,7 @@ def test_exact_echo_clear_mints_one_exit_proof(self):
   deadline and expiry at each phase. An auth/menu frame followed by a valid-looking
   frame must remain revoked. Assert public error/repr/report outputs contain no
   marker or raw cells.
-- [ ] **Step 5 — Commit this unit only.** Stage the module, its tests, adapter/tests and suite registration; cached whitespace check; commit `test: add isolated one-shot input ownership protocol`.
+- [x] **Step 5 — Commit this unit only.** Stage the module, its tests, adapter/tests and suite registration; cached whitespace check; commit `test: add isolated one-shot input ownership protocol`.
 
 ### Task 3: Offline Controller Integration and Content-Free Diagnostics
 
@@ -195,7 +195,7 @@ shared actual namespace audit; each offline context phase issues a fresh scope
 from an audited issuer with a private `run_owner = object()`. No new CLI flag,
 environment switch or paid-wrapper activation is added.
 
-- [ ] **Step 1 — Write RED real-component integration tests.** Extend the current
+- [x] **Step 1 — Write RED real-component integration tests.** Extend the current
   Python fake UI to keep input at alternate row 37, render numeric context above
   it, echo typed marker at that same input, clear on `0x15`, and exit naturally
   only on `/exit\r`. Use real PTY/helper/policy/protocol; monkeypatch only the
@@ -212,26 +212,26 @@ self.assertEqual(result, 0)
 self.assertNotIn(b'\x1b', b''.join(ledger))
 ```
 
-- [ ] **Step 2 — Observe RED.** Run `python3 tests/test-headless-context-driver.py` through the prefix; the pinned-input success must fail with the old behavior. Negative tests must distinguish zero edits from a partially written marker; no fake ledger is retained outside its temporary root.
-- [ ] **Step 3 — Implement the selected active controller.** Count `frame` after
+- [x] **Step 2 — Observe RED.** Run `python3 tests/test-headless-context-driver.py` through the prefix; the pinned-input success must fail with the old behavior. Negative tests must distinguish zero edits from a partially written marker; no fake ledger is retained outside its temporary root.
+- [x] **Step 3 — Implement the selected active controller.** Count `frame` after
   each successful feed/snapshot; feed every subsequent frame to the current
   challenge so transient auth/menu invalidation latches. Create
   `transition_owner = object()` at the owned `/context` transition. Require
   completed/revoked startup consent and fresh valid numeric context before
   constructing the challenge. The active branch never uses blind Escape or fallback.
-- [ ] **Step 4 — Fence concrete writes.** Drain pending output, check cancellation/
+- [x] **Step 4 — Fence concrete writes.** Drain pending output, check cancellation/
   deadline and phase-specific predicates before marker and clear. Handle partial
   PTY writes against the same deadline; if any prefix was sent before IO failure,
   invalidate and terminate without another edit. Do not use an unbounded write
   loop for challenge-backed `/exit`; recheck the original deadline immediately
   before each remaining write. Keep passive callers' existing IO behavior unchanged.
-- [ ] **Step 5 — Integrate proof-backed `/exit` only.** Preserve settle intervals,
+- [x] **Step 5 — Integrate proof-backed `/exit` only.** Preserve settle intervals,
   drain and current-state checks. The private proof can override only the missing-
   freshness branch for that fixed command, after successful clear; all other
   predicates must still pass. Invalidate on new owner/transition, auth/menu,
   malformed state, cancellation, timeout or child exit. Failure must retain
   result 2 and failed proof events, not become successful exit evidence.
-- [ ] **Step 6 — Wire offline scope and bounded diagnostics.** Mount the new
+- [x] **Step 6 — Wire offline scope and bounded diagnostics.** Mount the new
   challenge module in the existing namespace list. Create the issuer after actual
   `_audit` success; mint each phase's scope with its own original `TerminalState`
   deadline. Recheck isolation at issuance; preserve `_audit`'s existing ValueError/
@@ -240,7 +240,7 @@ self.assertNotIn(b'\x1b', b''.join(ledger))
   `input_probe_echo`, `input_probe_cleared` and Task 2's closed error codes; map
   typed errors explicitly in the driver, never arbitrary exception text. No raw
   marker/echo, IDs or new acceptance fields; keep all diagnostic bounds/fault isolation.
-- [ ] **Step 7 — Verify GREEN and hostile cases.** Run the four touched test files
+- [x] **Step 7 — Verify GREEN and hostile cases.** Run the four touched test files
   explicitly (`test-headless-context-driver.py`, `test-offline-terminal-resume-safety.py`,
   `test-terminal-structural-diagnostics.py`, `test-terminal-wiring.py`) plus Task 2's
   suite. Assert no edit before scope/startup/numeric/empty gates; no clear after
@@ -248,14 +248,14 @@ self.assertNotIn(b'\x1b', b''.join(ledger))
   failure; no `/exit` after expired settle, transient auth or partial write failure.
   Test forged dictionaries/environment activation rejection before startup. Test
   four maximal phase reports still fit 16 KiB and cannot be parsed as PTY proof events.
-- [ ] **Step 8 — Verify the actual namespace seam without Claude.** Run
+- [x] **Step 8 — Verify the actual namespace seam without Claude.** Run
   `python3 tests/test-offline-terminal-resume-safety.py` through the prefix,
   extending its audit-only Bubblewrap fixture to exercise the real issuer with a
   private test-owned terminal owner, no Claude binary mount and no credentials/
   config access. Assert the factory rejects a host/non-isolated namespace and
   actual valid isolation issues one non-serializable scope. An unavailable
   namespace is a skip/blocked capability, not native acceptance.
-- [ ] **Step 9 — Commit this integrated unit only.** Stage its explicit implementation/tests, cached whitespace check, commit `test: wire pinned input proof into offline context controls`. Keep the pre-existing notes edit out of this commit.
+- [x] **Step 9 — Commit this integrated unit only.** Stage its explicit implementation/tests, cached whitespace check, commit `test: wire pinned input proof into offline context controls`. Keep the pre-existing notes edit out of this commit.
 
 ### Task 4: Final Verification, Architecture Record and Authorization Handoff
 
@@ -268,35 +268,35 @@ unless an actual packaging change is discovered and separately justified.
 validators; produce factual evidence, rollback guidance and exact final commit.
 No execution grant is produced by documentation or tests.
 
-- [ ] **Step 1 — Record the new enforced boundary.** Update indexed ADR-010 with
+- [x] **Step 1 — Record the new enforced boundary.** Update indexed ADR-010 with
   active offline selection, eligibility versus proof, one-shot bindings, no Enter,
   guarded clear, residual shortcut risk, failure/cleanup and rollback. Link spec/
   plan from the existing ADR index. Add a concise README reference and unreleased
   CHANGELOG entry without claiming native/provider acceptance. Preserve the entire
   prior notes edit while adding actual RED/GREEN and final evidence.
-- [ ] **Step 2 — Run focused verification on frozen code.** Run policy, protocol,
+- [x] **Step 2 — Run focused verification on frozen code.** Run policy, protocol,
   transport, selected driver, offline safety, wiring, structural diagnostics,
   cancellation and signal suites explicitly through the prefix. Expect `OK`, zero
   failures; record named skips/limitations and mutation-sensitive negatives. Do
   not run `--run-offline`, installed Claude `--version`, smoke `--run-live` or provider requests.
-- [ ] **Step 3 — Run the complete package gate.** Run
+- [x] **Step 3 — Run the complete package gate.** Run
   `& wsl.exe @p004bWsl bash tests/validate-package.sh`; expect exit 0 and
   `package validation passed`, including schema/local workflow validation and
   staging contracts. Preserve bounded progress updates; use a test-owned log if
   output is large. Self-tests/fakes are not native acceptance. WSL PowerShell/
   optional skips remain explicit.
-- [ ] **Step 4 — Obtain the method-selected independent review.** Provide spec,
+- [x] **Step 4 — Obtain the method-selected independent review.** Provide spec,
   plan, immutable candidate range/patch and actual results. Review must be read-only,
   not invoke Claude/provider, and explicitly state declined-to-judge boundaries.
   Fix reportable findings with RED/GREEN, then rerun relevant suites and the complete
   package gate on unchanged final code; a pre-fix gate is not final verification.
-- [ ] **Step 5 — Validate documentation and commit.** Run
+- [x] **Step 5 — Validate documentation and commit.** Run
   `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py`
   through the prefix, plus `git @p004bGit diff --check`. Review the notes diff for
   overlap before staging only this task's owned files; commit
   `docs: record isolated input proof validation and residual gates`. Confirm final
   HEAD and status, identifying any preserved unrelated edits.
-- [ ] **Step 6 — Stop at the execution gate.** Report implementation/review/package
+- [x] **Step 6 — Stop at the execution gate.** Report implementation/review/package
   evidence and propose a new exact-final-commit offline grant explicitly covering
   one unsubmitted marker/clear per context phase, synthetic-key consent, disposable
   history/raw cleanup, structural-only retention, two cases, 165 seconds and no retry.
@@ -311,9 +311,9 @@ and review/authorization gates are Task 4. The five Review Focus cases are pinne
 to their owning test steps. All task interfaces use the same names and types;
 the plan leaves native acceptance and future authenticated activation unclaimed.
 
-Status: plan written; operator review and execution-method choice pending.
-Recommended method: Native inline implementation, because four sequential tasks
-share the same scope/proof/controller contract; use one fresh whole-branch review
-after integration. Subagent-driven execution remains an alternative with a fresh
-implementer/reviewer per task and a final whole-branch review. Do not implement
-before the operator approves this plan and selects/confirms the method.
+Status: operator-approved Native execution completed; source and corrected package gates passed. Native experiment authorization remains pending.
+Method selected: Native inline implementation with one fresh final reviewer.
+The single Important/P2 was corrected with three RED/GREEN regressions and a
+fresh complete package run. No second review or native/provider experiment was
+performed. Preserve this branch/worktree until the independent native and
+remote delivery gates are explicitly satisfied.

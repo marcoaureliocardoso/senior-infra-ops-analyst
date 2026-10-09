@@ -4140,3 +4140,18 @@ snapshots; and remote CI/Security/delivery are not certified by this local revie
 The risk is missing native/historical/platform assurance or safe false-negative
 blocking, not permission to bypass a gate. Rulings and the review scope are
 reported to the operator. No second review or native experiment was dispatched.
+
+The corrected source at `e03bc343e277f3d695dc5a24562dcab7d6626cad` passed a
+fresh complete package run, exit 0, with `package validation passed`, schema and
+local CI workflow validation. Code remained unchanged throughout this run.
+The corrected focused suite passed 105 tests: 23 policy, 17 protocol, 13 transport,
+22 selected-driver, 13 namespace/audit/safety, 6 diagnostics and 11 wiring.
+Cancellation/signal regressions also passed; optional/capability and WSL
+PowerShell skips remain limitations, not native acceptance. The final log is
+retained externally as `p004b-pinned-input-e03bc34-20261009-package.log`.
+The old successful pre-fix log is not substituted for this result.
+
+The delivery ruling retains the current branch/worktree and stops at a new
+exact-final-commit offline grant: the approved plan excludes push/PR/merge,
+authenticated activation and any automatic repeat. Scope-changing native
+marker/clear interaction must be explicitly covered by that new grant.
