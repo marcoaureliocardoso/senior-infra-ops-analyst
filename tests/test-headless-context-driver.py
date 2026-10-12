@@ -154,6 +154,17 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
     def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
     def test_probe_does_not_overwrite_visible_suggestion(self): self.run_pinned_probe('suggestion')
+
+    def test_ineligibility_subcode_reaches_diagnostics_without_changing_proof_events(self):
+        report=self.run_pinned_probe('suggestion')
+        failed=[row for row in report['records'] if row['point']=='failure']
+        self.assertEqual(len(failed),1)
+        self.assertEqual(failed[0]['reasonCode'],'INPUT_PROBE_INELIGIBLE')
+        self.assertEqual(failed[0].get('inputEligibility'),'NONEMPTY_INPUT')
+        self.assertNotIn('fix tests',json.dumps(report))
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
+        self.assertTrue(all(set(row)<={'kind','stage','outcome','percent'} for row in events))
     def test_auth_after_echo_prevents_clear_and_exit(self): self.run_pinned_probe('auth')
     def test_missing_clear_ack_prevents_exit(self): self.run_pinned_probe('uncleared')
     def test_partial_marker_write_failure_has_no_second_edit(self): self.run_pinned_probe(fault=True)

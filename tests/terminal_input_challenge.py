@@ -8,7 +8,7 @@ import socket
 import time
 import weakref
 
-from terminal_input_policy import TerminalInputPolicy
+from terminal_input_policy import TerminalInputPolicy, INPUT_ELIGIBILITY_REJECTIONS
 from terminal_state_adapter import TerminalState, TerminalSnapshot, MAX_CAPTURE
 
 REASONS=frozenset('INPUT_PROBE_'+suffix for suffix in (
@@ -21,8 +21,10 @@ _SCOPES=weakref.WeakKeyDictionary()
 
 
 class InputProofError(RuntimeError):
-    def __init__(self,reason):
+    def __init__(self,reason,input_eligibility=None):
         self.reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
+        self.input_eligibility=(input_eligibility if self.reason=='INPUT_PROBE_INELIGIBLE'
+            and type(input_eligibility) is str and input_eligibility in INPUT_ELIGIBILITY_REJECTIONS else None)
         super().__init__(self.reason)
 
 
@@ -107,8 +109,8 @@ class NonceInputChallenge:
         if (type(frame) is not int or not 0<=frame<=MAX_CAPTURE
                 or not isinstance(policy,TerminalInputPolicy)):
             self._fail('INPUT_PROBE_STATE_REJECTED')
-        self._anchor=policy.empty_input_anchor(initial)
-        if self._anchor is None: self._fail('INPUT_PROBE_INELIGIBLE')
+        self._anchor,eligibility=policy.empty_input_evaluation(initial)
+        if self._anchor is None: self._fail('INPUT_PROBE_INELIGIBLE',eligibility)
         self._row=initial.rows[self._anchor.row]
 
     def __repr__(self): return '<NonceInputChallenge>'
@@ -117,8 +119,13 @@ class NonceInputChallenge:
         self.phase='REVOKED'; self._marker=None; self._proof=None
         self._reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
 
-    def _fail(self,reason):
-        self.invalidate(reason); raise InputProofError(reason)
+    def _fail(self,reason,input_eligibility=None):
+        self.invalidate(reason); raise InputProofError(reason,input_eligibility)
+
+    def _require_same_empty_anchor(self,snapshot):
+        anchor,eligibility=self._policy.empty_input_evaluation(snapshot)
+        if anchor!=self._anchor:
+            self._fail('INPUT_PROBE_INELIGIBLE',eligibility if anchor is None else 'ANCHOR_CHANGED')
 
     def _check(self,frame=None):
         if self.phase=='REVOKED': raise InputProofError('INPUT_PROBE_REVOKED')
@@ -138,7 +145,7 @@ class NonceInputChallenge:
     def type_bytes(self,snapshot,frame):
         self._check(frame)
         if self.phase!='ELIGIBLE': self._fail('INPUT_PROBE_STATE_REJECTED')
-        if self._policy.empty_input_anchor(snapshot)!=self._anchor: self._fail('INPUT_PROBE_INELIGIBLE')
+        self._require_same_empty_anchor(snapshot)
         self._marker=secrets.token_hex(8)
         self.phase='ECHO_PENDING'; self._write_frame=frame
         return self._marker.encode('ascii')
@@ -169,7 +176,7 @@ class NonceInputChallenge:
         if self._policy.active_input_forbidden(snapshot): self._fail('INPUT_PROBE_REVOKED')
         if self.phase=='CONSUMED': return self.phase
         if self.phase=='ELIGIBLE':
-            if self._policy.empty_input_anchor(snapshot)!=self._anchor: self._fail('INPUT_PROBE_INELIGIBLE')
+            self._require_same_empty_anchor(snapshot)
             return self.phase
         if self.phase in ('ECHO_PENDING','ECHO_MATCHED'):
             if frame<=self._write_frame: self._fail('INPUT_PROBE_STATE_REJECTED')

@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added closed, content-free `inputEligibility` subcodes to offline
+  `INPUT_PROBE_INELIGIBLE` diagnostics. The shared pure evaluation preserves
+  rejection order and existing anchors; changed anchors are distinguished from
+  locally eligible input. Metadata is bound to the failure event and original
+  retention limits. This test-only change does not relax input ownership,
+  authorize a retry, or establish native/provider acceptance.
+
 - Added an isolated offline-only pinned-input ownership challenge for context
   probes. One unsubmitted 16-character marker must echo in exact current cells
   and be cleared before an instance/transition/deadline-bound one-shot proof

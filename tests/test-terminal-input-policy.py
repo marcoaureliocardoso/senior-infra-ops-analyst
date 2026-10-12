@@ -67,6 +67,46 @@ class TerminalInputPolicyTests(unittest.TestCase):
             anchor=self.policy.empty_input_anchor(current)
             self.assertEqual((anchor.buffer,anchor.row,anchor.cursorX),('alternate',37,2))
 
+    def test_empty_input_evaluation_classifies_each_rejection_without_relaxing_it(self):
+        self.assertTrue(callable(getattr(self.policy,'empty_input_evaluation',None)),
+            'shared empty-input evaluation missing')
+        cases=[
+            (snapshot(['Do you want to use this API key?','❯ '],x=2,y=1),'FORBIDDEN_STATE'),
+            (snapshot(['Press Esc to close','❯ '],x=2,y=1),'FORBIDDEN_STATE'),
+            (snapshot(),'NO_MARKER'),
+            (snapshot(['❯\u200b'],x=2),'UNSUPPORTED_ROW'),
+            (snapshot(['❯ /context','❯ '],x=2,y=1),'UNSUPPORTED_ROW'),
+            (snapshot(['❯ Try "synthetic private text"'],x=2),'NONEMPTY_INPUT'),
+            (snapshot(['❯ ready'],x=7),'NONEMPTY_INPUT'),
+            (snapshot(['❯ ','❯ '],x=2,y=1),'MULTIPLE_MARKERS'),
+            (snapshot(['❯ '],x=2,y=1),'CURSOR_ROW_MISMATCH'),
+            (snapshot(['❯ '],x=0),'CURSOR_COLUMN_MISMATCH'),
+            (snapshot([' '*103+'❯ '],x=105),'INSUFFICIENT_SPACE')]
+        for current,expected in cases:
+            with self.subTest(expected=expected):
+                anchor,reason=self.policy.empty_input_evaluation(current)
+                self.assertIsNone(anchor)
+                self.assertEqual(reason,expected)
+                self.assertIsNone(self.policy.empty_input_anchor(current))
+                self.assertNotIn('synthetic private text',reason)
+
+    def test_empty_input_evaluation_preserves_anchor_boundary_and_is_pure(self):
+        self.assertTrue(callable(getattr(self.policy,'empty_input_evaluation',None)),
+            'shared empty-input evaluation missing')
+        for current,expected in (
+                (snapshot(['']*37+['❯\u00a0'],x=2,y=37,active='alternate'),
+                    {'buffer':'alternate','row':37,'cursorX':2,'baseY':0,'viewportY':0,'markerX':0}),
+                (snapshot([' '*102+'❯ '],x=104),
+                    {'buffer':'normal','row':0,'cursorX':104,'baseY':0,'viewportY':0,'markerX':102})):
+            self.policy.mark_transition(current)
+            before=dict(vars(self.policy))
+            anchor,reason=self.policy.empty_input_evaluation(current)
+            self.assertEqual(reason,'ELIGIBLE')
+            self.assertEqual(vars(anchor),expected)
+            self.assertEqual(vars(self.policy.empty_input_anchor(current)),expected)
+            self.assertEqual(vars(self.policy),before)
+            self.assertFalse(self.policy.ready(current))
+
     def test_active_anchor_rejects_draft_history_auth_menus_and_modal(self):
         self.require_active_anchor()
         for lines in (['❯ /context'],['❯ existing draft'],['❯ /context','❯ '],

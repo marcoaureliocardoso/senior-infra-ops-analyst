@@ -4155,3 +4155,69 @@ The delivery ruling retains the current branch/worktree and stops at a new
 exact-final-commit offline grant: the approved plan excludes push/PR/merge,
 authenticated activation and any automatic repeat. Scope-changing native
 marker/clear interaction must be explicitly covered by that new grant.
+
+### Offline native control at 5fb2de8 and eligibility subcodes
+
+One operator-authorized offline execution at
+`5fb2de8cd6d6bc3a19f2c5a1f76f7edbd55f9120` used detected Claude Code 2.1.295,
+25 seconds per context dialogue and 165 seconds overall. It stopped in the
+text-turn before phase with `OFFLINE_CONTROLS_INCONCLUSIVE` and
+`INPUT_PROBE_INELIGIBLE`, immediately after numeric context inspection (16%).
+This was an eligibility rejection, not a timeout. No marker or Ctrl+U was sent.
+SDK, after/resume and skill-turn did not run; their initialized exit fields are
+not evidence of executed phases. Loopback message and Skill call counts were
+zero. Network isolation, hidden operator state and dropped capabilities passed.
+Both process leaders were reaped; raw captures, streams, history and disposable
+case/enclosing roots were removed before aggregation. No repeat was performed.
+The content-free aggregate is retained externally as
+`p004b-offline-5fb2de8-aggregate.json`; it cannot identify which eligibility
+condition failed, and deleted raw evidence is not reconstructed.
+
+The approved bounded follow-up adds a shared pure empty-input evaluation and
+optional closed failure metadata, preserving the prior rejection order and
+anchor semantics. Protocol failures carry the actual rejecting subcode;
+`ANCHOR_CHANGED` describes a locally eligible row that no longer matches the
+owned anchor. The diagnostic collector accepts that metadata only on
+`failure` / `INPUT_PROBE_INELIGIBLE`, within the unchanged 16-record/3072-byte
+phase limits and 16-KiB outer report. It rejects arbitrary content, types and
+wrong bindings. Proof events, deadlines, markers, consent and live selection
+are unchanged. Root version remains 0.15.0 unreleased and component versions
+are unchanged: these test-only modules are excluded from Nori staging.
+
+Eight expected assertion failures were observed before implementation across
+policy, protocol, collector and fake-PTY integration. The direct script runner
+was used after unittest discovery found no importable hyphenated test modules;
+the zero-test invocation is not counted as verification. The implementation
+then passed the targeted RED regressions. The complete candidate package gate
+passed with exit 0, including schemas and local CI workflow validation. Its
+114 focused tests passed: 25 policy, 20 protocol, 9 diagnostics, 23 selected
+driver, 13 transport, 13 namespace/audit/safety and 11 wiring. Optional capability
+skips and unavailable WSL PowerShell syntax checks remain explicit limitations.
+The full log is retained externally as
+`p004b-eligibility-subcodes-candidate-package.log`.
+
+One independent scoped reviewer verified all 11 frozen patch postimages and
+independently passed 55 synthetic tests in a credential-free, network-isolated
+Bubblewrap namespace with a read-only checkout. No prioritized findings were
+reported and no changes were required. The exact patch SHA256
+`121945bd5cc4b7ceb23dd9a0120f1d406323bde773f6ae0d8c063cc52a641250` was rechecked
+after the full package gate, before this result-only documentation update.
+No code changed during the reviewed package run. The review's package-evidence
+hold is resolved by that matching full-gate result, not by another native run.
+
+Author rulings on the review boundaries:
+- Native/provider acceptance stays pending; synthetic tests are not a substitute.
+- The precise historical rejection cause remains unknown; deleted raw evidence
+  is not reconstructed or inferred from the synthetic suggestion fixture.
+- Historical cleanup/isolation statements reference the authorized run's
+  structural receipt, not new independent review-time operational proof.
+- Original RED chronology is author-observed evidence; the reviewer did not
+  independently replay it. Eight expected assertion failures were recorded.
+- Complete package compatibility is supported by the fresh matching candidate
+  gate; remote CI/Security and delivery are not certified by local validators.
+- Inherited browser, authorization and launcher behavior beyond necessary
+  callers was not re-reviewed exhaustively; this bounded patch does not change it.
+
+No real Claude/provider/browser was launched by the new synthetic checks. No
+push, PR, merge or release is part of this bounded follow-up. A fresh
+exact-final-commit grant is required before any further native offline execution.

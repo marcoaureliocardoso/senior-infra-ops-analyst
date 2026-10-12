@@ -25,6 +25,37 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.collector.add('synthetic-secret','WAIT_DEADLINE')
         self.assertEqual(self.collector.report(),{'records':[],'truncated':False,'rejected':True})
 
+    def test_eligibility_subcodes_are_retained_only_as_closed_failure_metadata(self):
+        codes=('FORBIDDEN_STATE','NO_MARKER','UNSUPPORTED_ROW','NONEMPTY_INPUT',
+            'MULTIPLE_MARKERS','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH',
+            'INSUFFICIENT_SPACE','ANCHOR_CHANGED')
+        for code in codes:
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',inputEligibility=code)
+        self.assertEqual(self.collector.report(),{'records':[
+            {'point':'failure','reasonCode':'INPUT_PROBE_INELIGIBLE','inputEligibility':code}
+            for code in codes],'truncated':False,'rejected':False})
+
+    def test_eligibility_metadata_rejects_content_types_and_wrong_event_binding(self):
+        for value in ('synthetic-private-text','ELIGIBLE',{'reason':'NONEMPTY_INPUT'},True,1,None):
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',inputEligibility=value)
+        self.collector.add('context_numeric','CHECKPOINT',inputEligibility='NO_MARKER')
+        self.collector.add('failure','WAIT_DEADLINE',inputEligibility='NO_MARKER')
+        self.assertEqual(self.collector.report(),{'records':[],'truncated':False,'rejected':True})
+        self.assertNotIn('synthetic-private-text',json.dumps(self.collector.report()))
+
+    def test_eligibility_metadata_counts_against_unchanged_byte_and_record_limits(self):
+        structure={'buffer':'normal','cursorX':120,'cursorY':39,'baseY':1000,'viewportY':1000,
+            'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'API_KEY_APPROVAL_REQUIRED','readiness':'AUTHENTICATION_REQUIRED'}
+        for _ in range(100):
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',structure=structure,
+                inputEligibility='CURSOR_COLUMN_MISMATCH')
+        report=self.collector.report()
+        self.assertGreater(len(report['records']),0)
+        self.assertLess(len(report['records']),16)
+        self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
+        self.assertLessEqual(len(json.dumps(report,separators=(',',':')).encode()),3072)
+
     def test_record_limit_is_bounded_and_truncation_is_explicit(self):
         for _ in range(100): self.collector.add('failure','WAIT_DEADLINE')
         report=self.collector.report()

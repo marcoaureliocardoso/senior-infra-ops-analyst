@@ -466,6 +466,21 @@ A reaped leader is not independent proof of complete descendant/root disposal.
 No timeout extension, readiness relaxation, credential reuse or real retry
 is introduced. Existing native/provider acceptance remains unproven.
 
+The eligibility diagnostic follow-up keeps `INPUT_PROBE_INELIGIBLE` unchanged
+and attaches an optional closed `inputEligibility` subcode only to that failure
+record. The same pure evaluation supplies anchors and rejection metadata:
+`FORBIDDEN_STATE`, `NO_MARKER`, `UNSUPPORTED_ROW`, `NONEMPTY_INPUT`,
+`MULTIPLE_MARKERS`, `CURSOR_ROW_MISMATCH`, `CURSOR_COLUMN_MISMATCH`, and
+`INSUFFICIENT_SPACE`. Unsupported draft/history rows remain `UNSUPPORTED_ROW`;
+recognized visible suggestions/ready text are `NONEMPTY_INPUT`. An otherwise
+eligible but changed instance-bound anchor is `ANCHOR_CHANGED`, not success.
+The error carries the subcode from the actual rejecting evaluation rather
+than recomputing it from a later snapshot. Unknown values/types and attachment
+to other reasons/checkpoints are rejected. No cells, text, hashes, prompts or
+marker are retained. Record/byte limits and acceptance events are unchanged.
+The earlier native aggregate cannot retrospectively identify this subcode;
+new native evidence still requires a separately bound operator grant.
+
 The 2026-10-09 pinned-input extension separates pure empty-input eligibility
 from active proof. Only the audited isolated offline launcher supplies a private
 scope bound to its terminal and original deadline. A unique 16-character marker

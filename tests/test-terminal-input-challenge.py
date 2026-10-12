@@ -85,6 +85,31 @@ class InputChallengeTests(unittest.TestCase):
         self.assertEqual(c.observe(self.echo_frame(marker[:4]),2),'ECHO_PENDING')
         self.assert_reason('INPUT_PROBE_STATE_REJECTED',c.ownership_proof)
 
+    def test_initial_ineligibility_carries_the_exact_closed_subcode(self):
+        with self.assertRaises(self.m.InputProofError) as caught:
+            self.fixture_challenge(snapshot('❯ Try "synthetic private text"'))
+        self.assertEqual(caught.exception.reason,'INPUT_PROBE_INELIGIBLE')
+        self.assertEqual(getattr(caught.exception,'input_eligibility',None),'NONEMPTY_INPUT')
+        self.assertNotIn('synthetic private text',str(caught.exception))
+
+    def test_eligible_but_changed_anchor_is_not_misreported_as_eligible(self):
+        for phase in ('type','observe'):
+            c,_,_,empty=self.fixture_challenge()
+            call=(lambda:c.type_bytes(snapshot(y=36),1)) if phase=='type' else (lambda:c.observe(snapshot(y=36),2))
+            with self.assertRaises(self.m.InputProofError) as caught: call()
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_INELIGIBLE')
+            self.assertEqual(getattr(caught.exception,'input_eligibility',None),'ANCHOR_CHANGED')
+            self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.type_bytes(empty,3))
+
+    def test_eligibility_error_metadata_never_accepts_arbitrary_content(self):
+        self.assertTrue(hasattr(self.m.InputProofError('INPUT_PROBE_INELIGIBLE'),'input_eligibility'),
+            'closed eligibility error metadata missing')
+        for value in ('synthetic-private-text','ELIGIBLE',{},True,None):
+            error=self.m.InputProofError('INPUT_PROBE_INELIGIBLE',value)
+            self.assertIsNone(error.input_eligibility)
+            self.assertEqual(str(error),'INPUT_PROBE_INELIGIBLE')
+        self.assertIsNone(self.m.InputProofError('INPUT_PROBE_REVOKED','NO_MARKER').input_eligibility)
+
     def test_missing_echo_cannot_mint_proof(self):
         c,_,_,empty=self.fixture_challenge(); c.type_bytes(empty,1)
         self.assertEqual(c.observe(empty,2),'ECHO_PENDING')

@@ -4,6 +4,10 @@ import unicodedata
 from dataclasses import dataclass
 from terminal_state_adapter import TerminalSnapshot
 
+INPUT_ELIGIBILITY_REJECTIONS=frozenset(('FORBIDDEN_STATE','NO_MARKER','UNSUPPORTED_ROW',
+    'NONEMPTY_INPUT','MULTIPLE_MARKERS','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH',
+    'INSUFFICIENT_SPACE','ANCHOR_CHANGED'))
+
 
 @dataclass(frozen=True)
 class InputAnchor:
@@ -156,18 +160,25 @@ class TerminalInputPolicy:
 
     def empty_input_anchor(self, snapshot: TerminalSnapshot) -> InputAnchor | None:
         """Pure edit eligibility; never observes freshness or authorizes a command."""
-        if self.active_input_forbidden(snapshot): return None
+        return self.empty_input_evaluation(snapshot)[0]
+
+    def empty_input_evaluation(self, snapshot: TerminalSnapshot) -> tuple[InputAnchor | None,str]:
+        """Same ordered decision, with content-free metadata; no IO or observation."""
+        if self.active_input_forbidden(snapshot): return None,'FORBIDDEN_STATE'
         candidates=[]
         for index,row in enumerate(snapshot.rows):
             if not re.match(r'^\s*❯',self._row_text(row)): continue
             candidate=self._candidate(row)
-            if candidate is None or candidate[3]: return None
+            if candidate is None: return None,'UNSUPPORTED_ROW'
+            if candidate[3]: return None,'NONEMPTY_INPUT'
             candidates.append((index,candidate))
-        if len(candidates)!=1: return None
+        if not candidates: return None,'NO_MARKER'
+        if len(candidates)!=1: return None,'MULTIPLE_MARKERS'
         index,(marker,padding_end,_text_end,_tail)=candidates[0]
-        if (index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
-                or not marker<snapshot.cursorX<=padding_end or snapshot.cursorX+16>120): return None
-        return InputAnchor(snapshot.active,index,snapshot.cursorX,snapshot.baseY,snapshot.viewportY,marker)
+        if index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return None,'CURSOR_ROW_MISMATCH'
+        if not marker<snapshot.cursorX<=padding_end: return None,'CURSOR_COLUMN_MISMATCH'
+        if snapshot.cursorX+16>120: return None,'INSUFFICIENT_SPACE'
+        return InputAnchor(snapshot.active,index,snapshot.cursorX,snapshot.baseY,snapshot.viewportY,marker),'ELIGIBLE'
 
     def active_input_forbidden(self,snapshot: TerminalSnapshot) -> bool:
         """Pure auth/menu observation, even when input ownership is unavailable."""
