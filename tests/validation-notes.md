@@ -4288,3 +4288,78 @@ Author rulings on declined review scope:
 
 New synthetic tests launch no real Claude/provider/browser. No native repeat,
 push, PR, merge or release is part of this diagnostic-only refinement.
+
+### Opt-in offline context debug excerpt (native run not authorized here)
+
+The operator approved a development-only exception after explicitly choosing
+assistant analysis of a sanitized synthetic recut, acknowledging that its chat
+copy can persist. `--debug-context` is restricted to the disposable offline
+controls; default reports and installed behavior remain unchanged. The new
+sealed observer requires the actual offline audit, branded scope/terminal,
+private owned root identity and original deadline. One frame (128 KiB maximum)
+can be stored at unsupported-input failure after numeric context inspection.
+Only the rejecting/cursor-row recut (4 KiB maximum) can be exported after
+case cleanup; failed outer disposal suppresses the whole report. The same
+16-KiB report ceiling, 25/165-second limits and first-inconclusive stop apply.
+
+Auth/provenance mismatch, sensitive-looking/canary content, invalid/oversized
+frames, partial scope bindings, changed root permissions/identity and file
+links block capture or omit content. Sanitization is not a proof against all
+possible secrets; isolation from real credentials/settings is mandatory.
+No general history, streams or operator settings are exported. Rejected/cursor
+text is escaped data, not a command or authorization. Local raw files are
+0600 under the existing 0700 root; native history and all raw roots are removed
+before final output. Chat/tool copies of a sanitized excerpt are not temporary
+and cannot be promised erased by later archival or file deletion.
+
+The unchanged baseline passed 48 driver/wiring/offline-safety tests. Eleven
+initial expected RED assertions covered the missing module and opt-in mode;
+two further RED assertions covered driver integration and prelaunch rejection.
+The missing-interface fake-PTY fixture initially left a helper to process-exit
+cleanup and emitted ResourceWarnings; it now registers idempotent helper
+cleanup immediately after creation. Auth and dense-frame fixtures initially
+expected a later classifier outcome despite earlier provenance rejection;
+their inputs/expected routing were corrected, not by weakening a gate.
+
+Focused checks passed: 14 debug-capture tests (scope, sensitive omission,
+one-shot capture, frame/excerpt/report bounds, Unicode/control escaping, root
+identity/permissions, links, cancellation, write failure and disposal),
+14 offline-safety, 11 wiring and 26 full selected-driver tests. These are
+synthetic/helper/namespace evidence, not an actual Claude/provider/browser run.
+An independent source review found one bounded diagnostics-loss defect: the
+original fitter did not count audit fields added later. A new near-ceiling
+test reproduced that omission. Its initial small excerpt also left the
+metadata-only fallback oversized; the fixture was corrected to use a larger
+synthetic excerpt, without relaxing the limit. The fitter now measures the
+complete envelope, including audit facts, disposal receipt and print newline,
+against 16 KiB. All 14 capture tests passed after the correction. The reviewer
+confirmed the immutable revised delta and no remaining material source finding
+on the intended offline caller path; no subject tests were run independently.
+
+The complete revised package gate passed with exit 0, including schema and
+local CI workflow validation. All 140 focused tests passed: 27 policy,
+23 protocol, 12 diagnostics, 14 debug-capture, 26 selected driver, 13 transport,
+14 offline-safety and 11 wiring. Optional capability skips and unavailable WSL
+PowerShell syntax validation remain limitations, not native evidence. The log
+is retained externally as `p004b-context-debug-revised-package.log`. Revised
+patch SHA256 `989d21f9cd27ca7a3a8025a43351eb1ac3686ce9a6e16dd4d04186edd2c1fba5`
+matched the frozen reviewed candidate after the full gate and before this
+result-only documentation update. This resolves the review's exact-candidate
+package-evidence hold; no remote CI/Security result is inferred.
+
+Author rulings on declined review scope:
+- Sanitization is conservative, not universal; synthetic physical isolation
+  remains mandatory. This mode is not permission to inspect real operator data.
+- `report()` alone checks pathname absence, not an independent disposal receipt.
+  Export assurance relies on its intended caller's identity-checked case cleanup
+  followed by successful outer cleanup; direct rename-only use is unsupported.
+- Same-UID Python compromise, crash-proof deletion and secure erasure were not
+  established. Conversation copies may persist even after local file deletion.
+- Actual native debug use and original provider/browser acceptance remain
+  pending, require a new exact-final-commit grant, and are not synthetic passes.
+
+The new test module is wired into the package gate and excluded from Nori
+staging. Root version remains 0.15.0 unreleased; component versions unchanged.
+No native invocation, push, PR, merge, release or new history deletion was
+performed for this implementation. Native debug use needs a separate grant
+bound to the final commit and permission for the sanitized chat-copy export.

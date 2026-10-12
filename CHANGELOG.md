@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added opt-in offline-development context debugging: one bounded temporary
+  frame and a minimal sanitized, explicitly untrusted excerpt after verified
+  case/root disposal. The excerpt may persist in the operator's chat, unlike
+  the local raw capture. Default reports and installed packages retain no new
+  content. Input/consent/acceptance gates, deadlines and no-retry rules remain
+  unchanged; this is not native/provider acceptance.
+
 - Refined test-only unsupported-input-row diagnostics with an atomic closed
   position/category pair captured by the actual rejecting parser evaluation.
   Control-command shape is descriptive, never history ownership or permission.

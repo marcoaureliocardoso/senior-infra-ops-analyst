@@ -501,6 +501,40 @@ other reasons and unrelated eligibility categories cannot retain the pair.
 The same 16-record/3072-byte phase and 16-KiB outer limits include these fields.
 Diagnostic data is not input ownership, consent, freshness or acceptance.
 
+The approved offline-development exception is opt-in `--debug-context` on
+the disposable offline harness only. It cannot activate through installed
+settings, an environment flag, a live caller, a serialized request or an
+unaudited host. A sealed capture object binds the original offline scope,
+terminal, private root identity and deadline; a fresh audit and cancellation
+check fence capture. It observes one unsupported-input rejection after numeric
+context inspection, never supplies terminal IO, consent, retry or acceptance.
+
+At most one frame of 128 KiB is written to a fixed exclusive no-follow 0600
+file in the existing owned 0700 root. No general transcript, native-history,
+SDK stream or operator configuration is exported. Auth/provenance mismatch,
+credential-like/canary material, invalid frames, changed ownership/permissions,
+deadline, IO or size failures omit content. Sensitive detection is conservative
+but not a universal redaction guarantee; audited synthetic-only isolation is
+the primary exclusion of real operator data. Unknown/bad namespace facts block.
+
+The only export is a maximum 4-KiB recut of the rejecting and cursor rows,
+including cell geometry and escaped terminal/control-format characters. It
+is labeled untrusted synthetic debug data, never instructions. The capture
+object withholds its excerpt while the case root exists; failed case cleanup
+omits it, and failed outer disposal discards the entire report. The unchanged
+16-KiB outer limit includes debug data: oversized recuts are omitted with a
+closed status, and an unfit metadata-only report is a closed failure. Context
+25-second and run 165-second deadlines are not extended for inspection.
+
+The raw local file is temporary and removed before the final result. The
+sanitized excerpt intentionally sent to the operator's chat can persist in
+conversation/tool records; deletion or archival is not promised to erase every
+copy. No raw frame is added to Git, staging, CI artifacts or release contents.
+The installed policy remains unchanged. This exception needs its own fresh
+exact-commit native grant after synthetic tests, review and package validation.
+Process/kernel/host failure is not a secure-erasure guarantee. Previously
+deleted captures cannot be recovered or substituted by this new mode.
+
 The 2026-10-09 pinned-input extension separates pure empty-input eligibility
 from active proof. Only the audited isolated offline launcher supplies a private
 scope bound to its terminal and original deadline. A unique 16-character marker

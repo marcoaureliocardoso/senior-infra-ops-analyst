@@ -52,13 +52,15 @@ def _terminate(process):
     process.wait(timeout=.5)
 
 
-def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None,input_probe_scope=None):
+def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None,
+                  input_probe_scope=None,context_debug=None):
     policy=TerminalInputPolicy()
     deadline=time.monotonic()+timeout_seconds
     process=None; master=slave=None; capture=None
     current_stage='initial_screen'; total=0; startup_open=True
     result=2; snapshot=None
     frame=0; probe=None; transition=None
+    numeric_context_observed=False
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
@@ -220,6 +222,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         wait_for(lambda: policy.context_percent(snapshot) is not None)
         percentage=policy.context_percent(snapshot)
         record(current_stage,'passed',percentage)
+        numeric_context_observed=True
         diagnose('context_numeric')
         if input_probe_scope is not None:
             while pump(0): pass
@@ -265,6 +268,10 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         metadata=({'input_eligibility':error.input_eligibility,'input_row_relation':error.input_row_relation,
             'input_row_cause':error.input_row_cause} if isinstance(error,InputProofError) else {})
         diagnose('failure',reason,**metadata)
+        if context_debug is not None:
+            try:
+                context_debug.capture(state,input_probe_scope,snapshot,error,numeric_context=numeric_context_observed)
+            except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
         if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
         if startup_approval is not None: startup_approval.revoke()

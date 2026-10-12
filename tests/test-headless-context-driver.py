@@ -16,6 +16,7 @@ from terminal_state_adapter import TerminalState, TerminalStateError
 from terminal_structural_diagnostics import TerminalDiagnostics
 import terminal_input_challenge as input_challenge
 import headless_context_driver as selected_controller
+import terminal_context_debug as context_debug_module
 from dataclasses import replace
 
 
@@ -69,7 +70,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
 
-    def run_pinned_probe(self,mode='success',fault=False):
+    def run_pinned_probe(self,mode='success',fault=False,debug=False):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
@@ -105,9 +106,16 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 'if read(4)!=b"xit\\r": raise SystemExit(1)\n' if mode=='partial-exit-menu' else
                 'if read(6)!=b"/exit\\r": raise SystemExit(1)\n'),encoding='utf-8')
         state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+12)
+        self.addCleanup(state.close)
         with mock.patch.object(input_challenge,'audit_offline_namespace',return_value={
                 'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
             scope=input_challenge.create_offline_probe_issuer().issue_scope(state,object())
+        debug_capture=None
+        if debug:
+            self.assertIn('context_debug',inspect.signature(self.driver.drive).parameters,'sealed debug interface missing')
+            with mock.patch.object(context_debug_module,'audit_offline_namespace',return_value={
+                    'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
+                debug_capture=context_debug_module.create_context_debug(scope,state,self.root)
         diagnostics=TerminalDiagnostics()
         original=os.write; failed_fd=None; original_snapshot=state.snapshot
         def observed_snapshot():
@@ -129,10 +137,13 @@ class HeadlessContextDriverTests(unittest.TestCase):
             if fd==failed_fd: raise OSError('synthetic write failed')
             return original(fd,payload)
         with mock.patch.dict(os.environ,{'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'},clear=True),\
+                mock.patch.object(context_debug_module,'audit_offline_namespace',return_value={
+                    'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}),\
                 mock.patch.object(state,'snapshot',side_effect=observed_snapshot),\
                 mock.patch.object(os,'write',side_effect=partial_writer if fault or mode=='partial-exit-menu' else original):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
-                dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope)
+                dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
+                **({'context_debug':debug_capture} if debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
         self.assertEqual(result,0 if mode=='success' and not fault else 2)
         self.assertEqual(data[:9],b'/context\r')
@@ -151,6 +162,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             elif mode=='uncleared': self.assertEqual(data[25:],b'\x15')
             elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
             elif mode=='partial-exit-menu': self.assertEqual(data[25:],b'\x15/e')
+        if debug: self.debug_capture=debug_capture
         return report
 
     def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
@@ -180,6 +192,27 @@ class HeadlessContextDriverTests(unittest.TestCase):
         events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
         self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
         self.assertTrue(all(set(row)<={'kind','stage','outcome','percent'} for row in events))
+
+    def test_debug_capture_preserves_rejection_and_exports_only_after_root_disposal(self):
+        report=self.run_pinned_probe('unsupported-control',debug=True)
+        self.assertTrue((self.root/'context-debug-frame.json').is_file())
+        self.assertNotIn('excerpt',self.debug_capture.report())
+        self.assertFalse(any(row['point']=='input_probe_started' for row in report['records']))
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
+        self.temp.cleanup()
+        debug=self.debug_capture.report()
+        self.assertEqual(debug['status'],'READY')
+        self.assertEqual(debug['excerpt']['rows'][0]['text'],'❯ /context')
+
+    def test_serialized_debug_request_rejects_before_native_startup(self):
+        self.assertIn('context_debug',inspect.signature(self.driver.drive).parameters,'sealed debug interface missing')
+        marker=self.root/'unexpected-native'
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+5)
+        result=self.driver.drive([sys.executable,'-c','from pathlib import Path; Path('+repr(str(marker))+').touch()'],
+            self.root/'capture',5,self.root/'events',dialogue='context',terminal_state=state,context_debug={'enabled':True})
+        self.assertEqual(result,2); self.assertFalse(marker.exists())
+        self.assertTrue(state.helper_reaped)
     def test_auth_after_echo_prevents_clear_and_exit(self): self.run_pinned_probe('auth')
     def test_missing_clear_ack_prevents_exit(self): self.run_pinned_probe('uncleared')
     def test_partial_marker_write_failure_has_no_second_edit(self): self.run_pinned_probe(fault=True)

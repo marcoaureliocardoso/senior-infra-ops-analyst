@@ -107,6 +107,18 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertEqual(self.module.validate_mode(['--run-offline']),True)
         self.assertEqual(self.module.validate_mode(['--audit-isolation']),True)
 
+    def test_debug_flag_is_offline_only_and_missing_runtime_never_launches(self):
+        self.assertTrue(self.module.validate_mode(['--run-offline','--debug-context']))
+        for args in (['--debug-context'],['--audit-isolation','--debug-context'],
+                     ['--run-live','--debug-context'],['--run-offline','--debug-context','--repeat']):
+            self.assertFalse(self.module.validate_mode(args))
+        common=['--source',str(ROOT),'--node',os.environ['P004B_TERMINAL_NODE'],
+                '--module-root',os.environ['P004B_TERMINAL_MODULE_ROOT']]
+        with mock.patch.object(sys,'argv',[str(MODULE),'--run-offline','--debug-context',*common]),\
+                mock.patch('builtins.print') as output:
+            self.assertEqual(self.module.main(),2)
+            self.assertEqual(json.loads(output.call_args.args[0]),{'reasonCode':'OFFLINE_PROBE_BLOCKED'})
+
     def test_stops_at_first_failed_case_without_retry(self):
         calls=[]
         def failed(name):

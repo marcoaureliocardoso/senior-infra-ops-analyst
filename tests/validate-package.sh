@@ -12,6 +12,7 @@ python3 tests/test-terminal-state-adapter.py
 python3 tests/test-terminal-input-policy.py
 python3 tests/test-terminal-input-challenge.py
 python3 tests/test-terminal-structural-diagnostics.py
+python3 tests/test-terminal-context-debug.py
 python3 tests/test-headless-context-driver.py
 python3 tests/test-terminal-runtime-provisioning.py
 python3 tests/test-terminal-wiring.py
