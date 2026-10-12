@@ -107,6 +107,56 @@ class TerminalInputPolicyTests(unittest.TestCase):
             self.assertEqual(vars(self.policy),before)
             self.assertFalse(self.policy.ready(current))
 
+    def test_unsupported_row_assessment_classifies_actual_parser_branch_and_location(self):
+        self.assertTrue(callable(getattr(self.policy,'empty_input_assessment',None)),
+            'content-free rejected-row assessment missing')
+        wide=snapshot(['❯ '],x=2)
+        rows=list(wide.rows); row=list(rows[0]); row[0]=TerminalCell('❯',2); row[1]=TerminalCell('',0)
+        rows[0]=tuple(row); wide=dataclasses.replace(wide,rows=tuple(rows))
+        cases=[
+            (snapshot(['❯\u200b'],x=2),'CURSOR_ROW','INVISIBLE_FORMAT_CHAR'),
+            (snapshot(['❯\u2003'],x=2),'CURSOR_ROW','UNSUPPORTED_WHITESPACE'),
+            (snapshot(['❯\u2003\u200b'],x=2),'CURSOR_ROW','UNSUPPORTED_WHITESPACE'),
+            (snapshot(['❯\u200b\u2003'],x=2),'CURSOR_ROW','INVISIBLE_FORMAT_CHAR'),
+            (wide,'CURSOR_ROW','MARKER_WIDTH'),
+            (snapshot(['❯ /context'],x=2),'CURSOR_ROW','CONTROL_COMMAND_SHAPE'),
+            (snapshot(['❯ /exit','❯ '],x=2,y=1),'OTHER_CAPTURED_ROW','CONTROL_COMMAND_SHAPE'),
+            (snapshot(['❯ /context','❯ '],x=2,y=1),'OTHER_CAPTURED_ROW','CONTROL_COMMAND_SHAPE'),
+            (snapshot(['❯ /context'],x=2,base=50),'CURSOR_OUTSIDE_CAPTURE','CONTROL_COMMAND_SHAPE'),
+            (snapshot(['❯ /context extra'],x=2),'CURSOR_ROW','UNRECOGNIZED_SHAPE'),
+            (snapshot(['❯ /exit;other'],x=2),'CURSOR_ROW','UNRECOGNIZED_SHAPE'),
+            (snapshot(['❯ synthetic-private-text'],x=2),'CURSOR_ROW','UNRECOGNIZED_SHAPE')]
+        for current,relation,cause in cases:
+            with self.subTest(relation=relation,cause=cause):
+                assessment=self.policy.empty_input_assessment(current)
+                self.assertIsNone(assessment.anchor)
+                self.assertEqual(assessment.reason,'UNSUPPORTED_ROW')
+                self.assertEqual((assessment.rowRelation,assessment.rowCause),(relation,cause))
+                self.assertEqual(self.policy.empty_input_evaluation(current),(None,'UNSUPPORTED_ROW'))
+                self.assertIsNone(self.policy.empty_input_anchor(current))
+                self.assertNotIn('synthetic-private-text',repr(assessment))
+
+    def test_row_assessment_is_immutable_pure_and_absent_for_other_decisions(self):
+        self.assertTrue(callable(getattr(self.policy,'empty_input_assessment',None)),
+            'content-free rejected-row assessment missing')
+        current=snapshot(['❯ '],x=2)
+        self.policy.mark_transition(current); before=dict(vars(self.policy))
+        assessment=self.policy.empty_input_assessment(current)
+        self.assertEqual(vars(assessment),{'anchor':self.policy.empty_input_anchor(current),
+            'reason':'ELIGIBLE','rowRelation':None,'rowCause':None})
+        self.assertEqual(vars(assessment.anchor),{'buffer':'normal','row':0,'cursorX':2,
+            'baseY':0,'viewportY':0,'markerX':0})
+        self.assertEqual(vars(self.policy),before)
+        with self.assertRaises(dataclasses.FrozenInstanceError): assessment.rowCause='UNRECOGNIZED_SHAPE'
+        for other,reason in ((snapshot(),'NO_MARKER'),
+                (snapshot(['❯ Try "synthetic-private-text"'],x=2),'NONEMPTY_INPUT'),
+                (snapshot(['❯ ','❯ '],x=2,y=1),'MULTIPLE_MARKERS')):
+            detail=self.policy.empty_input_assessment(other)
+            self.assertEqual((detail.reason,detail.rowRelation,detail.rowCause),(reason,None,None))
+            self.assertNotIn('synthetic-private-text',repr(detail))
+        self.assertEqual(vars(self.policy),before)
+        self.assertFalse(self.policy.ready(current))
+
     def test_active_anchor_rejects_draft_history_auth_menus_and_modal(self):
         self.require_active_anchor()
         for lines in (['❯ /context'],['❯ existing draft'],['❯ /context','❯ '],

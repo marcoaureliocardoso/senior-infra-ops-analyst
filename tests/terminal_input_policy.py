@@ -7,6 +7,9 @@ from terminal_state_adapter import TerminalSnapshot
 INPUT_ELIGIBILITY_REJECTIONS=frozenset(('FORBIDDEN_STATE','NO_MARKER','UNSUPPORTED_ROW',
     'NONEMPTY_INPUT','MULTIPLE_MARKERS','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH',
     'INSUFFICIENT_SPACE','ANCHOR_CHANGED'))
+INPUT_ROW_RELATIONS=frozenset(('CURSOR_ROW','OTHER_CAPTURED_ROW','CURSOR_OUTSIDE_CAPTURE'))
+INPUT_ROW_CAUSES=frozenset(('INVISIBLE_FORMAT_CHAR','UNSUPPORTED_WHITESPACE','MARKER_WIDTH',
+    'CONTROL_COMMAND_SHAPE','UNRECOGNIZED_SHAPE'))
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,13 @@ class InputAnchor:
     baseY: int
     viewportY: int
     markerX: int
+
+@dataclass(frozen=True)
+class EmptyInputAssessment:
+    anchor: InputAnchor | None
+    reason: str
+    rowRelation: str | None = None
+    rowCause: str | None = None
 
 def parse_context_percent(
     text: str, allow_rendered_row_order: bool = False,
@@ -139,20 +149,27 @@ class TerminalInputPolicy:
         return self._auth(snapshot)
 
     def _candidate(self, row):
+        return self._candidate_evaluation(row)[0]
+
+    def _candidate_evaluation(self, row):
         # Inspect raw cells before rstrip so unsupported whitespace cannot vanish.
         raw = ''.join(cell.text or (' ' if cell.width else '') for cell in row)
-        if any(unicodedata.category(char)=='Cf' or (char.isspace() and char not in ' \t\u00a0') for char in raw):
-            return None
+        for char in raw:
+            if unicodedata.category(char)=='Cf': return None,'INVISIBLE_FORMAT_CHAR'
+            if char.isspace() and char not in ' \t\u00a0': return None,'UNSUPPORTED_WHITESPACE'
         match = re.fullmatch(r'[ \t]*❯[ \t\u00a0]*(?:ready|Try[ \t]+"[^"\r\n]+")?[ \t\u00a0]*', raw)
-        if match is None: return None
+        if match is None:
+            # A shape label is not provenance, history ownership or permission.
+            control=re.fullmatch(r'[ \t]*❯[ \t\u00a0]*/(?:context|exit)[ \t\u00a0]*',raw)
+            return None,'CONTROL_COMMAND_SHAPE' if control is not None else 'UNRECOGNIZED_SHAPE'
         marker = next((index for index,cell in enumerate(row) if cell.text=='❯' and cell.width==1), None)
-        if marker is None: return None
+        if marker is None: return None,'MARKER_WIDTH'
         tail = raw.strip(' \t\u00a0').removeprefix('❯').lstrip(' \t\u00a0')
         padding_end = marker+1
         while padding_end < 120 and row[padding_end].width==1 and row[padding_end].text in (' ','\t','\u00a0'):
             padding_end += 1
         text_end = max((index+cell.width for index,cell in enumerate(row) if cell.text not in ('',' ','\t','\u00a0')),default=marker+1)
-        return marker, padding_end, text_end, tail
+        return (marker, padding_end, text_end, tail),None
 
     def ready(self, snapshot: TerminalSnapshot) -> bool:
         self._observe(snapshot)
@@ -164,21 +181,31 @@ class TerminalInputPolicy:
 
     def empty_input_evaluation(self, snapshot: TerminalSnapshot) -> tuple[InputAnchor | None,str]:
         """Same ordered decision, with content-free metadata; no IO or observation."""
-        if self.active_input_forbidden(snapshot): return None,'FORBIDDEN_STATE'
+        assessment=self.empty_input_assessment(snapshot)
+        return assessment.anchor,assessment.reason
+
+    def empty_input_assessment(self, snapshot: TerminalSnapshot) -> EmptyInputAssessment:
+        """Rejecting row metadata from the same decision, never a later sample."""
+        if self.active_input_forbidden(snapshot): return EmptyInputAssessment(None,'FORBIDDEN_STATE')
         candidates=[]
         for index,row in enumerate(snapshot.rows):
             if not re.match(r'^\s*❯',self._row_text(row)): continue
-            candidate=self._candidate(row)
-            if candidate is None: return None,'UNSUPPORTED_ROW'
-            if candidate[3]: return None,'NONEMPTY_INPUT'
+            candidate,cause=self._candidate_evaluation(row)
+            if candidate is None:
+                cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+                relation=('CURSOR_OUTSIDE_CAPTURE' if not 0<=cursor<len(snapshot.rows) else
+                    'CURSOR_ROW' if index==cursor else 'OTHER_CAPTURED_ROW')
+                return EmptyInputAssessment(None,'UNSUPPORTED_ROW',relation,cause)
+            if candidate[3]: return EmptyInputAssessment(None,'NONEMPTY_INPUT')
             candidates.append((index,candidate))
-        if not candidates: return None,'NO_MARKER'
-        if len(candidates)!=1: return None,'MULTIPLE_MARKERS'
+        if not candidates: return EmptyInputAssessment(None,'NO_MARKER')
+        if len(candidates)!=1: return EmptyInputAssessment(None,'MULTIPLE_MARKERS')
         index,(marker,padding_end,_text_end,_tail)=candidates[0]
-        if index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return None,'CURSOR_ROW_MISMATCH'
-        if not marker<snapshot.cursorX<=padding_end: return None,'CURSOR_COLUMN_MISMATCH'
-        if snapshot.cursorX+16>120: return None,'INSUFFICIENT_SPACE'
-        return InputAnchor(snapshot.active,index,snapshot.cursorX,snapshot.baseY,snapshot.viewportY,marker),'ELIGIBLE'
+        if index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return EmptyInputAssessment(None,'CURSOR_ROW_MISMATCH')
+        if not marker<snapshot.cursorX<=padding_end: return EmptyInputAssessment(None,'CURSOR_COLUMN_MISMATCH')
+        if snapshot.cursorX+16>120: return EmptyInputAssessment(None,'INSUFFICIENT_SPACE')
+        return EmptyInputAssessment(InputAnchor(snapshot.active,index,snapshot.cursorX,
+            snapshot.baseY,snapshot.viewportY,marker),'ELIGIBLE')
 
     def active_input_forbidden(self,snapshot: TerminalSnapshot) -> bool:
         """Pure auth/menu observation, even when input ownership is unavailable."""

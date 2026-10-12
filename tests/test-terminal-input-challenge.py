@@ -110,6 +110,41 @@ class InputChallengeTests(unittest.TestCase):
             self.assertEqual(str(error),'INPUT_PROBE_INELIGIBLE')
         self.assertIsNone(self.m.InputProofError('INPUT_PROBE_REVOKED','NO_MARKER').input_eligibility)
 
+    def test_constructor_captures_unsupported_other_row_without_declaring_ownership(self):
+        with self.assertRaises(self.m.InputProofError) as caught:
+            self.fixture_challenge(snapshot(extra=((1,'❯ /context'),)))
+        self.assertEqual(caught.exception.reason,'INPUT_PROBE_INELIGIBLE')
+        self.assertEqual(caught.exception.input_eligibility,'UNSUPPORTED_ROW')
+        self.assertEqual((getattr(caught.exception,'input_row_relation',None),
+            getattr(caught.exception,'input_row_cause',None)),('OTHER_CAPTURED_ROW','CONTROL_COMMAND_SHAPE'))
+        self.assertNotIn('/context',str(caught.exception))
+
+    def test_pretype_and_observation_errors_capture_the_rejecting_row_not_a_later_frame(self):
+        for phase in ('type','observe'):
+            c,_,_,empty=self.fixture_challenge()
+            rejected=snapshot('❯\u200b')
+            call=(lambda:c.type_bytes(rejected,1)) if phase=='type' else (lambda:c.observe(rejected,2))
+            with self.assertRaises(self.m.InputProofError) as caught: call()
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_INELIGIBLE')
+            self.assertEqual((getattr(caught.exception,'input_row_relation',None),
+                getattr(caught.exception,'input_row_cause',None)),('CURSOR_ROW','INVISIBLE_FORMAT_CHAR'))
+            self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.type_bytes(empty,3))
+
+    def test_error_row_metadata_rejects_partial_or_unbound_values(self):
+        error=self.m.InputProofError('INPUT_PROBE_INELIGIBLE','UNSUPPORTED_ROW')
+        self.assertTrue(hasattr(error,'input_row_relation') and hasattr(error,'input_row_cause'),
+            'closed row error metadata missing')
+        for reason,eligibility,relation,cause in (
+                ('INPUT_PROBE_REVOKED','UNSUPPORTED_ROW','CURSOR_ROW','MARKER_WIDTH'),
+                ('INPUT_PROBE_INELIGIBLE','NO_MARKER','CURSOR_ROW','MARKER_WIDTH'),
+                ('INPUT_PROBE_INELIGIBLE','UNSUPPORTED_ROW',None,'MARKER_WIDTH'),
+                ('INPUT_PROBE_INELIGIBLE','UNSUPPORTED_ROW','CURSOR_ROW',None),
+                ('INPUT_PROBE_INELIGIBLE','UNSUPPORTED_ROW',True,'MARKER_WIDTH'),
+                ('INPUT_PROBE_INELIGIBLE','UNSUPPORTED_ROW','CURSOR_ROW','synthetic-private-text')):
+            error=self.m.InputProofError(reason,eligibility,input_row_relation=relation,input_row_cause=cause)
+            self.assertEqual((error.input_row_relation,error.input_row_cause),(None,None))
+            self.assertNotIn('synthetic-private-text',str(error))
+
     def test_missing_echo_cannot_mint_proof(self):
         c,_,_,empty=self.fixture_challenge(); c.type_bytes(empty,1)
         self.assertEqual(c.observe(empty,2),'ECHO_PENDING')

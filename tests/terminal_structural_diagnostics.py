@@ -1,7 +1,7 @@
 """Test-only, bounded content-free diagnostics. Never input to acceptance."""
 import copy
 import json
-from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS
+from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 
 MAX_RECORDS=16
 # Four context phases fit the existing 16 KiB outer offline-report limit.
@@ -41,10 +41,17 @@ class TerminalDiagnostics:
     def add(self,point,reasonCode,**fields):
         if (type(point) is not str or point not in POINTS
                 or type(reasonCode) is not str or reasonCode not in REASONS
-                or not set(fields)<={'structure','leaderReaped','inputEligibility'}
+                or not set(fields)<={'structure','leaderReaped','inputEligibility','inputRowRelation','inputRowCause'}
                 or ('inputEligibility' in fields and (point!='failure' or reasonCode!='INPUT_PROBE_INELIGIBLE'
                     or type(fields['inputEligibility']) is not str
                     or fields['inputEligibility'] not in INPUT_ELIGIBILITY_REJECTIONS))
+                or (('inputRowRelation' in fields or 'inputRowCause' in fields) and
+                    (point!='failure' or reasonCode!='INPUT_PROBE_INELIGIBLE'
+                    or fields.get('inputEligibility')!='UNSUPPORTED_ROW'
+                    or type(fields.get('inputRowRelation')) is not str
+                    or fields['inputRowRelation'] not in INPUT_ROW_RELATIONS
+                    or type(fields.get('inputRowCause')) is not str
+                    or fields['inputRowCause'] not in INPUT_ROW_CAUSES))
                 or ('structure' in fields and not _structure(fields['structure']))
                 or ('leaderReaped' in fields and type(fields['leaderReaped']) is not bool)):
             self._rejected=True; return

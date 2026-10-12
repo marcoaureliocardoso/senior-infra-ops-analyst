@@ -62,11 +62,14 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
-    def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None):
+    def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
+                 input_row_relation=None,input_row_cause=None):
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
             fields={}
             if input_eligibility is not None: fields['inputEligibility']=input_eligibility
+            if input_row_relation is not None: fields['inputRowRelation']=input_row_relation
+            if input_row_cause is not None: fields['inputRowCause']=input_row_cause
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
@@ -259,7 +262,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             'WAIT_DEADLINE' if isinstance(error,TimeoutError) else
             'IO_FAILED' if isinstance(error,OSError) else
             'SUBPROCESS_FAILED' if isinstance(error,subprocess.SubprocessError) else 'RUNTIME_REJECTED')
-        diagnose('failure',reason,input_eligibility=error.input_eligibility if isinstance(error,InputProofError) else None)
+        metadata=({'input_eligibility':error.input_eligibility,'input_row_relation':error.input_row_relation,
+            'input_row_cause':error.input_row_cause} if isinstance(error,InputProofError) else {})
+        diagnose('failure',reason,**metadata)
     finally:
         if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
         if startup_approval is not None: startup_approval.revoke()

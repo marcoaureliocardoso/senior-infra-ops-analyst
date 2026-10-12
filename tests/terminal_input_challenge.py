@@ -8,7 +8,7 @@ import socket
 import time
 import weakref
 
-from terminal_input_policy import TerminalInputPolicy, INPUT_ELIGIBILITY_REJECTIONS
+from terminal_input_policy import TerminalInputPolicy, INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 from terminal_state_adapter import TerminalState, TerminalSnapshot, MAX_CAPTURE
 
 REASONS=frozenset('INPUT_PROBE_'+suffix for suffix in (
@@ -21,10 +21,15 @@ _SCOPES=weakref.WeakKeyDictionary()
 
 
 class InputProofError(RuntimeError):
-    def __init__(self,reason,input_eligibility=None):
+    def __init__(self,reason,input_eligibility=None,*,input_row_relation=None,input_row_cause=None):
         self.reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
         self.input_eligibility=(input_eligibility if self.reason=='INPUT_PROBE_INELIGIBLE'
             and type(input_eligibility) is str and input_eligibility in INPUT_ELIGIBILITY_REJECTIONS else None)
+        row_bound=(self.input_eligibility=='UNSUPPORTED_ROW'
+            and type(input_row_relation) is str and input_row_relation in INPUT_ROW_RELATIONS
+            and type(input_row_cause) is str and input_row_cause in INPUT_ROW_CAUSES)
+        self.input_row_relation=input_row_relation if row_bound else None
+        self.input_row_cause=input_row_cause if row_bound else None
         super().__init__(self.reason)
 
 
@@ -109,8 +114,11 @@ class NonceInputChallenge:
         if (type(frame) is not int or not 0<=frame<=MAX_CAPTURE
                 or not isinstance(policy,TerminalInputPolicy)):
             self._fail('INPUT_PROBE_STATE_REJECTED')
-        self._anchor,eligibility=policy.empty_input_evaluation(initial)
-        if self._anchor is None: self._fail('INPUT_PROBE_INELIGIBLE',eligibility)
+        assessment=policy.empty_input_assessment(initial)
+        self._anchor=assessment.anchor
+        if self._anchor is None:
+            self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason,
+                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
         self._row=initial.rows[self._anchor.row]
 
     def __repr__(self): return '<NonceInputChallenge>'
@@ -119,13 +127,15 @@ class NonceInputChallenge:
         self.phase='REVOKED'; self._marker=None; self._proof=None
         self._reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
 
-    def _fail(self,reason,input_eligibility=None):
-        self.invalidate(reason); raise InputProofError(reason,input_eligibility)
+    def _fail(self,reason,input_eligibility=None,*,input_row_relation=None,input_row_cause=None):
+        self.invalidate(reason)
+        raise InputProofError(reason,input_eligibility,input_row_relation=input_row_relation,input_row_cause=input_row_cause)
 
     def _require_same_empty_anchor(self,snapshot):
-        anchor,eligibility=self._policy.empty_input_evaluation(snapshot)
-        if anchor!=self._anchor:
-            self._fail('INPUT_PROBE_INELIGIBLE',eligibility if anchor is None else 'ANCHOR_CHANGED')
+        assessment=self._policy.empty_input_assessment(snapshot)
+        if assessment.anchor!=self._anchor:
+            self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason if assessment.anchor is None else 'ANCHOR_CHANGED',
+                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
 
     def _check(self,frame=None):
         if self.phase=='REVOKED': raise InputProofError('INPUT_PROBE_REVOKED')

@@ -481,6 +481,26 @@ marker are retained. Record/byte limits and acceptance events are unchanged.
 The earlier native aggregate cannot retrospectively identify this subcode;
 new native evidence still requires a separately bound operator grant.
 
+The rejected-row refinement adds an atomic optional `inputRowRelation` /
+`inputRowCause` pair only when `inputEligibility` is `UNSUPPORTED_ROW` on
+`failure` / `INPUT_PROBE_INELIGIBLE`. A frozen pure assessment captures the
+actual rejecting row and parser branch without retaining cells or row text.
+Existing candidate, anchor and two-value evaluation APIs remain compatible;
+their ordered acceptance/rejection tree is unchanged. The controller forwards
+the error's sanitized pair, never re-evaluates a later screen for its cause.
+
+Relations are `CURSOR_ROW`, `OTHER_CAPTURED_ROW`, and `CURSOR_OUTSIDE_CAPTURE`.
+Parser categories are `INVISIBLE_FORMAT_CHAR` (Unicode Cf),
+`UNSUPPORTED_WHITESPACE`, `MARKER_WIDTH`, `CONTROL_COMMAND_SHAPE` and
+`UNRECOGNIZED_SHAPE`. First-rejecting character order is preserved. The control
+category matches only the complete rendered `/context` or `/exit` shape with
+supported indentation/padding; extra text or commands stay unrecognized.
+That label proves neither historical provenance nor an authorized operation,
+and every such shape remains rejected. Unknown values/types, partial pairs,
+other reasons and unrelated eligibility categories cannot retain the pair.
+The same 16-record/3072-byte phase and 16-KiB outer limits include these fields.
+Diagnostic data is not input ownership, consent, freshness or acceptance.
+
 The 2026-10-09 pinned-input extension separates pure empty-input eligibility
 from active proof. Only the audited isolated offline launcher supplies a private
 scope bound to its terminal and original deadline. A unique 16-character marker

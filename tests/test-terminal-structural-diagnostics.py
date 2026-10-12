@@ -63,6 +63,45 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
         self.assertLessEqual(len(json.dumps(report,separators=(',',':')).encode()),3072)
 
+    def test_rejected_row_metadata_is_an_atomic_closed_pair_on_unsupported_failure(self):
+        pairs=[('CURSOR_ROW',cause) for cause in ('INVISIBLE_FORMAT_CHAR','UNSUPPORTED_WHITESPACE',
+            'MARKER_WIDTH','CONTROL_COMMAND_SHAPE','UNRECOGNIZED_SHAPE')]
+        pairs.extend((relation,'CONTROL_COMMAND_SHAPE') for relation in ('OTHER_CAPTURED_ROW','CURSOR_OUTSIDE_CAPTURE'))
+        for relation,cause in pairs:
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',inputEligibility='UNSUPPORTED_ROW',
+                inputRowRelation=relation,inputRowCause=cause)
+        self.assertEqual(self.collector.report(),{'records':[
+            {'point':'failure','reasonCode':'INPUT_PROBE_INELIGIBLE','inputEligibility':'UNSUPPORTED_ROW',
+                'inputRowRelation':relation,'inputRowCause':cause} for relation,cause in pairs],
+            'truncated':False,'rejected':False})
+
+    def test_row_metadata_rejects_partial_pairs_wrong_binding_and_content(self):
+        valid={'inputEligibility':'UNSUPPORTED_ROW','inputRowRelation':'CURSOR_ROW','inputRowCause':'MARKER_WIDTH'}
+        for change in ({'inputRowCause':'synthetic-private-text'},{'inputRowCause':{}},
+                {'inputRowRelation':True},{'inputRowRelation':1},{'inputRowRelation':'row 37'},
+                {'inputEligibility':'NO_MARKER'},{'text':'synthetic-private-text'}):
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',**{**valid,**change})
+        for missing in ('inputRowRelation','inputRowCause','inputEligibility'):
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',**{key:value for key,value in valid.items() if key!=missing})
+        self.collector.add('failure','WAIT_DEADLINE',**valid)
+        self.collector.add('context_numeric','CHECKPOINT',**valid)
+        self.assertEqual(self.collector.report(),{'records':[],'truncated':False,'rejected':True})
+        self.assertNotIn('synthetic-private-text',json.dumps(self.collector.report()))
+
+    def test_row_metadata_uses_existing_byte_budget_and_detached_reports(self):
+        structure={'buffer':'normal','cursorX':120,'cursorY':39,'baseY':1000,'viewportY':1000,
+            'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'NONE','readiness':'FRESHNESS_UNPROVEN'}
+        for _ in range(100):
+            self.collector.add('failure','INPUT_PROBE_INELIGIBLE',inputEligibility='UNSUPPORTED_ROW',
+                inputRowRelation='CURSOR_OUTSIDE_CAPTURE',inputRowCause='UNSUPPORTED_WHITESPACE',structure=structure)
+        report=self.collector.report()
+        self.assertGreater(len(report['records']),0); self.assertLess(len(report['records']),16)
+        self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
+        self.assertLessEqual(len(json.dumps(report,separators=(',',':')).encode()),3072)
+        report['records'][0]['inputRowCause']='synthetic-private-text'
+        self.assertEqual(self.collector.report()['records'][0]['inputRowCause'],'UNSUPPORTED_WHITESPACE')
+
     def test_probe_codes_are_structural_and_never_payload_fields(self):
         for point in ('input_probe_started','input_probe_echo','input_probe_cleared'):
             self.collector.add(point,'CHECKPOINT')

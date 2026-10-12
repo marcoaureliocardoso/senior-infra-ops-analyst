@@ -89,6 +89,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
             'os.write(1,b"\\x1b[1;1H\\x1b[2KContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
             + ('os.write(1,b\'Try "fix tests"\\x1b[38;3H\')\n' if mode=='suggestion' else '') +
+            ('os.write(1,"\\x1b[6;1H❯ /context\\x1b[38;3H".encode())\n' if mode=='unsupported-control' else '') +
             'marker=read(16)\n'
             'os.write(1,b"\\x1b[38;3H"+marker)\n'
             + ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;19H")\n' if mode=='auth' else '') +
@@ -139,7 +140,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         report=diagnostics.report()
         self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
         self.assertTrue(state.helper_reaped)
-        if mode in ('suggestion','pre-menu'): self.assertEqual(data,b'/context\r')
+        if mode in ('suggestion','pre-menu','unsupported-control'): self.assertEqual(data,b'/context\r')
         elif fault:
             self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
         else:
@@ -162,6 +163,20 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertEqual(failed[0]['reasonCode'],'INPUT_PROBE_INELIGIBLE')
         self.assertEqual(failed[0].get('inputEligibility'),'NONEMPTY_INPUT')
         self.assertNotIn('fix tests',json.dumps(report))
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
+        self.assertTrue(all(set(row)<={'kind','stage','outcome','percent'} for row in events))
+
+    def test_unsupported_control_shape_outside_cursor_is_diagnostic_only_and_never_typed(self):
+        report=self.run_pinned_probe('unsupported-control')
+        failed=[row for row in report['records'] if row['point']=='failure']
+        self.assertEqual(len(failed),1)
+        self.assertEqual(failed[0]['reasonCode'],'INPUT_PROBE_INELIGIBLE')
+        self.assertEqual(failed[0].get('inputEligibility'),'UNSUPPORTED_ROW')
+        self.assertEqual((failed[0].get('inputRowRelation'),failed[0].get('inputRowCause')),
+            ('OTHER_CAPTURED_ROW','CONTROL_COMMAND_SHAPE'))
+        self.assertNotIn('❯ /context',json.dumps(report))
+        self.assertFalse(any(row['point']=='input_probe_started' for row in report['records']))
         events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
         self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
         self.assertTrue(all(set(row)<={'kind','stage','outcome','percent'} for row in events))

@@ -4221,3 +4221,70 @@ Author rulings on the review boundaries:
 No real Claude/provider/browser was launched by the new synthetic checks. No
 push, PR, merge or release is part of this bounded follow-up. A fresh
 exact-final-commit grant is required before any further native offline execution.
+
+### Rejected-row structural follow-up (native acceptance pending)
+
+One fresh authorized offline run at
+`3dcb7c58ecb6ecc92a07f023a09f593c9d71e124` used detected Claude Code 2.1.295
+and the unchanged 25-second context / 165-second total limits. It stopped in
+the text-turn before phase with `OFFLINE_CONTROLS_INCONCLUSIVE` and
+`INPUT_PROBE_INELIGIBLE / UNSUPPORTED_ROW` after numeric context inspection
+(16%). No marker or Ctrl+U was sent. SDK, after/resume and skill-turn did not
+execute; messages and Skill calls were zero. Both leaders were reaped; case
+and enclosing disposable roots were absent before aggregation. The namespace
+audit reported network isolation, hidden operator state and dropped capabilities.
+Only structural diagnostics remain externally in
+`p004b-offline-3dcb7c5-aggregate.json` and the result note. No repeat occurred.
+That aggregate identifies a parser-rejected marker row, not its position or
+specific rejected characteristic. It does not prove a history row or a draft,
+and its subcode must not be assigned retrospectively to the older 5fb2de8 run.
+
+The approved bounded refinement adds closed rejected-row position and parser
+category metadata. A frozen pure assessment shares the actual ordered parser
+decision with the existing APIs; the two-value evaluation and candidate return
+shapes are preserved. Protocol errors carry the rejecting assessment's pair.
+The collector requires a complete exact-string pair on unsupported-input
+failure, rejects content/unknown types/unbound fields, and includes it in the
+unchanged record/byte limits. Supported control-command shape is not provenance
+or permission and remains rejected, including on a different row from the cursor.
+No readiness, deadline, nonce, consent, native selection or proof-event change
+is introduced. Root remains 0.15.0 unreleased and component versions unchanged;
+the test modules are excluded from Nori staging.
+
+The clean 3dcb7c5 baseline passed 77 policy/protocol/diagnostic/driver tests.
+Eight expected assertion failures were observed before implementation across
+policy assessment, protocol provenance, collector retention and fake-PTY wiring.
+After implementation, the targeted regressions passed. A byte-limit fixture
+initially assumed that compact metadata alone exceeded the byte cap before
+16 records; it did not. The fixture was corrected to include the permitted
+structural projection, not by changing either budget. That test passed after
+the correction. The complete candidate package gate passed with exit 0,
+including schema and local CI workflow validation. All 123 focused tests passed:
+27 policy, 23 protocol, 12 diagnostics, 24 selected driver, 13 transport,
+13 namespace/audit/safety and 11 wiring. Optional capability skips and unavailable
+WSL PowerShell syntax validation remain limitations, not native evidence.
+The full log is retained externally as `p004b-rejected-row-candidate-package.log`.
+
+One independent source reviewer verified the frozen patch identity and traced
+the necessary parser, protocol, driver, collector, aggregate and staging callers.
+No actionable finding or code revision was requested. The reviewer inspected
+test assertions but did not independently execute tests: the targeted/full-gate
+results above are author-observed. Patch SHA256
+`cf58af884fa1d1c35fded945014e79e4876642da200cf65acacebc1c3b54e5d9` was rechecked
+after the complete package run, before this result-only documentation update.
+Code remained frozen throughout review and the matching package gate. The
+review's package-evidence hold is resolved by this fresh matching result.
+
+Author rulings on declined review scope:
+- The specific row/cause in the earlier native rejection remains unknown;
+  deleted raw data cannot establish the new position/category retrospectively.
+- Native operational acceptance, SDK, after/resume and skill-turn success stay
+  pending and require a fresh exact-final-commit grant, not a synthetic substitute.
+- Unrelated historical browser/authorization implementation was not exhaustively
+  re-reviewed; this diagnostic-only patch leaves that behavior unchanged.
+- Complete local package evidence is separately verified above. No remote
+  CI/Security result, PR/merge/release readiness or delivery authorization is
+  inferred from the source review or local validators.
+
+New synthetic tests launch no real Claude/provider/browser. No native repeat,
+push, PR, merge or release is part of this diagnostic-only refinement.

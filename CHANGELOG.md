@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Refined test-only unsupported-input-row diagnostics with an atomic closed
+  position/category pair captured by the actual rejecting parser evaluation.
+  Control-command shape is descriptive, never history ownership or permission.
+  Existing candidate/anchor/evaluation APIs, rejection order, proof events and
+  retention/deadline limits remain unchanged. No native acceptance or retry is
+  implied by the new metadata.
+
 - Added closed, content-free `inputEligibility` subcodes to offline
   `INPUT_PROBE_INELIGIBLE` diagnostics. The shared pure evaluation preserves
   rejection order and existing anchors; changed anchors are distinguished from
