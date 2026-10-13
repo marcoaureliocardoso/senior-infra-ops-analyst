@@ -1,6 +1,6 @@
 # P0-04B owned context echo design
 
-Status: conversational design approved; written-spec review pending.
+Status: written specification operator-approved; implementation-plan review pending.
 Not implemented. No new native/provider execution is authorized by this file.
 Source baseline: `afb20a0f9ae2a231b36576e5a19a4cfccfcec332`.
 
@@ -226,6 +226,7 @@ Rollback reverts receipt-aware assessment and its controller/challenge/debug
 integration as one unit, preserving the baseline strict active rejection and
 explicit passive path. Rollback does not restore a consumed execution grant.
 
-Current approval covers the conversational design and writing this specification.
-Next: operator reviews the written spec, then the implementation plan and its
-execution method. Product code and native experiments remain separately gated.
+Current approval covers the conversational design and this written specification.
+Next: operator reviews the [implementation plan](../plans/2026-10-13-p0-04b-owned-context-echo.md)
+and selects its execution method. Product code and native experiments remain
+separately gated.
