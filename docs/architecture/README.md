@@ -35,3 +35,8 @@ ADR-010 also records the isolated offline
 and [implementation plan](../superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md).
 Synthetic echo/clear ownership proof does not establish native/provider acceptance
 or enable this route for production/live credential input.
+
+The proposed test-only [owned context echo refinement](../superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md)
+is also linked from ADR-010. Its conversational design is approved; written-spec
+review, implementation and fresh native acceptance remain pending. It is not an
+enforced history exception or a production authorization mechanism.

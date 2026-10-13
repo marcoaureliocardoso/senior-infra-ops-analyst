@@ -596,6 +596,13 @@ least-authority and outcome-reconciliation reasons.
 
 ## Consequences and residual risks
 
+The 2026-10-13 [owned context echo design](../superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md)
+is a proposed test-only refinement after an offline rejection of an off-cursor
+command echo. Its conversational approach is approved; written-spec review,
+implementation and new native acceptance remain pending. It preserves default
+strict assessment and proposes a private transition-bound receipt, not a
+regex-only history exception or a production credential-entry capability.
+
 Operators retain browser/runtime ownership and must explicitly activate the
 guard. Unsupported or conflicting installations stop safely but may require a
 future adapter. A malicious same-principal local process can still race or alter
@@ -618,6 +625,7 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
 - Isolated pinned-input spec: `docs/superpowers/specs/2026-10-09-p0-04b-pinned-input-proof-design.md`
 - Isolated pinned-input plan: `docs/superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md`
+- Proposed owned-context-echo design: `docs/superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`
