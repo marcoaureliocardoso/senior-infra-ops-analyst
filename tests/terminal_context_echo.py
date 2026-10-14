@@ -151,6 +151,7 @@ class OwnedContextCommand(_Sealed):
         if record['phase']!='COMMAND_ECHO_MATCHED' or _prefix(record,snapshot,record['written'])!=len(_BODY):
             _fail(record,'INPUT_PROBE_STATE_REJECTED')
         record['policy'].mark_transition(snapshot)
+        record['submit_signature']=record['policy']._context_signature(snapshot)
         record['phase']='SUBMIT_PENDING'; record['submit_frame']=frame
         return b'\r'
 
@@ -163,6 +164,7 @@ class OwnedContextCommand(_Sealed):
     def bind_history(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
         if (record['phase']!='CONTEXT_PENDING' or frame<=record['submit_frame']
+                or record['policy']._context_signature(snapshot)==record['submit_signature']
                 or record['policy'].context_percent(snapshot) is None): _fail(record,'INPUT_PROBE_STATE_REJECTED')
         matches=_history_rows(record['policy'],snapshot)
         if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED')

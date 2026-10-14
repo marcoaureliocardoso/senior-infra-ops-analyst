@@ -225,6 +225,18 @@ class ContextEchoTests(unittest.TestCase):
         with mock.patch.object(self.m,'_now',side_effect=(float('nan'),now)):
             with self.assertRaises(challenge.InputProofError): self.begin()
 
+    def test_transient_grid_cannot_refresh_restored_pre_submission_grid(self):
+        self.empty=frame(numeric=True)
+        self.command_echo=frame('❯\u00a0/context',10,numeric=True)
+        command=self.submit()
+        transient=frame(numeric=True); rows=list(transient.rows)
+        text='Free space: 80%'
+        rows[1]=tuple([TerminalCell(c,1) for c in text]+[TerminalCell('',1)]*(120-len(text)))
+        transient=replace(transient,rows=tuple(rows))
+        self.policy.authentication(transient)  # Same passive observation as the concrete pump.
+        command.observe(transient,3)
+        with self.assertRaises(challenge.InputProofError): command.bind_history(self.numeric_history,4)
+
     def test_unsupported_cells_in_history_cannot_bind(self):
         for text in ('❯\u2003/context','❯\u200b/context','❯ /context extra'):
             self.fresh_scope(); command=self.submit()
