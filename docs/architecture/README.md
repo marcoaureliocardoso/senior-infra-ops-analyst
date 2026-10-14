@@ -36,8 +36,9 @@ and [implementation plan](../superpowers/plans/2026-10-09-p0-04b-pinned-input-pr
 Synthetic echo/clear ownership proof does not establish native/provider acceptance
 or enable this route for production/live credential input.
 
-The proposed test-only [owned context echo refinement](../superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md)
+The implemented test-only [owned context echo refinement](../superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md)
 and [implementation plan](../superpowers/plans/2026-10-13-p0-04b-owned-context-echo.md)
-are also linked from ADR-010. Its written specification is approved; plan
-review, implementation and fresh native acceptance remain pending. It is not an
-enforced history exception or a production authorization mechanism.
+are also linked from ADR-010. Its private correlated history exception preserves
+strict default/live assessment, nonce ownership, disposal and original limits.
+Synthetic verification is not fresh native acceptance or production authority;
+the pending gates and evidence are recorded in `tests/validation-notes.md`.

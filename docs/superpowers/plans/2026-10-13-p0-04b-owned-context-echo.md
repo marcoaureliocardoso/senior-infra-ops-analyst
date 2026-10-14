@@ -11,7 +11,7 @@ observations support debugging but never create input authority.
 
 **Spec:** [Owned context echo design](../specs/2026-10-13-p0-04b-owned-context-echo-design.md).
 
-Status: written specification approved; implementation-plan review and execution-method selection pending. No product code or native execution authorized by this document.
+Status: specification/plan approved; inline local implementation selected and present. Final review and complete package evidence in progress; native acceptance remains pending. This document authorizes no native/provider execution.
 Planning baseline: `566fa4d9159256e5da385c248048690e163c63a5`.
 
 ## Global Constraints

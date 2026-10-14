@@ -97,6 +97,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
                      'terminal_input_challenge.py',
                      'terminal_context_debug.py',
+                     'terminal_context_echo.py',
                      'terminal_structural_diagnostics.py',
                      'terminal_state_adapter.py','terminal-state-adapter.mjs','browser_startup_approval.py',
                      'browser_operations_live.py'):

@@ -175,5 +175,29 @@ class TerminalWiringTests(unittest.TestCase):
             'leaderReaped':True})+'\n')
         with self.assertRaises(ValueError): pty_context_observation(events,'synthetic-session','before')
 
+    def test_no_live_or_serialized_receipt_activation(self):
+        import inspect
+        import headless_context_driver
+        self.assertNotIn('context_receipt',inspect.signature(headless_context_driver.drive_context).parameters)
+        claim=self.root/'claim'; claim.write_text('owned test claim')
+        args=['context-entry','--claim',str(claim),'--commit','a'*40,'--run-nonce','p004b-'+'b'*32,
+            '--source-root',str(ROOT),'--capture',str(self.root/'capture'),'--events',str(self.root/'events'),
+            '--context-receipt','{}','--',sys.executable]
+        with mock.patch.object(sys,'argv',args),contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught: self.module.main()
+        self.assertEqual(caught.exception.code,2); self.assertFalse((self.root/'capture').exists())
+        self.assertEqual(claim.read_text(),'owned test claim')
+
+    def test_owned_echo_unit_is_in_complete_package_gate(self):
+        self.assertIn('python3 tests/test-terminal-context-echo.py',(ROOT/'tests/validate-package.sh').read_text())
+
+    def test_owned_echo_source_excluded_from_nori_staging(self):
+        sys.path.insert(0,str(ROOT))
+        from scripts.nori_package import build_staging
+        destination=self.root/'staging'
+        build_staging(ROOT,destination)
+        self.assertFalse((destination/'tests').exists())
+        self.assertFalse(any(path.name=='terminal_context_echo.py' for path in destination.rglob('*')))
+
 
 if __name__=='__main__': unittest.main()

@@ -4363,3 +4363,60 @@ staging. Root version remains 0.15.0 unreleased; component versions unchanged.
 No native invocation, push, PR, merge, release or new history deletion was
 performed for this implementation. Native debug use needs a separate grant
 bound to the final commit and permission for the sanitized chat-copy export.
+
+## 2026-10-14 correlated offline context echo implementation
+
+Implementation base: `10bcba473a22a354910e800eca8bc280d8d2ffa0`.
+The operator approved the written owned-context-echo specification/plan and
+selected inline local implementation. That approval does not renew the consumed
+`afb20a0` native grant. No Claude/native experiment, provider, real browser,
+operator credential/config read, push, PR, merge or release was performed here.
+
+Local source commits: `855fe68` (private command/receipt and shared evaluation),
+`a197b7a` (concrete command, nonce/clear/exit and debug integration) and
+`a077076` (reject a restored pre-Enter grid after transient freshness).
+The private capability stays in the existing audited offline scope and is
+mounted read-only. It is absent from CLI/env/live activation and Nori staging.
+Root 0.15.0 remains unreleased and component versions are unchanged.
+
+TDD evidence: the new component initially produced 19 missing-interface RED
+assertions. Two subsequent failing initial-clock/restart tests were corrected;
+the final additional stale-restored-grid test also failed before its fix.
+Twenty-one component tests passed. Integration RED covered the missing receipt
+constructor seam, positive history rejection, forged debug fallback and actual
+rejected-row provenance. Mount/package wiring RED was observed before wiring.
+
+The selected Python fake UI proves exact command echo before one Enter, then
+nonce echo, one Ctrl+U, newer empty input and natural fixed exit. It separately
+rejects missing/wrong command echo, autocomplete/late writable menus, auth,
+pre-existing resume history, duplicate/unowned history, mutated history,
+wrong-row/history nonce, failed clear, expiry and partial command/exit errors.
+No raw nonce/cells enter structural diagnostics or acceptance event records.
+Scope audit/helper tests, cancellation/signals, staging and content checks
+remain separate from any real native acceptance claim.
+
+Implementation rulings carried from the plan-owned ledger:
+
+- Register the actual command-prefix byte count immediately after each concrete
+  write, as well as before waits. The plan example omitted that fixture step;
+  echo beyond the actual written prefix must never authorize Enter. Cost if
+  wrong: a valid transition fails closed, with no wider authority.
+- Debug uses a private frozen evaluator-identity accessor to preserve the
+  capture API while projecting the original rejecting evaluation. It does not
+  validate or restore live authority. Cost if wrong: content is omitted.
+
+Residual native risks: autocomplete/menu behavior, a restored or unchanged
+context signature, runtime redraw geometry and unproved resume history may
+still block safely. A fake UI pass does not establish SDK/resume/Skill success.
+Rollback reverts receipt evaluation and driver/challenge/debug integration as
+one unit; no consumed grant is restored. Optional debug keeps the 128-KiB raw
+frame/4-KiB recut limits and content-free defaults; chat copies may persist.
+The complete 16-KiB result includes audit/disposal facts and its final newline.
+
+Final independent review and immutable-candidate package evidence are pending
+below. Fresh exact-final-commit native authorization must explicitly include
+the pre-Enter `/context` echo handshake, single Enter, unsubmitted 16-character
+nonce, guarded single Ctrl+U, synthetic-key consent, disposable native history,
+chosen debug export, 25/165-second limits and no automatic repetition.
+Original provider/browser acceptance, remote CI/Security and main merge remain
+pending independent gates; the definitive unversioned TODO is not completed.

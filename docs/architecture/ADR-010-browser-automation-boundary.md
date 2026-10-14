@@ -597,11 +597,24 @@ least-authority and outcome-reconciliation reasons.
 ## Consequences and residual risks
 
 The 2026-10-13 [owned context echo design](../superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md)
-is a proposed test-only refinement after an offline rejection of an off-cursor
-command echo. Its written specification is approved; implementation-plan review,
-implementation and new native acceptance remain pending. It preserves default
-strict assessment and proposes a private transition-bound receipt, not a
-regex-only history exception or a production credential-entry capability.
+is implemented as a test-only refinement after an offline rejection of an
+off-cursor command echo. The controlled edit requires strict empty baseline,
+exact newer `/context` echo before one Enter, and a currently fresh numeric
+signature different from the pre-Enter grid. A private in-memory receipt may
+exclude only one newly observed exact history row. It binds the original
+scope/run/terminal/native/transition/deadline and observed geometry; changes,
+duplication, owner/lifetime loss or auth/menu observations revoke it.
+
+The shared ordered evaluator preserves strict default APIs. Receipt validation
+continues through nonce eligibility, normalized echo, clear, proof consumption
+and each partial exit write. The receipt does not mint nonce ownership or
+consent. Frozen debug projection uses the actual rejected snapshot/row; an
+invalid or normalized-source observation omits content without default fallback.
+Only the audited offline namespace mounts this test component, read-only; no
+CLI/env/live activation or Nori artifact is added. Existing deadlines, budgets,
+disposal and no-retry controls remain unchanged. Verification and independent
+review status are recorded in validation notes; fresh native acceptance
+remains separate and pending. This is not production credential-entry support.
 
 Operators retain browser/runtime ownership and must explicitly activate the
 guard. Unsupported or conflicting installations stop safely but may require a
@@ -625,8 +638,8 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Test-only terminal plan: `docs/superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md`
 - Isolated pinned-input spec: `docs/superpowers/specs/2026-10-09-p0-04b-pinned-input-proof-design.md`
 - Isolated pinned-input plan: `docs/superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md`
-- Proposed owned-context-echo design: `docs/superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md`
-- Proposed owned-context-echo plan: `docs/superpowers/plans/2026-10-13-p0-04b-owned-context-echo.md`
+- Owned-context-echo design: `docs/superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md`
+- Owned-context-echo plan: `docs/superpowers/plans/2026-10-13-p0-04b-owned-context-echo.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

@@ -1,7 +1,8 @@
 # P0-04B owned context echo design
 
-Status: written specification operator-approved; implementation-plan review pending.
-Not implemented. No new native/provider execution is authorized by this file.
+Status: specification and plan operator-approved; local implementation present.
+Final independent review/package validation in progress; native acceptance pending.
+No new native/provider execution is authorized by this file.
 Source baseline: `afb20a0f9ae2a231b36576e5a19a4cfccfcec332`.
 
 ## Intent and observed evidence
@@ -217,8 +218,8 @@ unversioned TODO is not marked complete by a spec, synthetic test or local gate.
 
 ## Documentation, rollback and approval
 
-Record this proposed test-only refinement in indexed ADR-010. Implementation
-will update its status, CHANGELOG and validation notes with actual evidence;
+Record this test-only refinement in indexed ADR-010. Implementation
+updates its status, CHANGELOG and validation notes with actual evidence;
 keep existing unreleased root/component versions unless packaging changes.
 No raw frame, receipt or runtime history enters Git, Nori staging or releases.
 
@@ -226,7 +227,7 @@ Rollback reverts receipt-aware assessment and its controller/challenge/debug
 integration as one unit, preserving the baseline strict active rejection and
 explicit passive path. Rollback does not restore a consumed execution grant.
 
-Current approval covers the conversational design and this written specification.
-Next: operator reviews the [implementation plan](../plans/2026-10-13-p0-04b-owned-context-echo.md)
-and selects its execution method. Product code and native experiments remain
-separately gated.
+Current approval covers the written specification, the
+[implementation plan](../plans/2026-10-13-p0-04b-owned-context-echo.md) and inline
+local implementation with synthetic TDD and one independent final review.
+Native experiments remain separately gated by a fresh exact-final-commit grant.

@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added an offline-only owned context-command handshake: exact pre-Enter echo,
+  one submission and a currently fresh numeric grid may bind one private
+  history receipt. The same narrow assessment applies through nonce, clear,
+  proof and partial exit writes; changed history or lifetime revokes it.
+  Default/live callers still reject unowned history. Frozen debug projection
+  selects the actual rejecting row or omits content. No native/provider
+  acceptance, new execution grant or installed-package change is implied.
+
 - Added opt-in offline-development context debugging: one bounded temporary
   frame and a minimal sanitized, explicitly untrusted excerpt after verified
   case/root disposal. The excerpt may persist in the operator's chat, unlike

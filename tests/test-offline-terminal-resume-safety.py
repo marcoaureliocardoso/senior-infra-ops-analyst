@@ -209,5 +209,60 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
                             except ProcessLookupError: pass
                     process.communicate(timeout=2)
 
+    def test_offline_namespace_mounts_owned_echo_module(self):
+        commands=[]
+        def spawn(command,**kwargs):
+            commands.append(command)
+            kwargs['stdout'].write(json.dumps({'networkIsolated':True,'operatorStateHidden':True,
+                'capabilitiesDropped':True}).encode())
+            value=mock.Mock(); value.poll.return_value=0; value.returncode=0
+            return value
+        with mock.patch.object(self.module.shutil,'which',return_value='/usr/bin/bwrap'),\
+                mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=spawn):
+            report=self.module.run_isolation_audit(source=ROOT,node=Path(os.environ['P004B_TERMINAL_NODE']),
+                module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertTrue(report['disposableRootAbsent'])
+        command=commands[0]; target='/opt/probe/terminal_context_echo.py'
+        self.assertIn(target,command)
+        index=command.index(target)
+        self.assertEqual(command[index-2:index+1],['--ro-bind',str(ROOT/'tests/terminal_context_echo.py'),target])
+        self.assertNotIn('/opt/probe/claude',command)
+
+    def test_owned_echo_failure_stops_first_case_and_disposes(self):
+        spec=importlib.util.spec_from_file_location('owned_echo_fixture',ROOT/'tests/test-headless-context-driver.py')
+        fixture=importlib.util.module_from_spec(spec); spec.loader.exec_module(fixture)
+        ui=fixture.HeadlessContextDriverTests('test_debug_selects_actual_unknown_row_not_owned_command_history')
+        ui.setUp(); self.addCleanup(ui.doCleanups)
+        calls=[]; sdk_calls=[]
+        def case(name):
+            calls.append(name)
+            diagnostics=ui.run_pinned_probe('different-rejected-row-debug',debug=True)
+            events=[json.loads(line) for line in (ui.root/'events').read_text().splitlines()]
+            before=0 if events[-1]['outcome']=='passed' else 2
+            if before==0: sdk_calls.append(name)
+            report={'case':name,'beforeExit':before,'sdkExit':2,'afterExit':2,
+                'stages':[{'phase':'before','events':events,'diagnostics':diagnostics}]}
+            identity=ui.root.stat(); cleaned=self.module.finalize_owned(ui.root,identity,report)
+            self.assertFalse(ui.root.exists()); self.assertTrue(cleaned.pop('disposableRootAbsent'))
+            return {**cleaned,'caseRootAbsent':True}
+        report=self.module.run_cases(case)
+        self.assertEqual(calls,['text-turn']); self.assertEqual(sdk_calls,[])
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertNotIn('❯',json.dumps(report)); self.assertFalse(ui.root.exists())
+
+    def test_owned_echo_complete_report_stays_bounded(self):
+        from terminal_context_debug import fit_debug_report
+        diagnostics=TerminalDiagnostics()
+        for _ in range(100): diagnostics.add('failure','INPUT_PROBE_INELIGIBLE',
+            inputEligibility='UNSUPPORTED_ROW',inputRowRelation='OTHER_CAPTURED_ROW',inputRowCause='UNRECOGNIZED_SHAPE')
+        phase=diagnostics.report()
+        self.assertLessEqual(len(phase['records']),16)
+        self.assertLessEqual(len(json.dumps(phase,sort_keys=True).encode()),3072)
+        base={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[{'stages':[{'diagnostics':phase}]}]}
+        report=fit_debug_report(base,{'status':'READY','excerpt':{'text':'x'*4096}})
+        envelope={**report,'networkIsolated':True,'operatorStateHidden':True,
+            'capabilitiesDropped':True,'disposableRootAbsent':True}
+        self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
+
 
 if __name__=='__main__': unittest.main()
