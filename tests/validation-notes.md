@@ -4500,3 +4500,85 @@ acceptance remains pending. Branch/worktree are preserved without push, PR,
 merge, release or definitive TODO completion. The next native attempt requires
 a new exact-final-commit grant including the complete owned-command handshake
 and existing synthetic-only isolation, debug, deadline and no-repeat scope.
+
+## 2026-10-14 content-free context rejection diagnostics
+
+Specification and plan: `docs/superpowers/specs/2026-10-14-p0-04b-context-rejection-diagnostics-design.md`
+and `docs/superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md`.
+Both were operator-approved. The operator selected inline execution after an
+initial subagent selection, before any worker dispatch. Existing isolated
+worktree `p0-04b-browser-automation` was reused; planning HEAD was
+`c61fc8737b9bd23fdeceba6bc82c8efd2c8bc1db`.
+
+### Scope and actual observations
+
+The previous single offline run on `ad7b080a2e85b1591422f1d890671b95c974a3df`
+returned `OFFLINE_CONTROLS_INCONCLUSIVE / INPUT_PROBE_REVOKED` before completed
+`context_sent` or numeric inspection. Cleanup reaped the native/helper leaders
+and removed disposable roots. No SDK, resume, skill-turn or real provider ran.
+Its grant is consumed. Retained structural aggregate/report basenames are
+`p004b-offline-ad7b080-aggregate.json` and `p004b-offline-ad7b080-result.md`,
+outside Git in the test-owned runtime directory. Deleted raw data is not recovered.
+
+Source-only investigation reproduced eight synthetic cases. Different failing
+checks and a valid echo shared the same passive structural signature. Preserved
+non-breaking prefix padding passed; an ASCII-space repaint failed strict prefix
+equality. This is a possible mechanism, not the confirmed native root cause.
+
+The implemented journal freezes an exception/transition-bound four-field object:
+original phase, first actual rejecting check, acknowledged command bytes and
+acknowledged Enter bytes. The driver updates IO counts before post-write
+validation; a failed acknowledgement-stage lifetime check retains Enter count 1
+and pre-revocation `SUBMIT_PENDING`, without a completed submission checkpoint.
+Diagnostic loss does not permit input, restore authority or prevent cleanup.
+No terminal cells, raw streams, prompts, nonces, secrets or session identifiers
+are exported by the observer. Its namespace mount is read-only; installed/Nori
+artifacts and default/live behavior remain unchanged.
+
+### Synthetic TDD evidence
+
+- Task 1 RED: eight new journal tests failed for the absent private component;
+  three new collector tests failed because the new field was not accepted.
+  GREEN: eight journal and 15 collector tests passed.
+- Task 2 RED: new observation cases rejected the absent private begin keyword.
+  GREEN: 27 context-echo, eight journal, 27 input-policy and 27 input-challenge
+  tests passed (89 total), including actual passive-renderer spacing cases.
+- Task 3 RED: selected-driver failures lacked the object; the gate-dispatch test
+  observed skipped suite/exit 43 rather than requested suite/exit 42; the audit
+  command lacked the new read-only mount. New fixture reuse/cancellation issues
+  were corrected before interpreting their results as product evidence.
+- A four-phase regression also measured 3215 exported bytes despite the compact
+  3072-byte collector accounting. The cap is unchanged; measuring the actual
+  exported JSON formatting now conservatively truncates earlier. Both collector
+  and complete-envelope regressions passed after this correction.
+- Final focused run: journal 8, collector 15, context-echo 27, selected driver 44,
+  context debug 16, offline safety 19, wiring 15, cancellation 11 and signals 5:
+  160 passed. Selected-driver runtime was 142.185 seconds in that run. Fixtures
+  used the actual passive helper and controlled synthetic PTY peers, not Claude.
+
+Commands used the existing Debian WSL route with explicit retained Node/module
+paths, cleared environment, `HOME=/tmp`, disabled user-site imports and bytecode.
+The task completion wrapper records the explicit script suites, because unittest
+discovery skips these hyphenated filenames. Two incorrect discovery invocations
+reported zero tests/exit 5; neither is counted as verification or a product failure.
+
+### Verification gates and limitations
+
+Source commits: `ec8cef7` (private accounting/collector), `8c7fa2e` (actual check
+labels) and `a5e2e6d528d3dfaed1f8c8727e560e62b1b172fd` (writer/namespace/report
+integration and exported-byte accounting). Matching complete package validation
+and fresh independent final review remain pending at this evidence checkpoint.
+Their exact immutable candidate and results must be recorded after observation.
+
+No new native/provider/browser execution, operator credential/config access,
+expanded content capture, push, PR, merge, release or definitive TODO completion
+occurred in this implementation. Root/component versions remain unchanged.
+Native text-turn/resume/skill-turn and provider/browser acceptance, remote
+CI/Security and merge remain separate gates; no synthetic result supplies them.
+
+### Implementation ruling
+
+The byte-accounting correction uses the actual exported JSON format rather than
+compact-only size. Reason: the new regression exceeded the unchanged 3 KiB phase
+cap. Cost if wrong: conservative earlier diagnostic truncation, never additional
+authority or content. Existing raw-debug provenance and disposal stay unchanged.

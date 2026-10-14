@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added test-only, content-free context-command failure observations: the
+  original phase, first rejecting check and separately acknowledged command/Enter
+  bytes are frozen before revocation and bound to the exception and transition.
+  Diagnostic loss cannot change input authority or cleanup. The existing 3 KiB
+  phase limit now measures the actual exported JSON formatting. Raw debugging,
+  deadlines, acceptance events and installed package behavior remain unchanged;
+  synthetic verification does not establish native/provider acceptance.
+
 - Added an offline-only owned context-command handshake: exact pre-Enter echo,
   one submission and a numeric grid newer than the latest guarded pre-Enter
   observation may bind one private

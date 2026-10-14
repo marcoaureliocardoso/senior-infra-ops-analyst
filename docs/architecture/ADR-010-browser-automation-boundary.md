@@ -624,6 +624,36 @@ plus other rows, so a later redraw cannot restore lost authority. Review and
 corrected-source gate evidence remain distinct; no second reviewer cycle or
 native execution grant follows from the fix pass.
 
+The 2026-10-14 [content-free rejection design](../superpowers/specs/2026-10-14-p0-04b-context-rejection-diagnostics-design.md)
+and [implementation plan](../superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md)
+add a test-only observation journal for the same audited offline transition.
+The existing failure record may contain an atomic `contextCommandFailure`
+object: original `phase`, first actually rejecting `check`,
+`commandBytesWritten` (0..8) and `enterBytesWritten` (0..1). Concrete IO
+acknowledgements advance independently of validated echo progress, before any
+post-write lifetime check. An accepted Enter followed by rejection can therefore
+remain `SUBMIT_PENDING` with one acknowledged byte, without claiming submission
+completion or numeric context acceptance.
+
+Private registration binds frozen observations to the original exception and
+controller/scope/terminal/run/transition. Projection is pure and does not poll,
+revalidate authority or classify a newer frame. Unknown/malformed observations
+are omitted/rejected; diagnostic failure preserves operational failure and
+cleanup. The window ends at history binding and cannot label later nonce/exit
+failures with stale command data. No cells, streams, prompts, hashes, credentials
+or session identifiers enter this object. The module is mounted read-only in
+the offline namespace and excluded from Nori artifacts.
+
+The 16-record/3 KiB phase limit and 16 KiB complete-report limit remain fixed;
+phase accounting now includes the actual exported JSON spaces rather than only
+compact encoding. This can truncate earlier but cannot grant acceptance.
+Expanded pre-Enter raw capture and prefix normalization were not selected.
+The ad7b080 native rejection remains unexplained: synthetic prefix repaint is
+one possible mechanism, not its confirmed cause. Existing raw-debug provenance,
+deadlines, no-repeat and disposal rules remain unchanged. Matching full-gate and
+independent-review status are recorded in validation notes, separately from the
+still-pending native/provider/browser and remote gates.
+
 Operators retain browser/runtime ownership and must explicitly activate the
 guard. Unsupported or conflicting installations stop safely but may require a
 future adapter. A malicious same-principal local process can still race or alter
@@ -638,6 +668,10 @@ package-owned settings and preserves later operator changes. Then remove any
 operator-installed browser/MCP runtime separately under that runtime's own
 ownership procedure. Pending operations and credential reuse are not restored.
 
+The test-only observer can be reverted with its command/controller/collector and
+namespace-mount integration, preserving strict input/receipt/nonce behavior.
+Reverting it does not restore a consumed native execution grant.
+
 ## Links
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
@@ -648,6 +682,8 @@ ownership procedure. Pending operations and credential reuse are not restored.
 - Isolated pinned-input plan: `docs/superpowers/plans/2026-10-09-p0-04b-pinned-input-proof.md`
 - Owned-context-echo design: `docs/superpowers/specs/2026-10-13-p0-04b-owned-context-echo-design.md`
 - Owned-context-echo plan: `docs/superpowers/plans/2026-10-13-p0-04b-owned-context-echo.md`
+- Content-free rejection design: `docs/superpowers/specs/2026-10-14-p0-04b-context-rejection-diagnostics-design.md`
+- Content-free rejection plan: `docs/superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

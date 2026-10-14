@@ -42,3 +42,10 @@ are also linked from ADR-010. Its private correlated history exception preserves
 strict default/live assessment, nonce ownership, disposal and original limits.
 Synthetic verification is not fresh native acceptance or production authority;
 the pending gates and evidence are recorded in `tests/validation-notes.md`.
+
+The test-only [content-free rejection observer](../superpowers/specs/2026-10-14-p0-04b-context-rejection-diagnostics-design.md)
+and [implementation plan](../superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md)
+are indexed in ADR-010. Frozen phase/check/write-count evidence does not alter
+strict input ownership, raw-debug eligibility, disposal or acceptance. The cause
+of the last native rejection remains unknown; matching verification and review
+status are recorded separately in the validation notes.

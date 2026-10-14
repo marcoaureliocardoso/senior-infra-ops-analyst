@@ -15,7 +15,7 @@ record. Observations never grant input, consent, acceptance or renewed lifetime.
 
 ## Global Constraints
 
-- Written specification approved; this plan awaits operator review and execution-method selection. Planning does not authorize implementation or native execution.
+- Specification and plan operator-approved for inline execution (2), superseding the initial subagent selection (1) before any dispatch. Native execution remains separately gated.
 - Source planning baseline: `d4ce6bb2b8218ce80cd1c6dc75ad6d6be9a9fca0`; operational source baseline: `ad7b080a2e85b1591422f1d890671b95c974a3df`.
 - Reuse the existing `p0-04b-browser-automation` linked worktree; preserve operator changes and keep Git `safe.directory` command-local.
 - Observe only the audited offline owned-command transition, from baseline assessment through history binding. Keep public driver signatures, passive/live behavior, reason codes and acceptance event schemas unchanged.
@@ -81,7 +81,7 @@ status, explicit-file staging and commits; never use Linux Git on this worktree.
 - Export immutable `PHASES`, `CHECKS` and `FAILURE_REASONS`: spec enums; failure reasons are the collector's existing `INPUT_PROBE_*` values plus `RUNTIME_REJECTED` and `TERMINAL_DEADLINE_EXCEEDED`.
 - `TerminalDiagnostics.add(..., contextCommandFailure=...)`: optional new field, accepted only at `failure` with an allowed reason; existing call sites unaffected.
 
-- [ ] Write `test_enter_ack_survives_freeze_and_projection` using a pure fixture `self.journal()` that returns a fresh journal and its four identity bindings:
+- [x] Write `test_enter_ack_survives_freeze_and_projection` using a pure fixture `self.journal()` that returns a fresh journal and its four identity bindings:
 
 ```python
 journal, bindings = self.journal()
@@ -101,31 +101,31 @@ journal.freeze(error, 'SCOPE_BINDING')
 self.assertEqual(journal.project(error, **bindings)['check'], 'NATIVE_LIFETIME')
 ```
 
-- [ ] Write `test_invalid_ack_suppresses_projection`: fresh journal per count
+- [x] Write `test_invalid_ack_suppresses_projection`: fresh journal per count
   `True`, `0`, `-1`, `9`, `1.0`, `None`;
   `acknowledge(..., submission=False, remaining=8)` returns False, later freeze
   projects None. Invalid accounting is latched; a later valid count cannot repair it.
-- [ ] Write `test_forged_foreign_closed_or_replaced_attachment_omitted`: unsealed
+- [x] Write `test_forged_foreign_closed_or_replaced_attachment_omitted`: unsealed
   constructor, copied attachment to another exception, foreign binding/journal,
   changed run binding, invalid phase/check and finished journal never project
   trusted data. Mutating a returned dict cannot mutate a later projection.
   A different exception does not acquire the first observation.
-- [ ] Write `test_projection_has_no_live_effects`: patch clock, polling, helper IPC
+- [x] Write `test_projection_has_no_live_effects`: patch clock, polling, helper IPC
   and cancellation methods to raise if called; valid frozen projection still
   succeeds. `repr` and exception string do not expose journal payload or content.
-- [ ] Write collector tests `test_context_failure_atomic_closed_shape`,
+- [x] Write collector tests `test_context_failure_atomic_closed_shape`,
   `test_context_failure_event_binding`, `test_context_failure_budget_and_detached_report`:
   exact keys only, invalid enums/types/ranges rejected with no partial record,
   non-failure/non-compatible reasons rejected; 100 records stay <=16 and <=3072
   bytes and explicitly truncate. Mutating input/report leaves the retained object unchanged.
-- [ ] Run `test-terminal-context-diagnostics.py` and `test-terminal-structural-diagnostics.py`; retain named RED evidence.
-- [ ] Implement the interfaces. Use private registration and identity-bound sealed
+- [x] Run `test-terminal-context-diagnostics.py` and `test-terminal-structural-diagnostics.py`; retain named RED evidence.
+- [x] Implement the interfaces. Use private registration and identity-bound sealed
   attachment; freeze scalar data once, independent of later journal state.
   `bind_run` receives the existing scope accessor's result, never calls it again.
   Invalid observational state disables projection, not operational execution.
   `finish` releases private bindings and disables future projection after the collector has copied the result.
-- [ ] Run both suites to GREEN; check no mutable/serialized handle can become input authority, and no module stores terminal content or performs IO.
-- [ ] Commit explicit Task 1 files: `test: add sealed context failure accounting and collection`.
+- [x] Run both suites to GREEN; check no mutable/serialized handle can become input authority, and no module stores terminal content or performs IO.
+- [x] Commit explicit Task 1 files: `test: add sealed context failure accounting and collection`.
 
 ### Task 2: Label actual owned-command rejection boundaries
 
@@ -137,12 +137,12 @@ baseline, frame, *, _diagnostic_journal=None)`. Keep public controller/wrapper
 signatures and every existing command method signature unchanged. Store the
 optional observer privately; no receipt or input capability follows from it.
 
-- [ ] Add fixture `diagnostic_begin(baseline=None)` to the existing `ContextEchoTests`:
+- [x] Add fixture `diagnostic_begin(baseline=None)` to the existing `ContextEchoTests`:
   create a fresh controller binding, journal and transition binding, call the private
   optional parameter, return `(command, journal, bindings)`. Existing no-observer
   fixtures remain valid. Tests explicitly acknowledge modeled writes before
   calling `check_edit`/`submission_written`.
-- [ ] Write `test_first_failing_predicate_is_frozen_before_revocation` with isolated fixtures per variant:
+- [x] Write `test_first_failing_predicate_is_frozen_before_revocation` with isolated fixtures per variant:
 
 ```python
 cases = (
@@ -160,29 +160,29 @@ self.assertEqual(observation['commandBytesWritten'], 8)
 self.assertEqual(observation['enterBytesWritten'], 0)
 ```
 
-- [ ] Add `test_actual_renderer_padding_preserved_or_repainted`: feed the existing
+- [x] Add `test_actual_renderer_padding_preserved_or_repainted`: feed the existing
   passive helper alternate buffer with NBSP prefix, then fixed command using
   preserved NBSP versus ASCII-space repaint. Preserved case reaches
   `COMMAND_ECHO_MATCHED` without observation; repaint yields `PREFIX_CELLS`.
   No renderer cells enter diagnostics.
-- [ ] Add `test_rejection_code_matrix_and_short_circuit_order`: actual boundary
+- [x] Add `test_rejection_code_matrix_and_short_circuit_order`: actual boundary
   tests for baseline eligibility, binding/helper loss, deadline/backward clock,
   real `TerminalCancelled`, frame/phase/progress bounds, geometry, cursor range,
   command width/text, regression, incomplete submission, stale numeric
   signature/frame, duplicate history and history eligibility. A two-fault fixture
   reports only the first existing failing predicate. Combined scope rejection
   remains `SCOPE_BINDING`; arbitrary RuntimeError from an accessor is not guessed as cancellation.
-- [ ] Add `test_optional_observer_failure_preserves_original_revocation`: inject
+- [x] Add `test_optional_observer_failure_preserves_original_revocation`: inject
   failure in freeze/phase binding and assert the same original exception/reason,
   command revocation and no restored authority. No-observer tests keep their exact existing results.
-- [ ] Run `test-terminal-context-echo.py` to meaningful RED for new observation assertions.
-- [ ] Label the existing predicates without changing evaluation order or adding
+- [x] Run `test-terminal-context-echo.py` to meaningful RED for new observation assertions.
+- [x] Label the existing predicates without changing evaluation order or adding
   checks. Bind the run result from the already executed accessor, mirror successful
   phase changes, freeze before revocation. Catch observer errors locally without
   suppressing the original operational failure. Do not instrument later
   receipt/nonce validation after this transition has finished.
-- [ ] Run context-echo, journal, input-policy and input-challenge suites to GREEN.
-- [ ] Commit explicit Task 2 files: `test: attribute owned context rejection at its source`.
+- [x] Run context-echo, journal, input-policy and input-challenge suites to GREEN.
+- [x] Commit explicit Task 2 files: `test: attribute owned context rejection at its source`.
 
 ### Task 3: Concrete writer integration and offline transport
 
@@ -194,12 +194,12 @@ Pass it to Task 2's private begin interface. Extend only the nested `diagnose`
 helper with optional `context_command_failure=None`; forward the pure projection
 under the collector's exact camel-case field. Public signatures stay unchanged.
 
-- [ ] Extend existing `run_pinned_probe` synthetic fixture with modes
+- [x] Extend existing `run_pinned_probe` synthetic fixture with modes
   `prefix-padding-repaint`, `post-command-write-failure`, `post-enter-live-loss`,
   `blocking-command-write`, `invalid-command-write-count`, and `diagnostic-loss`.
   Filter actual PTY writes separately from helper IPC. Keep raw synthetic fixture
   input task-local and disposed; report only assertions/closed results.
-- [ ] Add `test_partial_command_failure_reports_only_accepted_bytes` and `test_enter_ack_failure_has_no_completed_submission_checkpoint`:
+- [x] Add `test_partial_command_failure_reports_only_accepted_bytes` and `test_enter_ack_failure_has_no_completed_submission_checkpoint`:
 
 ```python
 report = self.run_pinned_probe('partial-command-fault')
@@ -215,35 +215,35 @@ self.assertNotIn('context_sent', points_after_enter)
 self.assertEqual(actual_input_after_enter, b'/context\r')
 ```
 
-- [ ] Add `test_post_write_failure_retains_ack_before_validation`: force a supported
+- [x] Add `test_post_write_failure_retains_ack_before_validation`: force a supported
   failure immediately after a successful 8-byte write; expect count 8 despite
   unadvanced validated command progress, no Enter, original failure and reaped leaders.
-- [ ] Add `test_blocking_invalid_and_diagnostic_failure_do_not_change_input`:
+- [x] Add `test_blocking_invalid_and_diagnostic_failure_do_not_change_input`:
   BlockingIOError adds zero before subsequent accepted bytes; invalid count
   suppresses observation and retains IO failure; injected observer errors retain
   original event stream/input/cleanup. No recovery keys or repeated edits are sent.
-- [ ] Add `test_controller_boundary_phase_and_first_failure`: actual
+- [x] Add `test_controller_boundary_phase_and_first_failure`: actual
   menu/auth/cancellation/deadline paths freeze before invalidation; nested catches
   do not replace a component observation. Later nonce/exit failures carry no stale
   command observation. A second dialogue starts with fresh bindings and zero counters.
-- [ ] Add safety/wiring tests: read-only mount contains
+- [x] Add safety/wiring tests: read-only mount contains
   `terminal_context_diagnostics.py`, audit-only mode never mounts/launches Claude,
   module remains absent from Nori staging/archive, new unit suite is in
   `validate-package.sh`, serialized diagnostics cannot satisfy PTY acceptance,
   default/live/CLI interfaces unchanged.
-- [ ] Extend complete-envelope test using four maximal diagnostic phases plus
+- [x] Extend complete-envelope test using four maximal diagnostic phases plus
   existing 4096-byte debug allowance and disposal/audit facts; JSON plus newline
   <=16384 bytes. Invalid or overflow evidence never becomes success. Existing
   raw-debug tests still produce `OMITTED_PROVENANCE` for early command rejection.
-- [ ] Run selected driver, offline safety and wiring tests to RED, retaining named failures.
-- [ ] Integrate actual-byte accounting immediately after count validation and
+- [x] Run selected driver, offline safety and wiring tests to RED, retaining named failures.
+- [x] Integrate actual-byte accounting immediately after count validation and
   before command state callbacks. Label actual controller checks without new
   polls/clock reads; outer exception handling only projects frozen data. Disable
   further command observation after history binding; finish the journal after
   failure projection and before returning, including cleanup failures. Preserve all existing revocation and cleanup paths.
-- [ ] Mount the private module read-only beside existing context modules; include its unit suite in the full gate. Keep acceptance events separate from diagnostics.
-- [ ] Run journal, collector, context-echo, selected-driver, context-debug, offline-safety, wiring, cancellation and headless-signals suites to GREEN. No actual Claude/provider invocation.
-- [ ] Commit explicit Task 3 files: `test: wire bounded context rejection evidence to offline reports`.
+- [x] Mount the private module read-only beside existing context modules; include its unit suite in the full gate. Keep acceptance events separate from diagnostics.
+- [x] Run journal, collector, context-echo, selected-driver, context-debug, offline-safety, wiring, cancellation and headless-signals suites to GREEN. No actual Claude/provider invocation.
+- [x] Commit explicit Task 3 files: `test: wire bounded context rejection evidence to offline reports`.
 
 ### Task 4: Architectural record, immutable verification and handoff
 
@@ -254,9 +254,9 @@ approved spec status and this plan's checkboxes/status.
 **Interfaces:** No runtime changes. Record enforced behavior and evidence only;
 retain all native/provider/remote CI/Security/merge gates as pending.
 
-- [ ] Add an English ADR-010 subsection and index links to this spec/plan, the four-field observer, exact writer accounting, rejected alternatives, privacy/authority limits and rollback. State that ad7b080's native cause is still unknown.
-- [ ] Add a factual unreleased CHANGELOG entry and validation notes listing RED/GREEN suites and actual counts. Update spec status to approved/local implementation as applicable. Do not claim independent review/full gate/native acceptance before observing their outcomes.
-- [ ] Run `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py` through the route above; expected `content validation passed`, unittest `OK`, exit 0. Verify links, whitespace, line lengths <=300 and unchanged versions/staging scope.
+- [x] Add an English ADR-010 subsection and index links to this spec/plan, the four-field observer, exact writer accounting, rejected alternatives, privacy/authority limits and rollback. State that ad7b080's native cause is still unknown.
+- [x] Add a factual unreleased CHANGELOG entry and validation notes listing RED/GREEN suites and actual counts. Update spec status to approved/local implementation as applicable. Do not claim independent review/full gate/native acceptance before observing their outcomes.
+- [x] Run `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py` through the route above; expected `content validation passed`, unittest `OK`, exit 0. Verify links, whitespace, line lengths <=300 and unchanged versions/staging scope.
 - [ ] Commit explicit Task 4 files: `docs: record content-free context rejection observation`. Verify clean worktree and capture the immutable candidate hash.
 - [ ] Run the complete package gate on that candidate, using the same WSL/env prefix with `bash tests/validate-package.sh` instead of `python3 tests/TEST_FILE.py`. Expected exit 0 and final `package validation passed`; record all skips and do not convert them to actual runtime/browser proof.
 - [ ] Obtain the selected workflow's independent code review of the implementation
@@ -276,12 +276,8 @@ indexed architecture, immutable verification, independent review and next gates.
 All five review-focus risks have named test steps. Private API names and serialized
 field names agree across tasks. No native acceptance is substituted by fixtures.
 
-Recommended execution: **Native/inline**, implementing the four tasks in this
-session and requesting one fresh final independent reviewer. The tasks depend
-closely on the same journal interfaces, while the review targets their integrated
-provenance and IO behavior. Subagent-driven execution remains available if the
-operator prefers separate implementation/review per task.
-
-Implementation starts only after the operator reviews this plan and selects or
-confirms the execution method. The previous native execution grant remains
-consumed regardless of plan approval.
+Selected execution: **Native/inline**, with one fresh final independent reviewer.
+The operator changed the method before any subagent dispatch. Source tasks are
+implemented locally; focused suites passed. Full package gate, final review and
+their result-only evidence updates remain pending. The previous native execution
+grant remains consumed regardless of implementation or plan approval.
