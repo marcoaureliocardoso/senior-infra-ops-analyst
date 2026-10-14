@@ -4468,4 +4468,35 @@ Final review rulings and residual boundaries:
   synthetic isolation, bounded export and intended disposal. Cost: chat copies
   may persist and sanitization is not universal.
 
-Deferred Minor findings: none. Corrected-source package gate is pending.
+Deferred Minor findings: none.
+
+### Corrected-source final package evidence
+
+Corrected immutable candidate: `0666ee17a0ac4c8204d2b66b758b74ac0d74e72a`.
+The complete `bash tests/validate-package.sh` gate ran through the explicit
+Debian WSL/retained Node environment and exited 0 with `package validation
+passed`. HEAD remained that exact candidate and the tracked worktree stayed
+clean throughout the run. This matching gate covers the one author fix pass,
+not a second independent review.
+
+Focused component/protocol/debug/selected-driver counts were 22 + 27 + 16 + 38
+= 103 passed. The complete gate additionally passed namespace/helper, wiring,
+staging/archive, content/architecture, cancellation/signals, schema and local
+CI workflow checks plus existing command/browser/context suites. Optional
+real-browser/native-runtime checks remained explicit skips. WSL had no
+PowerShell, so .ps1 syntax was skipped; this implementation changes no .ps1.
+No skip supplies native/provider acceptance or remote CI/Security evidence.
+
+Non-secret complete package logs are retained outside Git in the test-owned
+`p004b-terminal-state` runtime directory, under basenames
+`p004b-owned-echo-f1627c6-package.log` and
+`p004b-owned-echo-0666ee1-package.log`. No raw native frame, transcript or
+history is retained by this implementation. Result-only spec/plan/notes updates
+after the candidate do not change source behavior and receive fresh content,
+architecture and diff checks before their local commit.
+
+Implementation delivery is complete locally; native/provider/browser/remote
+acceptance remains pending. Branch/worktree are preserved without push, PR,
+merge, release or definitive TODO completion. The next native attempt requires
+a new exact-final-commit grant including the complete owned-command handshake
+and existing synthetic-only isolation, debug, deadline and no-repeat scope.

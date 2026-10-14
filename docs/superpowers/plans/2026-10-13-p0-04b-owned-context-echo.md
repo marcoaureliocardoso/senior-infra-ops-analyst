@@ -11,7 +11,7 @@ observations support debugging but never create input authority.
 
 **Spec:** [Owned context echo design](../specs/2026-10-13-p0-04b-owned-context-echo-design.md).
 
-Status: specification/plan approved; inline local implementation selected and present. Final review and complete package evidence in progress; native acceptance remains pending. This document authorizes no native/provider execution.
+Status: approved inline local implementation complete. One independent review's findings were corrected by author TDD; matching complete package validation passed. No second review. Native acceptance remains pending; this document authorizes no native/provider execution.
 Planning baseline: `566fa4d9159256e5da385c248048690e163c63a5`.
 
 ## Global Constraints
@@ -97,7 +97,7 @@ echo/history/owner/auth/menu/helper, DEADLINE for expired/backward clock, INELIG
 `bind_history` is once-only even when it returns None. Receipt geometry pins the input row/marker and buffer/viewport, not a constant cursor column during owned typing; command/nonce/exit checks validate their own exact cursor advancement. None never discards a previously bound
 receipt after failure. Default no-receipt consumers keep their existing behavior and test seams.
 
-- [ ] **Step 1: Write unit tests before implementation.** Use synthetic cell fixtures and audited-scope test seams only; no Claude/provider/browser. Define fixture helpers `self.begin()` as the factory call and `self.assess(snapshot, receipt, frame)` as the assessment call using
+- [x] **Step 1: Write unit tests before implementation.** Use synthetic cell fixtures and audited-scope test seams only; no Claude/provider/browser. Define fixture helpers `self.begin()` as the factory call and `self.assess(snapshot, receipt, frame)` as the assessment call using
   that fixture's bindings.
 
 ```python
@@ -129,10 +129,10 @@ Add assertions in named tests:
 - `test_rejection_projection_is_snapshot_bound_and_non_authoritative`: wrong snapshot or forged projection is (True, None); frozen diagnostics cannot create a receipt or input proof.
 - `test_expiry_backward_clock_cancellation_helper_or_native_loss`: each lifetime failure denies the next action, including a check after an intervening wait.
 
-- [ ] **Step 2: Run `python3 tests/test-terminal-context-echo.py`.** Observe expected missing-module/interface assertion failure; never label an environment error as the intended RED.
-- [ ] **Step 3: Implement the interfaces above.** Keep the shared evaluator's ordering/types, classify only the validated exact historical row specially, and leave actual snapshots untouched. Private state records do not widen scope or default APIs.
-- [ ] **Step 4: Run the new unit file plus `tests/test-terminal-input-policy.py` and `tests/test-terminal-input-challenge.py` directly.** Expected: all pass, with no native launch. Check no raw-cell/nonce repr or durable records.
-- [ ] **Step 5: Commit only Task 1 files** as `test: add correlated offline context echo receipt` after fresh diff checks.
+- [x] **Step 2: Run `python3 tests/test-terminal-context-echo.py`.** Observe expected missing-module/interface assertion failure; never label an environment error as the intended RED.
+- [x] **Step 3: Implement the interfaces above.** Keep the shared evaluator's ordering/types, classify only the validated exact historical row specially, and leave actual snapshots untouched. Private state records do not widen scope or default APIs.
+- [x] **Step 4: Run the new unit file plus `tests/test-terminal-input-policy.py` and `tests/test-terminal-input-challenge.py` directly.** Expected: all pass, with no native launch. Check no raw-cell/nonce repr or durable records.
+- [x] **Step 5: Commit only Task 1 files** as `test: add correlated offline context echo receipt` after fresh diff checks.
 
 ### Task 2: Integrate the receipt across actual edit/proof/exit and observation
 
@@ -147,7 +147,7 @@ Add assertions in named tests:
 - Existing `drive_context` signature unchanged. Audited active scope selects the new command protocol; passive/default branches retain their original command send and barriers. Observer capture/report signatures remain unchanged.
 - Rejected assessments construct the existing InputProofError and attach the exact sealed observation. Normalized working snapshots cannot be substituted for the actual source snapshot: if identity/provenance is unavailable, debug omits content rather than reconstructing it.
 
-- [ ] **Step 1: Add fake-PTY tests that initially fail.** Extend the controlled fixture to echo each owned command prefix without Enter, receive exactly one Enter only after complete echo, then show numeric context and its one historical row. Keep distinct modes that
+- [x] **Step 1: Add fake-PTY tests that initially fail.** Extend the controlled fixture to echo each owned command prefix without Enter, receive exactly one Enter only after complete echo, then show numeric context and its one historical row. Keep distinct modes that
   intentionally omit/forge command echo; do not make a fixture fabricate provenance silently.
 
 ```python
@@ -178,15 +178,15 @@ Pin additional assertions by mode:
 
 Extend challenge tests to exercise the same valid receipt through every check and to revoke it at each phase. Extend debug tests to preserve current sensitive omission, 128/4-KiB bounds, exclusive private file, cleanup and complete-envelope budget. No marker, receipt or raw cells enter diagnostics.
 
-- [ ] **Step 2: Run the three changed test files directly.** Observe RED in the new interfaces/owned-echo path before integration, not by weakening an old negative fixture.
-- [ ] **Step 3: Integrate the defined interfaces.** Drain/recheck before and after writable waits; call `check_edit` for each actual command prefix write, wait for complete echo, use `submit_bytes`, immediately record its actual one-byte write via `submission_written`, then wait
+- [x] **Step 2: Run the three changed test files directly.** Observe RED in the new interfaces/owned-echo path before integration, not by weakening an old negative fixture.
+- [x] **Step 3: Integrate the defined interfaces.** Drain/recheck before and after writable waits; call `check_edit` for each actual command prefix write, wait for complete echo, use `submit_bytes`, immediately record its actual one-byte write via `submission_written`, then wait
   for fresh numeric output and bind history. Do not reset the numeric barrier after context output has already been parsed.
-- [ ] **Step 4: Propagate the same receipt through all nonce/clear/consumption/exit checks.** Invalidate command/receipt in the existing failure/finally path. Keep original startup consent/revocation, key selection, namespace boundaries, cleanup, proof events and checkpoint
+- [x] **Step 4: Propagate the same receipt through all nonce/clear/consumption/exit checks.** Invalidate command/receipt in the existing failure/finally path. Keep original startup consent/revocation, key selection, namespace boundaries, cleanup, proof events and checkpoint
   names; do not add redundant structural records.
-- [ ] **Step 5: Update debug projection.** A valid attached projection selects its actual rejecting row and recomputes only the frozen pure classification; an invalid attached projection omits content without strict-default fallback. Ordinary errors retain existing strict capture
+- [x] **Step 5: Update debug projection.** A valid attached projection selects its actual rejecting row and recomputes only the frozen pure classification; an invalid attached projection omits content without strict-default fallback. Ordinary errors retain existing strict capture
   behavior. Projection cannot validate/revive operational authority.
-- [ ] **Step 6: Run the three affected files plus Task 1 tests, policy, diagnostics, terminal wiring, cancellation and headless-signal tests directly.** Expected: all pass; no real Claude/provider/browser. Validate no extra bytes after each failure and unchanged public/default contracts.
-- [ ] **Step 7: Commit only Task 2 files** as `test: enforce owned context echo across input proof` after fresh diff checks.
+- [x] **Step 6: Run the three affected files plus Task 1 tests, policy, diagnostics, terminal wiring, cancellation and headless-signal tests directly.** Expected: all pass; no real Claude/provider/browser. Validate no extra bytes after each failure and unchanged public/default contracts.
+- [x] **Step 7: Commit only Task 2 files** as `test: enforce owned context echo across input proof` after fresh diff checks.
 
 ### Task 3: Offline wiring, package evidence and delivery boundaries
 
@@ -196,20 +196,20 @@ if concise guidance is materially needed; no historical release-section expansio
 **Interfaces consumed:** Existing namespace audit and offline controls, Task 1/2 implementation, closed diagnostics and unchanged run_cases/case_complete/finalize_owned contracts.
 **Interfaces produced:** Read-only namespace mount of `terminal_context_echo.py`; new direct unit test wired into the package gate. No flags, schemas, live activation or installed artifacts added. Documentation names the actual implemented/verified state without claiming native acceptance.
 
-- [ ] **Step 1: Add failing wiring/safety assertions.** `test_offline_namespace_mounts_owned_echo_module` checks the exact owned source mount; `test_no_live_or_serialized_receipt_activation` proves existing default/live interfaces reject activation;
+- [x] **Step 1: Add failing wiring/safety assertions.** `test_offline_namespace_mounts_owned_echo_module` checks the exact owned source mount; `test_no_live_or_serialized_receipt_activation` proves existing default/live interfaces reject activation;
   `test_owned_echo_source_excluded_from_nori_staging` keeps all test-only files outside packaged roots. `test_owned_echo_failure_stops_first_case_and_disposes` uses a controlled fixture, proves no SDK/second case/retry after failure and owned raw/root removal.
   `test_owned_echo_complete_report_stays_bounded` includes audit facts/receipt/newline at 16 KiB and diagnostics at 16/3 KiB.
-- [ ] **Step 2: Run offline-safety and wiring test files.** Observe the intended RED, without mounting or launching Claude. Actual namespace audit uses its existing audit-only path and passive helper; unavailable capability stays an explicit skip/block, not a native pass.
-- [ ] **Step 3: Add the read-only module mount and direct test invocation.** Preserve case order, synthetic prompts, configured SDK limits, runtime detection, unknown-capability rejection and all cancellation/signal/disposal behavior.
-- [ ] **Step 4: Run Task 3 tests, `tests/test-nori-staging.py`, `tests/validate-content.py` and `tests/test-architecture-docs.py`.** Expected: green assertions and unchanged package selection. Record skips and absent capabilities honestly.
-- [ ] **Step 5: Update documentation and commit Task 3 source/docs.** Keep root 0.15.0 unreleased and component versions unchanged unless distribution actually changes. Record synthetic evidence, residual native risks and rollback as a unit; do not mark the definitive TODO
+- [x] **Step 2: Run offline-safety and wiring test files.** Observe the intended RED, without mounting or launching Claude. Actual namespace audit uses its existing audit-only path and passive helper; unavailable capability stays an explicit skip/block, not a native pass.
+- [x] **Step 3: Add the read-only module mount and direct test invocation.** Preserve case order, synthetic prompts, configured SDK limits, runtime detection, unknown-capability rejection and all cancellation/signal/disposal behavior.
+- [x] **Step 4: Run Task 3 tests, `tests/test-nori-staging.py`, `tests/validate-content.py` and `tests/test-architecture-docs.py`.** Expected: green assertions and unchanged package selection. Record skips and absent capabilities honestly.
+- [x] **Step 5: Update documentation and commit Task 3 source/docs.** Keep root 0.15.0 unreleased and component versions unchanged unless distribution actually changes. Record synthetic evidence, residual native risks and rollback as a unit; do not mark the definitive TODO
   complete. Commit as `test: wire owned context echo into offline validation`.
-- [ ] **Step 6: Freeze an immutable candidate diff and request one independent scoped review.** Verify base/head/diff identity; follow requesting-code-review. The reviewer must cover receipt forgery/replay/lifetime, all concrete write boundaries, default/live behavior, debug
+- [x] **Step 6: Freeze an immutable candidate diff and request one independent scoped review.** Verify base/head/diff identity; follow requesting-code-review. The reviewer must cover receipt forgery/replay/lifetime, all concrete write boundaries, default/live behavior, debug
   provenance, cleanup and budgets. Document source-only or execution limits; no review result creates native authority.
-- [ ] **Step 7: Run `bash tests/validate-package.sh` through the defined WSL environment on the frozen candidate.** Require complete exit 0 and `package validation passed`, including schema/local workflow checks. Recheck candidate hash. If source changes to fix a finding, obtain
+- [x] **Step 7: Run `bash tests/validate-package.sh` through the defined WSL environment on the frozen candidate.** Require complete exit 0 and `package validation passed`, including schema/local workflow checks. Recheck candidate hash. If source changes to fix a finding, obtain
   matching validation/review; do not present prior-candidate results as fresh evidence.
-- [ ] **Step 8: Record final author-observed results and review rulings in validation notes.** Validate result-only docs with content/architecture tests and diff checks before their local commit. Verify clean worktree and final full SHA. No push, PR, merge or release unless separately authorized.
-- [ ] **Step 9: Stop and report the native acceptance gate.** Request a fresh exact-final-commit grant including `/context` edit/echo/single Enter, unsubmitted nonce and guarded Ctrl+U, synthetic-key consent, disposable history, chosen debug export, 25/165-second limits and no
+- [x] **Step 8: Record final author-observed results and review rulings in validation notes.** Validate result-only docs with content/architecture tests and diff checks before their local commit. Verify clean worktree and final full SHA. No push, PR, merge or release unless separately authorized.
+- [x] **Step 9: Stop and report the native acceptance gate.** Request a fresh exact-final-commit grant including `/context` edit/echo/single Enter, unsubmitted nonce and guarded Ctrl+U, synthetic-key consent, disposable history, chosen debug export, 25/165-second limits and no
   automatic repeat. Do not run it as part of this implementation plan.
 
 ## Plan self-review and operator handoff
