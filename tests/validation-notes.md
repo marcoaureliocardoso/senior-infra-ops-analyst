@@ -4582,3 +4582,45 @@ The byte-accounting correction uses the actual exported JSON format rather than
 compact-only size. Reason: the new regression exceeded the unchanged 3 KiB phase
 cap. Cost if wrong: conservative earlier diagnostic truncation, never additional
 authority or content. Existing raw-debug provenance and disposal stay unchanged.
+
+### Independent review and one author fix pass
+
+Immutable reviewed candidate: `2d56c833b96a326171a0fcdf2cad874e72d0fdeb`.
+Its complete `bash tests/validate-package.sh` run exited 0 with `package validation
+passed`, while HEAD/tracked state stayed unchanged. Log retained outside Git:
+`p004b-context-rejection-2d56c83-package.log` in the test-owned terminal runtime
+directory. Optional actual native/browser runtime checks and unavailable WSL
+PowerShell syntax checks remained explicit skips, not acceptance evidence.
+
+One fresh `gpt-6-astra` high reviewer read the complete 2066-line implementation
+range `c61fc87..2d56c83`, including unchanged interacting boundaries: zero Critical,
+one Important and zero Minor findings. The reviewer did not rerun supplied suites
+or claim the concurrent full-gate outcome. A narrow no-process check confirmed
+that `diagnose()` could call a failing collector again and let that exception
+replace the original rejection and interrupt capture/FD/helper cleanup.
+
+The author independently reproduced this without launching a process. Three
+permanent selected-driver regressions then failed with the actual collector
+exceptions and unclosed-capture ResourceWarnings. The single author fix makes
+diagnosis best-effort for ordinary collection exceptions, without a second add
+attempt. All three regressions passed afterward with pristine output, verifying
+original failure/success events, capture closure, both PTY descriptors closed,
+reaped native/helper leaders and revoked command/probe states. Controlled peers
+are Python fixtures, not Claude; no provider or operator configuration was used.
+
+The original review and its source candidate remain distinct from this author
+correction. The inline method permits one TDD fix pass, not a second independent
+review. A fresh complete gate on the corrected immutable candidate is pending
+at this checkpoint; its actual result and hash will be recorded after execution.
+
+The first covering run caught the existing
+`test_reap_observation_failure_cannot_change_operational_result` regression
+(46/47 selected-driver tests passed): omitting all reporting also lost the
+healthy collector's rejection flag on a producer failure. The author separated
+field/observation preparation from collection. A preparation failure may emit one
+guarded rejection marker; a failing collector itself is never retried. The existing
+producer test and all three collector-loss tests then passed (four directed tests).
+The covering rerun passed: journal 8, collector 15, context-echo 27, selected
+driver 47, context debug 16, offline safety 19, wiring 15, cancellation 11 and
+signals 5, totaling 163 passed. Selected-driver runtime was 149.393 seconds.
+No ResourceWarning or other test noise remained in that GREEN run.

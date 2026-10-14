@@ -115,10 +115,15 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
-            diagnostics.add(point,reason,**fields)
-        except (OSError,RuntimeError,TypeError,ValueError,AttributeError):
-            # Diagnostic loss cannot create input authority or alter proof events.
-            diagnostics.add('failure','DIAGNOSTIC_REJECTED')
+        except Exception:
+            # A producer failure can mark rejection if the collector is healthy.
+            try: diagnostics.add('failure','DIAGNOSTIC_REJECTED')
+            except Exception: pass
+            return
+        try: diagnostics.add(point,reason,**fields)
+        except Exception:
+            # Never retry an unavailable collector or interrupt operational cleanup.
+            pass
 
     def record(stage,outcome,percent=None):
         if events_path is None: return

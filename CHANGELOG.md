@@ -10,7 +10,8 @@ tag. Tagged versions correspond to repository tags.
 - Added test-only, content-free context-command failure observations: the
   original phase, first rejecting check and separately acknowledged command/Enter
   bytes are frozen before revocation and bound to the exception and transition.
-  Diagnostic loss cannot change input authority or cleanup. The existing 3 KiB
+  Journal or collector loss cannot change input authority, operational results
+  or cleanup; an unavailable collector is not retried. The existing 3 KiB
   phase limit now measures the actual exported JSON formatting. Raw debugging,
   deadlines, acceptance events and installed package behavior remain unchanged;
   synthetic verification does not establish native/provider acceptance.

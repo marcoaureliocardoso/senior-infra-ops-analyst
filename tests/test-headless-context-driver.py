@@ -1,6 +1,7 @@
 """Selected-path PTY behavior with real terminal state and controlled native UI."""
 import importlib.util
 import inspect
+import errno
 import json
 import os
 import signal
@@ -73,7 +74,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
 
-    def run_pinned_probe(self,mode='success',fault=False,debug=False):
+    def run_pinned_probe(self,mode='success',fault=False,debug=False,collector_error=None):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
@@ -169,8 +170,27 @@ class HeadlessContextDriverTests(unittest.TestCase):
         original_launch=selected_controller.subprocess.Popen
         original_cancel=state.check_cancelled; original_clock=time.monotonic
         original_freeze=ContextFailureJournal.freeze
+        original_collect=TerminalDiagnostics.add; original_open=Path.open
+        original_pty=selected_controller.pty.openpty
+        original_begin=selected_controller.begin_context_command; original_probe=selected_controller.NonceInputChallenge
+        captures=[]; terminal_fds=[]; children=[]; commands=[]; probes=[]
+        def opened(path,*args,**kwargs):
+            stream=original_open(path,*args,**kwargs)
+            if path==self.root/'capture': captures.append(stream)
+            return stream
+        def opened_pty():
+            pair=original_pty(); terminal_fds.extend(pair); return pair
+        def began(*args,**kwargs):
+            value=original_begin(*args,**kwargs); commands.append(value); return value
+        def probed(*args,**kwargs):
+            value=original_probe(*args,**kwargs); probes.append(value); return value
+        def collected(collector,point,reason,**fields):
+            if collector_error is not None and point in ('failure','native_cleanup','helper_cleanup'):
+                raise collector_error('synthetic collector loss')
+            return original_collect(collector,point,reason,**fields)
         def native_launch(*args,**kwargs):
             child=original_launch(*args,**kwargs); original_poll=child.poll
+            children.append(child)
             def observed_poll():
                 nonlocal fault_seen
                 trigger=(mode=='post-command-write-failure' and command_accepted
@@ -259,6 +279,11 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 mock.patch.object(selected_controller,'time',SimpleNamespace(monotonic=checked_clock)),\
                 mock.patch.object(state,'check_cancelled',side_effect=checked_cancel),\
                 mock.patch.object(ContextFailureJournal,'freeze',new=checked_freeze),\
+                mock.patch.object(TerminalDiagnostics,'add',new=collected),\
+                mock.patch.object(Path,'open',new=opened),\
+                mock.patch.object(selected_controller.pty,'openpty',side_effect=opened_pty),\
+                mock.patch.object(selected_controller,'begin_context_command',side_effect=began),\
+                mock.patch.object(selected_controller,'NonceInputChallenge',side_effect=probed),\
                 mock.patch.object(os,'write',side_effect=partial_writer):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
@@ -277,8 +302,20 @@ class HeadlessContextDriverTests(unittest.TestCase):
         report=diagnostics.report()
         self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
         self.assertTrue(state.helper_reaped)
-        self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
-        if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
+        if collector_error is None:
+            self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+            if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
+        else:
+            self.assertTrue(captures); self.assertTrue(all(stream.closed for stream in captures))
+            self.assertEqual(len(terminal_fds),2)
+            for descriptor in terminal_fds:
+                with self.assertRaises(OSError) as caught: os.fstat(descriptor)
+                self.assertEqual(caught.exception.errno,errno.EBADF)
+            self.assertEqual(len(children),1); self.assertIsNotNone(children[0].poll())
+            self.assertEqual(len(commands),1); self.assertEqual(commands[0].phase,'REVOKED')
+            if mode!='prefix-padding-repaint':
+                self.assertEqual(len(probes),1); self.assertEqual(probes[0].phase,'REVOKED')
+            self.assertFalse(any(row['point'] in ('failure','native_cleanup','helper_cleanup') for row in report['records']))
         if mode in ('baseline-history','partial-command-fault','invalid-command-write-count') or mode in early: pass
         elif mode=='post-enter-live-loss': self.assertEqual(data,b'/context\r')
         elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid'):
@@ -387,6 +424,35 @@ class HeadlessContextDriverTests(unittest.TestCase):
         failure=next(row for row in report['records'] if row['point']=='failure')
         self.assertEqual(failure['contextCommandFailure']['check'],'PREFIX_CELLS')
         self.assertEqual(self.debug_capture._status,'OMITTED_PROVENANCE')
+
+    def test_original_rejection_and_close_survive_collector_loss_before_launch(self):
+        class State:
+            cancellation=None
+            helper_reaped=False
+            closed=False
+            def snapshot(self): raise input_challenge.InputProofError('INPUT_PROBE_REVOKED')
+            def close(self): self.closed=True; self.helper_reaped=True
+        state=State()
+        with mock.patch.object(TerminalDiagnostics,'add',side_effect=RuntimeError('synthetic collector loss')),\
+                mock.patch.object(selected_controller.subprocess,'Popen',side_effect=AssertionError('unexpected process')):
+            result=selected_controller.drive_context(['never-launched'],self.root/'capture',2,self.root/'events',
+                None,state,writer=lambda *_:self.fail('unexpected write'),diagnostics=TerminalDiagnostics())
+        self.assertEqual(result,2); self.assertTrue(state.closed)
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertEqual(events,[{'kind':'pty-driver','stage':'initial_screen','outcome':'failed'}])
+
+    def test_persistent_collector_loss_preserves_owned_rejection_and_cleanup(self):
+        for mode in ('prefix-padding-repaint','menu-before-clear'):
+            with self.subTest(mode=mode):
+                self.temp.cleanup(); self.setUp()
+                self.run_pinned_probe(mode,collector_error=RuntimeError)
+                events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+                self.assertEqual(events[-1],{'kind':'pty-driver','stage':'context_inspected','outcome':'failed'})
+
+    def test_persistent_unclassified_collector_loss_preserves_success_and_cleanup(self):
+        self.run_pinned_probe('success',collector_error=LookupError)
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertEqual(events[-1],{'kind':'pty-driver','stage':'exit','outcome':'passed'})
 
     def test_menu_before_clear_never_clears_or_exits(self): self.run_pinned_probe('menu-before-clear')
     def test_expired_before_proof_never_sends_exit(self):

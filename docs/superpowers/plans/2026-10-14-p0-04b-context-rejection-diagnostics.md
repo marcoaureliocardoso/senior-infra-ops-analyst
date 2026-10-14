@@ -257,9 +257,9 @@ retain all native/provider/remote CI/Security/merge gates as pending.
 - [x] Add an English ADR-010 subsection and index links to this spec/plan, the four-field observer, exact writer accounting, rejected alternatives, privacy/authority limits and rollback. State that ad7b080's native cause is still unknown.
 - [x] Add a factual unreleased CHANGELOG entry and validation notes listing RED/GREEN suites and actual counts. Update spec status to approved/local implementation as applicable. Do not claim independent review/full gate/native acceptance before observing their outcomes.
 - [x] Run `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py` through the route above; expected `content validation passed`, unittest `OK`, exit 0. Verify links, whitespace, line lengths <=300 and unchanged versions/staging scope.
-- [ ] Commit explicit Task 4 files: `docs: record content-free context rejection observation`. Verify clean worktree and capture the immutable candidate hash.
-- [ ] Run the complete package gate on that candidate, using the same WSL/env prefix with `bash tests/validate-package.sh` instead of `python3 tests/TEST_FILE.py`. Expected exit 0 and final `package validation passed`; record all skips and do not convert them to actual runtime/browser proof.
-- [ ] Obtain the selected workflow's independent code review of the implementation
+- [x] Commit explicit Task 4 files: `docs: record content-free context rejection observation`. Verify clean worktree and capture the immutable candidate hash.
+- [x] Run the complete package gate on that candidate, using the same WSL/env prefix with `bash tests/validate-package.sh` instead of `python3 tests/TEST_FILE.py`. Expected exit 0 and final `package validation passed`; record all skips and do not convert them to actual runtime/browser proof.
+- [x] Obtain the selected workflow's independent code review of the implementation
   range on the same immutable candidate. Focus on first-failure provenance,
   post-write acknowledgements, exception/phase binding, diagnostic-loss safety,
   unchanged ownership and content-free budgets. If review is unavailable, stop with that gate pending.
@@ -277,7 +277,9 @@ All five review-focus risks have named test steps. Private API names and seriali
 field names agree across tasks. No native acceptance is substituted by fixtures.
 
 Selected execution: **Native/inline**, with one fresh final independent reviewer.
-The operator changed the method before any subagent dispatch. Source tasks are
-implemented locally; focused suites passed. Full package gate, final review and
-their result-only evidence updates remain pending. The previous native execution
-grant remains consumed regardless of implementation or plan approval.
+The operator changed the method before any subagent dispatch. The initial source
+candidate passed its full gate and received one independent final review. One
+collector-cleanup finding is in the single author TDD fix pass; targeted
+regressions passed, covering suites and corrected-source full gate remain pending.
+The previous native execution grant remains consumed regardless of implementation
+or plan approval.

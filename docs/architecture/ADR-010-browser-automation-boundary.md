@@ -644,6 +644,12 @@ failures with stale command data. No cells, streams, prompts, hashes, credential
 or session identifiers enter this object. The module is mounted read-only in
 the offline namespace and excluded from Nori artifacts.
 
+Diagnostic collection itself is best-effort: ordinary collector exceptions are
+suppressed without retrying the unavailable collector. They cannot replace an
+original failure or interrupt capture/PTY closure, process cleanup or revocation.
+The review identified this inherited cleanup interaction; synthetic author-fix
+regressions cover both rejected and successful operations plus pre-launch failure.
+
 The 16-record/3 KiB phase limit and 16 KiB complete-report limit remain fixed;
 phase accounting now includes the actual exported JSON spaces rather than only
 compact encoding. This can truncate earlier but cannot grant acceptance.
