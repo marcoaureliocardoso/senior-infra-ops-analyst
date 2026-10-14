@@ -260,5 +260,76 @@ class InputChallengeTests(unittest.TestCase):
         self.assert_reason('INPUT_PROBE_STATE_REJECTED',lambda:c.clear_bytes(self.echo_frame(marker),2))
         self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.type_bytes(empty,3))
 
+    def owned_fixture(self):
+        import terminal_context_echo as echo
+        patch=mock.patch.object(self.m,'audit_offline_namespace',return_value={
+            'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True})
+        patch.start(); self.addCleanup(patch.stop)
+        self.terminal=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),
+            Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+20)
+        self.addCleanup(self.terminal.close)
+        scope,_=self.scope(); native=mock.Mock(); native.poll.return_value=None
+        transition=object(); policy=TerminalInputPolicy(); empty=snapshot()
+        command=echo.begin_context_command(scope,self.terminal,native,transition,policy,empty,1)
+        self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED')
+        command.type_bytes(empty,1); command.check_edit(empty,1,8)
+        typed=snapshot('❯\u00a0/context',x=10); command.observe(typed,2)
+        command.submit_bytes(typed,2); command.submission_written(1)
+        extra=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),(10,'❯ /context'))
+        historical=snapshot(extra=extra); receipt=command.bind_history(historical,3)
+        c=self.m.NonceInputChallenge(scope,native,transition,policy,historical,3,context_receipt=receipt)
+        return c,native,transition,historical,extra,receipt
+
+    def test_owned_history_survives_every_nonce_clear_proof_and_exit_check(self):
+        from headless_context_driver import exit_input_owned
+        c,native,transition,empty,extra,receipt=self.owned_fixture()
+        marker=c.type_bytes(empty,3); typed=self.echo_frame(marker,extra=extra)
+        self.assertEqual(c.observe(typed,4),'ECHO_MATCHED')
+        self.assertEqual(c.clear_bytes(typed,4),b'\x15')
+        self.assertEqual(c.observe(empty,5),'PROVEN')
+        self.assertEqual(c.observe(empty,6),'PROVEN')
+        self.assertTrue(c.consume_exit(c.ownership_proof(),empty,6,native,transition))
+        kwargs={'context_receipt':receipt,'scope':c._scope,'state':self.terminal,
+            'native_owner':native,'transition_owner':transition,'frame':6}
+        self.assertTrue(exit_input_owned(c._policy,empty,c._anchor,c._row,0,**kwargs))
+        partial=snapshot('❯\u00a0/ex',x=5,extra=extra)
+        kwargs['frame']=7
+        self.assertTrue(exit_input_owned(c._policy,partial,c._anchor,c._row,3,**kwargs))
+        changed=snapshot('❯\u00a0/ex',x=5,extra=tuple((y,'❯ /exit' if y==10 else text) for y,text in extra))
+        kwargs['frame']=8
+        self.assertFalse(exit_input_owned(c._policy,changed,c._anchor,c._row,3,**kwargs))
+        self.assertFalse(exit_input_owned(c._policy,partial,c._anchor,c._row,3,**kwargs))
+
+    def test_owned_history_change_revokes_at_each_phase_without_fallback(self):
+        for phase in ('type','echo','clear','proven','consume'):
+            c,native,transition,empty,extra,_=self.owned_fixture()
+            changed=tuple((y,'❯ /exit' if y==10 else text) for y,text in extra)
+            bad=snapshot(extra=changed)
+            if phase=='type':
+                with self.assertRaises(self.m.InputProofError): c.type_bytes(bad,4)
+            else:
+                marker=c.type_bytes(empty,3); typed=self.echo_frame(marker,extra=extra)
+                if phase=='echo':
+                    with self.assertRaises(self.m.InputProofError): c.observe(self.echo_frame(marker,extra=changed),4)
+                else:
+                    c.observe(typed,4)
+                    if phase=='clear':
+                        with self.assertRaises(self.m.InputProofError): c.clear_bytes(self.echo_frame(marker,extra=changed),5)
+                    else:
+                        c.clear_bytes(typed,4); c.observe(empty,5)
+                        if phase=='proven':
+                            with self.assertRaises(self.m.InputProofError): c.observe(bad,6)
+                        else: self.assertFalse(c.consume_exit(c.ownership_proof(),bad,6,native,transition))
+            with self.assertRaises(self.m.InputProofError): c.type_bytes(empty,7)
+
+    def test_receipt_expiry_blocks_proof_after_clear(self):
+        import terminal_context_echo as echo
+        c,_,_,empty,extra,_=self.owned_fixture()
+        marker=c.type_bytes(empty,3); typed=self.echo_frame(marker,extra=extra)
+        c.observe(typed,4); c.clear_bytes(typed,4); c.observe(empty,5)
+        with mock.patch.object(echo,'_now',return_value=self.terminal.operation_deadline):
+            self.assert_reason('INPUT_PROBE_DEADLINE',c.ownership_proof)
+        self.assert_reason('INPUT_PROBE_REVOKED',c.ownership_proof)
+
 
 if __name__=='__main__': unittest.main()

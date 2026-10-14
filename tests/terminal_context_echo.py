@@ -231,6 +231,18 @@ def attach_context_rejection(error,observation):
     return error
 
 
+def _invalidate_context_receipt(receipt):
+    registered=_RECEIPTS.get(receipt) if type(receipt) is ContextEchoReceipt else None
+    if registered is not None: registered[0].invalidate('INPUT_PROBE_REVOKED')
+
+
+def _context_rejection_policy(error):
+    """Frozen pure evaluator identity only; never validates live authority."""
+    value=getattr(error,'_context_rejection',None)
+    registered=_OBSERVATIONS.get(value) if type(value) is ContextRejectionObservation else None
+    return registered[0] if registered is not None else None
+
+
 def context_rejection_projection(error,snapshot,policy):
     if not hasattr(error,'_context_rejection'): return False,None
     value=error._context_rejection

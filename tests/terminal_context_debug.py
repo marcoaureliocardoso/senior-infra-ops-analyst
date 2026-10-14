@@ -12,6 +12,7 @@ import weakref
 from terminal_input_challenge import audit_offline_namespace, validate_probe_scope, InputProofError
 from terminal_input_policy import TerminalInputPolicy, parse_context_percent
 from terminal_state_adapter import TerminalSnapshot, _snapshot
+from terminal_context_echo import context_rejection_projection, _context_rejection_policy
 
 FRAME_LIMIT=131072
 EXCERPT_LIMIT=4096
@@ -71,10 +72,12 @@ class ContextDebugCapture:
                     or not isinstance(error,InputProofError) or error.reason!='INPUT_PROBE_INELIGIBLE'
                     or error.input_eligibility!='UNSUPPORTED_ROW'):
                 self._status='OMITTED_PROVENANCE'; return
-            policy=TerminalInputPolicy()
-            assessment=policy.empty_input_assessment(snapshot)
-            if (assessment.reason!='UNSUPPORTED_ROW' or assessment.rowRelation!=error.input_row_relation
-                    or assessment.rowCause!=error.input_row_cause
+            policy=_context_rejection_policy(error) or TerminalInputPolicy()
+            receipt_aware,rejected=context_rejection_projection(error,snapshot,policy)
+            assessment=policy.empty_input_assessment(snapshot) if not receipt_aware else None
+            if ((receipt_aware and rejected is None) or (not receipt_aware and
+                    (assessment.reason!='UNSUPPORTED_ROW' or assessment.rowRelation!=error.input_row_relation
+                        or assessment.rowCause!=error.input_row_cause))
                     or parse_context_percent(policy.screen_text(snapshot),True) is None):
                 self._status='OMITTED_PROVENANCE'; return
             # Scan all cells before storing any frame; unknown credential-like material omits everything.
@@ -100,8 +103,9 @@ class ContextDebugCapture:
                 if written<=0: raise OSError
                 remaining=remaining[written:]
             self._live(state,scope)
-            rejected=next(index for index,row in enumerate(snapshot.rows)
-                if re.match(r'^\s*❯',policy._row_text(row)) and policy._candidate(row) is None)
+            if not receipt_aware:
+                rejected=next(index for index,row in enumerate(snapshot.rows)
+                    if re.match(r'^\s*❯',policy._row_text(row)) and policy._candidate(row) is None)
             cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
             selected=[rejected]+([cursor] if 0<=cursor<len(snapshot.rows) and cursor!=rejected else [])
             rows=[]

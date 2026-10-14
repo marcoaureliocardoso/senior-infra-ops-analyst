@@ -16,6 +16,7 @@ from terminal_input_policy import TerminalInputPolicy
 from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
 from terminal_structural_diagnostics import TerminalDiagnostics
 from terminal_input_challenge import NonceInputChallenge, InputProofError, validate_probe_scope
+from terminal_context_echo import begin_context_command, assess_context_input, validate_context_history, _invalidate_context_receipt
 
 
 class _ContextFailure(RuntimeError):
@@ -24,21 +25,34 @@ class _ContextFailure(RuntimeError):
         super().__init__(reason)
 
 
-def exit_input_owned(policy,snapshot,anchor,original_row,written):
+def exit_input_owned(policy,snapshot,anchor,original_row,written,*,context_receipt=None,scope=None,state=None,
+                     native_owner=None,transition_owner=None,frame=None):
     """Structure of the already-authorized fixed command, never a new IO grant."""
-    if type(written) is not int or not 0<=written<=5: return False
+    def reject():
+        if context_receipt is not None: _invalidate_context_receipt(context_receipt)
+        return False
+    bindings={'receipt':context_receipt,'scope':scope,'state':state,'native_owner':native_owner,
+        'transition_owner':transition_owner,'frame':frame}
+    if context_receipt is not None:
+        try:
+            validate_context_history(context_receipt,policy,snapshot,**{key:value for key,value in bindings.items()
+                if key!='receipt'})
+        except InputProofError: return reject()
+    if type(written) is not int or not 0<=written<=5: return reject()
     if (snapshot.active!=anchor.buffer or snapshot.baseY!=anchor.baseY
             or snapshot.viewportY!=anchor.viewportY
-            or snapshot.cursorY+snapshot.baseY-snapshot.viewportY!=anchor.row): return False
+            or snapshot.cursorY+snapshot.baseY-snapshot.viewportY!=anchor.row): return reject()
     row=snapshot.rows[anchor.row]; count=snapshot.cursorX-anchor.cursorX
-    if not 0<=count<=written or row[:anchor.cursorX]!=original_row[:anchor.cursorX]: return False
+    if not 0<=count<=written or row[:anchor.cursorX]!=original_row[:anchor.cursorX]: return reject()
     if any(cell.width!=1 or cell.text!='/exit'[index]
-            for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count])): return False
+            for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count])): return reject()
     if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0')
-            for cell in row[anchor.cursorX+count:]): return False
+            for cell in row[anchor.cursorX+count:]): return reject()
     rows=list(snapshot.rows); rows[anchor.row]=original_row
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
-    return policy.empty_input_anchor(normalized)==anchor
+    try: valid=assess_context_input(policy,normalized,**bindings)[0].anchor==anchor
+    except InputProofError: return reject()
+    return True if valid else reject()
 
 
 def _terminate(process):
@@ -60,6 +74,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     current_stage='initial_screen'; total=0; startup_open=True
     result=2; snapshot=None
     frame=0; probe=None; transition=None
+    context_command=None; context_receipt=None
     numeric_context_observed=False
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
@@ -104,7 +119,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             raise RuntimeError('late authentication')
         if input_probe_scope is not None and not startup_open and policy.active_input_forbidden(snapshot):
             if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
+            if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
             raise InputProofError('INPUT_PROBE_REVOKED')
+        if context_command is not None and probe is None: context_command.observe(snapshot,frame)
         if probe is not None: probe.observe(snapshot,frame)
         return True
 
@@ -164,14 +181,18 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             while pump(0): pass
             operation_live(); auth_clear()
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
-            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written):
+            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
+                    context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
+                    transition_owner=transition,frame=frame):
                 raise InputProofError('INPUT_PROBE_REVOKED')
             if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
             # Readiness/auth/deadline can change while waiting for writable IO.
             while pump(0): pass
             operation_live(); auth_clear()
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
-            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written):
+            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
+                    context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
+                    transition_owner=transition,frame=frame):
                 raise InputProofError('INPUT_PROBE_REVOKED')
             try: count=os.write(master,pending)
             except BlockingIOError: continue
@@ -179,6 +200,28 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if not count: raise InputProofError('INPUT_PROBE_IO_FAILED')
             written+=count
             pending=pending[count:]
+
+    def command_write(payload,*,submission=False):
+        pending=memoryview(payload); written=0
+        while pending:
+            def check():
+                operation_live(); auth_clear()
+                if submission:
+                    if context_command.observe(snapshot,frame)!='SUBMIT_PENDING':
+                        raise InputProofError('INPUT_PROBE_STATE_REJECTED')
+                else: context_command.check_edit(snapshot,frame,written)
+            while pump(0): pass
+            check()
+            if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
+            while pump(0): pass
+            check()
+            try: count=os.write(master,pending)
+            except BlockingIOError: continue
+            except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
+            if type(count) is not int or not 0<count<=len(pending): raise InputProofError('INPUT_PROBE_IO_FAILED')
+            written+=count; pending=pending[count:]
+            if submission: context_command.submission_written(count)
+            else: context_command.check_edit(snapshot,frame,written)
 
     try:
         capture_path.parent.mkdir(parents=True,exist_ok=True)
@@ -217,7 +260,17 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         current_stage='context_inspected'
         transition=object()
         # Check current input first, then establish the numeric observation barrier.
-        send('/context'); policy.mark_transition(snapshot)
+        if input_probe_scope is not None:
+            while pump(0): pass
+            operation_live(); auth_clear()
+            context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame)
+            command_write(context_command.type_bytes(snapshot,frame))
+            wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
+            while pump(0): pass
+            operation_live(); auth_clear()
+            command_write(context_command.submit_bytes(snapshot,frame),submission=True)
+        else:
+            send('/context'); policy.mark_transition(snapshot)
         diagnose('context_sent')
         wait_for(lambda: policy.context_percent(snapshot) is not None)
         percentage=policy.context_percent(snapshot)
@@ -227,7 +280,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if input_probe_scope is not None:
             while pump(0): pass
             operation_live(); auth_clear()
-            probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame)
+            context_receipt=context_command.bind_history(snapshot,frame)
+            probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame,
+                context_receipt=context_receipt)
             owned_write(probe.type_bytes(snapshot,frame),'ECHO_PENDING')
             diagnose('input_probe_started',structural=False)
             wait_for(lambda: probe.phase=='ECHO_MATCHED')
@@ -274,6 +329,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
         if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
+        if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
         if startup_approval is not None: startup_approval.revoke()
         native_cleanup='CLEANUP_COMPLETED'
         try:

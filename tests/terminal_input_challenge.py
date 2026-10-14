@@ -116,40 +116,60 @@ class InputOwnershipProof:
 
 
 class NonceInputChallenge:
-    def __init__(self,scope,native_owner,transition_owner,policy,initial,frame):
+    def __init__(self,scope,native_owner,transition_owner,policy,initial,frame,*,context_receipt=None):
         record=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
         if record is None: raise InputProofError('INPUT_PROBE_SCOPE_REJECTED')
         validate_probe_scope(scope,record['terminal']); record['claimed']=True
         self._scope=scope; self._record=record
         self._native=native_owner; self._transition=transition_owner
         self._policy=policy; self._proof=None; self._marker=None
+        self._context_receipt=context_receipt; self._context_snapshot=initial
         self.phase='ELIGIBLE'; self._last_frame=frame; self._write_frame=frame; self._progress=0
         self._last_time=_now()
         if (type(frame) is not int or not 0<=frame<=MAX_CAPTURE
                 or not isinstance(policy,TerminalInputPolicy)):
             self._fail('INPUT_PROBE_STATE_REJECTED')
-        assessment=policy.empty_input_assessment(initial)
+        assessment,observation=self._assessment(initial)
         self._anchor=assessment.anchor
         if self._anchor is None:
             self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason,
-                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
+                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause,observation=observation)
         self._row=initial.rows[self._anchor.row]
 
     def __repr__(self): return '<NonceInputChallenge>'
 
     def invalidate(self,reason):
         self.phase='REVOKED'; self._marker=None; self._proof=None
+        if getattr(self,'_context_receipt',None) is not None:
+            from terminal_context_echo import _invalidate_context_receipt
+            _invalidate_context_receipt(self._context_receipt)
         self._reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
 
-    def _fail(self,reason,input_eligibility=None,*,input_row_relation=None,input_row_cause=None):
+    def _fail(self,reason,input_eligibility=None,*,input_row_relation=None,input_row_cause=None,observation=None):
         self.invalidate(reason)
-        raise InputProofError(reason,input_eligibility,input_row_relation=input_row_relation,input_row_cause=input_row_cause)
+        error=InputProofError(reason,input_eligibility,input_row_relation=input_row_relation,input_row_cause=input_row_cause)
+        if observation is not None:
+            from terminal_context_echo import attach_context_rejection
+            attach_context_rejection(error,observation)
+        raise error
+
+    def _assessment(self,snapshot):
+        if self._context_receipt is None: return self._policy.empty_input_assessment(snapshot),None
+        from terminal_context_echo import assess_context_input
+        try:
+            result=assess_context_input(self._policy,snapshot,receipt=self._context_receipt,
+                scope=self._scope,state=self._record['terminal'],native_owner=self._native,
+                transition_owner=self._transition,frame=self._last_frame)
+        except BaseException:
+            self.invalidate('INPUT_PROBE_REVOKED'); raise
+        self._context_snapshot=snapshot
+        return result
 
     def _require_same_empty_anchor(self,snapshot):
-        assessment=self._policy.empty_input_assessment(snapshot)
+        assessment,observation=self._assessment(snapshot)
         if assessment.anchor!=self._anchor:
             self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason if assessment.anchor is None else 'ANCHOR_CHANGED',
-                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
+                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause,observation=observation)
 
     def _check(self,frame=None):
         if self.phase=='REVOKED': raise InputProofError('INPUT_PROBE_REVOKED')
@@ -165,6 +185,14 @@ class NonceInputChallenge:
             if type(frame) is not int or not self._last_frame<=frame<=MAX_CAPTURE:
                 self._fail('INPUT_PROBE_STATE_REJECTED')
             self._last_frame=frame
+        if self._context_receipt is not None:
+            from terminal_context_echo import validate_context_history
+            try:
+                validate_context_history(self._context_receipt,self._policy,self._context_snapshot,
+                    scope=self._scope,state=self._record['terminal'],native_owner=self._native,
+                    transition_owner=self._transition,frame=self._last_frame)
+            except BaseException:
+                self.invalidate('INPUT_PROBE_REVOKED'); raise
 
     def type_bytes(self,snapshot,frame):
         self._check(frame)
@@ -192,7 +220,12 @@ class NonceInputChallenge:
                 for cell in row[anchor.cursorX+count:]): self._fail(reason)
         rows=list(snapshot.rows); rows[anchor.row]=self._row
         normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
-        if self._policy.empty_input_anchor(normalized)!=anchor: self._fail('INPUT_PROBE_REVOKED')
+        assessment,observation=self._assessment(normalized)
+        if assessment.anchor!=anchor:
+            if self._context_receipt is not None and assessment.reason=='UNSUPPORTED_ROW':
+                self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason,input_row_relation=assessment.rowRelation,
+                    input_row_cause=assessment.rowCause,observation=observation)
+            self._fail('INPUT_PROBE_REVOKED')
         return count
 
     def observe(self,snapshot,frame):
@@ -215,7 +248,7 @@ class NonceInputChallenge:
                 self.phase='PROVEN'; self._marker=None; self._proof=InputOwnershipProof(_SEAL)
             elif count!=16: self._fail('INPUT_PROBE_CLEAR_REJECTED')
         elif self.phase=='PROVEN':
-            if self._policy.empty_input_anchor(snapshot)!=self._anchor: self._fail('INPUT_PROBE_REVOKED')
+            if self._assessment(snapshot)[0].anchor!=self._anchor: self._fail('INPUT_PROBE_REVOKED')
         else: self._fail('INPUT_PROBE_STATE_REJECTED')
         return self.phase
 
@@ -236,7 +269,7 @@ class NonceInputChallenge:
             self._check(frame)
             if (self.phase!='PROVEN' or proof is not self._proof or type(proof) is not InputOwnershipProof
                     or native_owner is not self._native or transition_owner is not self._transition
-                    or self._policy.empty_input_anchor(snapshot)!=self._anchor):
+                    or self._assessment(snapshot)[0].anchor!=self._anchor):
                 self._fail('INPUT_PROBE_REVOKED')
             self.phase='CONSUMED'; self._proof=None; return True
         except InputProofError: return False

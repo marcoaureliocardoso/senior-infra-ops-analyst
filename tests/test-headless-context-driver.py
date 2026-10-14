@@ -75,6 +75,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
         menu_ready=self.root/'menu-ready'; menu_seen=self.root/'menu-seen'; menu_erased=self.root/'menu-erased'
+        submit_ready=self.root/'submit-ready'; menu_request=self.root/'menu-request'
         fake.write_text('import os,time,tty\nfrom pathlib import Path\n'
             'tty.setraw(0)\n'
             'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -86,14 +87,40 @@ class HeadlessContextDriverTests(unittest.TestCase):
             '  with Path('+repr(str(seen))+').open("ab") as stream: stream.write(value)\n'
             '  data.extend(value)\n'
             ' return bytes(data)\n'
-            'if read(9)!=b"/context\\r": raise SystemExit(1)\n'
+            + ('os.write(1,"\\x1b[6;1H❯ /resume\\x1b[38;3H".encode())\n' if mode=='baseline-history' else '') +
+            'command=bytearray()\n'
+            'for _ in range(8):\n'
+            ' command.extend(read(1))\n'
+            + ('' if mode=='missing-command-echo' else
+                ' os.write(1,b"\\x1b[38;3H"+command)\n') +
+            'if command!=b"/context": raise SystemExit(1)\n'
+            + ('' if mode=='missing-command-echo' else
+                'os.write(1,b"\\x1b[38;3H/contextX")\n' if mode=='wrong-command-echo' else
+                'os.write(1,b"\\x1b[38;3H/context")\n') +
+            ('Path('+repr(str(submit_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
+                'os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;11H")\n'
+                'Path('+repr(str(menu_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
+                'os.write(1,b"\\x1b[1;1H\\x1b[2K\\x1b[38;11H")\n'
+                'Path('+repr(str(menu_erased))+').touch()\n' if mode=='late-writable-menu' else '') +
+            ('os.write(1,b"\\x1b[1;1HPress Esc to close\\x1b[38;11H")\n' if mode=='menu-before-submit' else '') +
+            ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;11H")\n' if mode=='auth-before-submit' else '') +
+            ('os.write(1,"\\x1b[12;1H❯ autocomplete\\x1b[38;11H".encode())\n' if mode=='autocomplete-marker' else '') +
+            'if read(1)!=b"\\r": raise SystemExit(1)\n'
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
-            'os.write(1,b"\\x1b[1;1H\\x1b[2KContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;3H")\n'
+            'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[6;1H❯ /context\\x1b[38;1H❯\\u00a0".encode())\n'
             + ('os.write(1,b\'Try "fix tests"\\x1b[38;3H\')\n' if mode=='suggestion' else '') +
-            ('os.write(1,"\\x1b[6;1H❯ /context\\x1b[38;3H".encode())\n' if mode=='unsupported-control' else '') +
+            ('os.write(1,"\\x1b[12;1H❯ /exit\\x1b[38;3H".encode())\n' if mode=='unsupported-control' else '') +
+            ('os.write(1,"\\x1b[12;1H❯ /context\\x1b[38;3H".encode())\n' if mode=='duplicate-history' else '') +
+            ('os.write(1,"\\x1b[12;1H❯ unknown\\x1b[38;3H".encode())\n' if mode=='different-rejected-row-debug' else '') +
             'marker=read(16)\n'
             'os.write(1,b"\\x1b[38;3H"+marker)\n'
-            + ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;19H")\n' if mode=='auth' else '') +
+            + ('os.write(1,"\\x1b[6;1H\\x1b[2K❯ /exit\\x1b[38;19H".encode())\n' if mode=='history-mutated-during-nonce' else '') +
+            ('os.write(1,b"\\x1b[12;3H"+marker+b"\\x1b[38;19H")\n' if mode=='nonce-in-history' else '') +
+            ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0\\x1b[37;1H❯\\u00a0".encode()+marker)\n' if mode=='wrong-echo-row' else '') +
+            ('os.write(1,b"\\x1b[1;1HPress Esc to close\\x1b[38;19H")\n' if mode=='menu-before-clear' else '') +
+            ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;19H")\n' if mode=='auth' else '') +
             'if read(1)!=b"\\x15": raise SystemExit(1)\n'
             + ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n' if mode!='uncleared' else '') +
             ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n' if mode=='postclear-menu' else '') +
@@ -120,7 +147,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         original=os.write; failed_fd=None; original_snapshot=state.snapshot
         def observed_snapshot():
             value=original_snapshot()
-            if mode=='partial-exit-menu' and 'Yes, I trust this folder' in '\n'.join(
+            if mode in ('partial-exit-menu','late-writable-menu') and 'Yes, I trust this folder' in '\n'.join(
                     ''.join(cell.text for cell in row) for row in value.rows):
                 menu_seen.touch()
                 until=time.monotonic()+1
@@ -128,6 +155,10 @@ class HeadlessContextDriverTests(unittest.TestCase):
             return value
         def partial_writer(fd,payload):
             nonlocal failed_fd
+            if mode in ('partial-command-write','partial-command-fault') and os.isatty(fd) and bytes(payload)==b'/context':
+                count=original(fd,payload[:4])
+                if mode=='partial-command-fault': failed_fd=fd
+                return count
             if mode=='partial-exit-menu' and os.isatty(fd) and bytes(payload)==b'/exit\r':
                 count=original(fd,payload[:2]); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
@@ -136,36 +167,103 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 failed_fd=fd; return original(fd,payload[:8])
             if fd==failed_fd: raise OSError('synthetic write failed')
             return original(fd,payload)
+        original_select=selected_controller.select.select
+        original_proof=input_challenge.NonceInputChallenge.ownership_proof
+        def proof_after_expiry(value):
+            if mode=='expired-before-proof':
+                with mock.patch.object(input_challenge,'_now',return_value=state.operation_deadline):
+                    return original_proof(value)
+            return original_proof(value)
+        def writable_select(reads,writes,errors,timeout):
+            if mode=='late-writable-menu' and writes and submit_ready.exists() and not menu_request.exists():
+                menu_request.touch(); until=time.monotonic()+1
+                while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
+            return original_select(reads,writes,errors,timeout)
         with mock.patch.dict(os.environ,{'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'},clear=True),\
                 mock.patch.object(context_debug_module,'audit_offline_namespace',return_value={
                     'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}),\
+                mock.patch.object(input_challenge,'audit_offline_namespace',return_value={
+                    'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}),\
                 mock.patch.object(state,'snapshot',side_effect=observed_snapshot),\
-                mock.patch.object(os,'write',side_effect=partial_writer if fault or mode=='partial-exit-menu' else original):
+                mock.patch.object(selected_controller.select,'select',side_effect=writable_select),\
+                mock.patch.object(input_challenge.NonceInputChallenge,'ownership_proof',new=proof_after_expiry),\
+                mock.patch.object(os,'write',side_effect=partial_writer):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
                 **({'context_debug':debug_capture} if debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
-        self.assertEqual(result,0 if mode=='success' and not fault else 2)
-        self.assertEqual(data[:9],b'/context\r')
+        success=mode in ('success','partial-command-write')
+        self.assertEqual(result,0 if success and not fault else 2)
+        early=('missing-command-echo','wrong-command-echo','menu-before-submit','auth-before-submit',
+            'autocomplete-marker','late-writable-menu')
+        if mode=='baseline-history': self.assertEqual(data,b'')
+        elif mode=='partial-command-fault': self.assertEqual(data,b'/con')
+        elif mode in early: self.assertEqual(data,b'/context')
+        else: self.assertEqual(data[:9],b'/context\r')
         self.assertNotIn(b'\x1b',data)
         report=diagnostics.report()
         self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
         self.assertTrue(state.helper_reaped)
-        if mode in ('suggestion','pre-menu','unsupported-control'): self.assertEqual(data,b'/context\r')
+        self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+        if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
+        if mode in ('baseline-history','partial-command-fault') or mode in early: pass
+        elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug'):
+            self.assertEqual(data,b'/context\r')
         elif fault:
             self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
         else:
             self.assertRegex(data[9:25],rb'^[0-9a-f]{16}$')
             self.assertNotIn(data[9:25].decode(),json.dumps(report))
-            if mode=='success': self.assertEqual(data[25:],b'\x15/exit\r')
-            elif mode=='auth': self.assertEqual(data[25:],b'')
+            if success: self.assertEqual(data[25:],b'\x15/exit\r')
+            elif mode in ('auth','history-mutated-during-nonce','nonce-in-history','wrong-echo-row','menu-before-clear'): self.assertEqual(data[25:],b'')
             elif mode=='uncleared': self.assertEqual(data[25:],b'\x15')
             elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
+            elif mode=='expired-before-proof': self.assertEqual(data[25:],b'\x15')
             elif mode=='partial-exit-menu': self.assertEqual(data[25:],b'\x15/e')
         if debug: self.debug_capture=debug_capture
         return report
 
     def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
+    def run_owned_echo_case(self,mode='success'):
+        report=self.run_pinned_probe(mode)
+        return ((self.root/'probe-input').read_bytes(),
+            [json.loads(line) for line in (self.root/'events').read_text().splitlines()],report)
+
+    def test_owned_context_history_allows_nonce_clear_and_natural_exit(self):
+        data,events,diagnostics=self.run_owned_echo_case()
+        self.assertEqual(data[:9],b'/context\r')
+        self.assertRegex(data[9:25],rb'^[0-9a-f]{16}$')
+        self.assertEqual(data[25:],b'\x15/exit\r'); self.assertEqual(events[-1]['outcome'],'passed')
+        self.assertFalse(diagnostics['rejected']); self.assertFalse(diagnostics['truncated'])
+
+    def test_command_echo_and_pre_submit_forbidden_states_never_enter(self):
+        for mode in ('missing-command-echo','wrong-command-echo','menu-before-submit',
+                'auth-before-submit','autocomplete-marker','late-writable-menu'):
+            with self.subTest(mode=mode):
+                self.run_pinned_probe(mode)
+                self.temp.cleanup(); self.setUp()
+
+    def test_unowned_history_predicates_never_type_nonce(self):
+        for mode in ('baseline-history','duplicate-history'):
+            with self.subTest(mode=mode):
+                self.run_pinned_probe(mode)
+                self.temp.cleanup(); self.setUp()
+
+    def test_history_and_nonce_location_loss_never_clear(self):
+        for mode in ('history-mutated-during-nonce','nonce-in-history','wrong-echo-row'):
+            with self.subTest(mode=mode):
+                self.run_pinned_probe(mode)
+                self.temp.cleanup(); self.setUp()
+
+    def test_partial_command_write_progress_and_failure(self):
+        self.run_pinned_probe('partial-command-write')
+        self.temp.cleanup(); self.setUp()
+        self.run_pinned_probe('partial-command-fault')
+
+    def test_menu_before_clear_never_clears_or_exits(self): self.run_pinned_probe('menu-before-clear')
+    def test_expired_before_proof_never_sends_exit(self):
+        report=self.run_pinned_probe('expired-before-proof')
+        self.assertEqual(next(row for row in report['records'] if row['point']=='failure')['reasonCode'],'INPUT_PROBE_DEADLINE')
     def test_probe_does_not_overwrite_visible_suggestion(self): self.run_pinned_probe('suggestion')
 
     def test_ineligibility_subcode_reaches_diagnostics_without_changing_proof_events(self):
@@ -203,7 +301,17 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.temp.cleanup()
         debug=self.debug_capture.report()
         self.assertEqual(debug['status'],'READY')
-        self.assertEqual(debug['excerpt']['rows'][0]['text'],'❯ /context')
+        self.assertEqual(debug['excerpt']['rows'][0]['text'],'❯ /exit')
+
+    def test_debug_selects_actual_unknown_row_not_owned_command_history(self):
+        self.run_pinned_probe('different-rejected-row-debug',debug=True)
+        self.assertTrue((self.root/'context-debug-frame.json').is_file())
+        self.assertNotIn('excerpt',self.debug_capture.report())
+        self.temp.cleanup()
+        debug=self.debug_capture.report()
+        self.assertEqual(debug['status'],'READY')
+        self.assertEqual(debug['excerpt']['rows'][0]['index'],11)
+        self.assertEqual(debug['excerpt']['rows'][0]['text'],'❯ unknown')
 
     def test_serialized_debug_request_rejects_before_native_startup(self):
         self.assertIn('context_debug',inspect.signature(self.driver.drive).parameters,'sealed debug interface missing')

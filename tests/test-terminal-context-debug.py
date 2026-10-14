@@ -194,5 +194,37 @@ class TerminalContextDebugTests(unittest.TestCase):
         self.assertEqual(list(self.root.iterdir()),[])
         self.dispose(); self.assertNotIn('excerpt',debug.report())
 
+    def test_forged_attached_projection_never_falls_back_to_default_row(self):
+        error=rejection(); error._context_rejection={'row':5}
+        debug=self.debug(); self.capture(debug,frame(),error)
+        self.assertEqual(list(self.root.iterdir()),[])
+        self.dispose()
+        self.assertEqual(debug.report()['status'],'OMITTED_PROVENANCE')
+
+    def test_valid_projection_exports_actual_row_but_wrong_source_omits(self):
+        from dataclasses import replace
+        import terminal_context_echo as echo
+        with mock.patch.object(challenge,'audit_offline_namespace',return_value=FACTS):
+            policy=TerminalInputPolicy(); native=mock.Mock(); native.poll.return_value=None
+            empty=frame(''); rows=list(empty.rows)
+            for y in (0,1,2): rows[y]=tuple(TerminalCell('',1) for _ in range(120))
+            empty=replace(empty,rows=tuple(rows))
+            command=echo.begin_context_command(self.scope,self.state,native,object(),policy,empty,1)
+            command.type_bytes(empty,1); command.check_edit(empty,1,8)
+            rows=list(empty.rows); rows[37]=tuple([TerminalCell(c,1) for c in '❯\u00a0/context']+
+                [TerminalCell('',1)]*110)
+            typed=replace(empty,cursorX=10,rows=tuple(rows))
+            command.observe(typed,2); command.submit_bytes(typed,2); command.submission_written(1)
+            actual=frame(extra=((12,'❯ unknown'),))
+            with self.assertRaises(InputProofError) as caught: command.bind_history(actual,3)
+        debug=self.debug(); self.capture(debug,actual,caught.exception)
+        self.dispose(); report=debug.report()
+        self.assertEqual(report['status'],'READY')
+        self.assertEqual(report['excerpt']['rows'][0]['index'],12)
+        self.root.mkdir(mode=0o700)
+        debug=self.debug(); self.capture(debug,replace(actual),caught.exception)
+        self.assertEqual(list(self.root.iterdir()),[])
+        self.dispose(); self.assertEqual(debug.report()['status'],'OMITTED_PROVENANCE')
+
 
 if __name__=='__main__': unittest.main()
