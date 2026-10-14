@@ -237,6 +237,16 @@ class ContextEchoTests(unittest.TestCase):
         command.observe(transient,3)
         with self.assertRaises(challenge.InputProofError): command.bind_history(self.numeric_history,4)
 
+    def test_numeric_observed_during_submission_wait_cannot_supply_post_enter_evidence(self):
+        command=self.begin(); command.type_bytes(self.empty,1); command.check_edit(self.empty,1,8)
+        command.observe(self.command_echo,2); command.submit_bytes(self.command_echo,2)
+        before_enter=frame('❯\u00a0/context',10,numeric=True)
+        self.policy.authentication(before_enter)
+        self.assertEqual(command.observe(before_enter,3),'SUBMIT_PENDING')
+        command.submission_written(1)
+        with self.assertRaises(challenge.InputProofError): command.bind_history(self.numeric_history,4)
+        self.assertEqual(command.phase,'REVOKED')
+
     def test_unsupported_cells_in_history_cannot_bind(self):
         for text in ('❯\u2003/context','❯\u200b/context','❯ /context extra'):
             self.fresh_scope(); command=self.submit()

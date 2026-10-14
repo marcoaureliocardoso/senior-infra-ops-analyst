@@ -104,6 +104,10 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 'while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
                 'os.write(1,b"\\x1b[1;1H\\x1b[2K\\x1b[38;11H")\n'
                 'Path('+repr(str(menu_erased))+').touch()\n' if mode=='late-writable-menu' else '') +
+            ('Path('+repr(str(submit_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
+                'os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[38;11H")\n'
+                'Path('+repr(str(menu_ready))+').touch()\n' if mode=='pre-enter-numeric-grid' else '') +
             ('os.write(1,b"\\x1b[1;1HPress Esc to close\\x1b[38;11H")\n' if mode=='menu-before-submit' else '') +
             ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;11H")\n' if mode=='auth-before-submit' else '') +
             ('os.write(1,"\\x1b[12;1H❯ autocomplete\\x1b[38;11H".encode())\n' if mode=='autocomplete-marker' else '') +
@@ -125,6 +129,18 @@ class HeadlessContextDriverTests(unittest.TestCase):
             + ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n' if mode!='uncleared' else '') +
             ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n' if mode=='postclear-menu' else '') +
             ('if read(2)!=b"/e": raise SystemExit(1)\n'
+                + ('os.write(1,b"\\x1b[6;1H\\x1b[2K\\x1b[38;3H")\n' if mode=='partial-exit-history-restore' else
+                    'os.write(1,"\\x1b[12;1H❯ unknown\\x1b[38;3H".encode())\n' if mode=='partial-exit-unowned-row-restore' else
+                    'os.write(1,"\\x1b[38;1H❯ unknown".encode())\n') +
+                'Path('+repr(str(menu_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
+                + ('os.write(1,"\\x1b[6;1H❯ /context\\x1b[38;3H".encode())\n' if mode=='partial-exit-history-restore' else
+                    'os.write(1,b"\\x1b[12;1H\\x1b[2K\\x1b[38;3H")\n' if mode=='partial-exit-unowned-row-restore' else
+                    'os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n') +
+                'Path('+repr(str(menu_erased))+').touch()\n'
+                'if read(4)!=b"xit\\r": raise SystemExit(1)\n' if mode in
+                    ('partial-exit-history-restore','partial-exit-unowned-row-restore','partial-exit-input-restore') else
+              'if read(2)!=b"/e": raise SystemExit(1)\n'
                 'os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n'
                 'Path('+repr(str(menu_ready))+').touch()\n'
                 'while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
@@ -152,6 +168,12 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 menu_seen.touch()
                 until=time.monotonic()+1
                 while not menu_erased.exists() and time.monotonic()<until: time.sleep(.005)
+            changed=(mode=='partial-exit-history-restore' and '/context' not in ''.join(cell.text for cell in value.rows[5])
+                or mode=='partial-exit-unowned-row-restore' and 'unknown' in ''.join(cell.text for cell in value.rows[11])
+                or mode=='partial-exit-input-restore' and 'unknown' in ''.join(cell.text for cell in value.rows[37]))
+            if changed and menu_ready.exists() and not menu_seen.exists():
+                menu_seen.touch(); until=time.monotonic()+1
+                while not menu_erased.exists() and time.monotonic()<until: time.sleep(.005)
             return value
         def partial_writer(fd,payload):
             nonlocal failed_fd
@@ -159,7 +181,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 count=original(fd,payload[:4])
                 if mode=='partial-command-fault': failed_fd=fd
                 return count
-            if mode=='partial-exit-menu' and os.isatty(fd) and bytes(payload)==b'/exit\r':
+            if mode.startswith('partial-exit-') and os.isatty(fd) and bytes(payload)==b'/exit\r':
                 count=original(fd,payload[:2]); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
                 return count
@@ -175,7 +197,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
                     return original_proof(value)
             return original_proof(value)
         def writable_select(reads,writes,errors,timeout):
-            if mode=='late-writable-menu' and writes and submit_ready.exists() and not menu_request.exists():
+            if mode in ('late-writable-menu','pre-enter-numeric-grid') and writes and submit_ready.exists() and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
             return original_select(reads,writes,errors,timeout)
@@ -207,7 +229,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
         if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
         if mode in ('baseline-history','partial-command-fault') or mode in early: pass
-        elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug'):
+        elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid'):
             self.assertEqual(data,b'/context\r')
         elif fault:
             self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
@@ -219,7 +241,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             elif mode=='uncleared': self.assertEqual(data[25:],b'\x15')
             elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
             elif mode=='expired-before-proof': self.assertEqual(data[25:],b'\x15')
-            elif mode=='partial-exit-menu': self.assertEqual(data[25:],b'\x15/e')
+            elif mode.startswith('partial-exit-'): self.assertEqual(data[25:],b'\x15/e')
         if debug: self.debug_capture=debug_capture
         return report
 
@@ -264,6 +286,18 @@ class HeadlessContextDriverTests(unittest.TestCase):
     def test_expired_before_proof_never_sends_exit(self):
         report=self.run_pinned_probe('expired-before-proof')
         self.assertEqual(next(row for row in report['records'] if row['point']=='failure')['reasonCode'],'INPUT_PROBE_DEADLINE')
+
+    def test_numeric_grid_arriving_during_enter_writable_wait_cannot_bind_history(self):
+        self.run_pinned_probe('pre-enter-numeric-grid')
+
+    def test_consumed_partial_exit_history_loss_cannot_restore_remaining_bytes(self):
+        self.run_pinned_probe('partial-exit-history-restore')
+
+    def test_consumed_unowned_row_cannot_restore_remaining_exit_bytes(self):
+        self.run_pinned_probe('partial-exit-unowned-row-restore')
+
+    def test_consumed_input_prefix_loss_cannot_restore_remaining_exit_bytes(self):
+        self.run_pinned_probe('partial-exit-input-restore')
     def test_probe_does_not_overwrite_visible_suggestion(self): self.run_pinned_probe('suggestion')
 
     def test_ineligibility_subcode_reaches_diagnostics_without_changing_proof_events(self):

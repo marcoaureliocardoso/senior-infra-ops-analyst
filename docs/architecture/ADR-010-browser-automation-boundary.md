@@ -616,6 +616,14 @@ disposal and no-retry controls remain unchanged. Verification and independent
 review status are recorded in validation notes; fresh native acceptance
 remains separate and pending. This is not production credential-entry support.
 
+The final scoped review found two lifecycle gaps. The author TDD correction
+keeps the numeric/frame barrier at the latest guarded SUBMIT_PENDING snapshot
+until the actual one-byte Enter acknowledgement, never after Enter parsing.
+Every consumed-phase frame now validates history and the concrete exit prefix
+plus other rows, so a later redraw cannot restore lost authority. Review and
+corrected-source gate evidence remain distinct; no second reviewer cycle or
+native execution grant follows from the fix pass.
+
 Operators retain browser/runtime ownership and must explicitly activate the
 guard. Unsupported or conflicting installations stop safely but may require a
 future adapter. A malicious same-principal local process can still race or alter

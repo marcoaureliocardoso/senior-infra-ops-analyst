@@ -8,9 +8,11 @@ tag. Tagged versions correspond to repository tags.
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
 - Added an offline-only owned context-command handshake: exact pre-Enter echo,
-  one submission and a currently fresh numeric grid may bind one private
+  one submission and a numeric grid newer than the latest guarded pre-Enter
+  observation may bind one private
   history receipt. The same narrow assessment applies through nonce, clear,
-  proof and partial exit writes; changed history or lifetime revokes it.
+  proof and partial exit writes; every consumed-phase frame rechecks history,
+  other rows and the actually written exit prefix. Observed loss cannot restore.
   Default/live callers still reject unowned history. Frozen debug projection
   selects the actual rejecting row or omits content. No native/provider
   acceptance, new execution grant or installed-package change is implied.

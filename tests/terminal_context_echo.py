@@ -142,6 +142,11 @@ class OwnedContextCommand(_Sealed):
             record['phase']='COMMAND_ECHO_MATCHED' if count==len(_BODY) else 'EDIT_PENDING'
         elif record['phase']=='SUBMIT_PENDING':
             if _prefix(record,snapshot,record['written'])!=len(_BODY): _fail(record,'INPUT_PROBE_REVOKED')
+            # Every guarded observation is still pre-Enter until its actual write acknowledgement.
+            # Keep the last numeric/frame boundary, never a post-Enter redraw.
+            record['policy'].mark_transition(snapshot)
+            record['submit_signature']=record['policy']._context_signature(snapshot)
+            record['submit_frame']=frame
         elif record['phase'] not in ('CONTEXT_PENDING','RECEIPT_READY'):
             _fail(record,'INPUT_PROBE_STATE_REJECTED')
         return record['phase']

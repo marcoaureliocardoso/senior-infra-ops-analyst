@@ -231,7 +231,17 @@ class NonceInputChallenge:
     def observe(self,snapshot,frame):
         self._check(frame)
         if self._policy.active_input_forbidden(snapshot): self._fail('INPUT_PROBE_REVOKED')
-        if self.phase=='CONSUMED': return self.phase
+        if self.phase=='CONSUMED':
+            if self._context_receipt is not None:
+                from terminal_context_echo import validate_context_history
+                try:
+                    validate_context_history(self._context_receipt,self._policy,snapshot,
+                        scope=self._scope,state=self._record['terminal'],native_owner=self._native,
+                        transition_owner=self._transition,frame=frame)
+                except BaseException:
+                    self.invalidate('INPUT_PROBE_REVOKED'); raise
+                self._context_snapshot=snapshot
+            return self.phase
         if self.phase=='ELIGIBLE':
             self._require_same_empty_anchor(snapshot)
             return self.phase

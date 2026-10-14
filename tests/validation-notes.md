@@ -4413,10 +4413,59 @@ one unit; no consumed grant is restored. Optional debug keeps the 128-KiB raw
 frame/4-KiB recut limits and content-free defaults; chat copies may persist.
 The complete 16-KiB result includes audit/disposal facts and its final newline.
 
-Final independent review and immutable-candidate package evidence are pending
-below. Fresh exact-final-commit native authorization must explicitly include
+Fresh exact-final-commit native authorization must explicitly include
 the pre-Enter `/context` echo handshake, single Enter, unsubmitted 16-character
 nonce, guarded single Ctrl+U, synthetic-key consent, disposable native history,
 chosen debug export, 25/165-second limits and no automatic repetition.
 Original provider/browser acceptance, remote CI/Security and main merge remain
 pending independent gates; the definitive unversioned TODO is not completed.
+
+### Independent review and one author TDD correction pass
+
+One fresh `gpt-6-astra`/high reviewer inspected every file in the immutable
+`10bcba4..f1627c6` range and independently passed 21 component tests, without
+native/provider use. No Critical or Minor finding was reported. Two Important
+lifecycle gaps were helper-only reproduced: consumed-phase history loss could
+be restored before the next partial exit write, and numeric output observed
+before the actual Enter could satisfy a prematurely frozen numeric barrier.
+
+The initial `f1627c6` full gate exited 0 with `package validation passed` on its
+unchanged source. That pass did not cover the newly reproduced sequences and
+does not establish correctness of the subsequent correction.
+
+The author wrote four targeted regression tests and observed their intended
+RED: both missing rejections in unit fixtures and unexpected successful exit
+in the selected fake-PTY cases. The same correction pass added two analogous
+RED cases for unowned-row and owned-prefix loss/restoration during partial
+exit. The consumed phase validates every actual history frame, and the driver
+checks every consumed frame against the actual exit-prefix byte count plus the
+shared ordered assessment. Any observed loss revokes before the next frame.
+
+SUBMIT_PENDING now refreshes its signature/frame barrier on each guarded
+pre-Enter observation, including both concrete-write checks. The successful
+one-byte write moves to CONTEXT_PENDING; no post-Enter observation resets the
+barrier. Twenty-two component and 27 challenge tests passed; all five selected
+correction/positive cases passed. Complete corrected-candidate evidence remains
+required below. No second independent review was dispatched.
+
+Final review rulings and residual boundaries:
+
+- One author TDD correction plus a matching full gate replaces re-review,
+  following the selected inline skill's explicit one-seat rule. Cost if wrong:
+  corrected source has no second independent look; native/remote gates remain.
+- Actual Claude rendering/autocomplete/resume/SDK/Skill acceptance is unproven
+  because real native execution is excluded. Cost: a new native attempt may
+  still block; no automatic repetition.
+- Provider/browser behavior remains separately authorized acceptance. Cost:
+  offline evidence establishes no production compatibility.
+- Remote CI/Security, PR and merge readiness remain pending because no remote
+  checks/writes are authorized. Cost: local results cannot prove remote gates.
+- Historical correctness outside this four-commit implementation was not
+  reviewed beyond changed-path dependencies. Cost: earlier defects may remain.
+- Arbitrary trusted same-process Python registry mutation is not sandboxed.
+  Cost: a compromised controller can violate private capability assumptions.
+- Universal secrecy/secure erasure is not promised; guarantees rely on
+  synthetic isolation, bounded export and intended disposal. Cost: chat copies
+  may persist and sanitization is not universal.
+
+Deferred Minor findings: none. Corrected-source package gate is pending.

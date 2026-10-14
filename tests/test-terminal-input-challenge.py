@@ -331,5 +331,18 @@ class InputChallengeTests(unittest.TestCase):
             self.assert_reason('INPUT_PROBE_DEADLINE',c.ownership_proof)
         self.assert_reason('INPUT_PROBE_REVOKED',c.ownership_proof)
 
+    def test_consumed_receipt_history_loss_and_restoration_revokes(self):
+        from headless_context_driver import exit_input_owned
+        c,native,transition,empty,extra,receipt=self.owned_fixture()
+        marker=c.type_bytes(empty,3); typed=self.echo_frame(marker,extra=extra)
+        c.observe(typed,4); c.clear_bytes(typed,4); c.observe(empty,5)
+        self.assertTrue(c.consume_exit(c.ownership_proof(),empty,5,native,transition))
+        absent=snapshot(extra=tuple((y,text) for y,text in extra if y!=10))
+        self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.observe(absent,6))
+        self.assert_reason('INPUT_PROBE_REVOKED',lambda:c.observe(empty,7))
+        self.assertFalse(exit_input_owned(c._policy,empty,c._anchor,c._row,2,
+            context_receipt=receipt,scope=c._scope,state=self.terminal,native_owner=native,
+            transition_owner=transition,frame=7))
+
 
 if __name__=='__main__': unittest.main()

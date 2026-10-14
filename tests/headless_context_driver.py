@@ -74,6 +74,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     current_stage='initial_screen'; total=0; startup_open=True
     result=2; snapshot=None
     frame=0; probe=None; transition=None
+    exit_written=0
     context_command=None; context_receipt=None
     numeric_context_observed=False
     if input_probe_scope is not None:
@@ -102,6 +103,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         with events_path.open('a',encoding='utf-8') as stream:
             stream.write(json.dumps(value,sort_keys=True)+'\n')
 
+    def exit_owned(written):
+        return exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
+            context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
+            transition_owner=transition,frame=frame)
+
     def pump(wait=.2):
         nonlocal total,snapshot,current_stage,frame
         state.check_cancelled()
@@ -122,7 +128,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
             raise InputProofError('INPUT_PROBE_REVOKED')
         if context_command is not None and probe is None: context_command.observe(snapshot,frame)
-        if probe is not None: probe.observe(snapshot,frame)
+        if probe is not None:
+            probe.observe(snapshot,frame)
+            if probe.phase=='CONSUMED' and not exit_owned(exit_written):
+                probe.invalidate('INPUT_PROBE_REVOKED')
+                raise InputProofError('INPUT_PROBE_REVOKED')
         return True
 
     def wait_for(predicate):
@@ -175,30 +185,28 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if probe is not None: probe._check()
 
     def owned_write(payload,phase):
+        nonlocal exit_written
         pending=memoryview(payload)
         written=0
         while pending:
             while pump(0): pass
             operation_live(); auth_clear()
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
-            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
-                    context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
-                    transition_owner=transition,frame=frame):
+            if phase=='CONSUMED' and not exit_owned(written):
                 raise InputProofError('INPUT_PROBE_REVOKED')
             if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
             # Readiness/auth/deadline can change while waiting for writable IO.
             while pump(0): pass
             operation_live(); auth_clear()
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
-            if phase=='CONSUMED' and not exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
-                    context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
-                    transition_owner=transition,frame=frame):
+            if phase=='CONSUMED' and not exit_owned(written):
                 raise InputProofError('INPUT_PROBE_REVOKED')
             try: count=os.write(master,pending)
             except BlockingIOError: continue
             except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
             if not count: raise InputProofError('INPUT_PROBE_IO_FAILED')
             written+=count
+            if phase=='CONSUMED': exit_written=written
             pending=pending[count:]
 
     def command_write(payload,*,submission=False):
