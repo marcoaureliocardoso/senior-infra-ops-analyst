@@ -6,6 +6,8 @@ import time
 import weakref
 from terminal_input_policy import TerminalInputPolicy
 from terminal_state_adapter import TerminalSnapshot, MAX_CAPTURE
+from terminal_context_diagnostics import ContextFailureJournal
+from terminal_cancellation import TerminalCancelled
 
 _SEAL=object()
 _COMMANDS=weakref.WeakKeyDictionary()
@@ -25,9 +27,32 @@ def _error(reason,assessment=None):
         input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
 
 
-def _fail(record,reason):
+def _diagnostic(record,method,*args):
+    journal=record.get('journal') if record is not None else None
+    if type(journal) is not ContextFailureJournal: return
+    try: getattr(journal,method)(*args)
+    except Exception:
+        # Observation loss cannot change the original operational failure or phase.
+        try: journal.finish()
+        except Exception: pass
+
+
+def _phase(record,phase):
+    record['phase']=phase
+    _diagnostic(record,'set_phase',phase)
+
+
+def _scope_rejection(record,error):
+    from terminal_input_challenge import InputProofError
+    if isinstance(error,TerminalCancelled): _diagnostic(record,'freeze',error,'CANCELLATION')
+    elif isinstance(error,InputProofError): _diagnostic(record,'freeze',error,'SCOPE_BINDING')
+
+
+def _fail(record,reason,check=None):
+    error=_error(reason)
+    if check is not None: _diagnostic(record,'freeze',error,check)
     if record is not None: record['phase']='REVOKED'
-    raise _error(reason)
+    raise error
 
 
 class _Sealed:
@@ -52,21 +77,23 @@ def _live(record,frame=None,snapshot=None):
     now=_now()
     if (type(now) not in (int,float) or not math.isfinite(now)
             or type(record['time']) not in (int,float) or not math.isfinite(record['time'])
-            or now<record['time'] or now>=record['deadline']): _fail(record,'INPUT_PROBE_DEADLINE')
+            or now<record['time'] or now>=record['deadline']): _fail(record,'INPUT_PROBE_DEADLINE','DEADLINE')
     record['time']=now
     try:
         run,deadline=_context_scope_binding(record['scope'],record['state'],allow_claimed=True)
-        if run is not record['run'] or deadline!=record['deadline'] or record['native'].poll() is not None:
-            _fail(record,'INPUT_PROBE_REVOKED')
-    except BaseException:
+        if run is not record['run'] or deadline!=record['deadline']:
+            _fail(record,'INPUT_PROBE_REVOKED','SCOPE_BINDING')
+        if record['native'].poll() is not None: _fail(record,'INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
+    except BaseException as error:
+        _scope_rejection(record,error)
         record['phase']='REVOKED'; raise
     if frame is not None:
         if type(frame) is not int or not record['frame']<=frame<=MAX_CAPTURE:
-            _fail(record,'INPUT_PROBE_STATE_REJECTED')
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
         record['frame']=frame
     if snapshot is not None:
-        if type(snapshot) is not TerminalSnapshot: _fail(record,'INPUT_PROBE_STATE_REJECTED')
-        if record['policy'].active_input_forbidden(snapshot): _fail(record,'INPUT_PROBE_REVOKED')
+        if type(snapshot) is not TerminalSnapshot: _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
+        if record['policy'].active_input_forbidden(snapshot): _fail(record,'INPUT_PROBE_REVOKED','FORBIDDEN_UI')
 
 
 def _prefix(record,snapshot,written):
@@ -74,16 +101,19 @@ def _prefix(record,snapshot,written):
     if (snapshot.active!=anchor.buffer or snapshot.baseY!=anchor.baseY
             or snapshot.viewportY!=anchor.viewportY
             or snapshot.cursorY+snapshot.baseY-snapshot.viewportY!=anchor.row):
-        _fail(record,'INPUT_PROBE_REVOKED')
+        _fail(record,'INPUT_PROBE_REVOKED','ANCHOR_GEOMETRY')
     row=snapshot.rows[anchor.row]; count=snapshot.cursorX-anchor.cursorX
-    if (not 0<=count<=written or row[:anchor.cursorX]!=record['row'][:anchor.cursorX]
-            or any(cell.width!=1 or cell.text!=_BODY[index]
-                for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count]))
-            or any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0')
-                for cell in row[anchor.cursorX+count:])): _fail(record,'INPUT_PROBE_REVOKED')
+    if not 0<=count<=written: _fail(record,'INPUT_PROBE_REVOKED','CURSOR_PROGRESS')
+    if row[:anchor.cursorX]!=record['row'][:anchor.cursorX]: _fail(record,'INPUT_PROBE_REVOKED','PREFIX_CELLS')
+    if any(cell.width!=1 or cell.text!=_BODY[index]
+            for index,cell in enumerate(row[anchor.cursorX:anchor.cursorX+count])):
+        _fail(record,'INPUT_PROBE_REVOKED','COMMAND_CELLS')
+    if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0') for cell in row[anchor.cursorX+count:]):
+        _fail(record,'INPUT_PROBE_REVOKED','TRAILING_CELLS')
     rows=list(snapshot.rows); rows[anchor.row]=record['row']
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
-    if record['policy'].empty_input_anchor(normalized)!=anchor: _fail(record,'INPUT_PROBE_REVOKED')
+    if record['policy'].empty_input_anchor(normalized)!=anchor:
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
     return count
 
 
@@ -121,87 +151,105 @@ class OwnedContextCommand(_Sealed):
 
     def type_bytes(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
-        if record['phase']!='ELIGIBLE': _fail(record,'INPUT_PROBE_STATE_REJECTED')
+        if record['phase']!='ELIGIBLE': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         _prefix(record,snapshot,0)
-        record['phase']='EDIT_PENDING'; record['write_frame']=frame
+        _phase(record,'EDIT_PENDING'); record['write_frame']=frame
         return _BODY.encode('ascii')
 
     def check_edit(self,snapshot,frame,written):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
-        if (record['phase'] not in ('EDIT_PENDING','COMMAND_ECHO_MATCHED') or type(written) is not int
-                or not record['written']<=written<=len(_BODY)): _fail(record,'INPUT_PROBE_STATE_REJECTED')
+        if record['phase'] not in ('EDIT_PENDING','COMMAND_ECHO_MATCHED'):
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+        if type(written) is not int or not record['written']<=written<=len(_BODY):
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
         _prefix(record,snapshot,written); record['written']=written
 
     def observe(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
         if record['phase'] in ('EDIT_PENDING','COMMAND_ECHO_MATCHED'):
-            if frame<=record['write_frame']: _fail(record,'INPUT_PROBE_STATE_REJECTED')
+            if frame<=record['write_frame']: _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
             count=_prefix(record,snapshot,record['written'])
-            if count<record['progress']: _fail(record,'INPUT_PROBE_REVOKED')
+            if count<record['progress']: _fail(record,'INPUT_PROBE_REVOKED','ECHO_REGRESSION')
             record['progress']=count
-            record['phase']='COMMAND_ECHO_MATCHED' if count==len(_BODY) else 'EDIT_PENDING'
+            _phase(record,'COMMAND_ECHO_MATCHED' if count==len(_BODY) else 'EDIT_PENDING')
         elif record['phase']=='SUBMIT_PENDING':
-            if _prefix(record,snapshot,record['written'])!=len(_BODY): _fail(record,'INPUT_PROBE_REVOKED')
+            if _prefix(record,snapshot,record['written'])!=len(_BODY):
+                _fail(record,'INPUT_PROBE_REVOKED','INCOMPLETE_ECHO')
             # Every guarded observation is still pre-Enter until its actual write acknowledgement.
             # Keep the last numeric/frame boundary, never a post-Enter redraw.
             record['policy'].mark_transition(snapshot)
             record['submit_signature']=record['policy']._context_signature(snapshot)
             record['submit_frame']=frame
         elif record['phase'] not in ('CONTEXT_PENDING','RECEIPT_READY'):
-            _fail(record,'INPUT_PROBE_STATE_REJECTED')
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         return record['phase']
 
     def submit_bytes(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
-        if record['phase']!='COMMAND_ECHO_MATCHED' or _prefix(record,snapshot,record['written'])!=len(_BODY):
-            _fail(record,'INPUT_PROBE_STATE_REJECTED')
+        if record['phase']!='COMMAND_ECHO_MATCHED': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+        if _prefix(record,snapshot,record['written'])!=len(_BODY):
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','INCOMPLETE_ECHO')
         record['policy'].mark_transition(snapshot)
         record['submit_signature']=record['policy']._context_signature(snapshot)
-        record['phase']='SUBMIT_PENDING'; record['submit_frame']=frame
+        _phase(record,'SUBMIT_PENDING'); record['submit_frame']=frame
         return b'\r'
 
     def submission_written(self,count):
         record=_COMMANDS.get(self); _live(record)
-        if record['phase']!='SUBMIT_PENDING' or type(count) is not int or count!=1:
-            _fail(record,'INPUT_PROBE_STATE_REJECTED')
-        record['phase']='CONTEXT_PENDING'
+        if record['phase']!='SUBMIT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+        if type(count) is not int or count!=1: _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
+        _phase(record,'CONTEXT_PENDING')
 
     def bind_history(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
-        if (record['phase']!='CONTEXT_PENDING' or frame<=record['submit_frame']
+        if record['phase']!='CONTEXT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+        if (frame<=record['submit_frame']
                 or record['policy']._context_signature(snapshot)==record['submit_signature']
-                or record['policy'].context_percent(snapshot) is None): _fail(record,'INPUT_PROBE_STATE_REJECTED')
+                or record['policy'].context_percent(snapshot) is None):
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT')
         matches=_history_rows(record['policy'],snapshot)
-        if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED')
+        if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED','HISTORY_AMBIGUITY')
         excluded=matches[0] if matches else None
         assessment,rejected=record['policy']._empty_input_assessment(snapshot,excluded)
         if assessment.anchor is None:
-            record['phase']='REVOKED'
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
+            _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY')
+            record['phase']='REVOKED'
             if excluded is not None: attach_context_rejection(error,
                 _observation(record['policy'],snapshot,assessment,rejected,excluded))
             raise error
-        record['phase']='RECEIPT_READY'
+        _phase(record,'RECEIPT_READY')
+        # Later receipt/nonce lifetime failures are outside this observation window.
+        record['journal']=None
         if excluded is None: return None
         value=ContextEchoReceipt(_SEAL)
         _RECEIPTS[value]=(self,excluded,snapshot.rows[excluded],assessment.anchor)
         return value
 
 
-def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame):
+def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame,*,_diagnostic_journal=None):
     from terminal_input_challenge import _context_scope_binding
-    run,deadline=_context_scope_binding(scope,state)
+    record={'journal':_diagnostic_journal,'phase':'BASELINE'}
+    try: run,deadline=_context_scope_binding(scope,state)
+    except BaseException as error:
+        _scope_rejection(record,error); raise
+    _diagnostic(record,'bind_run',run)
     if (scope in _USED_SCOPES or type(policy) is not TerminalInputPolicy or type(transition_owner) is not object
             or not callable(getattr(native_owner,'poll',None)) or type(frame) is not int
             or not 0<=frame<=MAX_CAPTURE or type(baseline) is not TerminalSnapshot):
-        raise _error('INPUT_PROBE_SCOPE_REJECTED')
+        _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
     _USED_SCOPES.add(scope)
     assessment=policy.empty_input_assessment(baseline)
-    if assessment.anchor is None: raise _error('INPUT_PROBE_INELIGIBLE',assessment)
+    if assessment.anchor is None:
+        error=_error('INPUT_PROBE_INELIGIBLE',assessment)
+        _diagnostic(record,'freeze',error,'BASELINE_ELIGIBILITY')
+        raise error
     value=OwnedContextCommand(_SEAL)
     _COMMANDS[value]={'scope':scope,'state':state,'native':native_owner,'transition':transition_owner,
         'policy':policy,'run':run,'deadline':deadline,'time':_now(),'frame':frame,'phase':'ELIGIBLE',
-        'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0}
+        'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0,
+        'journal':_diagnostic_journal}
+    _diagnostic(_COMMANDS[value],'set_phase','ELIGIBLE')
     _live(_COMMANDS[value],frame,baseline)
     return value
 

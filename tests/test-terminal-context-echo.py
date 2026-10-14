@@ -10,6 +10,8 @@ from dataclasses import replace
 import terminal_input_challenge as challenge
 from terminal_input_policy import TerminalInputPolicy
 from terminal_state_adapter import TerminalState, TerminalCell, TerminalSnapshot, COUNT_KEYS
+from terminal_context_diagnostics import _create_context_journal, ContextFailureJournal
+from terminal_cancellation import TerminalCancelled
 
 FACTS={'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}
 
@@ -265,6 +267,121 @@ class ContextEchoTests(unittest.TestCase):
         receipt=command.bind_history(self.numeric_history,4)
         self.assertIs(type(receipt),self.m.ContextEchoReceipt)
         with self.assertRaises(challenge.InputProofError): command.submit_bytes(self.command_echo,5)
+
+    def diagnostic_begin(self,baseline=None):
+        bindings={'controller_owner':object(),'scope':self.scope,'state':self.state,'transition_owner':self.owner}
+        journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+        command=self.m.begin_context_command(self.scope,self.state,self.native,self.owner,
+            self.policy,baseline or self.empty,1,_diagnostic_journal=journal)
+        self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED')
+        return command,journal,bindings
+
+    def diagnostic_edit(self):
+        command,journal,bindings=self.diagnostic_begin()
+        command.type_bytes(self.empty,1); journal.acknowledge(8,submission=False,remaining=8)
+        command.check_edit(self.empty,1,8)
+        return command,journal,bindings
+
+    def test_first_failing_predicate_is_frozen_before_revocation(self):
+        cases=((frame('❯ /context',10),'PREFIX_CELLS'),
+            (frame('❯\u00a0/context X',10),'TRAILING_CELLS'),
+            (frame('❯\u00a0/context',10,history=((8,'❯ /context'),)),'NORMALIZED_ELIGIBILITY'),
+            (frame('❯\u00a0/context',10,history=((8,'Press Esc to close'),)),'FORBIDDEN_UI'),
+            (frame('❯\u00a0/context',10),'NATIVE_LIFETIME'))
+        for snapshot,expected in cases:
+            with self.subTest(check=expected):
+                self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+                if expected=='NATIVE_LIFETIME': self.native.returncode=0
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+                self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED')
+                self.assertEqual(command.phase,'REVOKED')
+                self.assertEqual(journal.project(caught.exception,**bindings),{
+                    'phase':'EDIT_PENDING','check':expected,'commandBytesWritten':8,'enterBytesWritten':0})
+
+    def test_actual_renderer_padding_preserved_or_repainted(self):
+        for padding in ('\u00a0',' '):
+            self.fresh_scope()
+            self.state.feed('\x1b[?1049h\x1b[38;1H❯\u00a0'.encode())
+            self.empty=self.state.snapshot()
+            command,journal,bindings=self.diagnostic_edit()
+            self.state.feed(('\x1b[38;1H❯'+padding+'/context').encode())
+            snapshot=self.state.snapshot()
+            if padding=='\u00a0':
+                self.assertEqual(command.observe(snapshot,2),'COMMAND_ECHO_MATCHED')
+                self.assertIsNone(journal.project(challenge.InputProofError('INPUT_PROBE_REVOKED'),**bindings))
+            else:
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+                self.assertEqual(journal.project(caught.exception,**bindings)['check'],'PREFIX_CELLS')
+
+    def test_rejection_code_matrix_and_short_circuit_order(self):
+        cases=(('geometry','ANCHOR_GEOMETRY'),('cursor','CURSOR_PROGRESS'),('body','COMMAND_CELLS'),
+            ('frame','FRAME_STATE'),('phase','PHASE_STATE'),('write-count','WRITE_COUNT'),
+            ('regression','ECHO_REGRESSION'),('incomplete','INCOMPLETE_ECHO'),('deadline','DEADLINE'),
+            ('cancel','CANCELLATION'),('helper','SCOPE_BINDING'),('scope','SCOPE_BINDING'))
+        for scenario,expected in cases:
+            with self.subTest(scenario=scenario):
+                self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+                try:
+                    if scenario=='geometry': command.observe(replace(frame('❯ /contextX',11),cursorY=36),2)
+                    elif scenario=='cursor': command.observe(frame('❯ /contextX',11),2)
+                    elif scenario=='body': command.observe(frame('❯\u00a0/contExt',10),2)
+                    elif scenario=='frame': command.observe(self.command_echo,0)
+                    elif scenario=='phase': command.type_bytes(self.empty,2)
+                    elif scenario=='write-count': command.check_edit(self.empty,2,7)
+                    elif scenario=='regression':
+                        command.observe(frame('❯\u00a0/con',6),2); command.observe(frame('❯\u00a0/co',5),3)
+                    elif scenario=='incomplete':
+                        command.observe(self.command_echo,2)
+                        command.submit_bytes(frame('❯\u00a0/con',6),3)
+                    elif scenario=='deadline':
+                        with mock.patch.object(self.m,'_now',return_value=0): command.observe(self.command_echo,2)
+                    elif scenario=='cancel':
+                        with mock.patch.object(self.state,'check_cancelled',side_effect=TerminalCancelled()):
+                            command.observe(self.command_echo,2)
+                    elif scenario=='helper': self.state.close(); command.observe(self.command_echo,2)
+                    else:
+                        with mock.patch.object(challenge,'_context_scope_binding',return_value=(object(),self.state.operation_deadline)):
+                            command.observe(self.command_echo,2)
+                except (challenge.InputProofError,TerminalCancelled) as error:
+                    self.assertEqual(command.phase,'REVOKED')
+                    self.assertEqual(journal.project(error,**bindings)['check'],expected)
+                else: self.fail('expected a real rejection')
+
+    def test_history_rejection_codes_and_baseline_eligibility(self):
+        for scenario,expected in (('fresh','FRESH_CONTEXT'),('duplicate','HISTORY_AMBIGUITY'),
+                ('eligibility','HISTORY_ELIGIBILITY')):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            command.observe(self.command_echo,2); command.submit_bytes(self.command_echo,2)
+            journal.acknowledge(1,submission=True,remaining=1); command.submission_written(1)
+            snapshot=(frame() if scenario=='fresh' else
+                frame(history=((10,'❯ /context'),(11,'❯ /context')),numeric=True) if scenario=='duplicate' else
+                frame(history=((10,'❯ /context'),(12,'❯ unknown')),numeric=True))
+            with self.assertRaises(challenge.InputProofError) as caught: command.bind_history(snapshot,3)
+            self.assertEqual(journal.project(caught.exception,**bindings)['check'],expected)
+        self.fresh_scope()
+        bindings={'controller_owner':object(),'scope':self.scope,'state':self.state,'transition_owner':self.owner}
+        journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+        with self.assertRaises(challenge.InputProofError) as caught:
+            self.m.begin_context_command(self.scope,self.state,self.native,self.owner,self.policy,
+                frame(history=((10,'❯ /context'),)),1,_diagnostic_journal=journal)
+        self.assertEqual(journal.project(caught.exception,**bindings),{
+            'phase':'BASELINE','check':'BASELINE_ELIGIBILITY','commandBytesWritten':0,'enterBytesWritten':0})
+
+    def test_optional_observer_failure_preserves_original_revocation(self):
+        command,journal,bindings=self.diagnostic_edit()
+        with mock.patch.object(ContextFailureJournal,'freeze',side_effect=RuntimeError('observer failed')):
+            with self.assertRaises(challenge.InputProofError) as caught: command.observe(frame('❯ /context',10),2)
+        self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED'); self.assertEqual(command.phase,'REVOKED')
+        self.assertIsNone(journal.project(caught.exception,**bindings))
+        self.fresh_scope(); command,journal,bindings=self.diagnostic_begin()
+        with mock.patch.object(ContextFailureJournal,'set_phase',side_effect=RuntimeError('observer failed')):
+            self.assertEqual(command.type_bytes(self.empty,1),b'/context')
+        with self.assertRaises(challenge.InputProofError) as caught: command.observe(frame('❯ /context',10),2)
+        self.assertEqual(command.phase,'REVOKED'); self.assertIsNone(journal.project(caught.exception,**bindings))
+        self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+        with mock.patch.object(self.state,'check_cancelled',side_effect=RuntimeError('unknown failure')):
+            with self.assertRaises(RuntimeError) as caught: command.observe(self.command_echo,2)
+        self.assertIsNone(journal.project(caught.exception,**bindings))
 
 
 if __name__=='__main__': unittest.main()
