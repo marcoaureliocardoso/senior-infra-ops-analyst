@@ -137,5 +137,42 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         report['records'][0]['structure']['cursorX']=99999
         self.assertEqual(self.collector.report()['records'][0]['structure']['cursorX'],120)
 
+    def test_context_failure_atomic_closed_shape(self):
+        valid={'phase':'EDIT_PENDING','check':'PREFIX_CELLS','commandBytesWritten':8,'enterBytesWritten':0}
+        self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=valid)
+        self.assertEqual(self.collector.report()['records'],[
+            {'point':'failure','reasonCode':'INPUT_PROBE_REVOKED','contextCommandFailure':valid}])
+        for change in ({'text':'synthetic-private-text'},{'phase':'REVOKED'},{'check':'unknown'},
+                {'commandBytesWritten':True},{'commandBytesWritten':9},{'enterBytesWritten':-1},
+                {'enterBytesWritten':2},{'enterBytesWritten':1.0}):
+            self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure={**valid,**change})
+        self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure={'phase':'BASELINE'})
+        report=self.collector.report()
+        self.assertEqual(len(report['records']),1); self.assertTrue(report['rejected'])
+        self.assertNotIn('synthetic-private-text',json.dumps(report))
+
+    def test_context_failure_event_binding(self):
+        valid={'phase':'SUBMIT_PENDING','check':'CANCELLATION','commandBytesWritten':8,'enterBytesWritten':1}
+        for reason in ('INPUT_PROBE_REVOKED','RUNTIME_REJECTED','TERMINAL_DEADLINE_EXCEEDED'):
+            self.collector.add('failure',reason,contextCommandFailure=valid)
+        self.assertEqual(len(self.collector.report()['records']),3)
+        for point,reason in (('context_sent','CHECKPOINT'),('native_cleanup','CLEANUP_COMPLETED'),
+                ('failure','WAIT_DEADLINE'),('failure','IO_FAILED')):
+            self.collector.add(point,reason,contextCommandFailure=valid)
+        self.assertEqual(len(self.collector.report()['records']),3)
+        self.assertTrue(self.collector.report()['rejected'])
+
+    def test_context_failure_budget_and_detached_report(self):
+        valid={'phase':'COMMAND_ECHO_MATCHED','check':'NORMALIZED_ELIGIBILITY',
+            'commandBytesWritten':8,'enterBytesWritten':0}
+        for _ in range(100):
+            self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=valid)
+        report=self.collector.report()
+        self.assertLessEqual(len(report['records']),16)
+        self.assertLessEqual(len(json.dumps(report,separators=(',',':')).encode()),3072)
+        self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
+        valid['check']='synthetic-private-text'; report['records'][0]['contextCommandFailure']['check']='unknown'
+        self.assertEqual(self.collector.report()['records'][0]['contextCommandFailure']['check'],'NORMALIZED_ELIGIBILITY')
+
 
 if __name__=='__main__': unittest.main()
