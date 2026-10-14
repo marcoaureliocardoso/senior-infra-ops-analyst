@@ -198,6 +198,21 @@ class TerminalWiringTests(unittest.TestCase):
         build_staging(ROOT,destination)
         self.assertFalse((destination/'tests').exists())
         self.assertFalse(any(path.name=='terminal_context_echo.py' for path in destination.rglob('*')))
+        self.assertFalse(any(path.name=='terminal_context_diagnostics.py' for path in destination.rglob('*')))
+
+    def test_context_observer_suite_is_dispatched_by_package_gate(self):
+        commands=self.root/'bin'; commands.mkdir()
+        python=commands/'python3'
+        python.write_text('#!/bin/sh\n'
+            'if [ "$1" = tests/test-terminal-context-diagnostics.py ]; then echo observer-suite; exit 42; fi\n'
+            'if [ "$1" = tests/test-terminal-structural-diagnostics.py ]; then echo observer-skipped; exit 43; fi\n'
+            'exit 0\n')
+        node=commands/'node'; node.write_text('#!/bin/sh\nexit 0\n')
+        python.chmod(0o700); node.chmod(0o700)
+        result=subprocess.run(['/bin/bash',str(ROOT/'tests/validate-package.sh')],cwd=ROOT,
+            env={'PATH':str(commands)+':/usr/bin:/bin','P004B_TERMINAL_NODE':'synthetic',
+                'P004B_TERMINAL_MODULE_ROOT':'synthetic'},capture_output=True,text=True,timeout=5)
+        self.assertEqual((result.returncode,result.stdout.strip()),(42,'observer-suite'))
 
 
 if __name__=='__main__': unittest.main()

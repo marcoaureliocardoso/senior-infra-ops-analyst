@@ -264,5 +264,39 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             'capabilitiesDropped':True,'disposableRootAbsent':True}
         self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
 
+    def test_observer_is_read_only_mounted_without_native_in_audit(self):
+        commands=[]
+        def capture(command,**kwargs):
+            commands.append(command); raise KeyboardInterrupt
+        with mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=capture),\
+                mock.patch.object(self.module.shutil,'which',return_value='/usr/bin/bwrap'):
+            report=self.module.run_isolation_audit(source=ROOT,
+                node=Path(os.environ['P004B_TERMINAL_NODE']),module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertEqual(report,{'reasonCode':'OFFLINE_PROBE_INTERRUPTED','disposableRootAbsent':True})
+        command=commands[0]; index=command.index('/opt/probe/terminal_context_diagnostics.py')
+        self.assertEqual(command[index-2:index],['--ro-bind',str(ROOT/'tests/terminal_context_diagnostics.py')])
+        self.assertNotIn('/opt/probe/claude',command)
+
+    def test_four_observer_phases_with_debug_stay_bounded(self):
+        from terminal_context_debug import fit_debug_report
+        diagnostics=TerminalDiagnostics()
+        structure={'buffer':'normal','cursorX':120,'cursorY':39,'baseY':1000,'viewportY':1000,
+            'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'NONE','readiness':'FRESHNESS_UNPROVEN'}
+        observation={'phase':'COMMAND_ECHO_MATCHED','check':'NORMALIZED_ELIGIBILITY',
+            'commandBytesWritten':8,'enterBytesWritten':0}
+        for _ in range(100): diagnostics.add('failure','INPUT_PROBE_REVOKED',structure=structure,
+            contextCommandFailure=observation)
+        phase=diagnostics.report()
+        self.assertLessEqual(len(json.dumps(phase,sort_keys=True).encode()),3072)
+        self.assertTrue(phase['truncated']); self.assertFalse(phase['rejected'])
+        base={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[{
+            'stages':[{'diagnostics':phase} for _ in range(2)]} for _ in range(2)]}
+        report=fit_debug_report(base,{'status':'READY','excerpt':{'text':'x'*4096}})
+        envelope={**report,'networkIsolated':True,'operatorStateHidden':True,
+            'capabilitiesDropped':True,'disposableRootAbsent':True}
+        self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+
 
 if __name__=='__main__': unittest.main()

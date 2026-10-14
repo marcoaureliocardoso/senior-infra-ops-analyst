@@ -63,7 +63,7 @@ class TerminalDiagnostics:
         record={'point':point,'reasonCode':reasonCode,**copy.deepcopy(fields)}
         candidate={'records':self._records+[record],'truncated':False,'rejected':False}
         if (len(self._records)>=MAX_RECORDS
-                or len(json.dumps(candidate,separators=(',',':')).encode('utf-8'))>MAX_BYTES):
+                or len(json.dumps(candidate,sort_keys=True).encode('utf-8'))>MAX_BYTES):
             self._truncated=True; return
         self._records.append(record)
 

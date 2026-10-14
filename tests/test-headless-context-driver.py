@@ -18,6 +18,9 @@ import terminal_input_challenge as input_challenge
 import headless_context_driver as selected_controller
 import terminal_context_debug as context_debug_module
 from dataclasses import replace
+from types import SimpleNamespace
+from terminal_context_diagnostics import ContextFailureJournal
+from terminal_cancellation import TerminalCancelled
 
 
 class HeadlessContextDriverTests(unittest.TestCase):
@@ -111,6 +114,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             ('os.write(1,b"\\x1b[1;1HPress Esc to close\\x1b[38;11H")\n' if mode=='menu-before-submit' else '') +
             ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;11H")\n' if mode=='auth-before-submit' else '') +
             ('os.write(1,"\\x1b[12;1H❯ autocomplete\\x1b[38;11H".encode())\n' if mode=='autocomplete-marker' else '') +
+            ('os.write(1,"\\x1b[38;1H❯ /context".encode())\n' if mode in ('prefix-padding-repaint','diagnostic-loss') else '') +
             'if read(1)!=b"\\r": raise SystemExit(1)\n'
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
             'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[6;1H❯ /context\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -161,6 +165,30 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 debug_capture=context_debug_module.create_context_debug(scope,state,self.root)
         diagnostics=TerminalDiagnostics()
         original=os.write; failed_fd=None; original_snapshot=state.snapshot
+        command_accepted=False; enter_accepted=False; blocked_once=False; fault_seen=False; context_wait_fault=False
+        original_launch=selected_controller.subprocess.Popen
+        original_cancel=state.check_cancelled; original_clock=time.monotonic
+        original_freeze=ContextFailureJournal.freeze
+        def native_launch(*args,**kwargs):
+            child=original_launch(*args,**kwargs); original_poll=child.poll
+            def observed_poll():
+                nonlocal fault_seen
+                trigger=(mode=='post-command-write-failure' and command_accepted
+                    or mode=='post-enter-live-loss' and enter_accepted)
+                if trigger and not fault_seen: fault_seen=True; return 0
+                return original_poll()
+            child.poll=observed_poll
+            return child
+        def checked_cancel():
+            nonlocal fault_seen
+            original_cancel()
+            if mode=='cancel-before-enter' and context_wait_fault and not fault_seen:
+                fault_seen=True; raise TerminalCancelled()
+        def checked_clock():
+            return original_clock()+(20 if mode=='deadline-before-enter' and context_wait_fault else 0)
+        def checked_freeze(journal,error,check):
+            if mode=='diagnostic-loss': raise RuntimeError('synthetic observer loss')
+            original_freeze(journal,error,check)
         def observed_snapshot():
             value=original_snapshot()
             if mode in ('partial-exit-menu','late-writable-menu') and 'Yes, I trust this folder' in '\n'.join(
@@ -176,7 +204,22 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 while not menu_erased.exists() and time.monotonic()<until: time.sleep(.005)
             return value
         def partial_writer(fd,payload):
-            nonlocal failed_fd
+            nonlocal failed_fd,command_accepted,enter_accepted,blocked_once
+            if os.isatty(fd) and bytes(payload)==b'/context':
+                if mode=='blocking-command-write' and not blocked_once:
+                    blocked_once=True; raise BlockingIOError()
+                if mode=='invalid-command-write-count': return 9
+                if mode=='post-command-write-failure':
+                    count=original(fd,payload); until=original_clock()+1
+                    while (not seen.exists() or len(seen.read_bytes())<8) and original_clock()<until: time.sleep(.005)
+                    command_accepted=True; return count
+                command_accepted=True
+            if os.isatty(fd) and bytes(payload)==b'\r' and mode=='post-enter-live-loss':
+                count=original(fd,payload)
+                # Ensure the controlled peer consumed the actual Enter before injecting owner loss.
+                until=original_clock()+1
+                while (not seen.exists() or len(seen.read_bytes())<9) and original_clock()<until: time.sleep(.005)
+                enter_accepted=True; return count
             if mode in ('partial-command-write','partial-command-fault') and os.isatty(fd) and bytes(payload)==b'/context':
                 count=original(fd,payload[:4])
                 if mode=='partial-command-fault': failed_fd=fd
@@ -197,6 +240,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
                     return original_proof(value)
             return original_proof(value)
         def writable_select(reads,writes,errors,timeout):
+            nonlocal context_wait_fault
+            if writes and command_accepted and mode in ('cancel-before-enter','deadline-before-enter'):
+                context_wait_fault=True
             if mode in ('late-writable-menu','pre-enter-numeric-grid') and writes and submit_ready.exists() and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
@@ -209,16 +255,21 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 mock.patch.object(state,'snapshot',side_effect=observed_snapshot),\
                 mock.patch.object(selected_controller.select,'select',side_effect=writable_select),\
                 mock.patch.object(input_challenge.NonceInputChallenge,'ownership_proof',new=proof_after_expiry),\
+                mock.patch.object(selected_controller.subprocess,'Popen',side_effect=native_launch),\
+                mock.patch.object(selected_controller,'time',SimpleNamespace(monotonic=checked_clock)),\
+                mock.patch.object(state,'check_cancelled',side_effect=checked_cancel),\
+                mock.patch.object(ContextFailureJournal,'freeze',new=checked_freeze),\
                 mock.patch.object(os,'write',side_effect=partial_writer):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
                 **({'context_debug':debug_capture} if debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
-        success=mode in ('success','partial-command-write')
+        success=mode in ('success','partial-command-write','blocking-command-write')
         self.assertEqual(result,0 if success and not fault else 2)
         early=('missing-command-echo','wrong-command-echo','menu-before-submit','auth-before-submit',
-            'autocomplete-marker','late-writable-menu')
-        if mode=='baseline-history': self.assertEqual(data,b'')
+            'autocomplete-marker','late-writable-menu','prefix-padding-repaint','diagnostic-loss',
+            'post-command-write-failure','cancel-before-enter','deadline-before-enter')
+        if mode in ('baseline-history','invalid-command-write-count'): self.assertEqual(data,b'')
         elif mode=='partial-command-fault': self.assertEqual(data,b'/con')
         elif mode in early: self.assertEqual(data,b'/context')
         else: self.assertEqual(data[:9],b'/context\r')
@@ -228,7 +279,8 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertTrue(state.helper_reaped)
         self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
         if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
-        if mode in ('baseline-history','partial-command-fault') or mode in early: pass
+        if mode in ('baseline-history','partial-command-fault','invalid-command-write-count') or mode in early: pass
+        elif mode=='post-enter-live-loss': self.assertEqual(data,b'/context\r')
         elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid'):
             self.assertEqual(data,b'/context\r')
         elif fault:
@@ -281,6 +333,60 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.run_pinned_probe('partial-command-write')
         self.temp.cleanup(); self.setUp()
         self.run_pinned_probe('partial-command-fault')
+
+    def test_partial_command_failure_reports_only_accepted_bytes(self):
+        report=self.run_pinned_probe('partial-command-fault')
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['contextCommandFailure'],{'phase':'EDIT_PENDING','check':'IO_WRITE',
+            'commandBytesWritten':4,'enterBytesWritten':0})
+
+    def test_enter_ack_failure_has_no_completed_submission_checkpoint(self):
+        report=self.run_pinned_probe('post-enter-live-loss')
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['contextCommandFailure'],{'phase':'SUBMIT_PENDING','check':'NATIVE_LIFETIME',
+            'commandBytesWritten':8,'enterBytesWritten':1})
+        self.assertNotIn('context_sent',[row['point'] for row in report['records']])
+
+    def test_post_write_failure_retains_ack_before_validation(self):
+        report=self.run_pinned_probe('post-command-write-failure')
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['contextCommandFailure'],{'phase':'EDIT_PENDING','check':'NATIVE_LIFETIME',
+            'commandBytesWritten':8,'enterBytesWritten':0})
+
+    def test_blocking_invalid_and_diagnostic_failure_do_not_change_input(self):
+        report=self.run_pinned_probe('blocking-command-write')
+        self.assertFalse(any('contextCommandFailure' in row for row in report['records']))
+        self.temp.cleanup(); self.setUp()
+        report=self.run_pinned_probe('invalid-command-write-count')
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['reasonCode'],'INPUT_PROBE_IO_FAILED')
+        self.assertNotIn('contextCommandFailure',failure)
+        self.temp.cleanup(); self.setUp()
+        report=self.run_pinned_probe('diagnostic-loss')
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['reasonCode'],'INPUT_PROBE_REVOKED')
+        self.assertNotIn('contextCommandFailure',failure)
+
+    def test_controller_boundary_phase_and_first_failure(self):
+        for mode,check in (('auth-before-submit','AUTHENTICATION'),('menu-before-submit','FORBIDDEN_UI'),
+                ('cancel-before-enter','CANCELLATION'),('deadline-before-enter','DEADLINE'),
+                ('prefix-padding-repaint','PREFIX_CELLS')):
+            with self.subTest(mode=mode):
+                self.temp.cleanup(); self.setUp()
+                report=self.run_pinned_probe(mode)
+                failure=next(row for row in report['records'] if row['point']=='failure')
+                self.assertEqual(failure['contextCommandFailure']['check'],check)
+                self.assertEqual(failure['contextCommandFailure']['commandBytesWritten'],8)
+                self.assertEqual(failure['contextCommandFailure']['enterBytesWritten'],0)
+        self.temp.cleanup(); self.setUp()
+        report=self.run_pinned_probe('menu-before-clear')
+        self.assertFalse(any('contextCommandFailure' in row for row in report['records']))
+
+    def test_early_command_debug_keeps_original_omission_contract(self):
+        report=self.run_pinned_probe('prefix-padding-repaint',debug=True)
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['contextCommandFailure']['check'],'PREFIX_CELLS')
+        self.assertEqual(self.debug_capture._status,'OMITTED_PROVENANCE')
 
     def test_menu_before_clear_never_clears_or_exits(self): self.run_pinned_probe('menu-before-clear')
     def test_expired_before_proof_never_sends_exit(self):

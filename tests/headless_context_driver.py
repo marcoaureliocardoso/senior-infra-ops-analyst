@@ -17,6 +17,8 @@ from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
 from terminal_structural_diagnostics import TerminalDiagnostics
 from terminal_input_challenge import NonceInputChallenge, InputProofError, validate_probe_scope
 from terminal_context_echo import begin_context_command, assess_context_input, validate_context_history, _invalidate_context_receipt
+from terminal_context_diagnostics import _create_context_journal
+from terminal_cancellation import TerminalCancelled
 
 
 class _ContextFailure(RuntimeError):
@@ -76,18 +78,40 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     frame=0; probe=None; transition=None
     exit_written=0
     context_command=None; context_receipt=None
+    context_journal=None; journal_active=False; controller_owner=object()
     numeric_context_observed=False
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
+    def journal_call(method,*args,**kwargs):
+        if context_journal is None: return None
+        try: return getattr(context_journal,method)(*args,**kwargs)
+        except Exception:
+            try: context_journal.finish()
+            except Exception: pass
+            return None
+
+    def note_failure(error,check):
+        if journal_active: journal_call('freeze',error,check)
+        return error
+
+    def command_error(reason,check):
+        return note_failure(InputProofError(reason),check)
+
+    def check_cancelled():
+        try: state.check_cancelled()
+        except TerminalCancelled as error:
+            note_failure(error,'CANCELLATION'); raise
+
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
-                 input_row_relation=None,input_row_cause=None):
+                 input_row_relation=None,input_row_cause=None,context_command_failure=None):
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
             fields={}
             if input_eligibility is not None: fields['inputEligibility']=input_eligibility
             if input_row_relation is not None: fields['inputRowRelation']=input_row_relation
             if input_row_cause is not None: fields['inputRowCause']=input_row_cause
+            if context_command_failure is not None: fields['contextCommandFailure']=context_command_failure
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
@@ -110,7 +134,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
 
     def pump(wait=.2):
         nonlocal total,snapshot,current_stage,frame
-        state.check_cancelled()
+        check_cancelled()
         readable,_,_=select.select([master],[],[],min(wait,max(0,deadline-time.monotonic())))
         if not readable: return False
         try: chunk=os.read(master,65536)
@@ -118,15 +142,21 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if not chunk: return False
         if total+len(chunk)>MAX_CAPTURE: raise RuntimeError('context capture limit')
         total+=len(chunk); capture.write(chunk)
-        state.feed(chunk); snapshot=state.snapshot(); frame+=1
+        try: state.feed(chunk); snapshot=state.snapshot(); frame+=1
+        except TerminalCancelled as error:
+            note_failure(error,'CANCELLATION'); raise
+        except TerminalStateError as error:
+            if error.reason=='TERMINAL_DEADLINE_EXCEEDED': note_failure(error,'DEADLINE')
+            raise
         authentication=policy.authentication(snapshot)
         if authentication and not startup_open:
             current_stage=authentication
-            raise RuntimeError('late authentication')
+            raise note_failure(RuntimeError('late authentication'),'AUTHENTICATION')
         if input_probe_scope is not None and not startup_open and policy.active_input_forbidden(snapshot):
+            error=command_error('INPUT_PROBE_REVOKED','FORBIDDEN_UI')
             if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
             if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
-            raise InputProofError('INPUT_PROBE_REVOKED')
+            raise error
         if context_command is not None and probe is None: context_command.observe(snapshot,frame)
         if probe is not None:
             probe.observe(snapshot,frame)
@@ -169,7 +199,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if policy.authentication(snapshot): raise RuntimeError('startup authentication reappeared')
             record('api_key_approval','passed'); current_stage=previous
             return
-        raise RuntimeError('startup authentication requires independent decision')
+        raise note_failure(RuntimeError('startup authentication requires independent decision'),'AUTHENTICATION')
 
     def send(line):
         # Drain already-available redraws and re-evaluate immediately before IO.
@@ -179,9 +209,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         writer(master,line.encode('utf-8')+b'\r')
 
     def operation_live():
-        state.check_cancelled()
-        if time.monotonic()>=deadline: raise InputProofError('INPUT_PROBE_DEADLINE')
-        if process.poll() is not None: raise InputProofError('INPUT_PROBE_REVOKED')
+        check_cancelled()
+        if time.monotonic()>=deadline: raise command_error('INPUT_PROBE_DEADLINE','DEADLINE')
+        if process.poll() is not None: raise command_error('INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
         if probe is not None: probe._check()
 
     def owned_write(payload,phase):
@@ -216,7 +246,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 operation_live(); auth_clear()
                 if submission:
                     if context_command.observe(snapshot,frame)!='SUBMIT_PENDING':
-                        raise InputProofError('INPUT_PROBE_STATE_REJECTED')
+                        raise command_error('INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
                 else: context_command.check_edit(snapshot,frame,written)
             while pump(0): pass
             check()
@@ -225,8 +255,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             check()
             try: count=os.write(master,pending)
             except BlockingIOError: continue
-            except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
-            if type(count) is not int or not 0<count<=len(pending): raise InputProofError('INPUT_PROBE_IO_FAILED')
+            except OSError: raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE') from None
+            if type(count) is not int or not 0<count<=len(pending):
+                journal_call('acknowledge',count,submission=submission,remaining=len(pending))
+                raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE')
+            journal_call('acknowledge',count,submission=submission,remaining=len(pending))
             written+=count; pending=pending[count:]
             if submission: context_command.submission_written(count)
             else: context_command.check_edit(snapshot,frame,written)
@@ -269,9 +302,15 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         transition=object()
         # Check current input first, then establish the numeric observation barrier.
         if input_probe_scope is not None:
+            try:
+                context_journal=_create_context_journal(controller_owner=controller_owner,scope=input_probe_scope,
+                    state=state,transition_owner=transition)
+            except Exception: context_journal=None
+            journal_active=True
             while pump(0): pass
             operation_live(); auth_clear()
-            context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame)
+            context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame,
+                _diagnostic_journal=context_journal)
             command_write(context_command.type_bytes(snapshot,frame))
             wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
             while pump(0): pass
@@ -289,6 +328,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             while pump(0): pass
             operation_live(); auth_clear()
             context_receipt=context_command.bind_history(snapshot,frame)
+            journal_active=False
             probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame,
                 context_receipt=context_receipt)
             owned_write(probe.type_bytes(snapshot,frame),'ECHO_PENDING')
@@ -330,12 +370,15 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             'SUBPROCESS_FAILED' if isinstance(error,subprocess.SubprocessError) else 'RUNTIME_REJECTED')
         metadata=({'input_eligibility':error.input_eligibility,'input_row_relation':error.input_row_relation,
             'input_row_cause':error.input_row_cause} if isinstance(error,InputProofError) else {})
+        metadata['context_command_failure']=journal_call('project',error,controller_owner=controller_owner,
+            scope=input_probe_scope,state=state,transition_owner=transition)
         diagnose('failure',reason,**metadata)
         if context_debug is not None:
             try:
                 context_debug.capture(state,input_probe_scope,snapshot,error,numeric_context=numeric_context_observed)
             except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
+        journal_call('finish')
         if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
         if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
         if startup_approval is not None: startup_approval.revoke()
