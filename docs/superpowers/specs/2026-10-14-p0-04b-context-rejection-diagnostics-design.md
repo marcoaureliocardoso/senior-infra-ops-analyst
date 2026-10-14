@@ -1,7 +1,7 @@
 # P0-04B content-free context rejection diagnostics
 
-Status: conversational design approved; written specification awaiting operator
-review. No implementation plan or implementation is approved by this document.
+Status: conversational design and written specification operator-approved.
+Implementation plan awaiting review; implementation has not started.
 Source baseline: `ad7b080a2e85b1591422f1d890671b95c974a3df`.
 No native execution, provider request or additional content capture is authorized.
 
