@@ -186,26 +186,31 @@ class TerminalInputPolicy:
 
     def empty_input_assessment(self, snapshot: TerminalSnapshot) -> EmptyInputAssessment:
         """Rejecting row metadata from the same decision, never a later sample."""
-        if self.active_input_forbidden(snapshot): return EmptyInputAssessment(None,'FORBIDDEN_STATE')
+        return self._empty_input_assessment(snapshot)[0]
+
+    def _empty_input_assessment(self, snapshot: TerminalSnapshot, excluded_row=None):
+        """Private ordered evaluator; callers validate any exclusion beforehand."""
+        if self.active_input_forbidden(snapshot): return EmptyInputAssessment(None,'FORBIDDEN_STATE'),None
         candidates=[]
         for index,row in enumerate(snapshot.rows):
+            if index==excluded_row: continue
             if not re.match(r'^\s*❯',self._row_text(row)): continue
             candidate,cause=self._candidate_evaluation(row)
             if candidate is None:
                 cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
                 relation=('CURSOR_OUTSIDE_CAPTURE' if not 0<=cursor<len(snapshot.rows) else
                     'CURSOR_ROW' if index==cursor else 'OTHER_CAPTURED_ROW')
-                return EmptyInputAssessment(None,'UNSUPPORTED_ROW',relation,cause)
-            if candidate[3]: return EmptyInputAssessment(None,'NONEMPTY_INPUT')
+                return EmptyInputAssessment(None,'UNSUPPORTED_ROW',relation,cause),index
+            if candidate[3]: return EmptyInputAssessment(None,'NONEMPTY_INPUT'),None
             candidates.append((index,candidate))
-        if not candidates: return EmptyInputAssessment(None,'NO_MARKER')
-        if len(candidates)!=1: return EmptyInputAssessment(None,'MULTIPLE_MARKERS')
+        if not candidates: return EmptyInputAssessment(None,'NO_MARKER'),None
+        if len(candidates)!=1: return EmptyInputAssessment(None,'MULTIPLE_MARKERS'),None
         index,(marker,padding_end,_text_end,_tail)=candidates[0]
-        if index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return EmptyInputAssessment(None,'CURSOR_ROW_MISMATCH')
-        if not marker<snapshot.cursorX<=padding_end: return EmptyInputAssessment(None,'CURSOR_COLUMN_MISMATCH')
-        if snapshot.cursorX+16>120: return EmptyInputAssessment(None,'INSUFFICIENT_SPACE')
+        if index!=snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return EmptyInputAssessment(None,'CURSOR_ROW_MISMATCH'),None
+        if not marker<snapshot.cursorX<=padding_end: return EmptyInputAssessment(None,'CURSOR_COLUMN_MISMATCH'),None
+        if snapshot.cursorX+16>120: return EmptyInputAssessment(None,'INSUFFICIENT_SPACE'),None
         return EmptyInputAssessment(InputAnchor(snapshot.active,index,snapshot.cursorX,
-            snapshot.baseY,snapshot.viewportY,marker),'ELIGIBLE')
+            snapshot.baseY,snapshot.viewportY,marker),'ELIGIBLE'),None
 
     def active_input_forbidden(self,snapshot: TerminalSnapshot) -> bool:
         """Pure auth/menu observation, even when input ownership is unavailable."""

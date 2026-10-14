@@ -93,6 +93,20 @@ def validate_probe_scope(scope,terminal):
     return record['deadline']
 
 
+def _context_scope_binding(scope,terminal,*,allow_claimed=False):
+    """Private live view; never unclaims, transfers or renews original scope."""
+    _audit()
+    record=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
+    now=_now()
+    if (type(allow_claimed) is not bool or record is None or record['terminal'] is not terminal
+            or (record['claimed'] and not allow_claimed) or terminal.helper_reaped
+            or type(record['deadline']) not in (int,float) or not math.isfinite(record['deadline'])
+            or not math.isfinite(now) or now>=record['deadline']):
+        raise InputProofError('INPUT_PROBE_SCOPE_REJECTED')
+    terminal.check_cancelled()
+    return record['run'],record['deadline']
+
+
 class InputOwnershipProof:
     __slots__=()
     def __new__(cls,seal=None):
