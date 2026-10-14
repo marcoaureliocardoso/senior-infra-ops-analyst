@@ -263,9 +263,9 @@ retain all native/provider/remote CI/Security/merge gates as pending.
   range on the same immutable candidate. Focus on first-failure provenance,
   post-write acknowledgements, exception/phase binding, diagnostic-loss safety,
   unchanged ownership and content-free budgets. If review is unavailable, stop with that gate pending.
-- [ ] Correct reportable findings through author TDD under the chosen execution workflow; any source correction requires a new immutable candidate and a fresh complete gate. Do not launch another native attempt as remediation or verification.
-- [ ] Record actual gate/review outcomes in result-only validation notes and plan status. Verify any documentation-only follow-up with content/architecture checks and explicitly distinguish final HEAD from the reviewed/tested source candidate; source must remain unchanged.
-- [ ] Hand off final commits, worktree state, synthetic/full-gate/review evidence and pending native/provider/CI/Security gates. Request a fresh final-commit native grant only if the operator chooses that next action; no automatic repetition, push, PR or merge.
+- [x] Correct reportable findings through author TDD under the chosen execution workflow; any source correction requires a new immutable candidate and a fresh complete gate. Do not launch another native attempt as remediation or verification.
+- [x] Record actual gate/review outcomes in result-only validation notes and plan status. Verify any documentation-only follow-up with content/architecture checks and explicitly distinguish final HEAD from the reviewed/tested source candidate; source must remain unchanged.
+- [x] Hand off final commits, worktree state, synthetic/full-gate/review evidence and pending native/provider/CI/Security gates. Request a fresh final-commit native grant only if the operator chooses that next action; no automatic repetition, push, PR or merge.
 
 ## Self-Review and Execution Selection
 
@@ -279,7 +279,12 @@ field names agree across tasks. No native acceptance is substituted by fixtures.
 Selected execution: **Native/inline**, with one fresh final independent reviewer.
 The operator changed the method before any subagent dispatch. The initial source
 candidate passed its full gate and received one independent final review. One
-collector-cleanup finding is in the single author TDD fix pass; targeted
-regressions passed, covering suites and corrected-source full gate remain pending.
+collector-cleanup finding was corrected in the single author TDD fix pass;
+163 covering tests passed, followed by a fresh complete package gate on
+`ac3c1a7601e6a1b918044f68a1cca0e49e65b77d`. No second independent review was run.
+The final follow-up changes only result documentation, checked separately with
+content and architecture validation; it does not replace the tested source hash.
+Local implementation is complete; native/provider acceptance and remote
+CI/Security, push, PR and merge remain outside this delivery's completed gates.
 The previous native execution grant remains consumed regardless of implementation
 or plan approval.

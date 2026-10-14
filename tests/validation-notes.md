@@ -4624,3 +4624,51 @@ The covering rerun passed: journal 8, collector 15, context-echo 27, selected
 driver 47, context debug 16, offline safety 19, wiring 15, cancellation 11 and
 signals 5, totaling 163 passed. Selected-driver runtime was 149.393 seconds.
 No ResourceWarning or other test noise remained in that GREEN run.
+
+### Corrected-source final package evidence
+
+Corrected immutable candidate: `ac3c1a7601e6a1b918044f68a1cca0e49e65b77d`.
+Its fresh complete `bash tests/validate-package.sh` run exited 0 with
+`package validation passed`. The tracked worktree was clean at the candidate
+and remained clean when the result was checked. The retained external log is
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-context-rejection-ac3c1a7-package.log`.
+The opt-in 37-scenario browser adapter test skipped with `CAPABILITY_UNAVAILABLE`.
+Three Python cases skipped: native-Windows MCP rejection (POSIX host), confirmed
+window CLI validation and Nori argument validation (Git Bash unavailable in WSL).
+WSL lacked PowerShell and skipped `.ps1` syntax validation. Real native/provider
+acceptance was not invoked. Local CI workflow validation passed, not remote CI or
+Security. No actual Claude/provider request, credential access or browser
+acceptance execution occurred in this diagnostic implementation plan.
+
+The one independent review applies to `2d56c83`, not a new review of `ac3c1a7`.
+The latter contains the single author TDD fix and passed the 163 covering tests
+and fresh complete package gate. No second independent review was performed.
+This final result-only documentation follow-up is checked with content and
+architecture validation and a documentation-only diff against `ac3c1a7`;
+it makes no runtime/source change. Root and component versions remain unchanged.
+The definitive TODO and P0-04B acceptance are not marked complete. Native
+text/skill-turn/resume, provider/browser acceptance and remote CI/Security remain
+pending. No push, PR, merge or release was executed by this plan.
+
+### Execution rulings and residual costs
+
+These are all six rulings from this plan's temporary execution ledger, in order.
+No Minor review finding was deferred.
+
+1. Measure actual exported JSON formatting, not compact-only bytes: the new
+   regression observed 3215 exported bytes despite the unchanged 3072-byte cap.
+   Cost if wrong: conservative earlier truncation, never more content or authority.
+2. Review the complete plan range `c61fc87..2d56c83`, not the whole inherited
+   long-lived browser branch; unchanged interacting callers remain inspectable.
+   Cost if wrong: unrelated inherited problems remain for broader original gates.
+3. Keep the prior native cause unknown; synthetic prefix repaint is not native
+   evidence. Cost if wrong: root cause remains unresolved until a separately
+   authorized diagnostic run.
+4. Leave native/resume/skill-turn and provider/browser acceptance unexecuted:
+   the prior grant is consumed and this plan is synthetic-only.
+   Cost if wrong: delayed acceptance, with no unapproved execution.
+5. Leave remote CI/Security and push/PR/merge readiness unexamined under this
+   local plan. Cost if wrong: those external gates remain pending after delivery.
+6. Record the parent's full-gate result separately from the reviewer's focused
+   evidence; the reviewer did not observe that concurrent gate.
+   Cost if wrong: evidence misattribution; preserve exact hashes/logs and verify HEAD.
