@@ -49,9 +49,17 @@ def _scope_rejection(record,error):
     elif isinstance(error,InputProofError): _diagnostic(record,'freeze',error,'SCOPE_BINDING')
 
 
-def _fail(record,reason,check=None,*,normalized_input_failure=None):
+def _fail(record,reason,check=None,*,normalized_input_failure=None,edit_snapshot=None,edit_assessment=None,rejected_index=None):
     error=_error(reason)
     if check is not None: _diagnostic(record,'freeze',error,check,normalized_input_failure=normalized_input_failure)
+    observer=record.pop('edit_observer',None) if record is not None else None
+    if observer is not None:
+        try:
+            observer.freeze(error,check,command_record=record,snapshot=edit_snapshot,
+                assessment=edit_assessment,rejected_index=rejected_index)
+        except Exception:
+            try: observer.finish()
+            except Exception: pass
     if record is not None: record['phase']='REVOKED'
     raise error
 
@@ -192,11 +200,15 @@ def _prefix(record,snapshot,written):
         _fail(record,'INPUT_PROBE_REVOKED','TRAILING_CELLS')
     rows=list(snapshot.rows); rows[anchor.row]=record['row']
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
-    assessment=record['policy'].empty_input_assessment(normalized)
+    rejected=None
+    if record.get('edit_observer') is not None:
+        assessment,rejected=record['policy']._empty_input_assessment(normalized)
+    else: assessment=record['policy'].empty_input_assessment(normalized)
     if assessment.anchor!=anchor:
         try: detail=_normalized_failure_detail(assessment,anchor)
         except Exception: detail=None
-        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY',normalized_input_failure=detail)
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY',normalized_input_failure=detail,
+            edit_snapshot=snapshot,edit_assessment=assessment,rejected_index=rejected)
     return count
 
 
@@ -310,7 +322,8 @@ class OwnedContextCommand(_Sealed):
         return value
 
 
-def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame,*,_diagnostic_journal=None):
+def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame,*,_diagnostic_journal=None,
+                          _edit_row_observer=None):
     from terminal_input_challenge import _context_scope_binding
     record={'journal':_diagnostic_journal,'phase':'BASELINE'}
     try: run,deadline=_context_scope_binding(scope,state)
@@ -332,6 +345,14 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
         'policy':policy,'run':run,'deadline':deadline,'time':_now(),'frame':frame,'phase':'ELIGIBLE',
         'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0,
         'journal':_diagnostic_journal}
+    if type(_edit_row_observer) is EditRowObserver:
+        try:
+            _edit_row_observer.bind_command(_COMMANDS[value])
+            _COMMANDS[value]['edit_observer']=_edit_row_observer
+        except Exception:
+            # Optional observation loss never changes command authority.
+            try: _edit_row_observer.finish()
+            except Exception: pass
     _diagnostic(_COMMANDS[value],'set_phase','ELIGIBLE')
     _live(_COMMANDS[value],frame,baseline)
     return value

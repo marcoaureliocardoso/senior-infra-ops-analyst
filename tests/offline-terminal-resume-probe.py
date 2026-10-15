@@ -28,7 +28,8 @@ def context_stage_report(phase,rows,diagnostics):
 
 
 def validate_mode(arguments):
-    return arguments in (['--run-offline'],['--audit-isolation'],['--run-offline','--debug-context'])
+    return arguments in (['--run-offline'],['--audit-isolation'],['--run-offline','--debug-context'],
+                         ['--run-offline','--debug-context-edit'])
 
 
 def case_complete(case):
@@ -70,7 +71,11 @@ def audit_input_probe_scope(node,module_root):
     finally: state.close()
 
 
-def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False):
+def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False):
+    if (type(debug_context_edit) is not bool or (debug_context_edit and (audit or debug_context))):
+        return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    # Closed until a bounded memory-only outer transport is available.
+    if debug_context_edit: return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     if type(debug_context) is not bool or (audit and debug_context): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     try:
         source=source.resolve(strict=True); node=node.resolve(strict=True); module_root=module_root.resolve(strict=True)
@@ -131,9 +136,10 @@ def run_isolation_audit(*,source,node,module_root):
     return _namespace(source=source,node=node,module_root=module_root,audit=True)
 
 
-def run_offline_controls(*,source,claude,node,module_root,debug_context=False):
+def run_offline_controls(*,source,claude,node,module_root,debug_context=False,debug_context_edit=False):
     if claude is None: return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
-    return _namespace(source=source,claude=claude,node=node,module_root=module_root,debug_context=debug_context)
+    return _namespace(source=source,claude=claude,node=node,module_root=module_root,debug_context=debug_context,
+        debug_context_edit=debug_context_edit)
 
 
 def run_cases(run_case):
@@ -145,13 +151,14 @@ def run_cases(run_case):
     return {'reasonCode':'OFFLINE_CONTROLS_PASSED','cases':cases}
 
 
-def _controls(*,debug_context=False):
+def _controls(*,debug_context=False,debug_context_edit=False):
     sys.path.insert(0,'/opt/probe')
     from terminal_state_adapter import TerminalState
     from browser_startup_approval import StartupApproval
     from browser_operations_live import evaluate_measurement_stream
-    from terminal_context_debug import create_context_debug, fit_debug_report
+    from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug
     debug_reports=[]
+    edit_reports=[]
     spec=importlib.util.spec_from_file_location('offline_pty_driver','/opt/probe/claude-pty-driver.py')
     driver=importlib.util.module_from_spec(spec); spec.loader.exec_module(driver)
     version=subprocess.run(['/opt/probe/claude','--version'],env={'PATH':'/usr/bin:/bin','HOME':'/work'},
@@ -166,6 +173,7 @@ def _controls(*,debug_context=False):
             'skillCalls':0,'validSkillSample':False,'messages':0,'stages':[]}
         server=None; thread=None; old_env=dict(os.environ); old_cwd=Path.cwd()
         debug_captures=[]
+        edit_captures=[]
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args): pass
             def do_GET(self): self.send_error(404)
@@ -226,11 +234,14 @@ def _controls(*,debug_context=False):
                 scope=create_offline_probe_issuer().issue_scope(state,object())
                 debug=create_context_debug(scope,state,root) if debug_context else None
                 if debug is not None: debug_captures.append(debug)
+                edit_debug=create_context_edit_debug(scope,state,root) if debug_context_edit else None
+                if edit_debug is not None: edit_captures.append(edit_debug)
                 events=root/(phase+'.events')
                 approval=StartupApproval(time.time()+25,time.time) if not resume else None
                 code=driver.drive(['/opt/probe/claude','--resume' if resume else '--session-id',session,*common],
                     root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,
-                    terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,context_debug=debug)
+                    terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,context_debug=debug,
+                    context_edit_debug=edit_debug)
                 rows=[json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
                 report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
@@ -264,21 +275,28 @@ def _controls(*,debug_context=False):
             if debug_context: debug_reports.append({'status':'OMITTED_CLEANUP'})
             return {'case':name,'caseRootAbsent':False}
         debug_reports.extend(debug.report() for debug in debug_captures)
+        for capture in edit_captures:
+            try: edit_reports.append(capture.pending_report())
+            except Exception: edit_reports.append({'status':'OMITTED_OBSERVER'})
         cleaned.pop('disposableRootAbsent',None); cleaned['caseRootAbsent']=True
         return cleaned
     report={'runtime':match[1].decode('ascii'),**run_cases(run_case)}
     if debug_context:
         debug=next((value for value in debug_reports if value['status']!='NO_CAPTURE'),{'status':'NO_CAPTURE'})
         report=fit_debug_report(report,debug)
+    if debug_context_edit:
+        report['_pendingContextEdit']=next((value for value in edit_reports if value.get('status')!='NO_CAPTURE'),
+            {'status':'NO_CAPTURE'})
     return report
 
 
 def main():
-    if sys.argv[1:] in (['--inner-audit'],['--inner-controls'],['--inner-controls-debug']):
+    if sys.argv[1:] in (['--inner-audit'],['--inner-controls'],['--inner-controls-debug'],['--inner-controls-edit-debug']):
         try:
             report=_audit()
-            if sys.argv[1:] in (['--inner-controls'],['--inner-controls-debug']):
-                report={**report,**_controls(debug_context=sys.argv[1:]==['--inner-controls-debug'])}
+            if sys.argv[1:] in (['--inner-controls'],['--inner-controls-debug'],['--inner-controls-edit-debug']):
+                report={**report,**_controls(debug_context=sys.argv[1:]==['--inner-controls-debug'],
+                    debug_context_edit=sys.argv[1:]==['--inner-controls-edit-debug'])}
             else: audit_input_probe_scope(Path('/opt/probe/node'),Path('/opt/modules'))
             print(json.dumps(report,sort_keys=True)); return 0
         except (OSError,ValueError,RuntimeError): return 2
@@ -291,11 +309,15 @@ def main():
     parser.add_argument('--module-root',type=Path,required=True)
     parser.add_argument('--claude',type=Path)
     parser.add_argument('--debug-context',action='store_true',help='Opt-in offline synthetic context failure excerpt; chat copy may persist')
+    parser.add_argument('--debug-context-edit',action='store_true',help='Opt-in offline rejected edit-row excerpt; chat copy may persist')
     args=parser.parse_args()
     if args.debug_context and args.mode!='--run-offline': parser.error('debug context requires offline controls')
+    if args.debug_context_edit and (args.mode!='--run-offline' or args.debug_context):
+        parser.error('edit debug requires exclusive offline controls')
     report=(run_isolation_audit(source=args.source,node=args.node,module_root=args.module_root)
         if args.mode=='--audit-isolation' else run_offline_controls(source=args.source,node=args.node,
-            module_root=args.module_root,claude=args.claude,debug_context=args.debug_context))
+            module_root=args.module_root,claude=args.claude,debug_context=args.debug_context,
+            debug_context_edit=args.debug_context_edit))
     print(json.dumps(report,sort_keys=True))
     return 0 if report.get('reasonCode') in (None,'OFFLINE_CONTROLS_PASSED') else 2
 

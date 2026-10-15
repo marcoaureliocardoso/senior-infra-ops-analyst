@@ -69,7 +69,16 @@ def _terminate(process):
 
 
 def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None,
-                  input_probe_scope=None,context_debug=None):
+                  input_probe_scope=None,context_debug=None,context_edit_debug=None):
+    if context_edit_debug is not None:
+        from terminal_context_debug import validate_context_edit_debug
+        try:
+            if context_debug is not None or input_probe_scope is None: raise RuntimeError
+            validate_context_edit_debug(context_edit_debug,state,input_probe_scope)
+        except RuntimeError:
+            try: state.close()
+            except RuntimeError: pass
+            return 2
     policy=TerminalInputPolicy()
     deadline=time.monotonic()+timeout_seconds
     process=None; master=slave=None; capture=None
@@ -315,8 +324,14 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             journal_active=True
             while pump(0): pass
             operation_live(); auth_clear()
+            edit_observer=None
+            if context_edit_debug is not None:
+                try: edit_observer=context_edit_debug.bind(controller_owner=controller_owner,
+                    transition_owner=transition,journal=context_journal)
+                except Exception: pass
             context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame,
-                _diagnostic_journal=context_journal)
+                _diagnostic_journal=context_journal,
+                **({'_edit_row_observer':edit_observer} if edit_observer is not None else {}))
             command_write(context_command.type_bytes(snapshot,frame))
             wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
             while pump(0): pass
@@ -381,11 +396,18 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if type(observation) is dict and set(observation)<={'context_command_failure','normalized_input_failure'}:
             metadata.update(observation)
         diagnose('failure',reason,**metadata)
+        if context_edit_debug is not None:
+            try: context_edit_debug.prepare(error,controller_owner=controller_owner,
+                transition_owner=transition,journal=context_journal,snapshot=snapshot)
+            except Exception: pass
         if context_debug is not None:
             try:
                 context_debug.capture(state,input_probe_scope,snapshot,error,numeric_context=numeric_context_observed)
             except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
+        if context_edit_debug is not None:
+            try: context_edit_debug.finish()
+            except Exception: pass
         journal_call('finish')
         if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
         if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')

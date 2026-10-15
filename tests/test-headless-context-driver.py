@@ -74,7 +74,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
 
-    def run_pinned_probe(self,mode='success',fault=False,debug=False,collector_error=None,projection_fault=None):
+    def run_pinned_probe(self,mode='success',fault=False,debug=False,collector_error=None,projection_fault=None,edit_debug=False):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
@@ -122,6 +122,11 @@ class HeadlessContextDriverTests(unittest.TestCase):
                     + ('' if mode=='normalized-plain-description' else '❯ ')
                     + '/context   Visualize current context usage as a colored grid\x1b[38;11H').encode())+')\n'
                 'Path('+repr(str(menu_ready))+').touch()\n' if mode.startswith('normalized-') else '') +
+            ('while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
+                'os.write(1,'+repr(('\x1b['+('40' if mode=='edit-suggestion-below' else '35')+';1H'
+                    + ('' if mode=='edit-plain-description' else '❯ ')
+                    + '/context   Visualize current context usage as a colored grid\x1b[38;11H').encode())+')\n'
+                'Path('+repr(str(menu_ready))+').touch()\n' if mode.startswith('edit-') else '') +
             'if read(1)!=b"\\r": raise SystemExit(1)\n'
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
             'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[6;1H❯ /context\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -170,6 +175,14 @@ class HeadlessContextDriverTests(unittest.TestCase):
             with mock.patch.object(context_debug_module,'audit_offline_namespace',return_value={
                     'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
                 debug_capture=context_debug_module.create_context_debug(scope,state,self.root)
+        edit_capture=None
+        if edit_debug:
+            self.assertIn('context_edit_debug',inspect.signature(self.driver.drive).parameters,
+                'explicit edit diagnostic interface missing')
+            with mock.patch.object(context_debug_module,'audit_offline_namespace',return_value={
+                    'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}):
+                edit_capture=context_debug_module.create_context_edit_debug(scope,state,self.root)
+            self.edit_debug_capture=edit_capture
         diagnostics=TerminalDiagnostics()
         original=os.write; failed_fd=None; original_snapshot=state.snapshot
         command_accepted=False; enter_accepted=False; blocked_once=False; fault_seen=False; context_wait_fault=False
@@ -276,6 +289,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
             nonlocal context_wait_fault
             if writes and command_accepted and mode in ('cancel-before-enter','deadline-before-enter'):
                 context_wait_fault=True
+            if reads and command_accepted and mode.startswith('edit-') and not menu_request.exists():
+                menu_request.touch(); until=time.monotonic()+1
+                while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
             if (mode in ('late-writable-menu','pre-enter-numeric-grid') or mode.startswith('normalized-')) and writes and submit_ready.exists() and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
@@ -301,14 +317,16 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 mock.patch.object(os,'write',side_effect=partial_writer):
             result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',6,self.root/'events',
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
-                **({'context_debug':debug_capture} if debug else {}))
+                **({'context_debug':debug_capture} if debug else {}),
+                **({'context_edit_debug':edit_capture} if edit_debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
-        success=mode in ('success','partial-command-write','blocking-command-write','normalized-plain-description')
+        success=mode in ('success','partial-command-write','blocking-command-write','normalized-plain-description','edit-plain-description')
         self.assertEqual(result,0 if success and not fault else 2)
         early=('missing-command-echo','wrong-command-echo','menu-before-submit','auth-before-submit',
             'autocomplete-marker','late-writable-menu','prefix-padding-repaint','diagnostic-loss',
             'post-command-write-failure','cancel-before-enter','deadline-before-enter',
-            'normalized-suggestion-above','normalized-suggestion-below','normalized-observer-loss')
+            'normalized-suggestion-above','normalized-suggestion-below','normalized-observer-loss',
+            'edit-suggestion-above','edit-suggestion-below')
         if mode in ('baseline-history','invalid-command-write-count'): self.assertEqual(data,b'')
         elif mode=='partial-command-fault': self.assertEqual(data,b'/con')
         elif mode in early: self.assertEqual(data,b'/context')
@@ -322,7 +340,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             if not success and not report['rejected']: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
         else:
             self.assertFalse(any(row['point'] in ('failure','native_cleanup','helper_cleanup') for row in report['records']))
-        if collector_error is not None or mode.startswith('normalized-'):
+        if collector_error is not None or mode.startswith(('normalized-','edit-')):
             self.assertTrue(captures); self.assertTrue(all(stream.closed for stream in captures))
             self.assertEqual(len(terminal_fds),2)
             for descriptor in terminal_fds:
@@ -446,6 +464,44 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertEqual(failure['contextCommandFailure'],{'phase':'SUBMIT_PENDING','check':'NATIVE_LIFETIME',
             'commandBytesWritten':8,'enterBytesWritten':1})
         self.assertNotIn('context_sent',[row['point'] for row in report['records']])
+
+    def test_edit_capture_single_real_assessment_above_below(self):
+        import shutil
+        for mode in ('edit-suggestion-above','edit-suggestion-below'):
+            report=self.run_pinned_probe(mode,edit_debug=True)
+            failure=next(row for row in report['records'] if row['point']=='failure')
+            self.assertEqual(failure['contextCommandFailure'],{'phase':'EDIT_PENDING',
+                'check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0})
+            self.assertEqual((self.root/'probe-input').read_bytes(),b'/context')
+            shutil.rmtree(self.root)
+            pending=self.edit_debug_capture.pending_report()
+            self.assertEqual(pending,{'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW',
+                'text':'❯ /context   Visualize current context usage as a colored grid'}})
+            self.assertNotIn('excerpt',self.edit_debug_capture.pending_report())
+            self.root.mkdir(mode=0o700)
+        self.run_pinned_probe('edit-plain-description',edit_debug=True)
+        shutil.rmtree(self.root)
+        self.assertEqual(self.edit_debug_capture.pending_report(),{'status':'NO_CAPTURE'})
+
+    def test_edit_capture_release_and_observer_loss(self):
+        import shutil
+        for method in ('freeze','project','prepare','finish'):
+            target=(__import__('terminal_context_echo').EditRowObserver if method in ('freeze','project') else
+                context_debug_module.ContextEditDebugCapture)
+            with mock.patch.object(target,method,side_effect=LookupError('synthetic observer loss')):
+                report=self.run_pinned_probe('edit-suggestion-above',edit_debug=True,collector_error=RuntimeError)
+            self.assertNotIn('context_sent',[row['point'] for row in report['records']])
+            shutil.rmtree(self.root)
+            self.assertNotIn('excerpt',self.edit_debug_capture.pending_report())
+            self.root.mkdir(mode=0o700)
+
+    def test_edit_capture_driver_validation_precedes_launch(self):
+        self.assertIn('context_edit_debug',inspect.signature(self.driver.drive).parameters,
+            'explicit edit diagnostic interface missing')
+        for options in ({'context_edit_debug':{}},{'context_edit_debug':{},'context_debug':{}},
+                        {'context_edit_debug':{},'dialogue':'manual'}):
+            with mock.patch.object(selected_controller.subprocess,'Popen',side_effect=AssertionError('launched')):
+                self.assertEqual(self.driver.drive(['never-launched'],self.root/'capture',2,**options),2)
 
     def test_post_write_failure_retains_ack_before_validation(self):
         report=self.run_pinned_probe('post-command-write-failure')

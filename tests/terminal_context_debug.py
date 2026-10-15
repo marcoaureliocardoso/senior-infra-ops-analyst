@@ -231,7 +231,13 @@ class ContextEditDebugCapture:
             if record['status']!='OMITTED_SCOPE': record['status']='OMITTED_OBSERVER'
             record['excerpt']=None
         finally:
-            self.finish()
+            try: self.finish()
+            except Exception:
+                record['excerpt']=None; record['status']='OMITTED_OBSERVER'
+                observer=record['observer']; record['observer']=None
+                if observer is not None:
+                    try: observer.finish()
+                    except Exception: pass
 
     def finish(self):
         record=_EDIT_CAPTURES.get(self)

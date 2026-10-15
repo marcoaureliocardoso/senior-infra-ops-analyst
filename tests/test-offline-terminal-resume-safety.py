@@ -129,6 +129,34 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
         self.assertEqual(len(report['cases']),1)
 
+    def test_edit_option_is_explicit_offline_only(self):
+        self.assertTrue(self.module.validate_mode(['--run-offline','--debug-context-edit']))
+        for args in (['--debug-context-edit'],['--run-live','--debug-context-edit'],
+                     ['--audit-isolation','--debug-context-edit'],
+                     ['--run-offline','--debug-context','--debug-context-edit'],
+                     ['--run-offline','--debug-context-edit','--debug-context-edit']):
+            self.assertFalse(self.module.validate_mode(args))
+        common=['--source',str(ROOT),'--node',os.environ['P004B_TERMINAL_NODE'],
+            '--module-root',os.environ['P004B_TERMINAL_MODULE_ROOT']]
+        with mock.patch.object(sys,'argv',[str(MODULE),'--run-offline','--debug-context-edit',*common]),\
+                mock.patch.object(self.module,'run_offline_controls',return_value={'reasonCode':'OFFLINE_PROBE_BLOCKED'}) as run,\
+                mock.patch('builtins.print'):
+            self.assertEqual(self.module.main(),2)
+        self.assertTrue(run.call_args.kwargs['debug_context_edit'])
+
+    def test_edit_transport_unavailable_blocks_before_spawn(self):
+        with mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=AssertionError('launched')),\
+                mock.patch.object(self.module.tempfile,'TemporaryFile',side_effect=AssertionError('report file')):
+            result=self.module.run_offline_controls(source=ROOT,claude=Path('/unopened-native'),
+                node=Path(os.environ['P004B_TERMINAL_NODE']),
+                module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),debug_context_edit=True)
+        self.assertEqual(result,{'reasonCode':'OFFLINE_PROBE_BLOCKED'})
+
+    def test_edit_pending_is_not_acceptance_or_cross_dialogue(self):
+        case={'case':'text-turn','caseRootAbsent':True,'debugContextEdit':{'status':'READY'},
+            '_pendingContextEdit':{'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':'synthetic'}}}
+        self.assertFalse(self.module.case_complete(case))
+
     def test_two_complete_cases_required(self):
         calls=[]
         def complete(name):

@@ -355,6 +355,42 @@ class ContextEchoTests(unittest.TestCase):
             self.assertTrue(observer.project(error,**bindings,journal=journal,snapshot=snapshot) is None,
                 'invalid row index became exportable')
 
+    def test_edit_capture_enabled_preserves_single_actual_assessment(self):
+        for enabled in (False,True):
+            self.fresh_scope()
+            bindings={'controller_owner':object(),'scope':self.scope,'state':self.state,'transition_owner':self.owner}
+            journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+            observer=self.m._create_edit_row_observer(**bindings,journal=journal) if enabled else None
+            if observer is not None: self.addCleanup(observer.finish)
+            command=self.m.begin_context_command(self.scope,self.state,self.native,self.owner,self.policy,self.empty,1,
+                _diagnostic_journal=journal,**({'_edit_row_observer':observer} if enabled else {}))
+            self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED')
+            command.type_bytes(self.empty,1); journal.acknowledge(8,submission=False,remaining=8)
+            command.check_edit(self.empty,1,8)
+            snapshot=frame('❯\u00a0/context',10,history=((8,'❯ /context synthetic description'),))
+            with mock.patch.object(self.policy,'_empty_input_assessment',wraps=self.policy._empty_input_assessment) as assess:
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+            self.assertEqual(assess.call_count,1)
+            self.assertEqual(command.phase,'REVOKED')
+            self.assertEqual(journal.project(caught.exception,**bindings),{'phase':'EDIT_PENDING',
+                'check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0})
+            if enabled:
+                projected=observer.project(caught.exception,**bindings,journal=journal,snapshot=snapshot)
+                self.assertIsNotNone(projected); self.assertIs(projected[0],snapshot.rows[8])
+
+    def test_edit_bad_observer_cannot_change_rejection(self):
+        bindings={'controller_owner':object(),'scope':self.scope,'state':self.state,'transition_owner':self.owner}
+        journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+        command=self.m.begin_context_command(self.scope,self.state,self.native,self.owner,self.policy,self.empty,1,
+            _diagnostic_journal=journal,_edit_row_observer=object())
+        self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED')
+        command.type_bytes(self.empty,1); journal.acknowledge(8,submission=False,remaining=8)
+        command.check_edit(self.empty,1,8)
+        with self.assertRaises(challenge.InputProofError) as caught:
+            command.observe(frame('❯\u00a0/context',10,history=((8,'❯ /context synthetic description'),)),2)
+        self.assertEqual(journal.project(caught.exception,**bindings),{'phase':'EDIT_PENDING',
+            'check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0})
+
     def test_first_failing_predicate_is_frozen_before_revocation(self):
         cases=((frame('❯ /context',10),'PREFIX_CELLS'),
             (frame('❯\u00a0/context X',10),'TRAILING_CELLS'),

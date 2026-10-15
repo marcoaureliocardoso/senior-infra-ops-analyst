@@ -299,9 +299,20 @@ def drive(
     filler_path: Path | None = None,
     compact_events_path: Path | None = None,
     startup_approval=None,
-    *, terminal_state=None, terminal_diagnostics=None, input_probe_scope=None, context_debug=None,
+    *, terminal_state=None, terminal_diagnostics=None, input_probe_scope=None, context_debug=None, context_edit_debug=None,
 ) -> int:
     """Run the fixed continuity dialogue and retain only the temporary PTY capture."""
+    if context_edit_debug is not None:
+        from terminal_context_debug import validate_context_edit_debug
+        try:
+            if (context_debug is not None or terminal_state is None or input_probe_scope is None
+                    or os.name!='posix' or dialogue!='context'): raise RuntimeError
+            validate_context_edit_debug(context_edit_debug,terminal_state,input_probe_scope)
+        except RuntimeError:
+            if terminal_state is not None:
+                try: terminal_state.close()
+                except RuntimeError: pass
+            return 2
     if context_debug is not None:
         from terminal_context_debug import validate_context_debug
         try:
@@ -331,7 +342,7 @@ def drive(
         from headless_context_driver import drive_context
         return drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,
                              terminal_state,writer=write_all,diagnostics=terminal_diagnostics,
-                             input_probe_scope=input_probe_scope,context_debug=context_debug)
+                             input_probe_scope=input_probe_scope,context_debug=context_debug,context_edit_debug=context_edit_debug)
     if (startup_approval is not None and dialogue != "context") or os.name != "posix" or not drive_request_valid(
         command, timeout_seconds, dialogue, filler_path, compact_events_path,
     ):
