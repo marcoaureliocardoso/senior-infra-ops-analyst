@@ -60,6 +60,154 @@ class TerminalContextDebugTests(unittest.TestCase):
         self.assertEqual(self.root.parent,Path(self.temp.name))
         self.assertFalse(self.root.is_symlink()); shutil.rmtree(self.root)
 
+    def edit_capture_fixture(self,snapshot=None,*,phase='EDIT_PENDING',check='NORMALIZED_ELIGIBILITY',
+                             count=8,enter=0,detail=None):
+        from dataclasses import replace
+        import terminal_context_echo as echo
+        from terminal_context_diagnostics import _create_context_journal
+        self.assertTrue(callable(getattr(self.m,'create_context_edit_debug',None)),
+            'memory-only edit capture missing')
+        if not getattr(self,'_edit_fixture_used',False):
+            for target in (self.m,challenge):
+                patch=mock.patch.object(target,'audit_offline_namespace',return_value=FACTS)
+                patch.start(); self.addCleanup(patch.stop)
+        if getattr(self,'_edit_fixture_used',False):
+            self.state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),
+                Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+20)
+            self.addCleanup(self.state.close)
+            with mock.patch.object(challenge,'audit_offline_namespace',return_value=FACTS):
+                self.scope=create_offline_probe_issuer().issue_scope(self.state,object())
+        self._edit_fixture_used=True
+        empty=frame(''); rows=list(empty.rows)
+        for index in (0,1,2): rows[index]=tuple(TerminalCell('',1) for _ in range(120))
+        empty=replace(empty,rows=tuple(rows))
+        policy=TerminalInputPolicy(); owner=object(); controller=object()
+        native=mock.Mock(); native.poll.return_value=None
+        bindings={'controller_owner':controller,'scope':self.scope,'state':self.state,'transition_owner':owner}
+        journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+        with mock.patch.object(self.m,'audit_offline_namespace',return_value=FACTS):
+            capture=self.m.create_context_edit_debug(self.scope,self.state,self.root)
+        self.addCleanup(capture.finish)
+        observer=capture.bind(controller_owner=controller,transition_owner=owner,journal=journal)
+        command=echo.begin_context_command(self.scope,self.state,native,owner,policy,empty,1,_diagnostic_journal=journal)
+        self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED'); record=echo._COMMANDS[command]
+        observer.bind_command(record); command.type_bytes(empty,1)
+        if count: journal.acknowledge(count,submission=False,remaining=8)
+        if enter: journal.acknowledge(enter,submission=True,remaining=1)
+        command.check_edit(empty,1,8); journal.set_phase(phase)
+        snapshot=snapshot or frame('❯ /context synthetic description')
+        rows=list(snapshot.rows)
+        rows[37]=tuple([TerminalCell(c,1) for c in '❯\u00a0/context']+[TerminalCell('',1)]*110)
+        snapshot=replace(snapshot,cursorX=10,rows=tuple(rows))
+        detail=detail or {'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        assessment=__import__('terminal_input_policy').EmptyInputAssessment(None,detail['reason'],
+            detail.get('rowRelation'),detail.get('rowCause'))
+        error=InputProofError('INPUT_PROBE_REVOKED')
+        journal.freeze(error,check,normalized_input_failure=detail)
+        observer.freeze(error,check,command_record=record,snapshot=snapshot,assessment=assessment,rejected_index=5)
+        args={'controller_owner':controller,'transition_owner':owner,'journal':journal,'snapshot':snapshot}
+        return capture,error,args
+
+    def prepare_edit(self,capture,error,args):
+        with mock.patch.object(self.m,'audit_offline_namespace',return_value=FACTS):
+            capture.prepare(error,**args)
+
+    def test_edit_capture_closed_boundary_and_no_file(self):
+        capture,error,args=self.edit_capture_fixture()
+        with mock.patch.object(self.m.os,'open',side_effect=AssertionError('new file opened')):
+            self.prepare_edit(capture,error,args)
+        self.assertEqual(list(self.root.iterdir()),[])
+        self.assertNotIn('excerpt',capture.pending_report())
+        # An early report consumes/omits rather than allowing later replay.
+        self.dispose(); self.assertNotIn('excerpt',capture.pending_report())
+
+    def test_edit_capture_sensitive_scan_and_unicode(self):
+        capture,error,args=self.edit_capture_fixture(frame('❯ /context synthetic café 界\x1b'))
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        pending=capture.pending_report()
+        self.assertEqual(pending,{'status':'PREPARED','excerpt':{
+            'rowRelation':'OTHER_CAPTURED_ROW','text':'❯ /context synthetic café 界\\u001b'}})
+        self.assertNotIn('excerpt',capture.pending_report())
+
+    def test_edit_capture_actual_byte_limits(self):
+        from dataclasses import replace
+        snapshot=frame('❯ /context synthetic description'); rows=list(snapshot.rows)
+        rows[5]=tuple([TerminalCell('❯',1)]+[TerminalCell('界'*16,1)]*119)
+        capture,error,args=self.edit_capture_fixture(replace(snapshot,rows=tuple(rows)))
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        self.assertEqual(capture.pending_report(),{'status':'OMITTED_EXCERPT_LIMIT'})
+
+    def test_edit_capture_observer_loss_omits(self):
+        capture,error,args=self.edit_capture_fixture()
+        with mock.patch.object(self.m,'_sensitive',side_effect=LookupError('synthetic detector loss')):
+            self.prepare_edit(capture,error,args)
+        capture.finish(); self.dispose()
+        self.assertNotIn('excerpt',capture.pending_report())
+
+    def test_edit_capture_sensitive_material_outside_row_omits(self):
+        capture,error,args=self.edit_capture_fixture(frame('❯ /context synthetic description',
+            extra=((22,'Password synthetic diagnostic fixture'),)))
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        pending=capture.pending_report()
+        self.assertTrue(pending=={'status':'OMITTED_SENSITIVE'},'sensitive diagnostic escaped')
+
+    def test_edit_capture_tuple_and_scope_mismatches(self):
+        cases=({'phase':'SUBMIT_PENDING'},{'check':'PREFIX_CELLS'},{'count':7},{'enter':1},
+            {'detail':{'reason':'UNSUPPORTED_ROW','rowRelation':'CURSOR_ROW','rowCause':'UNRECOGNIZED_SHAPE'}},
+            {'detail':{'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'CONTROL_COMMAND_SHAPE'}})
+        for changes in cases:
+            capture,error,args=self.edit_capture_fixture(**changes)
+            self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+            self.assertNotIn('excerpt',capture.pending_report())
+            self.root.mkdir(mode=0o700)
+        capture,error,args=self.edit_capture_fixture()
+        with mock.patch.object(self.m.time,'monotonic',return_value=time.monotonic()+100):
+            self.prepare_edit(capture,error,args)
+        capture.finish(); self.dispose()
+        self.assertEqual(capture.pending_report(),{'status':'OMITTED_SCOPE'})
+
+    def test_edit_capture_exact_export_size_and_wide_cells(self):
+        from dataclasses import replace
+        for size in (4096,4097):
+            base='❯ /context '
+            overhead=len(json.dumps({'rowRelation':'OTHER_CAPTURED_ROW','text':base},sort_keys=True).encode())
+            count,remainder=divmod(size-overhead,6)
+            text=base+'界'*count+'a'*remainder
+            cells=[TerminalCell(text[index:index+16],1) for index in range(0,len(text),16)]
+            cells.extend(TerminalCell('',1) for _ in range(120-len(cells)))
+            snapshot=frame(); rows=list(snapshot.rows); rows[5]=tuple(cells)
+            capture,error,args=self.edit_capture_fixture(replace(snapshot,rows=tuple(rows)))
+            self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+            pending=capture.pending_report()
+            if size==4096:
+                self.assertEqual(pending['status'],'PREPARED')
+                self.assertEqual(len(json.dumps(pending['excerpt'],sort_keys=True).encode()),4096)
+            else: self.assertEqual(pending,{'status':'OMITTED_EXCERPT_LIMIT'})
+            self.root.mkdir(mode=0o700)
+        snapshot=frame('❯ /context synthetic description'); rows=list(snapshot.rows); row=list(rows[5])
+        row[40]=TerminalCell('界',2); row[41]=TerminalCell('',0); rows[5]=tuple(row)
+        capture,error,args=self.edit_capture_fixture(replace(snapshot,rows=tuple(rows)))
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        self.assertEqual(capture.pending_report()['status'],'PREPARED')
+
+    def test_edit_capture_malformed_row_and_root_refuse(self):
+        from dataclasses import replace
+        snapshot=frame('❯ /context synthetic description'); rows=list(snapshot.rows)
+        rows[5]=rows[5]+(TerminalCell('',1),)
+        capture,error,args=self.edit_capture_fixture(replace(snapshot,rows=tuple(rows)))
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        self.assertNotIn('excerpt',capture.pending_report())
+        self.root.mkdir(mode=0o700)
+        capture,error,args=self.edit_capture_fixture(); self.root.chmod(0o755)
+        self.prepare_edit(capture,error,args); capture.finish(); self.dispose()
+        self.assertEqual(capture.pending_report(),{'status':'OMITTED_SCOPE'})
+
+    def test_edit_capture_factory_rejects_host_and_forged(self):
+        self.assertTrue(callable(getattr(self.m,'create_context_edit_debug',None)),
+            'memory-only edit capture missing')
+        with self.assertRaises(RuntimeError): self.m.create_context_edit_debug(self.scope,self.state,self.root)
+        with self.assertRaises(RuntimeError): self.m.validate_context_edit_debug({},self.state,self.scope)
+
     def test_one_frame_and_minimal_untrusted_excerpt_only_after_disposal(self):
         debug=self.debug(); self.capture(debug)
         raw=self.root/'context-debug-frame.json'

@@ -14,6 +14,7 @@ _COMMANDS=weakref.WeakKeyDictionary()
 _RECEIPTS=weakref.WeakKeyDictionary()
 _OBSERVATIONS=weakref.WeakKeyDictionary()
 _USED_SCOPES=weakref.WeakSet()
+_EDIT_ROWS=weakref.WeakKeyDictionary()
 _BODY='/context'
 
 
@@ -69,6 +70,74 @@ class ContextEchoReceipt(_Sealed):
 
 class ContextRejectionObservation(_Sealed):
     __slots__=()
+
+
+class EditRowObserver(_Sealed):
+    """One private rejected row; never a new input or acceptance proof."""
+    __slots__=()
+
+    def bind_command(self,command_record):
+        record=_EDIT_ROWS.get(self)
+        command=next((key for key,value in _COMMANDS.items() if value is command_record),None)
+        if (record is None or record['command'] is not None or command is None
+                or any(command_record.get(key) is not value for key,value in zip(
+                    ('scope','state','transition','journal'),record['bindings'][1:]))):
+            self.finish(); raise _error('INPUT_PROBE_SCOPE_REJECTED')
+        record.update(command=weakref.ref(command),run=command_record['run'],deadline=command_record['deadline'])
+
+    def freeze(self,error,check,*,command_record,snapshot=None,assessment=None,rejected_index=None):
+        record=_EDIT_ROWS.get(self)
+        if record is None or record['attempted']: return
+        record['attempted']=True
+        command=record['command']() if record['command'] is not None else None
+        if (command is None or _COMMANDS.get(command) is not command_record
+                or command_record.get('run') is not record['run']
+                or check!='NORMALIZED_ELIGIBILITY' or getattr(error,'reason',None)!='INPUT_PROBE_REVOKED'
+                or type(snapshot) is not TerminalSnapshot or type(assessment) is not EmptyInputAssessment
+                or assessment.anchor is not None
+                or (assessment.reason,assessment.rowRelation,assessment.rowCause)!=
+                    ('UNSUPPORTED_ROW','OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE')
+                or type(rejected_index) is not int or not 0<=rejected_index<len(snapshot.rows)
+                or rejected_index==command_record['anchor'].row): return
+        controller,scope,state,transition,journal=record['bindings']
+        fields=journal.project_fields(error,controller_owner=controller,scope=scope,state=state,transition_owner=transition)
+        if fields!={'context_command_failure':{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                'commandBytesWritten':8,'enterBytesWritten':0},'normalized_input_failure':{
+                    'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}}: return
+        row=snapshot.rows[rejected_index]
+        if (type(row) is not tuple or len(row)>120
+                or not re.match(r'^\s*❯',TerminalInputPolicy._row_text(row))): return
+        record['failure']=(error,weakref.ref(snapshot),row)
+
+    def project(self,error,*,controller_owner,scope,state,transition_owner,journal,snapshot):
+        record=_EDIT_ROWS.get(self)
+        if record is None or record['failure'] is None: return None
+        if any(a is not b for a,b in zip(
+                (controller_owner,scope,state,transition_owner,journal),record['bindings'])): return None
+        command=record['command']() if record['command'] is not None else None
+        current=_COMMANDS.get(command) if command is not None else None
+        failure=record['failure']
+        if (current is None or current.get('run') is not record['run']
+                or current.get('deadline')!=record['deadline'] or failure[0] is not error
+                or failure[1]() is not snapshot
+                or any(current.get(key) is not value for key,value in zip(
+                    ('scope','state','transition','journal'),record['bindings'][1:]))): return None
+        if journal.project_fields(error,controller_owner=controller_owner,scope=scope,state=state,
+                transition_owner=transition_owner) is None: return None
+        return failure[2],record['deadline']
+
+    def finish(self):
+        _EDIT_ROWS.pop(self,None)
+
+
+def _create_edit_row_observer(*,controller_owner,scope,state,transition_owner,journal):
+    if (type(controller_owner) is not object or type(transition_owner) is not object
+            or type(journal) is not ContextFailureJournal or scope is None or state is None):
+        raise _error('INPUT_PROBE_SCOPE_REJECTED')
+    value=EditRowObserver(_SEAL)
+    _EDIT_ROWS[value]={'bindings':(controller_owner,scope,state,transition_owner,journal),
+        'command':None,'run':None,'deadline':None,'attempted':False,'failure':None}
+    return value
 
 
 def _live(record,frame=None,snapshot=None):

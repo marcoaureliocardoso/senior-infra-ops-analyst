@@ -282,6 +282,79 @@ class ContextEchoTests(unittest.TestCase):
         command.check_edit(self.empty,1,8)
         return command,journal,bindings
 
+    def edit_row_fixture(self,**changes):
+        self.assertTrue(callable(getattr(self.m,'_create_edit_row_observer',None)),
+            'sealed edit-row observer missing')
+        command,journal,bindings=self.diagnostic_edit()
+        record=self.m._COMMANDS[command]
+        observer=self.m._create_edit_row_observer(**bindings,journal=journal)
+        self.addCleanup(observer.finish); observer.bind_command(record)
+        snapshot=frame('❯\u00a0/context',10,history=((8,'❯ /context synthetic description'),))
+        rows=list(snapshot.rows); rows[37]=self.empty.rows[37]
+        assessment,index=self.policy._empty_input_assessment(replace(snapshot,cursorX=2,rows=tuple(rows)))
+        error=challenge.InputProofError('INPUT_PROBE_REVOKED')
+        detail={'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure=detail)
+        observer.freeze(error,'NORMALIZED_ELIGIBILITY',command_record=record,snapshot=snapshot,
+            assessment=assessment,rejected_index=index,**changes)
+        return observer,error,snapshot,record,journal,{**bindings,'journal':journal,'snapshot':snapshot}
+
+    def test_edit_row_first_failure_binding(self):
+        observer,error,snapshot,record,journal,bindings=self.edit_row_fixture()
+        record['phase']='REVOKED'
+        with mock.patch.object(self.policy,'_empty_input_assessment',side_effect=AssertionError('reclassified')),\
+                mock.patch.object(self.m,'_now',side_effect=AssertionError('clock read')):
+            projected=observer.project(error,**bindings)
+        self.assertIsNotNone(projected)
+        self.assertIs(projected[0],snapshot.rows[8]); self.assertEqual(projected[1],record['deadline'])
+        self.assertEqual(len(journal.project(error,**{k:v for k,v in bindings.items() if k not in ('journal','snapshot')})),4)
+        observer.finish(); self.assertIsNone(observer.project(error,**bindings))
+
+    def test_edit_row_missing_first_cannot_enrich(self):
+        self.assertTrue(callable(getattr(self.m,'_create_edit_row_observer',None)),
+            'sealed edit-row observer missing')
+        command,journal,bindings=self.diagnostic_edit(); record=self.m._COMMANDS[command]
+        observer=self.m._create_edit_row_observer(**bindings,journal=journal); self.addCleanup(observer.finish)
+        observer.bind_command(record)
+        error=challenge.InputProofError('INPUT_PROBE_REVOKED')
+        observer.freeze(error,'PREFIX_CELLS',command_record=record)
+        snapshot=frame('❯\u00a0/context',10,history=((8,'❯ /context synthetic description'),))
+        assessment=EmptyInputAssessment(None,'UNSUPPORTED_ROW','OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE')
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={
+            'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'})
+        observer.freeze(error,'NORMALIZED_ELIGIBILITY',command_record=record,snapshot=snapshot,
+            assessment=assessment,rejected_index=8)
+        self.assertIsNone(observer.project(error,**bindings,journal=journal,snapshot=snapshot))
+        observer.finish()
+        self.assertNotIn('/context',repr(observer))
+
+    def test_edit_row_rejects_foreign_and_equal_replacement_snapshot(self):
+        observer,error,snapshot,record,journal,bindings=self.edit_row_fixture()
+        for key in ('controller_owner','scope','state','transition_owner','journal'):
+            self.assertIsNone(observer.project(error,**{**bindings,key:object()}))
+        self.assertIsNone(observer.project(challenge.InputProofError('INPUT_PROBE_REVOKED'),**bindings))
+        self.assertIsNone(observer.project(error,**{**bindings,'snapshot':replace(snapshot)}))
+        run=record['run']; record['run']=object()
+        self.assertIsNone(observer.project(error,**bindings)); record['run']=run
+        with self.assertRaises(RuntimeError): observer.bind_command(dict(record))
+        self.assertIsNone(observer.project(error,**bindings))
+
+    def test_edit_row_current_or_unmarked_index_is_not_exportable(self):
+        for index in (37,9,-1,True,40):
+            self.fresh_scope()
+            command,journal,bindings=self.diagnostic_edit(); record=self.m._COMMANDS[command]
+            observer=self.m._create_edit_row_observer(**bindings,journal=journal)
+            self.addCleanup(observer.finish); observer.bind_command(record)
+            snapshot=frame('❯\u00a0/context',10,history=((8,'❯ /context synthetic description'),))
+            error=challenge.InputProofError('INPUT_PROBE_REVOKED')
+            journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={
+                'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'})
+            observer.freeze(error,'NORMALIZED_ELIGIBILITY',command_record=record,snapshot=snapshot,
+                assessment=EmptyInputAssessment(None,'UNSUPPORTED_ROW','OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE'),
+                rejected_index=index)
+            self.assertTrue(observer.project(error,**bindings,journal=journal,snapshot=snapshot) is None,
+                'invalid row index became exportable')
+
     def test_first_failing_predicate_is_frozen_before_revocation(self):
         cases=((frame('❯ /context',10),'PREFIX_CELLS'),
             (frame('❯\u00a0/context X',10),'TRAILING_CELLS'),
