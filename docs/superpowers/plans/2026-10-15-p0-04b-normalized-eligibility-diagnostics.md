@@ -185,11 +185,11 @@ README, CHANGELOG, `tests/validation-notes.md`, approved spec status and this pl
 - [x] Add a factual unreleased CHANGELOG entry and actual RED/GREEN results to validation notes. Update spec/plan statuses only as observed; preserve all historical evidence and pending gates.
 - [x] Run `validate-content.py` and `test-architecture-docs.py` with the explicit prefix; expect content validation passed and unittest OK/exit 0. Check whitespace, links, <=300-character lines, unchanged manifests and test-only diff scope.
 - [x] Commit explicit documentation files, verify tracked worktree clean and capture the immutable implementation candidate.
-- [ ] Run the complete package gate on that candidate. Record exact hash/log/exit and all capability/platform skips; local workflow validation is not remote CI/Security or native/provider/browser acceptance.
-- [ ] Obtain scoped independent review of this plan's full implementation range on that immutable candidate, including unchanged interacting callers. Supply the spec, Review Focus, test evidence and any execution rulings. If unavailable, retain that gate pending.
-- [ ] Handle findings under the selected execution workflow with author TDD. Any source correction requires a fresh immutable candidate and full package gate. Never launch a native attempt as automatic remediation or verification.
-- [ ] Record actual outcomes in result-only docs; verify any post-gate documentation-only delta separately and distinguish final HEAD from reviewed/tested source hashes.
-- [ ] Hand off commits, clean/dirty state, test/review evidence, residual risks and pending native/provider/browser/remote CI/Security gates. Preserve worktree/branch; no automatic push, PR, merge or native retry.
+- [x] Run the complete package gate on that candidate. Record exact hash/log/exit and all capability/platform skips; local workflow validation is not remote CI/Security or native/provider/browser acceptance.
+- [x] Obtain scoped independent review of this plan's full implementation range on that immutable candidate, including unchanged interacting callers. Supply the spec, Review Focus, test evidence and any execution rulings. If unavailable, retain that gate pending.
+- [x] Handle findings under the selected execution workflow with author TDD. Any source correction requires a fresh immutable candidate and full package gate. Never launch a native attempt as automatic remediation or verification.
+- [x] Record actual outcomes in result-only docs; verify any post-gate documentation-only delta separately and distinguish final HEAD from reviewed/tested source hashes.
+- [x] Hand off commits, clean/dirty state, test/review evidence, residual risks and pending native/provider/browser/remote CI/Security gates. Preserve worktree/branch; no automatic push, PR, merge or native retry.
 
 ## Self-review and execution handoff
 
@@ -202,6 +202,9 @@ names are consistent across task interfaces.
 
 Selected execution: inline, with one final fresh independent reviewer. Tasks 1-3
 are implemented with TDD; 181 covering tests passed, including the completion run
-on committed source. Architectural evidence is being finalized before the
-immutable candidate's complete package gate and independent review. Native,
-provider/browser, remote CI/Security and integration gates remain pending.
+on committed source. Immutable candidate `9311976673b4645f34cb80b7c13aac067acc9599`
+passed the complete package gate (exit 0) and independent review (zero findings).
+Result-only documentation closure is verified separately, not a new source review.
+Exact skips, review scope and all execution rulings are preserved in validation
+notes. Native, provider/browser, remote CI/Security and integration gates remain
+pending. Preserve this branch/worktree; no native retry or external write follows.

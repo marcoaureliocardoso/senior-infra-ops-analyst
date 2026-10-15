@@ -4725,3 +4725,61 @@ and fresh independent review remain pending at this documentation checkpoint;
 their actual hashes and results must be recorded after observation. Synthetic
 verification is not native/provider/browser acceptance, remote CI/Security or
 permission to push, PR, merge, release or mark the definitive TODO complete.
+
+### Immutable normalized-detail verification and review
+
+Candidate `9311976673b4645f34cb80b7c13aac067acc9599` passed a fresh complete
+`bash tests/validate-package.sh`: exit 0 and `package validation passed`.
+Its tracked tree and HEAD remained unchanged until the observed result.
+The retained external log is
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-normalized-9311976-package.log`.
+The opt-in 37-scenario production browser adapter skipped with
+`CAPABILITY_UNAVAILABLE`. Three Python cases skipped: native-Windows MCP
+rejection on POSIX, confirmed-window CLI validation and Nori argument validation
+without Git Bash in WSL. PowerShell was unavailable in WSL, so `.ps1` syntax
+validation skipped. Schema and local CI workflow validation passed; this is not
+remote CI/Security or real native/provider/browser acceptance.
+
+One fresh independent reviewer read the complete 1446-line packaged implementation
+range `d61ee2c6f86f5a9b816f808919dd13b4df805c52..9311976673b4645f34cb80b7c13aac067acc9599`,
+the approved spec/plan and interacting unchanged callers. Verdict: approved for
+this scoped refinement; 0 Critical, 0 Important and 0 Minor findings. The author
+re-grade agrees; no fix pass or deferred Minor was required. The reviewer did not
+rerun suites or claim the concurrently executed full gate, native acceptance,
+the whole inherited branch or external integration readiness.
+
+This result-only follow-up changes documentation only and is separately checked
+with content validation, 13 architecture tests and a documentation-only diff
+against `9311976`. Its later HEAD is not the tested/reviewed implementation hash.
+Root/component versions remain unchanged. The branch/worktree is preserved;
+the definitive TODO is not completed. No native/provider/browser execution,
+operator credentials/configuration access, push, PR, merge or release occurred.
+
+### Execution rulings and residual costs
+
+These are all seven rulings from this plan's temporary ledger, in order.
+No Minor review finding was deferred.
+
+1. Review the complete approved refinement `d61ee2c..9311976`, not the inherited
+   long-lived branch; unchanged interacting callers remain inspectable and the
+   broader original gates remain separate. Cost if wrong: unrelated inherited
+   problems remain for the broader original gates.
+2. Leave unrelated inherited functionality outside this scoped verdict; relevant
+   unchanged callers were inspected. Cost if wrong: inherited defects can remain
+   undetected until broader acceptance gates.
+3. Keep autocomplete an unproven native explanation: deleted raw content is
+   unavailable and synthetic compatibility is not causal proof. Cost if wrong:
+   the actual cause remains unresolved until separately authorized observation.
+4. Keep native resume, skill-turn and provider/browser acceptance pending;
+   synthetic fixtures cannot establish those results and no new grant exists.
+   Cost if wrong: native diagnostics may remain incomplete; claim no acceptance.
+5. Observe the full gate separately as author; static approval and focused suites
+   are not full-gate evidence. Cost if wrong: missed failures/skips could overstate
+   verification; preserve the exact exit, source hash and retained log.
+6. Leave remote CI/Security and integration unexecuted: this plan grants no remote
+   mutation or release authority. Cost if wrong: external problems remain
+   undiscovered; no merge-readiness claim follows.
+7. Treat private Python provenance as a trusted-process discipline, not an
+   arbitrary-code sandbox. Copied/replaced bindings and malformed data are checked.
+   Cost if wrong: compromised same-process code can forge observations; these
+   diagnostics are not a security boundary.

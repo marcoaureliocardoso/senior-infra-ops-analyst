@@ -54,6 +54,7 @@ The test-only [normalized eligibility subreason specification](../superpowers/sp
 preserves that four-field observer and adds only closed assessment detail at its
 original rejecting boundary. The approved
 [implementation plan](../superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md)
-has a local implementation with 181 covering tests passed. Immutable full-gate
-and independent-review outcomes are recorded in validation notes as observed.
+has a local implementation with 181 covering tests passed. Source `9311976`
+passed the complete package gate and scoped independent review; exact evidence,
+platform/capability skips and remaining gates are recorded in validation notes.
 This diagnostic addition does not accept autocomplete rows or authorize a run.

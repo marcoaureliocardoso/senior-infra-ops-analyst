@@ -2,7 +2,8 @@
 
 Status: diagnostic direction and written specification operator-approved.
 Implementation plan approved for inline execution; local implementation and
-181 covering tests complete. Immutable full-gate and independent review pending.
+181 covering tests complete. Immutable full-gate passed and independent review
+approved source `9311976`; result-only documentation closure is checked separately.
 No additional native execution is authorized by implementation approval.
 Source baseline: `d86543d946a714557ba3289718d9cc772afcc9a2`.
 
@@ -187,10 +188,10 @@ workflow completion or the actual cause of the consumed attempt.
 
 ## Documentation, rollback and approval gates
 
-This spec is indexed as proposed, not implemented. After implementation, update
-ADR-010 and its index, unreleased CHANGELOG and validation notes with enforced
-behavior and actual evidence. Test-only scope does not require a manifest/version
-change; reassess if implementation exceeds this boundary.
+This diagnostic refinement is implemented and indexed in ADR-010 and its index.
+The unreleased CHANGELOG and validation notes record enforced behavior and actual
+evidence, including native acceptance still pending. Test-only scope does not
+require a manifest/version change; reassess if implementation exceeds this boundary.
 
 Rollback removes the additive detail path and its collector coupling as one unit,
 leaving the existing four-field observer and strict operational protocol intact.
