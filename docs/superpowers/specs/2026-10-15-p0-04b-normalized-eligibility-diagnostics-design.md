@@ -1,8 +1,9 @@
 # P0-04B normalized eligibility subreason observation
 
-Status: diagnostic direction approved conversationally; written specification
-awaiting operator review. No implementation plan or implementation is approved
-by this document. Source baseline: `d86543d946a714557ba3289718d9cc772afcc9a2`.
+Status: diagnostic direction and written specification operator-approved.
+Implementation plan review and execution-method selection remain pending;
+implementation and native execution are not authorized by this document.
+Source baseline: `d86543d946a714557ba3289718d9cc772afcc9a2`.
 
 ## Intent and observed evidence
 

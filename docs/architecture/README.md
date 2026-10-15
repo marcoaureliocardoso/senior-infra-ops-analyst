@@ -52,5 +52,7 @@ status are recorded separately in the validation notes.
 
 A proposed [normalized eligibility subreason specification](../superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md)
 preserves that four-field observer and adds only closed assessment detail at its
-original rejecting boundary. Written-spec review and implementation planning are
-pending; this proposal does not relax input ownership or authorize another run.
+original rejecting boundary. Its written spec is approved; the
+[implementation plan](../superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md)
+awaits operator review and execution-method selection. No implementation or
+additional native execution is implied by these design artifacts.
