@@ -4,9 +4,9 @@ import math
 import re
 import time
 import weakref
-from terminal_input_policy import TerminalInputPolicy
+from terminal_input_policy import TerminalInputPolicy, EmptyInputAssessment, InputAnchor
 from terminal_state_adapter import TerminalSnapshot, MAX_CAPTURE
-from terminal_context_diagnostics import ContextFailureJournal
+from terminal_context_diagnostics import ContextFailureJournal, valid_normalized_input_failure
 from terminal_cancellation import TerminalCancelled
 
 _SEAL=object()
@@ -27,10 +27,10 @@ def _error(reason,assessment=None):
         input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
 
 
-def _diagnostic(record,method,*args):
+def _diagnostic(record,method,*args,**kwargs):
     journal=record.get('journal') if record is not None else None
     if type(journal) is not ContextFailureJournal: return
-    try: getattr(journal,method)(*args)
+    try: getattr(journal,method)(*args,**kwargs)
     except Exception:
         # Observation loss cannot change the original operational failure or phase.
         try: journal.finish()
@@ -48,9 +48,9 @@ def _scope_rejection(record,error):
     elif isinstance(error,InputProofError): _diagnostic(record,'freeze',error,'SCOPE_BINDING')
 
 
-def _fail(record,reason,check=None):
+def _fail(record,reason,check=None,*,normalized_input_failure=None):
     error=_error(reason)
-    if check is not None: _diagnostic(record,'freeze',error,check)
+    if check is not None: _diagnostic(record,'freeze',error,check,normalized_input_failure=normalized_input_failure)
     if record is not None: record['phase']='REVOKED'
     raise error
 
@@ -96,6 +96,17 @@ def _live(record,frame=None,snapshot=None):
         if record['policy'].active_input_forbidden(snapshot): _fail(record,'INPUT_PROBE_REVOKED','FORBIDDEN_UI')
 
 
+def _normalized_failure_detail(assessment,expected_anchor):
+    if type(assessment) is not EmptyInputAssessment or type(expected_anchor) is not InputAnchor: return None
+    if assessment.anchor is not None:
+        return ({'reason':'ANCHOR_CHANGED'} if type(assessment.anchor) is InputAnchor
+            and assessment.anchor!=expected_anchor else None)
+    detail={'reason':assessment.reason}
+    if assessment.rowRelation is not None: detail['rowRelation']=assessment.rowRelation
+    if assessment.rowCause is not None: detail['rowCause']=assessment.rowCause
+    return detail if valid_normalized_input_failure(detail) else None
+
+
 def _prefix(record,snapshot,written):
     anchor=record['anchor']
     if (snapshot.active!=anchor.buffer or snapshot.baseY!=anchor.baseY
@@ -112,8 +123,11 @@ def _prefix(record,snapshot,written):
         _fail(record,'INPUT_PROBE_REVOKED','TRAILING_CELLS')
     rows=list(snapshot.rows); rows[anchor.row]=record['row']
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
-    if record['policy'].empty_input_anchor(normalized)!=anchor:
-        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    assessment=record['policy'].empty_input_assessment(normalized)
+    if assessment.anchor!=anchor:
+        try: detail=_normalized_failure_detail(assessment,anchor)
+        except Exception: detail=None
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY',normalized_input_failure=detail)
     return count
 
 

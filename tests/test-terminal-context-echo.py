@@ -8,7 +8,7 @@ from unittest import mock
 from dataclasses import replace
 
 import terminal_input_challenge as challenge
-from terminal_input_policy import TerminalInputPolicy
+from terminal_input_policy import TerminalInputPolicy, EmptyInputAssessment
 from terminal_state_adapter import TerminalState, TerminalCell, TerminalSnapshot, COUNT_KEYS
 from terminal_context_diagnostics import _create_context_journal, ContextFailureJournal
 from terminal_cancellation import TerminalCancelled
@@ -297,6 +297,90 @@ class ContextEchoTests(unittest.TestCase):
                 self.assertEqual(command.phase,'REVOKED')
                 self.assertEqual(journal.project(caught.exception,**bindings),{
                     'phase':'EDIT_PENDING','check':expected,'commandBytesWritten':8,'enterBytesWritten':0})
+
+    def test_normalized_suggestion_detail_uses_actual_single_assessment(self):
+        for row in (34,39):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            snapshot=frame('❯\u00a0/context',10,
+                history=((row,'❯ /context   Visualize current context usage as a colored grid'),))
+            self.policy.mark_transition(self.empty); self.policy.authentication(snapshot)
+            assessed=[]; original=self.policy.empty_input_assessment
+            def assess(value):
+                result=original(value); assessed.append((value,result)); return result
+            with mock.patch.object(self.policy,'empty_input_assessment',side_effect=assess):
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+            self.assertEqual(len(assessed),1)
+            self.assertEqual(assessed[0][1].reason,'UNSUPPORTED_ROW')
+            self.assertEqual(self.policy.diagnostic_state(assessed[0][0])['readiness'],'READY')
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED'); self.assertEqual(command.phase,'REVOKED')
+            self.assertEqual(journal.project_fields(caught.exception,**bindings),{
+                'context_command_failure':{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                    'commandBytesWritten':8,'enterBytesWritten':0},
+                'normalized_input_failure':{'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW',
+                    'rowCause':'UNRECOGNIZED_SHAPE'}})
+
+    def test_description_freshness_is_not_numeric_or_input_authority(self):
+        command,journal,bindings=self.diagnostic_edit()
+        snapshot=frame('❯\u00a0/context',10,
+            history=((34,'/context   Visualize current context usage as a colored grid'),))
+        self.policy.mark_transition(self.empty); self.policy.authentication(snapshot)
+        self.assertTrue(self.policy.diagnostic_state(snapshot)['contextFresh'])
+        self.assertIsNone(self.policy.context_percent(snapshot))
+        self.assertEqual(command.observe(snapshot,2),'COMMAND_ECHO_MATCHED')
+        self.assertIsNone(journal.project_fields(challenge.InputProofError('INPUT_PROBE_REVOKED'),**bindings))
+        with self.assertRaises(challenge.InputProofError): command.bind_history(snapshot,3)
+
+    def test_normalized_reason_matrix_and_anchor_comparison(self):
+        for text,cause in (('❯ /context','CONTROL_COMMAND_SHAPE'),('❯\u200b','INVISIBLE_FORMAT_CHAR'),
+                ('❯\u2003','UNSUPPORTED_WHITESPACE'),('❯ synthetic','UNRECOGNIZED_SHAPE'),('wide','MARKER_WIDTH')):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            snapshot=frame('❯\u00a0/context',10,history=((8,'❯ ' if text=='wide' else text),))
+            if text=='wide':
+                rows=list(snapshot.rows); row=list(rows[8]); row[0]=TerminalCell('❯',2); rows[8]=tuple(row)
+                snapshot=replace(snapshot,rows=tuple(rows))
+            with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+            self.assertEqual(journal.project_fields(caught.exception,**bindings)['normalized_input_failure'],{
+                'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':cause})
+        for reason in ('FORBIDDEN_STATE','NO_MARKER','NONEMPTY_INPUT','MULTIPLE_MARKERS',
+                'CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH','INSUFFICIENT_SPACE','ANCHOR_CHANGED'):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            with mock.patch.object(self.policy,'empty_input_assessment',return_value=EmptyInputAssessment(None,reason)):
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(self.command_echo,2)
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED')
+            self.assertEqual(journal.project_fields(caught.exception,**bindings)['normalized_input_failure'],{'reason':reason})
+        self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+        anchor=self.policy.empty_input_anchor(self.empty)
+        with mock.patch.object(self.policy,'empty_input_assessment',return_value=EmptyInputAssessment(replace(anchor,cursorX=3),'ELIGIBLE')):
+            with self.assertRaises(challenge.InputProofError) as caught: command.observe(self.command_echo,2)
+        self.assertEqual(journal.project_fields(caught.exception,**bindings)['normalized_input_failure'],{'reason':'ANCHOR_CHANGED'})
+        for assessment in (EmptyInputAssessment(None,'unknown'),EmptyInputAssessment(None,'ELIGIBLE'),
+                EmptyInputAssessment(None,'UNSUPPORTED_ROW'),EmptyInputAssessment(None,'NO_MARKER','CURSOR_ROW','MARKER_WIDTH')):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            with mock.patch.object(self.policy,'empty_input_assessment',return_value=assessment):
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(self.command_echo,2)
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED')
+            self.assertEqual(set(journal.project_fields(caught.exception,**bindings)),{'context_command_failure'})
+
+    def test_preceding_fault_wins_without_normalized_detail(self):
+        command,journal,bindings=self.diagnostic_edit()
+        snapshot=frame('❯ /context',10,history=((8,'❯ synthetic'),))
+        with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+        fields=journal.project_fields(caught.exception,**bindings)
+        self.assertEqual(fields['context_command_failure']['check'],'PREFIX_CELLS')
+        self.assertNotIn('normalized_input_failure',fields)
+
+    def test_detail_preparation_or_freeze_failure_preserves_original_rejection(self):
+        snapshot=frame('❯\u00a0/context',10,history=((8,'❯ synthetic'),))
+        for target in ('prepare','freeze'):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            patch=(mock.patch.object(self.m,'_normalized_failure_detail',side_effect=RuntimeError('synthetic observer loss'),create=True)
+                if target=='prepare' else mock.patch.object(ContextFailureJournal,'freeze',side_effect=RuntimeError('synthetic observer loss')))
+            with patch:
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(snapshot,2)
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_REVOKED'); self.assertEqual(command.phase,'REVOKED')
+            fields=journal.project_fields(caught.exception,**bindings)
+            if target=='prepare': self.assertEqual(set(fields),{'context_command_failure'})
+            else: self.assertIsNone(fields)
 
     def test_actual_renderer_padding_preserved_or_repainted(self):
         for padding in ('\u00a0',' '):
