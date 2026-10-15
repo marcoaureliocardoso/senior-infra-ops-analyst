@@ -49,3 +49,8 @@ are indexed in ADR-010. Frozen phase/check/write-count evidence does not alter
 strict input ownership, raw-debug eligibility, disposal or acceptance. The cause
 of the last native rejection remains unknown; matching verification and review
 status are recorded separately in the validation notes.
+
+A proposed [normalized eligibility subreason specification](../superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md)
+preserves that four-field observer and adds only closed assessment detail at its
+original rejecting boundary. Written-spec review and implementation planning are
+pending; this proposal does not relax input ownership or authorize another run.
