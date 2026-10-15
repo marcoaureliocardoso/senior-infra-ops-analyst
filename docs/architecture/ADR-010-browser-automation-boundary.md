@@ -660,6 +660,39 @@ deadlines, no-repeat and disposal rules remain unchanged. Matching full-gate and
 independent-review status are recorded in validation notes, separately from the
 still-pending native/provider/browser and remote gates.
 
+### Normalized eligibility subreasons (test-only)
+
+The approved [subreason spec](../superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md)
+and [implementation plan](../superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md)
+add optional `normalizedInputFailure` beside the unchanged four-field observer.
+It is accepted only at failure with `INPUT_PROBE_REVOKED` and a valid base
+observation whose check is `NORMALIZED_ELIGIBILITY`. Its `reason` uses the
+existing nine empty-input rejection codes. Only UNSUPPORTED_ROW carries the
+required closed `rowRelation`/`rowCause` pair; other reasons carry no row data.
+
+The original ordered assessment executes once and its anchor comparison is
+unchanged. That same returned assessment supplies detail before revocation;
+a different non-null anchor is ANCHOR_CHANGED. A private sealed attachment freezes
+only scalar tuples with the original exception/controller/terminal/run/transition
+binding. Paired projection is pure; existing base-only projection is compatible.
+An invalid optional internal detail is omitted while valid base evidence survives.
+Malformed serialized pairs are rejected atomically by the collector. Diagnostic
+loss never changes writes, results or cleanup, and a failing collector is not retried.
+
+The sibling avoids expanding the base object's exact shape or relabeling errors
+as INPUT_PROBE_INELIGIBLE merely to reuse that reason's metadata. It consumes the
+existing 16-record/3072-byte phase and 16384-byte complete-report budgets, with no
+new module, mount, dependency, activation flag or installed-package behavior.
+No terminal content, nonce, credential, history, content hash or session identifier
+is retained. Original raw-debug eligibility, disposal and deadlines remain strict.
+
+The d86543d offline attempt localized rejection to normalized eligibility; its
+exact subreason remains unknown. Source-derived suggestion fixtures demonstrate
+a compatible marker collision and that description text can set contextFresh
+without numeric proof. This observer neither recognizes nor exempts autocomplete
+rows. General READY status never replaces edit ownership. Native/provider/browser
+acceptance and remote gates remain separate from synthetic test evidence.
+
 Operators retain browser/runtime ownership and must explicitly activate the
 guard. Unsupported or conflicting installations stop safely but may require a
 future adapter. A malicious same-principal local process can still race or alter
@@ -678,6 +711,10 @@ The test-only observer can be reverted with its command/controller/collector and
 namespace-mount integration, preserving strict input/receipt/nonce behavior.
 Reverting it does not restore a consumed native execution grant.
 
+The normalized sibling can be removed with its paired projection and collector
+coupling as one unit, leaving the original four-field observer and strict input
+protocol intact. Rollback does not recover a consumed grant or deleted evidence.
+
 ## Links
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
@@ -690,6 +727,8 @@ Reverting it does not restore a consumed native execution grant.
 - Owned-context-echo plan: `docs/superpowers/plans/2026-10-13-p0-04b-owned-context-echo.md`
 - Content-free rejection design: `docs/superpowers/specs/2026-10-14-p0-04b-context-rejection-diagnostics-design.md`
 - Content-free rejection plan: `docs/superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md`
+- Normalized subreason spec: `docs/superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md`
+- Normalized subreason plan: `docs/superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

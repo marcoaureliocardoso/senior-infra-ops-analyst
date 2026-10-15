@@ -4672,3 +4672,56 @@ No Minor review finding was deferred.
 6. Record the parent's full-gate result separately from the reviewer's focused
    evidence; the reviewer did not observe that concurrent gate.
    Cost if wrong: evidence misattribution; preserve exact hashes/logs and verify HEAD.
+
+## 2026-10-15 normalized eligibility subreason implementation
+
+The approved spec/plan add optional `normalizedInputFailure` beside the unchanged
+four-field context observation. It is frozen from the actual single ordered
+assessment, not a later diagnostic snapshot, and bound to the same exception and
+controller/terminal/run/transition. Only closed reason/relation/cause enums are
+serialized. General READY and contextFresh do not replace ownership or numeric
+proof; no autocomplete exclusion or operational acceptance behavior was added.
+
+The preceding one-shot offline attempt on
+`d86543d946a714557ba3289718d9cc772afcc9a2` was inconclusive in the first text-turn
+before dialogue, with NORMALIZED_ELIGIBILITY, EDIT_PENDING, eight command bytes,
+zero Enter bytes and zero gateway messages. Runtime 2.1.299 was observed, not
+pinned. Its aggregate reported both leaders reaped and disposable roots absent.
+That grant is consumed. Static code inspection and 16 pure fixtures supported
+the autocomplete hypothesis, not the exact deleted native frame's subreason.
+No deleted content was reconstructed. External structural evidence remains in
+`p004b-offline-d86543d-structural-result.json` and the corresponding investigation
+report under the test-owned `.review-runtime/p004b-terminal-state` directory.
+
+Task 1 RED: new validator was absent, freeze rejected its optional keyword and
+the collector rejected the sibling. GREEN: journal 13 and collector 18 tests.
+Task 2 RED: the real normalized boundary omitted detail (one assertion failure,
+one missing-field error). GREEN: context echo 32, journal 13, collector 18,
+input policy 27 and input challenge 27, totaling 117. This covers one assessment,
+real row causes, controlled reason branches, changed anchors, invalid detail,
+first-failure order and observer-loss safety.
+
+Task 3 RED: the selected driver omitted normalizedInputFailure. Existing envelope
+and wiring characterization passed. Five new integration tests passed in
+29.390 seconds after transport was added. The synthetic writable-wait fixtures
+exercise a later SUBMIT_PENDING rejection with eight command bytes and no Enter;
+the earlier component fixtures separately cover EDIT_PENDING. These are distinct
+supported timings, not a claim that the native attempt reached SUBMIT_PENDING.
+The private freeze proxy forwards the new optional keyword; production freeze
+callers and base-only projection remain compatible.
+
+Nine covering suites passed: journal 13, collector 18, context echo 32, selected
+driver 52, context debug 16, offline safety 19, wiring 15, cancellation 11 and
+signals 5, totaling 181. Driver runtime was 178.408 seconds. The task-completion
+run repeated all 181 on committed source `61b6b39`, with driver 179.053 seconds.
+No warnings or ResourceWarnings remained. New tests assert actual capture/PTY
+closure, reaped leaders, revocation, zero extra input, loss of projection or
+collector, fresh-dialogue isolation, unchanged debug omission and report caps.
+
+No real Claude, provider/browser call or operator settings/credentials access
+occurred during this implementation. Root/component versions, staging scope,
+mounts and installed behavior are unchanged. The immutable complete package gate
+and fresh independent review remain pending at this documentation checkpoint;
+their actual hashes and results must be recorded after observation. Synthetic
+verification is not native/provider/browser acceptance, remote CI/Security or
+permission to push, PR, merge, release or mark the definitive TODO complete.

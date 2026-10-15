@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added test-only normalized eligibility subreason observations alongside the
+  unchanged four-field context-command failure object. Closed reason/row enums
+  are frozen from the original single assessment and projected with the same
+  exception/transition binding. Operational rejection, input ownership, cleanup,
+  content policy and report limits remain unchanged; this does not accept
+  autocomplete rows or establish native/provider/browser acceptance.
+
 - Added test-only, content-free context-command failure observations: the
   original phase, first rejecting check and separately acknowledged command/Enter
   bytes are frozen before revocation and bound to the exception and transition.

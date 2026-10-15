@@ -14,7 +14,7 @@ and its detail; one sealed projection transports both to the existing collector.
 
 ## Global Constraints
 
-- Written spec operator-approved; this plan awaits review and execution-method selection. Do not implement before that gate.
+- Written spec and plan operator-approved; inline execution (2) selected, with one final independent reviewer. Native execution remains separately gated.
 - Planning baseline: `810e742e3c2eec5d5536442353f7ce676c4d4fc6`; last native source: `d86543d946a714557ba3289718d9cc772afcc9a2`. Its grant is consumed.
 - Reuse the existing `p0-04b-browser-automation` linked worktree after verifying isolation and preserving operator changes. Use command-local Git safe.directory.
 - Preserve exactly four `contextCommandFailure` fields, original operational reasons, acceptance events, input bytes, evaluation order, scope/lifetime checks and cleanup.
@@ -81,8 +81,8 @@ Use local Windows Git for explicit-file staging/commits, never WSL Git.
 - Keep `project(error, *, controller_owner, scope, state, transition_owner) -> dict | None` unchanged: exactly the original four serialized fields.
 - Collector `add(..., normalizedInputFailure=...)` accepts the sibling only with the spec's matching point/reason/base check; existing callers are unchanged.
 
-- [ ] Write `test_normalized_detail_closed_shapes`: all nine reason codes pass with their specified key shapes; all relation/cause combinations pass only under UNSUPPORTED_ROW. Assert False for missing/partial pairs, unknown/ELIGIBLE reasons, nulls, booleans, extra keys and non-dicts.
-- [ ] Write `test_paired_projection_is_frozen_and_base_contract_unchanged` using the existing `journal()` fixture:
+- [x] Write `test_normalized_detail_closed_shapes`: all nine reason codes pass with their specified key shapes; all relation/cause combinations pass only under UNSUPPORTED_ROW. Assert False for missing/partial pairs, unknown/ELIGIBLE reasons, nulls, booleans, extra keys and non-dicts.
+- [x] Write `test_paired_projection_is_frozen_and_base_contract_unchanged` using the existing `journal()` fixture:
 
 ```python
 journal, bindings = self.journal()
@@ -97,14 +97,14 @@ self.assertEqual(fields['context_command_failure'], journal.project(error, **bin
 self.assertEqual(len(journal.project(error, **bindings)), 4)
 ```
 
-- [ ] Add `test_detail_loss_does_not_destroy_valid_base_or_enrich_later`: malformed optional detail, incompatible check/error reason and a second freeze omit detail but retain the original valid base; later valid detail cannot enrich it. Mutating input/projection cannot change stored scalars.
-- [ ] Extend existing foreign/replaced/closed attachment and changed-run tests to `project_fields`; assert None for both-field projection on invalid provenance. Extend no-live-effects test to assert no clocks, polls, IPC or scope checks during paired projection.
-- [ ] Add collector tests `test_normalized_sibling_requires_exact_failure_binding`, `test_normalized_sibling_is_atomic_and_detached`, `test_normalized_sibling_uses_actual_export_budget`: malformed records append nothing and set rejected; 100 maximal records remain <=16 and <=3072 actual default JSON bytes with truncation.
-- [ ] Run journal and collector suites to meaningful RED.
-- [ ] Implement closed validation and immutable scalar freezing. Detail is eligible only for NORMALIZED_ELIGIBILITY with the original error reason INPUT_PROBE_REVOKED. Invalid optional detail is omitted; valid base is preserved. Preserve first-attempt latching and release all private bindings in finish().
-- [ ] Implement paired projection through one shared provenance validation; base-only projection preserves its old result. Do not call live accessors or retain mutable assessment objects.
-- [ ] Implement independent atomic collector validation/copying, without changing existing error/byte-limit behavior. Run both suites to GREEN and inspect pristine output.
-- [ ] Commit explicit Task 1 files: `test: add sealed normalized eligibility detail contract`.
+- [x] Add `test_detail_loss_does_not_destroy_valid_base_or_enrich_later`: malformed optional detail, incompatible check/error reason and a second freeze omit detail but retain the original valid base; later valid detail cannot enrich it. Mutating input/projection cannot change stored scalars.
+- [x] Extend existing foreign/replaced/closed attachment and changed-run tests to `project_fields`; assert None for both-field projection on invalid provenance. Extend no-live-effects test to assert no clocks, polls, IPC or scope checks during paired projection.
+- [x] Add collector tests `test_normalized_sibling_requires_exact_failure_binding`, `test_normalized_sibling_is_atomic_and_detached`, `test_normalized_sibling_uses_actual_export_budget`: malformed records append nothing and set rejected; 100 maximal records remain <=16 and <=3072 actual default JSON bytes with truncation.
+- [x] Run journal and collector suites to meaningful RED.
+- [x] Implement closed validation and immutable scalar freezing. Detail is eligible only for NORMALIZED_ELIGIBILITY with the original error reason INPUT_PROBE_REVOKED. Invalid optional detail is omitted; valid base is preserved. Preserve first-attempt latching and release all private bindings in finish().
+- [x] Implement paired projection through one shared provenance validation; base-only projection preserves its old result. Do not call live accessors or retain mutable assessment objects.
+- [x] Implement independent atomic collector validation/copying, without changing existing error/byte-limit behavior. Run both suites to GREEN and inspect pristine output.
+- [x] Commit explicit Task 1 files: `test: add sealed normalized eligibility detail contract`.
 
 ### Task 2: Capture the actual normalized assessment once
 
@@ -115,8 +115,8 @@ self.assertEqual(len(journal.project(error, **bindings)), 4)
 - Add private `_normalized_failure_detail(assessment, expected_anchor) -> dict | None` in the context module. It accepts the existing EmptyInputAssessment/InputAnchor types, copies only closed scalar enums and returns ANCHOR_CHANGED for an actual different non-null anchor.
 - Extend private `_diagnostic(record, method, *args, **kwargs)` forwarding and `_fail(record, reason, check=None, *, normalized_input_failure=None)`; preserve all current callers and operational error semantics.
 
-- [ ] Add `test_normalized_suggestion_detail_uses_actual_single_assessment`: use existing diagnostic_edit()/frame() fixtures with a selected command-like description on another row, above and below input, without numeric labels. Assert `INPUT_PROBE_REVOKED`, phase REVOKED and base `EDIT_PENDING/NORMALIZED_ELIGIBILITY/8/0`; paired detail equals UNSUPPORTED_ROW/OTHER_CAPTURED_ROW/UNRECOGNIZED_SHAPE.
-- [ ] In that test, wrap `policy.empty_input_assessment` only around the rejecting `observe` call; assert call_count==1 and capture its returned assessment. Assert its general normalized readiness can be READY without permitting submission. Do not reclassify a newer snapshot to generate observation.
+- [x] Add `test_normalized_suggestion_detail_uses_actual_single_assessment`: use existing diagnostic_edit()/frame() fixtures with a selected command-like description on another row, above and below input, without numeric labels. Assert `INPUT_PROBE_REVOKED`, phase REVOKED and base `EDIT_PENDING/NORMALIZED_ELIGIBILITY/8/0`; paired detail equals UNSUPPORTED_ROW/OTHER_CAPTURED_ROW/UNRECOGNIZED_SHAPE.
+- [x] In that test, wrap `policy.empty_input_assessment` only around the rejecting `observe` call; assert call_count==1 and capture its returned assessment. Assert its general normalized readiness can be READY without permitting submission. Do not reclassify a newer snapshot to generate observation.
 
 ```python
 command, journal, bindings = self.diagnostic_edit()
@@ -133,14 +133,14 @@ self.assertEqual(journal.project_fields(caught.exception, **bindings)['normalize
     'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'})
 ```
 
-- [ ] Add `test_description_freshness_is_not_numeric_or_input_authority`: the command description can make contextFresh true while context_percent is None; removing the selector leaves a valid exact command echo, with no failure detail. No terminal content enters the observation.
-- [ ] Add `test_normalized_reason_matrix_and_anchor_comparison`: pure fixtures exercise real supported row causes; controlled EmptyInputAssessment returns cover all remaining enum branches. A different non-null anchor yields exactly `{'reason':'ANCHOR_CHANGED'}`; absent anchor with unknown/ELIGIBLE/inconsistent detail remains revoked with base only.
-- [ ] Add `test_preceding_fault_wins_without_normalized_detail`: simultaneous prefix and foreign-row faults retain PREFIX_CELLS with no sibling. Existing forbidden UI, geometry and lifetime failures retain their existing precedence and check.
-- [ ] Add `test_detail_preparation_or_freeze_failure_preserves_original_rejection`: inject helper/projection preparation and freeze errors separately; assert same reason, irreversible revocation and no new authority. A helper failure must still call the original rejecting path, not replace it with its own exception.
-- [ ] Run context-echo suite to meaningful RED.
-- [ ] Replace only `_prefix`'s current anchor-only assessment call with one ordered assessment call and the identical anchor comparison. Prepare optional enums best-effort only on rejection; freeze before revocation. Do not instrument later nonce/exit checks or change policy classification.
-- [ ] Run context-echo, journal, collector, input-policy and input-challenge suites to GREEN; verify no extra IO/clock/scope calls and unchanged no-observer behavior.
-- [ ] Commit explicit Task 2 files: `test: preserve normalized rejection detail at its decision`.
+- [x] Add `test_description_freshness_is_not_numeric_or_input_authority`: the command description can make contextFresh true while context_percent is None; removing the selector leaves a valid exact command echo, with no failure detail. No terminal content enters the observation.
+- [x] Add `test_normalized_reason_matrix_and_anchor_comparison`: pure fixtures exercise real supported row causes; controlled EmptyInputAssessment returns cover all remaining enum branches. A different non-null anchor yields exactly `{'reason':'ANCHOR_CHANGED'}`; absent anchor with unknown/ELIGIBLE/inconsistent detail remains revoked with base only.
+- [x] Add `test_preceding_fault_wins_without_normalized_detail`: simultaneous prefix and foreign-row faults retain PREFIX_CELLS with no sibling. Existing forbidden UI, geometry and lifetime failures retain their existing precedence and check.
+- [x] Add `test_detail_preparation_or_freeze_failure_preserves_original_rejection`: inject helper/projection preparation and freeze errors separately; assert same reason, irreversible revocation and no new authority. A helper failure must still call the original rejecting path, not replace it with its own exception.
+- [x] Run context-echo suite to meaningful RED.
+- [x] Replace only `_prefix`'s current anchor-only assessment call with one ordered assessment call and the identical anchor comparison. Prepare optional enums best-effort only on rejection; freeze before revocation. Do not instrument later nonce/exit checks or change policy classification.
+- [x] Run context-echo, journal, collector, input-policy and input-challenge suites to GREEN; verify no extra IO/clock/scope calls and unchanged no-observer behavior.
+- [x] Commit explicit Task 2 files: `test: preserve normalized rejection detail at its decision`.
 
 ### Task 3: Driver transport, bounded envelope and cleanup parity
 
@@ -152,7 +152,7 @@ self.assertEqual(journal.project_fields(caught.exception, **bindings)['normalize
 - Keep drive(), CLI, proof-event schema, owned writes, scope and offline launcher interfaces unchanged.
 - Extend private test `run_pinned_probe` modes with `normalized-suggestion-above`, `normalized-suggestion-below`, `normalized-plain-description`, `normalized-observer-loss`.
 
-- [ ] Add `test_normalized_detail_reaches_report_without_enter`: synchronize each selected-menu-like peer redraw at the existing writable-wait barriers; do not rely on sleep timing. Assert these report facts and actual controlled-peer input:
+- [x] Add `test_normalized_detail_reaches_report_without_enter`: synchronize each selected-menu-like peer redraw at the existing writable-wait barriers; do not rely on sleep timing. Assert these report facts and actual controlled-peer input:
 
 ```python
 report = self.run_pinned_probe('normalized-suggestion-above')
@@ -164,15 +164,15 @@ self.assertEqual((self.root/'probe-input').read_bytes(), b'/context')
 self.assertNotIn('context_sent', [row['point'] for row in report['records']])
 ```
 
-- [ ] Repeat below input. The plain-description mode completes the existing controlled success workflow and emits no sibling. Ensure a numeric panel is still required after Enter; contextFresh from description is insufficient.
-- [ ] Add `test_normalized_projection_loss_keeps_original_cleanup`: missing/raising/malformed paired projection, preparation failure and persistent collector RuntimeError/LookupError preserve original events, written bytes and revocation. Assert actual capture closure, both PTY FDs closed and both leaders reaped using existing cleanup helpers.
-- [ ] Add `test_normalized_detail_cannot_cross_dialogue_or_attach_late`: fresh dialogue has fresh counters/bindings; later nonce/clear/exit failures and successful records carry no normalized sibling from a prior command.
-- [ ] Extend `test_early_command_debug_keeps_original_omission_contract` for normalized rejection: debug stays OMITTED_PROVENANCE and no cells, description, marker or nonce is serialized.
-- [ ] Extend the existing maximal four-phase offline envelope with maximal paired fields and the existing 4096-byte debug allowance; assert each actual serialized phase<=3072 and full JSON+newline<=16384. Preserve disposal failure blocking and unchanged aggregation proof requirements.
-- [ ] Extend wiring assertions: no installed/staging/archive inclusion or new mount, flag or dependency; paired diagnostics cannot satisfy PTY acceptance. Run selected-driver/offline-safety/wiring tests to RED.
-- [ ] Integrate one pure paired projection into the catch; only known diagnose keyword names may be forwarded. Invalid/missing envelopes must not raise while handling the operational exception. Preserve best-effort producer reporting and never retry an unavailable collector.
-- [ ] Run journal, collector, context-echo, selected-driver, context-debug, offline-safety, wiring, cancellation and headless-signals suites to GREEN. Record actual counts/runtimes; no real Claude/provider execution.
-- [ ] Commit explicit Task 3 files: `test: transport bounded normalized eligibility diagnostics`.
+- [x] Repeat below input. The plain-description mode completes the existing controlled success workflow and emits no sibling. Ensure a numeric panel is still required after Enter; contextFresh from description is insufficient.
+- [x] Add `test_normalized_projection_loss_keeps_original_cleanup`: missing/raising/malformed paired projection, preparation failure and persistent collector RuntimeError/LookupError preserve original events, written bytes and revocation. Assert actual capture closure, both PTY FDs closed and both leaders reaped using existing cleanup helpers.
+- [x] Add `test_normalized_detail_cannot_cross_dialogue_or_attach_late`: fresh dialogue has fresh counters/bindings; later nonce/clear/exit failures and successful records carry no normalized sibling from a prior command.
+- [x] Extend `test_early_command_debug_keeps_original_omission_contract` for normalized rejection: debug stays OMITTED_PROVENANCE and no cells, description, marker or nonce is serialized.
+- [x] Extend the existing maximal four-phase offline envelope with maximal paired fields and the existing 4096-byte debug allowance; assert each actual serialized phase<=3072 and full JSON+newline<=16384. Preserve disposal failure blocking and unchanged aggregation proof requirements.
+- [x] Extend wiring assertions: no installed/staging/archive inclusion or new mount, flag or dependency; paired diagnostics cannot satisfy PTY acceptance. Run selected-driver/offline-safety/wiring tests to RED.
+- [x] Integrate one pure paired projection into the catch; only known diagnose keyword names may be forwarded. Invalid/missing envelopes must not raise while handling the operational exception. Preserve best-effort producer reporting and never retry an unavailable collector.
+- [x] Run journal, collector, context-echo, selected-driver, context-debug, offline-safety, wiring, cancellation and headless-signals suites to GREEN. Record actual counts/runtimes; no real Claude/provider execution.
+- [x] Commit explicit Task 3 files: `test: transport bounded normalized eligibility diagnostics`.
 
 ### Task 4: Indexed architecture, immutable gates and handoff
 
@@ -181,10 +181,10 @@ README, CHANGELOG, `tests/validation-notes.md`, approved spec status and this pl
 
 **Interfaces:** Document enforced contracts and evidence only; runtime is unchanged.
 
-- [ ] Record additive sibling, single assessment, paired sealed provenance, alternatives, privacy, budgets and rollback in ADR-010 and its index; distinguish the autocomplete hypothesis from a proven native cause.
-- [ ] Add a factual unreleased CHANGELOG entry and actual RED/GREEN results to validation notes. Update spec/plan statuses only as observed; preserve all historical evidence and pending gates.
-- [ ] Run `validate-content.py` and `test-architecture-docs.py` with the explicit prefix; expect content validation passed and unittest OK/exit 0. Check whitespace, links, <=300-character lines, unchanged manifests and test-only diff scope.
-- [ ] Commit explicit documentation files, verify tracked worktree clean and capture the immutable implementation candidate.
+- [x] Record additive sibling, single assessment, paired sealed provenance, alternatives, privacy, budgets and rollback in ADR-010 and its index; distinguish the autocomplete hypothesis from a proven native cause.
+- [x] Add a factual unreleased CHANGELOG entry and actual RED/GREEN results to validation notes. Update spec/plan statuses only as observed; preserve all historical evidence and pending gates.
+- [x] Run `validate-content.py` and `test-architecture-docs.py` with the explicit prefix; expect content validation passed and unittest OK/exit 0. Check whitespace, links, <=300-character lines, unchanged manifests and test-only diff scope.
+- [x] Commit explicit documentation files, verify tracked worktree clean and capture the immutable implementation candidate.
 - [ ] Run the complete package gate on that candidate. Record exact hash/log/exit and all capability/platform skips; local workflow validation is not remote CI/Security or native/provider/browser acceptance.
 - [ ] Obtain scoped independent review of this plan's full implementation range on that immutable candidate, including unchanged interacting callers. Supply the spec, Review Focus, test evidence and any execution rulings. If unavailable, retain that gate pending.
 - [ ] Handle findings under the selected execution workflow with author TDD. Any source correction requires a fresh immutable candidate and full package gate. Never launch a native attempt as automatic remediation or verification.
@@ -200,7 +200,8 @@ conditions have named tests. No generic READY or contextFresh result replaces
 input ownership or numeric context proof. Signatures and camel/snake-case field
 names are consistent across task interfaces.
 
-This plan awaits operator review. No implementation has begun. Recommend inline
-execution with one final fresh independent reviewer because these four tasks
-share a small, tightly coupled observation contract and the approved spec fixes
-the safety boundaries. Subagent-driven execution remains an operator choice.
+Selected execution: inline, with one final fresh independent reviewer. Tasks 1-3
+are implemented with TDD; 181 covering tests passed, including the completion run
+on committed source. Architectural evidence is being finalized before the
+immutable candidate's complete package gate and independent review. Native,
+provider/browser, remote CI/Security and integration gates remain pending.

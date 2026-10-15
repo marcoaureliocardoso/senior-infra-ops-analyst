@@ -50,9 +50,10 @@ strict input ownership, raw-debug eligibility, disposal or acceptance. The cause
 of the last native rejection remains unknown; matching verification and review
 status are recorded separately in the validation notes.
 
-A proposed [normalized eligibility subreason specification](../superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md)
+The test-only [normalized eligibility subreason specification](../superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md)
 preserves that four-field observer and adds only closed assessment detail at its
-original rejecting boundary. Its written spec is approved; the
+original rejecting boundary. The approved
 [implementation plan](../superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md)
-awaits operator review and execution-method selection. No implementation or
-additional native execution is implied by these design artifacts.
+has a local implementation with 181 covering tests passed. Immutable full-gate
+and independent-review outcomes are recorded in validation notes as observed.
+This diagnostic addition does not accept autocomplete rows or authorize a run.
