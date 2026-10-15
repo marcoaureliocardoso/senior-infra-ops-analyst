@@ -700,6 +700,57 @@ operator-owned settings and runtime files; managed settings or OS protection are
 required for that threat model. A recognized adapter establishes compatibility
 only for its observed runtime and does not make untrusted UI content safe.
 
+### Rejected edit-row development diagnostic (test-only)
+
+The approved [spec](../superpowers/specs/2026-10-15-p0-04b-rejected-edit-row-debug-design.md)
+and [plan](../superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md)
+implement a separate `--run-offline --debug-context-edit` opt-in. It is off by
+default, exclusive with old `--debug-context`, rejected for audit/live routes and
+not enabled by environment data. Installed behavior and old debug eligibility
+remain unchanged. Native execution needs a new final-commit grant explicitly
+permitting this excerpt and a potentially persistent chat copy.
+
+Only the first INPUT_PROBE_REVOKED failure may prepare a row, with the exact
+EDIT_PENDING / NORMALIZED_ELIGIBILITY / eight command bytes / zero Enter bytes
+base and UNSUPPORTED_ROW / OTHER_CAPTURED_ROW / UNRECOGNIZED_SHAPE detail.
+The actual single ordered assessment supplies its rejected index and snapshot.
+Sealed private bindings preserve error/controller/terminal/run/command/transition/
+journal identity and original lifetime; equal replacement frames and later
+failures cannot enrich a first omission. Projection performs no evaluation or IO.
+Private Python bindings are trusted-process discipline, not an arbitrary-code sandbox.
+
+The existing debug module copies at most 120 validated cells from that one other
+row. It scans the original bounded snapshot conservatively for sensitive data,
+escapes display controls, and omits the whole excerpt on uncertainty or overflow.
+The excerpt has exactly rowRelation/text and at most 4096 actual UTF-8 JSON bytes.
+Observer loss cannot change operational errors, writes, revocation or cleanup.
+The content-free four-field journal and normalized enum sibling remain separate.
+
+New-mode transport uses one owned child's stdout pipe, not a content-bearing
+report temporary file. Nonblocking bounded drain permits 16384 report bytes plus
+one overflow-detection byte, preserving the original deadline/cancellation and
+requiring EOF and child exit independently. Strict JSON/closed-shape validation
+rejects duplicate keys, invalid encoding and arbitrary payload fields. PREPARED
+is private IPC only. The parent alone promotes READY after owned namespace-child
+reaping, real outer-root removal and validated native/helper/case disposal.
+Child cleanup flags or serialized identities alone cannot supply that receipt.
+No new frame, excerpt or report file is created by this mode.
+
+The 16-record/3072-byte structural phase and 16384-byte complete intermediate/final
+report budgets include actual JSON formatting and final metadata. Overflow drops
+the whole optional excerpt before blocking an oversized base. Original 25-second
+dialogues, 165-second total, two synthetic cases and first-inconclusive stop remain.
+No new module mount, dependency, package/staging entry or version pin is added.
+
+Alternatives were keeping enum-only evidence, disabling command suggestions,
+exempting parser rows or broadening old frame capture. The first cannot identify
+the rejected row; the others change the observed UI/authority or disclose more
+content. This separate diagnostic does not accept autocomplete rows or fix their
+unproven role in the consumed 1917355 native rejection. Sanitization is not a
+secrecy guarantee: the synthetic target still requires scope discipline, and an
+authorized exported chat copy may outlive local disposal. Full-gate/review evidence
+and remaining native/provider/browser and remote gates are in validation notes.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact
@@ -715,6 +766,11 @@ The normalized sibling can be removed with its paired projection and collector
 coupling as one unit, leaving the original four-field observer and strict input
 protocol intact. Rollback does not recover a consumed grant or deleted evidence.
 
+The separate edit-row option, sealed observer/capture, driver forwarding and
+pipe/finalizer branch can be removed together with their tests. Keep default and
+old-debug routes intact. Rollback cannot erase a chat copy already exported under
+operator approval or renew the consumed native grant.
+
 ## Links
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
@@ -729,6 +785,8 @@ protocol intact. Rollback does not recover a consumed grant or deleted evidence.
 - Content-free rejection plan: `docs/superpowers/plans/2026-10-14-p0-04b-context-rejection-diagnostics.md`
 - Normalized subreason spec: `docs/superpowers/specs/2026-10-15-p0-04b-normalized-eligibility-diagnostics-design.md`
 - Normalized subreason plan: `docs/superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md`
+- Rejected edit-row spec: `docs/superpowers/specs/2026-10-15-p0-04b-rejected-edit-row-debug-design.md`
+- Rejected edit-row plan: `docs/superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

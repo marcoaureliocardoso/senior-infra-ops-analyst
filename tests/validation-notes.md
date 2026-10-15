@@ -4783,3 +4783,92 @@ No Minor review finding was deferred.
    arbitrary-code sandbox. Copied/replaced bindings and malformed data are checked.
    Cost if wrong: compromised same-process code can forge observations; these
    diagnostics are not a security boundary.
+
+## 2026-10-15 rejected edit-row development diagnostic
+
+The operator approved the separate spec/plan and selected inline execution (2).
+The implementation baseline is `2d431415f5a789fafc6d34dc8e3c887cbbf00521`.
+This refinement adds only test-harness `--debug-context-edit`: sealed first-failure
+row provenance, conservative memory-only sanitization, bounded pipe transport and
+parent-only publication after owned disposal. It does not change installed
+behavior, root/component versions, package/staging scope, mounts or dependencies.
+Default and existing raw-debug routes, input authority and all original limits stay.
+
+The preceding native attempt on `19173557b54778fb944b8b764223b58738ee8688`
+was executed once and is consumed. It observed Claude Code 2.1.300, exit 2 after
+5.6175526 seconds in text-turn/before, with INPUT_PROBE_REVOKED,
+EDIT_PENDING / NORMALIZED_ELIGIBILITY / eight command bytes / zero Enter bytes
+and UNSUPPORTED_ROW / OTHER_CAPTURED_ROW / UNRECOGNIZED_SHAPE. There were zero
+gateway messages and no SDK turn, after dialogue or skill-turn. Both leaders were
+reaped and case/outer roots absent. Structural evidence and the read-only report
+remain in the test-owned external `.review-runtime/p004b-terminal-state` directory:
+`p004b-offline-1917355-structural-result.json` and
+`normalized-eligibility-investigation-1917355.md`. Sixteen pure fixtures and static
+inspection support autocomplete as a hypothesis, not the deleted row's identity.
+No content was recovered and no new native attempt was made by this plan.
+
+### Author RED/GREEN and synthetic integration
+
+Task 1 (`30e5a20`): missing observer/capture APIs produced three echo and eight
+debug failures. Corrected fixture namespace stubbing, then an extra invalid-index
+RED required original-marker consistency. Echo 36, debug 25, journal 13, collector
+18 and policy 27 passed: 119 tests, repeated by task completion. Tests cover
+first omission, exact identities, no projection IO/evaluation, malformed/wide
+cells, full-snapshot sensitive scanning, inert controls, 120 cells and actual
+4096/4097-byte export boundaries. No new content file is created.
+
+Task 2 (`3c1af40`): missing private keyword, driver option and launcher forwarding
+were RED. A read-select barrier delivers the controlled menu before EDIT_PENDING
+assessment, not the existing later SUBMIT_PENDING fixture. Above/below rejected
+rows retain eight bytes/zero Enter; plain description retains workflow success.
+Persistent finish loss initially retained PREPARED, then omits after its fix.
+An invalid private observer initially changed the operational rejection, then
+became omit-only. Echo38/debug25/driver55/offline22/wiring15/journal13/collector18/
+policy27/challenge27/cancellation11/signals5 passed: 256, repeated at completion.
+First driver runtime was 194.157 seconds. The temporary new-mode gate blocked
+before spawn until Task 3 provided memory-only transport.
+
+Task 3 (`6426fbf7f01933609d57dc511cf3668520ce7ac4`): absent pipe/promotion was
+RED. Controlled Python peers cover EOF without exit, inherited stdout, partial
+JSON, fragmented Unicode, 16384/16385-byte bounds, larger backpressure, cancellation
+and owned process absence. Strict candidate/base validation, duplicate JSON keys,
+invalid UTF-8, no report TemporaryFile and four maximal structural phases are
+covered. Two later regressions were RED: cleanup-context failure could retain
+an operational PASSED reason, and the real parser accepted duplicate edit flags.
+The new-mode failure reset and early parser rejection made both GREEN.
+
+A real Bubblewrap namespace, passive Node/xterm helper and Python fake native UI
+exercise capture through disposal and final READY. This is not real Claude:
+the fixture's version label is synthetic, no operator config/credentials are read
+and no real provider/browser call occurs. It produces zero gateway messages.
+Root-removal/cleanup faults cannot expose an excerpt. Nine covering suites passed:
+offline28/debug28/wiring15/driver55/journal13/collector18/echo38/cancellation11/
+signals5 = 211; repeated at task completion on committed source. Driver times
+were 193.673 and 193.665 seconds. No warnings or ResourceWarnings remained.
+
+### Gate/review checkpoint and remaining authority
+
+The full immutable package gate and one fresh independent scoped review are
+pending at this documentation checkpoint. Their exact hashes, actual logs,
+results and capability/platform skips must be added only after observation.
+Review scope is the complete approved refinement from `2d43141`, not a new review
+of the inherited long-lived browser branch; unchanged interacting callers remain
+inspectable. Full-gate results are author evidence, separate from reviewer work.
+
+No real Claude/provider/browser execution, operator credential/configuration
+access, push, PR, merge or release is authorized by this implementation. The
+definitive TODO remains incomplete. Native text/skill-turn/resume, provider/browser
+acceptance and remote CI/Security remain pending. A new native diagnostic grant
+must bind the final commit and explicitly allow `--debug-context-edit` plus the
+potentially persistent chat excerpt. Sanitization is conservative, not secrecy.
+
+### Execution rulings and residual costs
+
+1. Descendant reparenting may return the existing closed ownership-unavailable
+   result rather than successful IPC. The spec requires no premature success and
+   no leaks, not relaxing identity proof for a moving process tree. Cost if wrong:
+   valid descendant-heavy runs may remain conservatively inconclusive; any
+   surviving owned process still fails the test.
+
+This is the one execution ruling recorded before final review. Any review rulings
+or deferred Minor findings must be appended exhaustively at result closeout.

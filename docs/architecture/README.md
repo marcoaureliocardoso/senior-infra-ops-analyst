@@ -59,11 +59,13 @@ passed the complete package gate and scoped independent review; exact evidence,
 platform/capability skips and remaining gates are recorded in validation notes.
 This diagnostic addition does not accept autocomplete rows or authorize a run.
 
-The proposed development-only
+The implemented development-only
 [rejected edit-row diagnostic](../superpowers/specs/2026-10-15-p0-04b-rejected-edit-row-debug-design.md)
-would permit one bounded, sanitized rejected-row excerpt after verified disposal,
-under separate explicit opt-in and final-commit authorization. Its architectural
-direction and written spec are approved; its
+permits one bounded, sanitized rejected-row excerpt after verified disposal,
+under separate explicit offline opt-in and final-commit execution authorization.
+Its sealed first-failure binding, memory-only transport and parent-only publication
+are described in ADR-010. The approved
 [implementation plan](../superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md)
-awaits review and execution-method selection. It is not implemented or an
-extension of the existing raw-debug eligibility or production policy.
+has completed its three implementation tasks; full-gate/review results are recorded
+separately in validation notes. It does not extend old raw-debug eligibility,
+change production policy or establish native/provider/browser acceptance.

@@ -16,7 +16,7 @@ passive Node/xterm helper, controlled Python PTY peers and Debian WSL; no depend
 
 ## Global Constraints
 
-- Written spec operator-approved; this plan awaits review and execution-method choice. Implementation and native execution have not started.
+- Written spec and plan operator-approved; inline execution selected (2). Tasks 1-3 implemented; Task 4 verification/review is in progress. No new native execution has occurred.
 - Planning baseline: `562ee10c620ec3fe6ec9b730bf3644c40dd6fe6d`. Last native commit: `19173557b54778fb944b8b764223b58738ee8688`; that one-shot grant is consumed.
 - Reuse the verified linked `p0-04b-browser-automation` worktree; preserve operator changes. Use command-local Windows Git safe.directory, not WSL Git.
 - New option `--debug-context-edit` is offline-only, off by default and mutually exclusive with `--debug-context`; no environment fallback or live/audit activation.
@@ -88,22 +88,22 @@ and `package validation passed`. Inspect and record every capability/platform sk
 - finish() releases raw row/snapshot/exception bindings; at most one sanitized pending candidate remains until pending_report() consumes it or an omission discards it. A second report cannot replay content.
 - Share existing sensitive scanning/escaping helpers; no top-level echo-to-debug import cycle. The observer lives in echo; debug may import it as it already imports echo helpers.
 
-- [ ] Add `test_edit_row_first_failure_binding` using existing diagnostic_begin/diagnostic_edit fixtures. Bind the observer, freeze the exact eligible
+- [x] Add `test_edit_row_first_failure_binding` using existing diagnostic_begin/diagnostic_edit fixtures. Bind the observer, freeze the exact eligible
   error and assert project returns the original other-row tuple and deadline; base-only journal projection remains four fields and paired enums unchanged.
-- [ ] Add `test_edit_row_missing_first_cannot_enrich`: freeze no detail, invalid detail or an earlier check, then a later eligible error; project stays None. Mutating copied metadata cannot change original evidence. finish makes projection impossible and releases references.
-- [ ] Add `test_edit_row_rejects_foreign_and_equal_replacement_snapshot`: wrong error/controller/scope/state/transition/journal/run/command record, copied
+- [x] Add `test_edit_row_missing_first_cannot_enrich`: freeze no detail, invalid detail or an earlier check, then a later eligible error; project stays None. Mutating copied metadata cannot change original evidence. finish makes projection impossible and releases references.
+- [x] Add `test_edit_row_rejects_foreign_and_equal_replacement_snapshot`: wrong error/controller/scope/state/transition/journal/run/command record, copied
   attachment, equal-but-distinct snapshot, normalized current-row index and different row all return None. Count zero evaluator/clock/IO calls during
   projection.
-- [ ] Add debug tests `test_edit_capture_closed_boundary_and_no_file`, `test_edit_capture_sensitive_scan_and_unicode`,
+- [x] Add debug tests `test_edit_capture_closed_boundary_and_no_file`, `test_edit_capture_sensitive_scan_and_unicode`,
   `test_edit_capture_actual_byte_limits`, `test_edit_capture_observer_loss_omits`. Cover all spec tuple mismatches, audit/scope/root/expiry loss,
   malformed/wide/continuation cells, ordinary Unicode and inert control escaping, sensitive synthetic material anywhere in the snapshot, scan exceptions
   and exact 120-cell/4096-byte boundaries. Assert omission, never print protected fixtures or assertion payloads.
-- [ ] Assert the excerpt has exactly `{'rowRelation','text'}`, relation OTHER_CAPTURED_ROW, and no adjacent/cursor row, session ID, hash or exception text.
+- [x] Assert the excerpt has exactly `{'rowRelation','text'}`, relation OTHER_CAPTURED_ROW, and no adjacent/cursor row, session ID, hash or exception text.
   Oversize omits the whole excerpt; first omission cannot later become PREPARED. Spy on file opens: new capture performs no write; old debug tests remain
   unchanged.
-- [ ] Run both suites to meaningful RED; implement the exact observer/capture interfaces with immutable private identities and first-attempt latching, keeping content separate from the enum journal. Unknown/inconsistent evidence is omitted.
-- [ ] Run both suites to GREEN plus `test-terminal-context-diagnostics.py`, `test-terminal-structural-diagnostics.py` and `test-terminal-input-policy.py`. Verify cleanup and no warnings.
-- [ ] Commit explicit Task 1 files: `test: add sealed memory-only edit-row diagnostic`.
+- [x] Run both suites to meaningful RED; implement the exact observer/capture interfaces with immutable private identities and first-attempt latching, keeping content separate from the enum journal. Unknown/inconsistent evidence is omitted.
+- [x] Run both suites to GREEN plus `test-terminal-context-diagnostics.py`, `test-terminal-structural-diagnostics.py` and `test-terminal-input-policy.py`. Verify cleanup and no warnings.
+- [x] Commit explicit Task 1 files: `test: add sealed memory-only edit-row diagnostic`.
 
 ### Task 2: Single-assessment boundary and selected-driver wiring
 
@@ -120,22 +120,22 @@ and `package validation passed`. Inspect and record every capability/platform sk
 - _controls() creates the new capture per dialogue, forwards only that object, and puts its detached private candidate under `_pendingContextEdit` after case disposal. Do not expose public debugContextEdit here.
 - Until Task 3 supplies the memory-only transport, _namespace() must block the new mode before child spawn. Never temporarily fall back to the existing content-bearing TemporaryFile route. Task 2 tests inner/driver wiring with controlled peers or mocks only.
 
-- [ ] Extend `run_pinned_probe(..., edit_debug=False)` without changing existing positional callers. Add a new redraw barrier before observe() so the selected row arrives in EDIT_PENDING (not the existing SUBMIT_PENDING fixture); do not rely on sleeps. Use Python peer only.
-- [ ] Add `test_edit_capture_single_real_assessment_above_below`: selected rows above/below input yield the original error/base/detail and one prepared
+- [x] Extend `run_pinned_probe(..., edit_debug=False)` without changing existing positional callers. Add a new redraw barrier before observe() so the selected row arrives in EDIT_PENDING (not the existing SUBMIT_PENDING fixture); do not rely on sleeps. Use Python peer only.
+- [x] Add `test_edit_capture_single_real_assessment_above_below`: selected rows above/below input yield the original error/base/detail and one prepared
   row; assert one ordered evaluation with and without opt-in. Exact same command bytes, zero Enter, revocation and events; plain-description path retains
   original success workflow and no capture.
-- [ ] Add `test_edit_capture_release_and_observer_loss`: persistent failures in freeze/project/prepare/finish cannot mask operational failure or cleanup. Assert actual capture closure, both PTY FDs closed, native/helper leaders reaped and observer bindings released; no failing-collector retry.
-- [ ] Add `test_edit_capture_driver_validation_precedes_launch`: arbitrary objects, missing scope/state, legacy/non-context route and both debug objects fail before launch. Existing early `--debug-context` still reports OMITTED_PROVENANCE.
-- [ ] Add `test_edit_option_is_explicit_offline_only`: validate_mode accepts only the new exact outer combination in addition to old combinations; rejects
+- [x] Add `test_edit_capture_release_and_observer_loss`: persistent failures in freeze/project/prepare/finish cannot mask operational failure or cleanup. Assert actual capture closure, both PTY FDs closed, native/helper leaders reaped and observer bindings released; no failing-collector retry.
+- [x] Add `test_edit_capture_driver_validation_precedes_launch`: arbitrary objects, missing scope/state, legacy/non-context route and both debug objects fail before launch. Existing early `--debug-context` still reports OMITTED_PROVENANCE.
+- [x] Add `test_edit_option_is_explicit_offline_only`: validate_mode accepts only the new exact outer combination in addition to old combinations; rejects
   audit/live/duplicate/mixed flags and environment-only activation before runtime launch. Test parser/main forwarding with mocked controls, never real
   Claude.
-- [ ] Add `test_edit_transport_unavailable_blocks_before_spawn`: until the Task 3 transport is present, new-mode namespace entry returns bounded
+- [x] Add `test_edit_transport_unavailable_blocks_before_spawn`: until the Task 3 transport is present, new-mode namespace entry returns bounded
   OFFLINE_PROBE_BLOCKED without launching a child or opening a report file. Task 3 replaces this temporary closed gate with real bounded pipe tests, not a
   file fallback.
-- [ ] Add `test_edit_pending_is_not_acceptance_or_cross_dialogue`: forged debug READY cannot satisfy case_complete, earlier pending rows do not cross dialogue/case boundaries, and normal structural output has no strings from the excerpt.
-- [ ] Run echo/debug/selected-driver/offline-safety/wiring suites to meaningful RED. Implement only the explicit wiring and boundary changes above. Capture preparation occurs in the existing failure path before resources close; finish/release is unconditional in finally.
-- [ ] Run those suites plus journal/collector, input policy/challenge, cancellation and headless-signals to GREEN. Record actual counts and selected-driver runtime, not inferred totals.
-- [ ] Commit explicit Task 2 files: `test: wire explicit offline rejected-row capture`.
+- [x] Add `test_edit_pending_is_not_acceptance_or_cross_dialogue`: forged debug READY cannot satisfy case_complete, earlier pending rows do not cross dialogue/case boundaries, and normal structural output has no strings from the excerpt.
+- [x] Run echo/debug/selected-driver/offline-safety/wiring suites to meaningful RED. Implement only the explicit wiring and boundary changes above. Capture preparation occurs in the existing failure path before resources close; finish/release is unconditional in finally.
+- [x] Run those suites plus journal/collector, input policy/challenge, cancellation and headless-signals to GREEN. Record actual counts and selected-driver runtime, not inferred totals.
+- [x] Commit explicit Task 2 files: `test: wire explicit offline rejected-row capture`.
 
 ### Task 3: Bounded pipe and post-disposal publication
 
@@ -153,24 +153,24 @@ and `package validation passed`. Inspect and record every capability/platform sk
 - Validate the new-mode report's known outer/case/stage/diagnostic shapes and strip no arbitrary field into public output; malformed data returns bounded content-free blocked/omitted output. Do not reflect unvalidated input/error text.
 - Measure complete intermediate/final JSON with the actual launcher encoding plus newline and final audit/disposal fields; omit the whole optional excerpt before blocking an otherwise oversized base. Old/default TemporaryFile route and old fit_debug_report() stay unchanged.
 
-- [ ] Add `test_edit_pipe_never_uses_report_tempfile`: intercept child options and TemporaryFile/open writes; only the new mode uses a pipe, no content file; old/default modes retain their existing transport. Spy on child count: exactly one.
-- [ ] Add `test_edit_pipe_eof_and_exit_are_independent`: controlled Python children close stdout then wait, exit after partial JSON, and leave a descendant
+- [x] Add `test_edit_pipe_never_uses_report_tempfile`: intercept child options and TemporaryFile/open writes; only the new mode uses a pipe, no content file; old/default modes retain their existing transport. Spy on child count: exactly one.
+- [x] Add `test_edit_pipe_eof_and_exit_are_independent`: controlled Python children close stdout then wait, exit after partial JSON, and leave a descendant
   holding stdout. Assert no premature success, finite original deadline, no leaked owned child/descriptor. Use barriers/pipes, not sleep assumptions.
-- [ ] Add `test_edit_pipe_overflow_backpressure_and_cancel`: controlled peers emit exactly 16384/16385 bytes, fragmented Unicode/JSON and larger blocked
+- [x] Add `test_edit_pipe_overflow_backpressure_and_cancel`: controlled peers emit exactly 16384/16385 bytes, fragmented Unicode/JSON and larger blocked
   output; cancel during drain. Assert at most 16385 retained bytes, discarded incomplete/oversized content, no retry, deadline not reset and owned cleanup
   after every outcome.
-- [ ] Add `test_edit_promotion_requires_parent_disposal`: child claims cleanup/READY or inserts serialized identity fields; actual root remains, cleanup
+- [x] Add `test_edit_promotion_requires_parent_disposal`: child claims cleanup/READY or inserts serialized identity fields; actual root remains, cleanup
   raises or namespace child is not reaped. No excerpt escapes. Normal finalization checks the real root identity and only then promotes PREPARED to READY
   with both public booleans true.
-- [ ] Add `test_edit_candidate_closed_shapes_and_report_budget`: reject arbitrary keys, wrong status/types, PREPARED without excerpt, omission with text,
+- [x] Add `test_edit_candidate_closed_shapes_and_report_budget`: reject arbitrary keys, wrong status/types, PREPARED without excerpt, omission with text,
   nulls, duplicate JSON keys and malformed UTF-8; report no payload. Four maximal structural phases plus maximal excerpt either fit <=16384 or omit only
   the entire excerpt. Structural failure/cleanup facts are preserved.
-- [ ] Add `test_edit_publication_is_after_full_disposal`: controlled-peer integration prepares one non-sensitive row, disposes case and outer roots, then
+- [x] Add `test_edit_publication_is_after_full_disposal`: controlled-peer integration prepares one non-sensitive row, disposes case and outer roots, then
   publishes; record actual ordering. Fault at each disposal stage yields only content-free omission. No public stdout/log/frame/excerpt file contains
   candidate text before disposal; internal pipe alone may carry it.
-- [ ] Run offline/debug/wiring tests to meaningful RED. Implement the new-mode pipe/finalization branch only, keeping original authority/reporting paths unchanged. Parsing and optional report errors are best-effort omissions, not operational retries.
-- [ ] Run offline/debug/wiring, selected-driver, journal/collector/echo and cancellation/signals suites to GREEN. Check no ResourceWarnings, deadlocks, surviving descriptors or changed default output.
-- [ ] Commit explicit Task 3 files: `test: publish edit-row diagnostics after owned disposal`.
+- [x] Run offline/debug/wiring tests to meaningful RED. Implement the new-mode pipe/finalization branch only, keeping original authority/reporting paths unchanged. Parsing and optional report errors are best-effort omissions, not operational retries.
+- [x] Run offline/debug/wiring, selected-driver, journal/collector/echo and cancellation/signals suites to GREEN. Check no ResourceWarnings, deadlocks, surviving descriptors or changed default output.
+- [x] Commit explicit Task 3 files: `test: publish edit-row diagnostics after owned disposal`.
 
 ### Task 4: Indexed decisions, immutable gates and handoff
 
@@ -204,8 +204,8 @@ identities; a pending serialized candidate cannot recreate them. PREPARED exists
 only inside the owned IPC path, while READY is parent-generated after disposal.
 The default and old-debug contracts, including first-inconclusive stop, stay fixed.
 
-Plan awaits operator review. Recommend native/inline execution with one final
-fresh independent reviewer: these four tasks share a tightly coupled private
-contract, while TDD and the final immutable gate explicitly cover the new privacy
-and process-lifecycle boundaries. Subagent-driven execution remains an operator
-choice. Neither method authorizes a native run or a persistent chat excerpt.
+The operator selected inline execution with one final fresh independent reviewer.
+Tasks 1-3 are committed at 30e5a20, 3c1af40 and 6426fbf with their full covering
+suites repeated at task completion. Task 4 records the immutable full gate and
+review separately in validation notes. The method does not authorize a native
+run or a persistent chat excerpt; the earlier 1917355 grant remains consumed.

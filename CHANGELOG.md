@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added separate, explicit offline-development `--debug-context-edit` capture:
+  one sealed first rejected row, conservatively sanitized and bounded to 120
+  cells / 4096 exported JSON bytes, travels through bounded memory-only IPC.
+  Only the parent can publish it after owned process/root disposal. Default and
+  existing raw-debug behavior, input authority and installed packages are unchanged.
+  Synthetic verification does not establish native/provider/browser acceptance;
+  an authorized exported chat copy may persist and sanitization is not secrecy.
+
 - Added test-only normalized eligibility subreason observations alongside the
   unchanged four-field context-command failure object. Closed reason/row enums
   are frozen from the original single assessment and projected with the same
