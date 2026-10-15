@@ -286,10 +286,12 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         observation={'phase':'COMMAND_ECHO_MATCHED','check':'NORMALIZED_ELIGIBILITY',
             'commandBytesWritten':8,'enterBytesWritten':0}
         for _ in range(100): diagnostics.add('failure','INPUT_PROBE_REVOKED',structure=structure,
-            contextCommandFailure=observation)
+            contextCommandFailure=observation,normalizedInputFailure={'reason':'UNSUPPORTED_ROW',
+                'rowRelation':'CURSOR_OUTSIDE_CAPTURE','rowCause':'UNSUPPORTED_WHITESPACE'})
         phase=diagnostics.report()
         self.assertLessEqual(len(json.dumps(phase,sort_keys=True).encode()),3072)
         self.assertTrue(phase['truncated']); self.assertFalse(phase['rejected'])
+        self.assertTrue(all('normalizedInputFailure' in row for row in phase['records']))
         base={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[{
             'stages':[{'diagnostics':phase} for _ in range(2)]} for _ in range(2)]}
         report=fit_debug_report(base,{'status':'READY','excerpt':{'text':'x'*4096}})

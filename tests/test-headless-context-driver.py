@@ -74,7 +74,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
     def test_current_nbsp_input_context_and_natural_exit(self): self.run_case(False)
 
-    def run_pinned_probe(self,mode='success',fault=False,debug=False,collector_error=None):
+    def run_pinned_probe(self,mode='success',fault=False,debug=False,collector_error=None,projection_fault=None):
         self.assertIn('input_probe_scope',inspect.signature(self.driver.drive).parameters,
             'offline selected-scope interface missing')
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
@@ -116,6 +116,12 @@ class HeadlessContextDriverTests(unittest.TestCase):
             ('os.write(1,b"\\x1b[1;1HDo you want to use this API key?\\x1b[38;11H")\n' if mode=='auth-before-submit' else '') +
             ('os.write(1,"\\x1b[12;1H❯ autocomplete\\x1b[38;11H".encode())\n' if mode=='autocomplete-marker' else '') +
             ('os.write(1,"\\x1b[38;1H❯ /context".encode())\n' if mode in ('prefix-padding-repaint','diagnostic-loss') else '') +
+            ('Path('+repr(str(submit_ready))+').touch()\n'
+                'while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
+                'os.write(1,'+repr(('\x1b['+('40' if mode=='normalized-suggestion-below' else '35')+';1H'
+                    + ('' if mode=='normalized-plain-description' else '❯ ')
+                    + '/context   Visualize current context usage as a colored grid\x1b[38;11H').encode())+')\n'
+                'Path('+repr(str(menu_ready))+').touch()\n' if mode.startswith('normalized-') else '') +
             'if read(1)!=b"\\r": raise SystemExit(1)\n'
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
             'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[6;1H❯ /context\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -170,6 +176,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
         original_launch=selected_controller.subprocess.Popen
         original_cancel=state.check_cancelled; original_clock=time.monotonic
         original_freeze=ContextFailureJournal.freeze
+        original_projection=ContextFailureJournal.project_fields
         original_collect=TerminalDiagnostics.add; original_open=Path.open
         original_pty=selected_controller.pty.openpty
         original_begin=selected_controller.begin_context_command; original_probe=selected_controller.NonceInputChallenge
@@ -206,9 +213,15 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 fault_seen=True; raise TerminalCancelled()
         def checked_clock():
             return original_clock()+(20 if mode=='deadline-before-enter' and context_wait_fault else 0)
-        def checked_freeze(journal,error,check):
+        def checked_freeze(journal,error,check,**kwargs):
             if mode=='diagnostic-loss': raise RuntimeError('synthetic observer loss')
-            original_freeze(journal,error,check)
+            original_freeze(journal,error,check,**kwargs)
+        def projected(journal,error,**bindings):
+            if projection_fault=='raise': raise RuntimeError('synthetic projection loss')
+            if projection_fault=='missing': return None
+            if projection_fault=='malformed': return {'unexpected':'synthetic'}
+            if projection_fault=='malformed-fields': return {'context_command_failure':{}}
+            return original_projection(journal,error,**bindings)
         def observed_snapshot():
             value=original_snapshot()
             if mode in ('partial-exit-menu','late-writable-menu') and 'Yes, I trust this folder' in '\n'.join(
@@ -263,7 +276,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             nonlocal context_wait_fault
             if writes and command_accepted and mode in ('cancel-before-enter','deadline-before-enter'):
                 context_wait_fault=True
-            if mode in ('late-writable-menu','pre-enter-numeric-grid') and writes and submit_ready.exists() and not menu_request.exists():
+            if (mode in ('late-writable-menu','pre-enter-numeric-grid') or mode.startswith('normalized-')) and writes and submit_ready.exists() and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
             return original_select(reads,writes,errors,timeout)
@@ -279,6 +292,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 mock.patch.object(selected_controller,'time',SimpleNamespace(monotonic=checked_clock)),\
                 mock.patch.object(state,'check_cancelled',side_effect=checked_cancel),\
                 mock.patch.object(ContextFailureJournal,'freeze',new=checked_freeze),\
+                mock.patch.object(ContextFailureJournal,'project_fields',new=projected),\
                 mock.patch.object(TerminalDiagnostics,'add',new=collected),\
                 mock.patch.object(Path,'open',new=opened),\
                 mock.patch.object(selected_controller.pty,'openpty',side_effect=opened_pty),\
@@ -289,23 +303,26 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,
                 **({'context_debug':debug_capture} if debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
-        success=mode in ('success','partial-command-write','blocking-command-write')
+        success=mode in ('success','partial-command-write','blocking-command-write','normalized-plain-description')
         self.assertEqual(result,0 if success and not fault else 2)
         early=('missing-command-echo','wrong-command-echo','menu-before-submit','auth-before-submit',
             'autocomplete-marker','late-writable-menu','prefix-padding-repaint','diagnostic-loss',
-            'post-command-write-failure','cancel-before-enter','deadline-before-enter')
+            'post-command-write-failure','cancel-before-enter','deadline-before-enter',
+            'normalized-suggestion-above','normalized-suggestion-below','normalized-observer-loss')
         if mode in ('baseline-history','invalid-command-write-count'): self.assertEqual(data,b'')
         elif mode=='partial-command-fault': self.assertEqual(data,b'/con')
         elif mode in early: self.assertEqual(data,b'/context')
         else: self.assertEqual(data[:9],b'/context\r')
         self.assertNotIn(b'\x1b',data)
         report=diagnostics.report()
-        self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+        self.assertEqual(report['rejected'],projection_fault=='malformed-fields'); self.assertFalse(report['truncated'])
         self.assertTrue(state.helper_reaped)
         if collector_error is None:
             self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
-            if not success: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
+            if not success and not report['rejected']: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
         else:
+            self.assertFalse(any(row['point'] in ('failure','native_cleanup','helper_cleanup') for row in report['records']))
+        if collector_error is not None or mode.startswith('normalized-'):
             self.assertTrue(captures); self.assertTrue(all(stream.closed for stream in captures))
             self.assertEqual(len(terminal_fds),2)
             for descriptor in terminal_fds:
@@ -313,9 +330,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 self.assertEqual(caught.exception.errno,errno.EBADF)
             self.assertEqual(len(children),1); self.assertIsNotNone(children[0].poll())
             self.assertEqual(len(commands),1); self.assertEqual(commands[0].phase,'REVOKED')
-            if mode!='prefix-padding-repaint':
+            if mode not in early:
                 self.assertEqual(len(probes),1); self.assertEqual(probes[0].phase,'REVOKED')
-            self.assertFalse(any(row['point'] in ('failure','native_cleanup','helper_cleanup') for row in report['records']))
+            else: self.assertEqual(len(probes),0)
         if mode in ('baseline-history','partial-command-fault','invalid-command-write-count') or mode in early: pass
         elif mode=='post-enter-live-loss': self.assertEqual(data,b'/context\r')
         elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid'):
@@ -370,6 +387,52 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.run_pinned_probe('partial-command-write')
         self.temp.cleanup(); self.setUp()
         self.run_pinned_probe('partial-command-fault')
+
+    def test_normalized_detail_reaches_report_without_enter(self):
+        for mode in ('normalized-suggestion-above','normalized-suggestion-below'):
+            self.temp.cleanup(); self.setUp()
+            report=self.run_pinned_probe(mode)
+            failure=next(row for row in report['records'] if row['point']=='failure')
+            self.assertEqual(failure['reasonCode'],'INPUT_PROBE_REVOKED')
+            self.assertEqual(failure['contextCommandFailure'],{'phase':'SUBMIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                'commandBytesWritten':8,'enterBytesWritten':0})
+            self.assertEqual(failure['normalizedInputFailure'],{'reason':'UNSUPPORTED_ROW',
+                'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'})
+            self.assertEqual((self.root/'probe-input').read_bytes(),b'/context')
+            self.assertNotIn('context_sent',[row['point'] for row in report['records']])
+            self.assertNotIn('Visualize',json.dumps(report))
+            events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+            self.assertTrue(any(row['stage']=='context_inspected' and row['outcome']=='failed' for row in events))
+
+    def test_normalized_plain_description_requires_numeric_context_after_enter(self):
+        report=self.run_pinned_probe('normalized-plain-description')
+        self.assertFalse(any('normalizedInputFailure' in row for row in report['records']))
+        self.assertIn('context_numeric',[row['point'] for row in report['records']])
+        self.assertTrue((self.root/'probe-input').read_bytes().startswith(b'/context\r'))
+
+    def test_normalized_projection_loss_keeps_original_cleanup(self):
+        for fault in ('raise','missing','malformed','malformed-fields'):
+            self.temp.cleanup(); self.setUp()
+            report=self.run_pinned_probe('normalized-observer-loss',projection_fault=fault)
+            self.assertFalse(any('normalizedInputFailure' in row for row in report['records']))
+            self.assertEqual((self.root/'probe-input').read_bytes(),b'/context')
+        for error in (RuntimeError,LookupError):
+            self.temp.cleanup(); self.setUp()
+            self.run_pinned_probe('normalized-suggestion-above',collector_error=error)
+
+    def test_normalized_detail_cannot_cross_dialogue_or_attach_late(self):
+        first=self.run_pinned_probe('normalized-suggestion-above')
+        self.assertTrue(any('normalizedInputFailure' in row for row in first['records']))
+        for mode in ('success','menu-before-clear','partial-exit-input-restore'):
+            self.temp.cleanup(); self.setUp()
+            report=self.run_pinned_probe(mode)
+            self.assertFalse(any('normalizedInputFailure' in row for row in report['records']))
+
+    def test_normalized_debug_retains_early_omission(self):
+        report=self.run_pinned_probe('normalized-suggestion-above',debug=True)
+        self.assertTrue(any('normalizedInputFailure' in row for row in report['records']))
+        self.assertEqual(self.debug_capture._status,'OMITTED_PROVENANCE')
+        self.assertNotIn('Visualize',json.dumps(report))
 
     def test_partial_command_failure_reports_only_accepted_bytes(self):
         report=self.run_pinned_probe('partial-command-fault')

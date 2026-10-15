@@ -174,6 +174,12 @@ class TerminalWiringTests(unittest.TestCase):
         events.write_text(json.dumps({'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED',
             'leaderReaped':True})+'\n')
         with self.assertRaises(ValueError): pty_context_observation(events,'synthetic-session','before')
+        events.write_text(json.dumps({'point':'failure','reasonCode':'INPUT_PROBE_REVOKED',
+            'contextCommandFailure':{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                'commandBytesWritten':8,'enterBytesWritten':0},
+            'normalizedInputFailure':{'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW',
+                'rowCause':'UNRECOGNIZED_SHAPE'}})+'\n')
+        with self.assertRaises(ValueError): pty_context_observation(events,'synthetic-session','before')
 
     def test_no_live_or_serialized_receipt_activation(self):
         import inspect
