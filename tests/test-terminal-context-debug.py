@@ -32,6 +32,22 @@ def rejection():
         input_row_relation='OTHER_CAPTURED_ROW',input_row_cause='CONTROL_COMMAND_SHAPE')
 
 
+def edit_report_fixture():
+    return {'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True,
+        'runtime':'1.2.3','reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[{
+            'case':'text-turn','beforeExit':2,'sdkExit':2,'afterExit':2,'caseRootAbsent':True,
+            'contextInspected':False,'naturalExit':False,'messages':0,'skillCalls':0,'validSkillSample':False,
+            'stages':[{'phase':'before','events':[{'stage':'context_inspected','outcome':'failed'}],
+                'diagnostics':{'records':[{'point':'failure','reasonCode':'INPUT_PROBE_REVOKED',
+                    'contextCommandFailure':{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                        'commandBytesWritten':8,'enterBytesWritten':0},
+                    'normalizedInputFailure':{'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW',
+                        'rowCause':'UNRECOGNIZED_SHAPE'}},
+                    {'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},
+                    {'point':'helper_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True}],
+                    'rejected':False,'truncated':False}}]}]}
+
+
 class TerminalContextDebugTests(unittest.TestCase):
     def setUp(self):
         path=Path(__file__).with_name('terminal_context_debug.py')
@@ -207,6 +223,77 @@ class TerminalContextDebugTests(unittest.TestCase):
             'memory-only edit capture missing')
         with self.assertRaises(RuntimeError): self.m.create_context_edit_debug(self.scope,self.state,self.root)
         with self.assertRaises(RuntimeError): self.m.validate_context_edit_debug({},self.state,self.scope)
+
+    def test_edit_promotion_requires_parent_disposal(self):
+        import copy
+        self.assertTrue(callable(getattr(self.m,'finalize_edit_report',None)),'parent edit promotion missing')
+        base=edit_report_fixture()
+        pending={'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':'❯ /context synthetic description'}}
+        self.assertNotIn('excerpt',self.m.finalize_edit_report(base,pending,disposal_proven=False)['debugContextEdit'])
+        public=self.m.finalize_edit_report(base,pending,disposal_proven=True)
+        self.assertEqual(public['debugContextEdit'],{'status':'READY','untrustedData':True,
+            'chatCopyMayPersist':True,'excerpt':pending['excerpt']})
+        self.assertEqual(public['cases'],base['cases'])
+        for fault in ('case','native','helper'):
+            changed=copy.deepcopy(base)
+            if fault=='case': changed['cases'][0]['caseRootAbsent']=False
+            else:
+                index=1 if fault=='native' else 2
+                changed['cases'][0]['stages'][0]['diagnostics']['records'][index]['leaderReaped']=False
+            result=self.m.finalize_edit_report(changed,pending,disposal_proven=True)
+            self.assertNotIn('excerpt',result['debugContextEdit'])
+        self.assertNotIn('excerpt',self.m.finalize_edit_report(base,{**pending,'status':'READY'},
+            disposal_proven=False)['debugContextEdit'])
+
+    def test_edit_candidate_closed_shapes_and_report_budget(self):
+        self.assertTrue(callable(getattr(self.m,'finalize_edit_report',None)),'parent edit promotion missing')
+        base=edit_report_fixture()
+        for pending in (None,{}, {'status':'READY'}, {'status':'PREPARED'},
+                {'status':'NO_CAPTURE','text':'synthetic unexpected'},
+                {'status':'PREPARED','excerpt':{'rowRelation':'CURSOR_ROW','text':'synthetic'}},
+                {'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':None}},
+                {'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':'x'*4096}},
+                {'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':'synthetic','extra':True}}):
+            result=self.m.finalize_edit_report(base,pending,disposal_proven=True)
+            self.assertEqual(result['cases'],base['cases'])
+            self.assertNotIn('excerpt',result['debugContextEdit'])
+            self.assertLessEqual(len((json.dumps(result,sort_keys=True)+'\n').encode()),16384)
+        bad={**base,'unrecognized':'synthetic unexpected'}
+        result=self.m.finalize_edit_report(bad,{'status':'NO_CAPTURE'},disposal_proven=True)
+        self.assertNotIn('unrecognized',result)
+        self.assertNotIn('synthetic unexpected',json.dumps(result))
+
+    def test_edit_four_phase_budget_omits_whole_excerpt(self):
+        import copy
+        from terminal_structural_diagnostics import TerminalDiagnostics
+        self.assertTrue(callable(getattr(self.m,'finalize_edit_report',None)),'parent edit promotion missing')
+        base=edit_report_fixture(); failed=copy.deepcopy(base['cases'][0]['stages'][0])
+        structure={'buffer':'alternate','cursorX':120,'cursorY':39,'baseY':0,'viewportY':0,
+            'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'NONE','readiness':'CANDIDATE_COUNT'}
+        def phase(name,failure=False):
+            collector=TerminalDiagnostics()
+            for row in failed['diagnostics']['records'][0 if failure else 1:]:
+                collector.add(row['point'],row['reasonCode'],**{k:v for k,v in row.items() if k not in ('point','reasonCode')})
+            for _ in range(16): collector.add('initial','CHECKPOINT',structure=structure)
+            return {'phase':name,'events':[{'stage':'prompt_ready','outcome':'passed'}]*8,'diagnostics':collector.report()}
+        first=base['cases'][0]
+        first.update(beforeExit=0,sdkExit=0,afterExit=0,contextInspected=True,naturalExit=True,
+            stages=[phase('before'),phase('after')])
+        second=copy.deepcopy(first); second.update(case='skill-turn',afterExit=2,contextInspected=False,
+            naturalExit=False,skillCalls=1,validSkillSample=True,stages=[phase('before'),phase('after',True)])
+        base['cases'].append(second)
+        text='❯ /context '+'界'*650
+        pending={'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':text}}
+        self.assertLessEqual(len(json.dumps(pending['excerpt'],sort_keys=True).encode()),4096)
+        public=self.m.finalize_edit_report(base,pending,disposal_proven=True)
+        self.assertEqual(public['cases'],base['cases'])
+        self.assertEqual(public['debugContextEdit']['status'],'OMITTED_REPORT_LIMIT')
+        self.assertNotIn('excerpt',public['debugContextEdit'])
+        self.assertLessEqual(len((json.dumps(public,sort_keys=True)+'\n').encode()),16384)
+        inner=self.m._fit_edit_pending_report(base,pending)
+        self.assertEqual(inner['_pendingContextEdit'],{'status':'OMITTED_REPORT_LIMIT'})
+        self.assertLessEqual(len((json.dumps(inner,sort_keys=True)+'\n').encode()),16384)
 
     def test_one_frame_and_minimal_untrusted_excerpt_only_after_disposal(self):
         debug=self.debug(); self.capture(debug)

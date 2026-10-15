@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import shutil
 import socket
 import stat
@@ -71,11 +72,48 @@ def audit_input_probe_scope(node,module_root):
     finally: state.close()
 
 
+def _read_edit_namespace(command,*,cancellation,deadline):
+    if time.monotonic()>=deadline: raise TimeoutError
+    process=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True)
+    data=bytearray(); eof=False
+    try:
+        descriptor=process.stdout.fileno(); os.set_blocking(descriptor,False)
+        with selectors.DefaultSelector() as selector:
+            selector.register(descriptor,selectors.EVENT_READ)
+            while True:
+                cancellation.check()
+                remaining=deadline-time.monotonic()
+                if remaining<=0: raise TimeoutError
+                if eof and process.poll() is not None:
+                    cancellation.check()
+                    return process.returncode,bytes(data)
+                for _key,_events in selector.select(min(.02,remaining)):
+                    try: chunk=os.read(descriptor,16385-len(data))
+                    except BlockingIOError: continue
+                    if not chunk:
+                        eof=True; selector.unregister(descriptor); break
+                    data.extend(chunk)
+                    if len(data)>16384: raise ValueError('offline report limit')
+    finally:
+        data.clear()
+        if process.stdout is not None: process.stdout.close()
+
+
+def _edit_json(data):
+    def pairs(items):
+        result={}
+        for key,value in items:
+            if key in result: raise ValueError('duplicate offline field')
+            result[key]=value
+        return result
+    def constant(_value): raise ValueError('invalid offline value')
+    return json.loads(data.decode('utf-8'),object_pairs_hook=pairs,parse_constant=constant)
+
+
 def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False):
     if (type(debug_context_edit) is not bool or (debug_context_edit and (audit or debug_context))):
         return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
-    # Closed until a bounded memory-only outer transport is available.
-    if debug_context_edit: return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     if type(debug_context) is not bool or (audit and debug_context): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     try:
         source=source.resolve(strict=True); node=node.resolve(strict=True); module_root=module_root.resolve(strict=True)
@@ -85,6 +123,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
     root=Path(tempfile.mkdtemp(prefix='p004b-offline-terminal-'))
     identity=root.stat()
     report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    pending={'status':'NO_CAPTURE'}; namespace_reaped=False
     try:
         command=[bwrap,'--die-with-parent','--new-session','--unshare-user','--unshare-pid',
             '--unshare-ipc','--unshare-uts','--unshare-net','--cap-drop','ALL',
@@ -114,22 +153,41 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
             command += ['--ro-bind',str(claude),'/opt/probe/claude']
         command += ['--clearenv','--setenv','PATH','/usr/bin:/bin','--setenv','PYTHONDONTWRITEBYTECODE','1',
             '/usr/bin/python3','/opt/probe/probe.py','--inner-audit' if audit else
-                '--inner-controls-debug' if debug_context else '--inner-controls']
-        with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
-            deadline=time.monotonic()+165
-            result=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
-                stdout=output,stderr=subprocess.DEVNULL,start_new_session=True)
-            while result.poll() is None:
+                '--inner-controls-debug' if debug_context else '--inner-controls-edit-debug' if debug_context_edit else '--inner-controls']
+        if debug_context_edit:
+            from terminal_context_debug import _valid_edit_base
+            with TerminalCancellation() as cancellation:
+                code,data=_read_edit_namespace(command,cancellation=cancellation,deadline=time.monotonic()+165)
+                if code: raise ValueError
+                parsed=_edit_json(data)
+                if type(parsed) is not dict: raise ValueError
+                pending=parsed.pop('_pendingContextEdit',{'status':'NO_CAPTURE'})
+                if not _valid_edit_base(parsed): raise ValueError
+                report=parsed
+            namespace_reaped=True
+        else:
+            with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
+                deadline=time.monotonic()+165
+                result=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
+                    stdout=output,stderr=subprocess.DEVNULL,start_new_session=True)
+                while result.poll() is None:
+                    cancellation.check()
+                    if time.monotonic()>=deadline: raise TimeoutError
+                    time.sleep(.02)
                 cancellation.check()
-                if time.monotonic()>=deadline: raise TimeoutError
-                time.sleep(.02)
-            cancellation.check()
-            output.seek(0); data=output.read(16385)
-        if result.returncode or len(data)>16384: raise ValueError
-        report=json.loads(data)
+                output.seek(0); data=output.read(16385)
+            if result.returncode or len(data)>16384: raise ValueError
+            report=json.loads(data)
     except (KeyboardInterrupt,TerminalCancelled): report={'reasonCode':'OFFLINE_PROBE_INTERRUPTED'}
-    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError): pass
-    return finalize_owned(root,identity,report)
+    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
+        if debug_context_edit:
+            report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'OMITTED_PROVENANCE'}
+    cleaned=finalize_owned(root,identity,report)
+    if debug_context_edit:
+        from terminal_context_debug import finalize_edit_report
+        disposed=cleaned.pop('disposableRootAbsent',False)
+        return finalize_edit_report(cleaned,pending,disposal_proven=disposed is True and namespace_reaped)
+    return cleaned
 
 
 def run_isolation_audit(*,source,node,module_root):
@@ -156,7 +214,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
     from terminal_state_adapter import TerminalState
     from browser_startup_approval import StartupApproval
     from browser_operations_live import evaluate_measurement_stream
-    from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug
+    from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug, _fit_edit_pending_report
     debug_reports=[]
     edit_reports=[]
     spec=importlib.util.spec_from_file_location('offline_pty_driver','/opt/probe/claude-pty-driver.py')
@@ -285,8 +343,8 @@ def _controls(*,debug_context=False,debug_context_edit=False):
         debug=next((value for value in debug_reports if value['status']!='NO_CAPTURE'),{'status':'NO_CAPTURE'})
         report=fit_debug_report(report,debug)
     if debug_context_edit:
-        report['_pendingContextEdit']=next((value for value in edit_reports if value.get('status')!='NO_CAPTURE'),
-            {'status':'NO_CAPTURE'})
+        pending=next((value for value in edit_reports if value.get('status')!='NO_CAPTURE'),{'status':'NO_CAPTURE'})
+        report=_fit_edit_pending_report(report,pending)
     return report
 
 
@@ -311,6 +369,7 @@ def main():
     parser.add_argument('--debug-context',action='store_true',help='Opt-in offline synthetic context failure excerpt; chat copy may persist')
     parser.add_argument('--debug-context-edit',action='store_true',help='Opt-in offline rejected edit-row excerpt; chat copy may persist')
     args=parser.parse_args()
+    if sys.argv[1:].count('--debug-context-edit')>1: parser.error('edit debug cannot be repeated')
     if args.debug_context and args.mode!='--run-offline': parser.error('debug context requires offline controls')
     if args.debug_context_edit and (args.mode!='--run-offline' or args.debug_context):
         parser.error('edit debug requires exclusive offline controls')

@@ -273,3 +273,122 @@ def validate_context_edit_debug(value,state,scope):
     if type(value) is not ContextEditDebugCapture or value not in _EDIT_CAPTURES:
         raise RuntimeError('DEBUG_SCOPE_REJECTED')
     _edit_live(value,state,scope)
+
+
+_EDIT_OMISSIONS=frozenset(('NO_CAPTURE','OMITTED_SCOPE','OMITTED_PROVENANCE','OMITTED_SENSITIVE',
+    'OMITTED_ROW_LIMIT','OMITTED_EXCERPT_LIMIT','OMITTED_CLEANUP','OMITTED_REPORT_LIMIT','OMITTED_OBSERVER'))
+_EDIT_STAGES=frozenset(('initial_screen','api_key_approval','api_key_approval_required','login_required',
+    'theme_selection','trust_selection','prompt_ready','context_inspected','exit','terminal_state','terminal_cleanup'))
+
+
+def _valid_edit_pending(value):
+    if type(value) is not dict or type(value.get('status')) is not str: return False
+    if value['status'] in _EDIT_OMISSIONS: return set(value)=={'status'}
+    if value['status']!='PREPARED' or set(value)!={'status','excerpt'}: return False
+    excerpt=value['excerpt']
+    try:
+        return (type(excerpt) is dict and set(excerpt)=={'rowRelation','text'}
+            and excerpt['rowRelation']=='OTHER_CAPTURED_ROW' and type(excerpt['text']) is str
+            and not any(unicodedata.category(char) in ('Cc','Cf') for char in excerpt['text'])
+            and not _sensitive(excerpt['text'])
+            and len(json.dumps(excerpt,sort_keys=True).encode('utf-8'))<=EXCERPT_LIMIT)
+    except Exception: return False
+
+
+def _valid_edit_base(value):
+    from terminal_structural_diagnostics import TerminalDiagnostics, MAX_BYTES, MAX_RECORDS
+    if type(value) is not dict or type(value.get('reasonCode')) is not str: return False
+    basic={'reasonCode'}
+    facts=set(_FACTS)
+    if value['reasonCode'] in ('OFFLINE_PROBE_BLOCKED','OFFLINE_PROBE_INTERRUPTED','OFFLINE_CLEANUP_FAILED',
+                             'OFFLINE_RUNTIME_UNAVAILABLE'):
+        return set(value) in (basic,basic|facts) and all(value[key] is True for key in facts&set(value))
+    if (value['reasonCode'] not in ('OFFLINE_CONTROLS_INCONCLUSIVE','OFFLINE_CONTROLS_PASSED')
+            or set(value)!=basic|facts|{'runtime','cases'} or any(value[key] is not True for key in facts)
+            or type(value['runtime']) is not str or re.fullmatch(r'\d{1,4}\.\d{1,4}\.\d{1,4}',value['runtime']) is None
+            or type(value['cases']) is not list or not 1<=len(value['cases'])<=2): return False
+    case_keys={'case','beforeExit','sdkExit','afterExit','caseRootAbsent','contextInspected','naturalExit',
+        'messages','skillCalls','validSkillSample','stages'}
+    try:
+        for index,case in enumerate(value['cases']):
+            if type(case) is not dict or case.get('case')!=('text-turn','skill-turn')[index]: return False
+            if set(case)=={'case','caseRootAbsent'} and case['caseRootAbsent'] is False: continue
+            if set(case)!=case_keys: return False
+            if any(type(case[key]) is not bool for key in ('caseRootAbsent','contextInspected','naturalExit','validSkillSample')): return False
+            if any(type(case[key]) is not int or not -255<=case[key]<=255 for key in ('beforeExit','sdkExit','afterExit')): return False
+            if any(type(case[key]) is not int or not 0<=case[key]<=8388608 for key in ('messages','skillCalls')): return False
+            if type(case['stages']) is not list or len(case['stages'])>2: return False
+            for phase_index,stage in enumerate(case['stages']):
+                if (type(stage) is not dict or set(stage)!={'phase','events','diagnostics'}
+                        or stage['phase']!=('before','after')[phase_index]
+                        or type(stage['events']) is not list or len(stage['events'])>32): return False
+                for event in stage['events']:
+                    if (type(event) is not dict or set(event) not in ({'stage','outcome'},{'stage','outcome','percent'})
+                            or type(event['stage']) is not str or event['stage'] not in _EDIT_STAGES
+                            or type(event['outcome']) is not str or event['outcome'] not in ('passed','failed')
+                            or ('percent' in event and (type(event['percent']) is not int or not 0<=event['percent']<=100))): return False
+                diag=stage['diagnostics']
+                if (type(diag) is not dict or set(diag)!={'records','rejected','truncated'}
+                        or any(type(diag[key]) is not bool for key in ('rejected','truncated'))
+                        or type(diag['records']) is not list or len(diag['records'])>MAX_RECORDS
+                        or len(json.dumps(diag,sort_keys=True).encode())>MAX_BYTES): return False
+                collector=TerminalDiagnostics()
+                for row in diag['records']:
+                    if type(row) is not dict: return False
+                    fields={key:item for key,item in row.items() if key not in ('point','reasonCode')}
+                    collector.add(row['point'],row['reasonCode'],**fields)
+                checked=collector.report()
+                if checked['rejected'] or checked['truncated'] or checked['records']!=diag['records']: return False
+        return True
+    except (KeyError,TypeError,ValueError,UnicodeError,RecursionError): return False
+
+
+def _edit_cleanup_and_failure(report):
+    cases=report.get('cases',[])
+    cleanup=bool(cases); failures=0
+    for case in cases:
+        if case.get('caseRootAbsent') is not True or not case.get('stages'): cleanup=False
+        for stage in case.get('stages',[]):
+            rows=stage['diagnostics']['records']
+            for point in ('native_cleanup','helper_cleanup'):
+                matches=[row for row in rows if row['point']==point]
+                if len(matches)!=1 or matches[0].get('leaderReaped') is not True or matches[0]['reasonCode']!='CLEANUP_COMPLETED':
+                    cleanup=False
+            for row in rows:
+                if (row['point']=='failure' and row['reasonCode']=='INPUT_PROBE_REVOKED'
+                        and row.get('contextCommandFailure')=={'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+                            'commandBytesWritten':8,'enterBytesWritten':0}
+                        and row.get('normalizedInputFailure')=={'reason':'UNSUPPORTED_ROW',
+                            'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}): failures+=1
+    return cleanup,failures==1 and report.get('reasonCode')=='OFFLINE_CONTROLS_INCONCLUSIVE'
+
+
+def _fit_edit_pending_report(report,pending):
+    candidate=copy.deepcopy(pending) if _valid_edit_pending(pending) else {'status':'OMITTED_PROVENANCE'}
+    value={**report,'_pendingContextEdit':candidate}
+    def size(current): return len((json.dumps({**_FACTS,**current},sort_keys=True)+'\n').encode())
+    if size(value)>REPORT_LIMIT: value={**report,'_pendingContextEdit':{'status':'OMITTED_REPORT_LIMIT'}}
+    if size(value)>REPORT_LIMIT:
+        return {'reasonCode':'OFFLINE_PROBE_BLOCKED','_pendingContextEdit':{'status':'OMITTED_REPORT_LIMIT'}}
+    return value
+
+
+def finalize_edit_report(report,pending,*,disposal_proven):
+    if not _valid_edit_base(report):
+        report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'OMITTED_PROVENANCE'}
+    status=pending['status'] if _valid_edit_pending(pending) else 'OMITTED_PROVENANCE'
+    output={'status':status,'untrustedData':True,'chatCopyMayPersist':True}
+    if disposal_proven is not True: output['status']='OMITTED_CLEANUP'
+    elif status=='PREPARED':
+        cleanup,failure=_edit_cleanup_and_failure(report)
+        output['status']='READY' if cleanup and failure else 'OMITTED_PROVENANCE' if cleanup else 'OMITTED_CLEANUP'
+        if output['status']=='READY': output['excerpt']=copy.deepcopy(pending['excerpt'])
+    value={**copy.deepcopy(report),'debugContextEdit':output}
+    if disposal_proven is True: value['disposableRootAbsent']=True
+    if len((json.dumps(value,sort_keys=True)+'\n').encode())>REPORT_LIMIT:
+        output.pop('excerpt',None); output['status']='OMITTED_REPORT_LIMIT'
+    if len((json.dumps(value,sort_keys=True)+'\n').encode())>REPORT_LIMIT:
+        return {'reasonCode':'OFFLINE_PROBE_BLOCKED','debugContextEdit':{
+            'status':'OMITTED_REPORT_LIMIT','untrustedData':True,'chatCopyMayPersist':True},
+            **({'disposableRootAbsent':True} if disposal_proven is True else {})}
+    return value

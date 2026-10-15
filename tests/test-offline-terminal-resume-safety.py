@@ -145,12 +145,174 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertTrue(run.call_args.kwargs['debug_context_edit'])
 
     def test_edit_transport_unavailable_blocks_before_spawn(self):
+        # Before Task3 this was a closed gate; a missing executable must remain closed.
         with mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=AssertionError('launched')),\
                 mock.patch.object(self.module.tempfile,'TemporaryFile',side_effect=AssertionError('report file')):
             result=self.module.run_offline_controls(source=ROOT,claude=Path('/unopened-native'),
                 node=Path(os.environ['P004B_TERMINAL_NODE']),
                 module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),debug_context_edit=True)
-        self.assertEqual(result,{'reasonCode':'OFFLINE_PROBE_BLOCKED'})
+        self.assertEqual(result['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+        self.assertNotIn('excerpt',result['debugContextEdit'])
+
+    def read_edit_peer(self,code,*,seconds=2,cancel=False):
+        self.assertTrue(callable(getattr(self.module,'_read_edit_namespace',None)),'bounded edit IPC missing')
+        from terminal_cancellation import TerminalCancellation
+        with tempfile.TemporaryDirectory(prefix='edit-ipc-peer-') as directory:
+            pidfile=Path(directory)/'pid'
+            childfile=Path(directory)/'child'
+            prefix=('import os,sys,select\nfrom pathlib import Path\nPath('+repr(str(pidfile))+').write_text(str(os.getpid()))\n'
+                'childfile=Path('+repr(str(childfile))+')\n')
+            with TerminalCancellation() as token:
+                if cancel:
+                    original=token.check
+                    def check():
+                        if pidfile.exists(): token.requested=True
+                        original()
+                    token.check=check
+                try:
+                    return self.module._read_edit_namespace([sys.executable,'-I','-B','-c',prefix+code],
+                        cancellation=token,deadline=time.monotonic()+seconds)
+                finally:
+                    self._edit_peer_pid=int(pidfile.read_text()) if pidfile.exists() else None
+                    self._edit_descendant_pid=int(childfile.read_text()) if childfile.exists() else None
+
+    def test_edit_pipe_eof_and_exit_are_independent(self):
+        self.assertTrue(callable(getattr(self.module,'_read_edit_namespace',None)),'bounded edit IPC missing')
+        start=time.monotonic()
+        with self.assertRaises(TimeoutError):
+            self.read_edit_peer('os.close(1)\nselect.select([],[],[],60)\n',seconds=.25)
+        self.assertLess(time.monotonic()-start,3)
+        if self._edit_peer_pid is not None: self.assertFalse(Path(f'/proc/{self._edit_peer_pid}').exists())
+        code,data=self.read_edit_peer('os.write(1,b"{partial")\n')
+        self.assertEqual((code,data),(0,b'{partial'))
+        try:
+            code,data=self.read_edit_peer('pid=os.fork()\n'
+                'if pid==0: childfile.write_text(str(os.getpid())); select.select([],[],[],60); os._exit(0)\n'
+                'while not childfile.exists(): select.select([],[],[],.005)\n'
+                'os.write(1,b"{}"); os._exit(0)\n')
+        except RuntimeError as error:
+            self.assertEqual(str(error),'terminal ownership unavailable')
+        else:
+            self.assertIn(code,(0,2)); self.assertEqual(data,b'{}')
+        self.assertFalse(Path(f'/proc/{self._edit_peer_pid}').exists())
+        if self._edit_descendant_pid is not None:
+            self.assertFalse(Path(f'/proc/{self._edit_descendant_pid}').exists())
+
+    def test_edit_pipe_overflow_backpressure_and_cancel(self):
+        from terminal_cancellation import TerminalCancelled
+        self.assertTrue(callable(getattr(self.module,'_read_edit_namespace',None)),'bounded edit IPC missing')
+        code,data=self.read_edit_peer('os.write(1,b"x"*16384)\n')
+        self.assertEqual(code,0); self.assertEqual(len(data),16384)
+        for count in (16385,262144):
+            with self.assertRaises(ValueError): self.read_edit_peer('os.write(1,b"x"*'+str(count)+')\n')
+            if self._edit_peer_pid is not None: self.assertFalse(Path(f'/proc/{self._edit_peer_pid}').exists())
+        code,data=self.read_edit_peer('os.write(1,b"\\xe2"); os.write(1,b"\\x9d\\xaf")\n')
+        self.assertEqual((code,data),(0,'❯'.encode()))
+        with self.assertRaises(TerminalCancelled):
+            self.read_edit_peer('select.select([],[],[],60)\n',cancel=True)
+        if self._edit_peer_pid is not None: self.assertFalse(Path(f'/proc/{self._edit_peer_pid}').exists())
+
+    def edit_namespace_fixture(self,*,payload=None,cleanup_fault=False,exit_fault=False,passed=False):
+        spec=importlib.util.spec_from_file_location('edit_debug_fixture',ROOT/'tests/test-terminal-context-debug.py')
+        fixture=importlib.util.module_from_spec(spec); spec.loader.exec_module(fixture)
+        base=fixture.edit_report_fixture()
+        base['_pendingContextEdit']={'status':'PREPARED','excerpt':{
+            'rowRelation':'OTHER_CAPTURED_ROW','text':'❯ /context synthetic description'}}
+        if passed:
+            import copy
+            base['reasonCode']='OFFLINE_CONTROLS_PASSED'; first=base['cases'][0]
+            first.update(beforeExit=0,sdkExit=0,afterExit=0,contextInspected=True,naturalExit=True)
+            stage=first['stages'][0]; stage['events']=[{'stage':'context_inspected','outcome':'passed','percent':10}]
+            stage['diagnostics']['records']=stage['diagnostics']['records'][1:]
+            after=copy.deepcopy(stage); after['phase']='after'; first['stages'].append(after)
+            second=copy.deepcopy(first); second.update(case='skill-turn',skillCalls=1,validSkillSample=True)
+            base['cases'].append(second); base['_pendingContextEdit']={'status':'NO_CAPTURE'}
+        data=json.dumps(base).encode() if payload is None else payload
+        with tempfile.TemporaryDirectory(prefix='edit-namespace-fixture-') as directory:
+            parent=Path(directory); owned=parent/'owned'; owned.mkdir(mode=0o700)
+            fake=parent/'fake-bwrap'; fake.write_text('#!/usr/bin/python3 -I\nimport os\nos.write(1,'+repr(data)+')\n')
+            fake.chmod(0o700)
+            self._edit_outer_absent=False
+            original_spawn=self.module.TerminalCancellation.spawn; spawns=[]
+            def spawn(token,command,**kwargs):
+                spawns.append(kwargs.get('stdout')); return original_spawn(token,command,**kwargs)
+            original_remove=self.module.shutil.rmtree
+            original_exit=self.module.TerminalCancellation.__exit__
+            def remove(path,*args,**kwargs):
+                if cleanup_fault and Path(path)==owned: raise OSError('synthetic cleanup loss')
+                return original_remove(path,*args,**kwargs)
+            def exited(token,*args):
+                result=original_exit(token,*args)
+                if exit_fault: raise RuntimeError('synthetic ownership cleanup loss')
+                return result
+            with mock.patch.object(self.module.shutil,'which',return_value=str(fake)),\
+                    mock.patch.object(self.module.tempfile,'mkdtemp',return_value=str(owned)),\
+                    mock.patch.object(self.module.tempfile,'TemporaryFile',side_effect=AssertionError('report file opened')),\
+                    mock.patch.object(self.module.TerminalCancellation,'spawn',new=spawn),\
+                    mock.patch.object(self.module.TerminalCancellation,'__exit__',new=exited),\
+                    mock.patch.object(self.module.shutil,'rmtree',side_effect=remove):
+                result=self.module.run_offline_controls(source=ROOT,claude=Path('/usr/bin/true'),
+                    node=Path(os.environ['P004B_TERMINAL_NODE']),
+                    module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),debug_context_edit=True)
+            self._edit_outer_absent=not owned.exists()
+            self.assertEqual(spawns,[subprocess.PIPE])
+            return result
+
+    def test_edit_pipe_never_uses_report_tempfile(self):
+        result=self.edit_namespace_fixture()
+        self.assertTrue(self._edit_outer_absent)
+        self.assertEqual(result['debugContextEdit']['status'],'READY')
+        self.assertNotIn('_pendingContextEdit',result)
+
+    def test_edit_publication_is_after_full_disposal(self):
+        result=self.edit_namespace_fixture(cleanup_fault=True)
+        self.assertFalse(self._edit_outer_absent)
+        self.assertEqual(result['reasonCode'],'OFFLINE_CLEANUP_FAILED')
+        self.assertNotIn('excerpt',result['debugContextEdit'])
+        for payload in (b'{partial',b'{"runtime":"1.2.3","runtime":"1.2.4"}',b'\xff'):
+            result=self.edit_namespace_fixture(payload=payload)
+            self.assertTrue(self._edit_outer_absent)
+            self.assertNotIn('excerpt',result['debugContextEdit'])
+            self.assertNotIn('_pendingContextEdit',result)
+        result=self.edit_namespace_fixture(exit_fault=True,passed=True)
+        self.assertNotEqual(result['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertNotIn('excerpt',result['debugContextEdit'])
+
+    def test_edit_cli_rejects_duplicate_before_controls(self):
+        import contextlib
+        import io
+        common=['--source',str(ROOT),'--node',os.environ['P004B_TERMINAL_NODE'],
+            '--module-root',os.environ['P004B_TERMINAL_MODULE_ROOT']]
+        with mock.patch.object(sys,'argv',[str(MODULE),'--run-offline','--debug-context-edit','--debug-context-edit',*common]),\
+                mock.patch.object(self.module,'run_offline_controls',side_effect=AssertionError('controls reached')),\
+                contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught: self.module.main()
+        self.assertEqual(caught.exception.code,2)
+
+    def test_edit_actual_preparation_namespace_and_disposal(self):
+        if not shutil.which('bwrap'):
+            self.skipTest('Bubblewrap unavailable; memory-only end-to-end path NOT proven')
+        with tempfile.TemporaryDirectory(prefix='edit-fake-native-') as directory:
+            fake=Path(directory)/'synthetic-ui'
+            fake.write_text('#!/usr/bin/python3 -I\nimport os,sys,select,tty\n'
+                'if "--version" in sys.argv: print("0.0.1 (Claude Code)"); raise SystemExit(0)\n'
+                'tty.setraw(0)\nos.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
+                'body=bytearray()\n'
+                'while len(body)<8: body.extend(os.read(0,8-len(body)))\n'
+                'if body!=b"/context": raise SystemExit(1)\n'
+                'os.write(1,"\\x1b[38;3H/context\\x1b[35;1H❯ /context synthetic diagnostic\\x1b[38;11H".encode())\n'
+                'select.select([],[],[],60)\n',encoding='utf-8')
+            fake.chmod(0o700)
+            with mock.patch.object(self.module.tempfile,'TemporaryFile',side_effect=AssertionError('report file')):
+                result=self.module.run_offline_controls(source=ROOT,claude=fake,
+                    node=Path(os.environ['P004B_TERMINAL_NODE']),
+                    module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),debug_context_edit=True)
+        self.assertEqual(result['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertEqual(result['runtime'],'0.0.1')  # Fixture label, not an installed Claude observation.
+        self.assertTrue(result['disposableRootAbsent']); self.assertTrue(result['cases'][0]['caseRootAbsent'])
+        self.assertEqual(result['cases'][0]['messages'],0)
+        self.assertEqual(result['debugContextEdit'],{'status':'READY','untrustedData':True,
+            'chatCopyMayPersist':True,'excerpt':{'rowRelation':'OTHER_CAPTURED_ROW','text':'❯ /context synthetic diagnostic'}})
 
     def test_edit_pending_is_not_acceptance_or_cross_dialogue(self):
         case={'case':'text-turn','caseRootAbsent':True,'debugContextEdit':{'status':'READY'},
