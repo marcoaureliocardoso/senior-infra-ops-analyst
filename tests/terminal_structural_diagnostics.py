@@ -2,7 +2,7 @@
 import copy
 import json
 from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
-from terminal_context_diagnostics import valid_context_failure, FAILURE_REASONS
+from terminal_context_diagnostics import valid_context_failure, valid_normalized_input_failure, FAILURE_REASONS
 
 MAX_RECORDS=16
 # Four context phases fit the existing 16 KiB outer offline-report limit.
@@ -43,9 +43,13 @@ class TerminalDiagnostics:
         if (type(point) is not str or point not in POINTS
                 or type(reasonCode) is not str or reasonCode not in REASONS
                 or not set(fields)<={'structure','leaderReaped','inputEligibility','inputRowRelation','inputRowCause',
-                    'contextCommandFailure'}
+                    'contextCommandFailure','normalizedInputFailure'}
                 or ('contextCommandFailure' in fields and (point!='failure' or reasonCode not in FAILURE_REASONS
                     or not valid_context_failure(fields['contextCommandFailure'])))
+                or ('normalizedInputFailure' in fields and (point!='failure' or reasonCode!='INPUT_PROBE_REVOKED'
+                    or not valid_context_failure(fields.get('contextCommandFailure'))
+                    or fields['contextCommandFailure']['check']!='NORMALIZED_ELIGIBILITY'
+                    or not valid_normalized_input_failure(fields['normalizedInputFailure'])))
                 or ('inputEligibility' in fields and (point!='failure' or reasonCode!='INPUT_PROBE_INELIGIBLE'
                     or type(fields['inputEligibility']) is not str
                     or fields['inputEligibility'] not in INPUT_ELIGIBILITY_REJECTIONS))

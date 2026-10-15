@@ -1,5 +1,6 @@
 """Private content-free write observations. No IO, live validation or authority."""
 import weakref
+from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 
 PHASES=frozenset(('BASELINE','ELIGIBLE','EDIT_PENDING','COMMAND_ECHO_MATCHED',
     'SUBMIT_PENDING','CONTEXT_PENDING','RECEIPT_READY'))
@@ -15,6 +16,15 @@ _FIELDS=('phase','check','commandBytesWritten','enterBytesWritten')
 _SEAL=object()
 _JOURNALS=weakref.WeakKeyDictionary()
 _ATTACHMENTS=weakref.WeakKeyDictionary()
+
+
+def valid_normalized_input_failure(value):
+    if (type(value) is not dict or type(value.get('reason')) is not str
+            or value['reason'] not in INPUT_ELIGIBILITY_REJECTIONS): return False
+    if value['reason']!='UNSUPPORTED_ROW': return set(value)=={'reason'}
+    return (set(value)=={'reason','rowRelation','rowCause'}
+        and type(value['rowRelation']) is str and value['rowRelation'] in INPUT_ROW_RELATIONS
+        and type(value['rowCause']) is str and value['rowCause'] in INPUT_ROW_CAUSES)
 
 
 def valid_context_failure(value):
@@ -64,7 +74,7 @@ class ContextFailureJournal(_Sealed):
         record[key]+=count
         return True
 
-    def freeze(self,error,check):
+    def freeze(self,error,check,*,normalized_input_failure=None):
         record=_JOURNALS.get(self)
         if record is None or record['attempted']: return
         record['attempted']=True
@@ -73,13 +83,22 @@ class ContextFailureJournal(_Sealed):
                 or hasattr(error,'_context_command_failure')): return
         payload=(record['phase'],check,record['command'],record['enter'])
         if not valid_context_failure(dict(zip(_FIELDS,payload))): return
+        detail=None
+        if (check=='NORMALIZED_ELIGIBILITY' and getattr(error,'reason',None)=='INPUT_PROBE_REVOKED'
+                and valid_normalized_input_failure(normalized_input_failure)):
+            detail=tuple(sorted(normalized_input_failure.items()))
         attachment=_ContextFailureAttachment(_SEAL)
-        _ATTACHMENTS[attachment]=(weakref.ref(self),payload)
+        _ATTACHMENTS[attachment]=(weakref.ref(self),payload,detail)
         # Exception identity is held only for this transition and released by finish().
-        record['failure']=(error,attachment,payload)
+        record['failure']=(error,attachment,payload,detail)
         error._context_command_failure=attachment
 
     def project(self,error,*,controller_owner,scope,state,transition_owner):
+        fields=self.project_fields(error,controller_owner=controller_owner,scope=scope,
+            state=state,transition_owner=transition_owner)
+        return fields['context_command_failure'] if fields is not None else None
+
+    def project_fields(self,error,*,controller_owner,scope,state,transition_owner):
         record=_JOURNALS.get(self)
         if (record is None or not record['valid']
                 or any(actual is not expected for actual,expected in zip(
@@ -89,9 +108,14 @@ class ContextFailureJournal(_Sealed):
         attachment=getattr(error,'_context_command_failure',None)
         if type(attachment) is not _ContextFailureAttachment or attachment is not failure[1]: return None
         registered=_ATTACHMENTS.get(attachment)
-        if registered is None or registered[0]() is not self or registered[1]!=failure[2]: return None
+        if registered is None or registered[0]() is not self or registered[1:]!=failure[2:]: return None
         value=dict(zip(_FIELDS,registered[1]))
-        return value if valid_context_failure(value) else None
+        if not valid_context_failure(value): return None
+        fields={'context_command_failure':value}
+        if registered[2] is not None:
+            detail=dict(registered[2])
+            if valid_normalized_input_failure(detail): fields['normalized_input_failure']=detail
+        return fields
 
     def finish(self):
         record=_JOURNALS.pop(self,None)

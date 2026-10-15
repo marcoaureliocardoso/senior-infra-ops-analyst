@@ -117,6 +117,86 @@ class ContextDiagnosticsTests(unittest.TestCase):
         self.assertEqual(second.project(second_error,**second_bindings)['commandBytesWritten'],0)
         self.assertEqual(first.project(error,**first_bindings)['commandBytesWritten'],8)
 
+    def test_normalized_detail_closed_shapes(self):
+        self.assertTrue(hasattr(self.m,'valid_normalized_input_failure'),'normalized detail validator missing')
+        for reason in ('FORBIDDEN_STATE','NO_MARKER','NONEMPTY_INPUT','MULTIPLE_MARKERS',
+                'CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH','INSUFFICIENT_SPACE','ANCHOR_CHANGED'):
+            self.assertTrue(self.m.valid_normalized_input_failure({'reason':reason}))
+        for relation in ('CURSOR_ROW','OTHER_CAPTURED_ROW','CURSOR_OUTSIDE_CAPTURE'):
+            for cause in ('INVISIBLE_FORMAT_CHAR','UNSUPPORTED_WHITESPACE','MARKER_WIDTH',
+                    'CONTROL_COMMAND_SHAPE','UNRECOGNIZED_SHAPE'):
+                self.assertTrue(self.m.valid_normalized_input_failure({
+                    'reason':'UNSUPPORTED_ROW','rowRelation':relation,'rowCause':cause}))
+        valid={'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        variants=[None,True,[],json.dumps(valid),{}, {'reason':'ELIGIBLE'}, {'reason':None},
+            {'reason':'NO_MARKER','rowCause':'MARKER_WIDTH'}, {'reason':'NO_MARKER','text':'synthetic-content'}]
+        variants.extend({**valid,**change} for change in (
+            {'reason':'unknown'},{'rowRelation':True},{'rowCause':1},{'rowCause':'unknown'},{'text':'synthetic-content'}))
+        variants.extend({key:value for key,value in valid.items() if key!=missing} for missing in valid)
+        for value in variants: self.assertFalse(self.m.valid_normalized_input_failure(value))
+
+    def test_paired_projection_is_frozen_and_base_contract_unchanged(self):
+        journal,bindings=self.journal(); journal.set_phase('EDIT_PENDING')
+        journal.acknowledge(8,submission=False,remaining=8)
+        detail={'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        error=InputProofError('INPUT_PROBE_REVOKED')
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure=detail)
+        expected={'context_command_failure':{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+            'commandBytesWritten':8,'enterBytesWritten':0},'normalized_input_failure':dict(detail)}
+        self.assertEqual(journal.project_fields(error,**bindings),expected)
+        self.assertEqual(journal.project(error,**bindings),expected['context_command_failure'])
+        detail['reason']='NO_MARKER'
+        projected=journal.project_fields(error,**bindings); projected['normalized_input_failure']['rowCause']='unknown'
+        projected['context_command_failure']['commandBytesWritten']=0
+        journal.set_phase('SUBMIT_PENDING')
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={'reason':'ANCHOR_CHANGED'})
+        self.assertEqual(journal.project_fields(error,**bindings),expected)
+
+    def test_detail_loss_does_not_destroy_valid_base_or_enrich_later(self):
+        for detail,check,error in (({},'NORMALIZED_ELIGIBILITY',InputProofError('INPUT_PROBE_REVOKED')),
+                ({'reason':'ELIGIBLE'},'NORMALIZED_ELIGIBILITY',InputProofError('INPUT_PROBE_REVOKED')),
+                ({'reason':'NO_MARKER'},'PREFIX_CELLS',InputProofError('INPUT_PROBE_REVOKED')),
+                ({'reason':'NO_MARKER'},'NORMALIZED_ELIGIBILITY',RuntimeError()),
+                ({'reason':'NO_MARKER'},'NORMALIZED_ELIGIBILITY',InputProofError('INPUT_PROBE_INELIGIBLE'))):
+            journal,bindings=self.journal()
+            journal.freeze(error,check,normalized_input_failure=detail)
+            fields=journal.project_fields(error,**bindings)
+            self.assertEqual(set(fields),{'context_command_failure'})
+            self.assertEqual(fields['context_command_failure']['check'],check)
+            journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={'reason':'NO_MARKER'})
+            self.assertEqual(journal.project_fields(error,**bindings),fields)
+
+    def test_paired_projection_rejects_foreign_closed_and_replaced_bindings(self):
+        journal,bindings=self.journal(); journal.bind_run(object())
+        error=InputProofError('INPUT_PROBE_REVOKED')
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={'reason':'ANCHOR_CHANGED'})
+        for key in bindings:
+            self.assertIsNone(journal.project_fields(error,**{**bindings,key:object()}))
+        other=InputProofError('INPUT_PROBE_REVOKED'); other._context_command_failure=error._context_command_failure
+        self.assertIsNone(journal.project_fields(other,**bindings))
+        foreign,foreign_bindings=self.journal()
+        self.assertIsNone(foreign.project_fields(error,**foreign_bindings))
+        original=error._context_command_failure; error._context_command_failure={}
+        self.assertIsNone(journal.project_fields(error,**bindings))
+        error._context_command_failure=original
+        journal.bind_run(object())
+        self.assertIsNone(journal.project_fields(error,**bindings))
+        journal.finish(); self.assertIsNone(journal.project_fields(error,**bindings))
+
+    def test_paired_projection_has_no_live_effects(self):
+        class State:
+            def check_cancelled(self): raise AssertionError('live validation')
+            def poll(self): raise AssertionError('native poll')
+            def snapshot(self): raise AssertionError('helper IPC')
+        bindings={name:object() for name in ('controller_owner','scope','transition_owner')}; bindings['state']=State()
+        journal=self.m._create_context_journal(**bindings); self.addCleanup(journal.finish)
+        error=InputProofError('INPUT_PROBE_REVOKED')
+        journal.freeze(error,'NORMALIZED_ELIGIBILITY',normalized_input_failure={'reason':'NO_MARKER'})
+        with mock.patch.object(time,'monotonic',side_effect=AssertionError('clock')):
+            fields=journal.project_fields(error,**bindings)
+        self.assertEqual(fields['normalized_input_failure'],{'reason':'NO_MARKER'})
+        self.assertEqual(str(error),'INPUT_PROBE_REVOKED')
+
     def test_serialized_shape_validation_never_accepts_extra_content(self):
         valid={'phase':'EDIT_PENDING','check':'PREFIX_CELLS','commandBytesWritten':8,'enterBytesWritten':0}
         self.assertTrue(self.m.valid_context_failure(valid))

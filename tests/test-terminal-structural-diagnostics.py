@@ -162,6 +162,46 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.assertEqual(len(self.collector.report()['records']),3)
         self.assertTrue(self.collector.report()['rejected'])
 
+    def test_normalized_sibling_requires_exact_failure_binding(self):
+        base={'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0}
+        detail={'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=base,normalizedInputFailure=detail)
+        self.assertEqual(len(self.collector.report()['records']),1)
+        for point,reason,fields in (
+                ('failure','INPUT_PROBE_REVOKED',{'normalizedInputFailure':detail}),
+                ('failure','RUNTIME_REJECTED',{'contextCommandFailure':base,'normalizedInputFailure':detail}),
+                ('context_sent','CHECKPOINT',{'contextCommandFailure':base,'normalizedInputFailure':detail}),
+                ('native_cleanup','CLEANUP_COMPLETED',{'contextCommandFailure':base,'normalizedInputFailure':detail}),
+                ('failure','INPUT_PROBE_REVOKED',{'contextCommandFailure':{**base,'check':'PREFIX_CELLS'},'normalizedInputFailure':detail})):
+            self.collector.add(point,reason,**fields)
+        self.assertEqual(len(self.collector.report()['records']),1)
+        self.assertTrue(self.collector.report()['rejected'])
+
+    def test_normalized_sibling_is_atomic_and_detached(self):
+        base={'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0}
+        detail={'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'}
+        self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=base,normalizedInputFailure=detail)
+        self.assertEqual(self.collector.report()['records'][0]['normalizedInputFailure'],detail)
+        report=self.collector.report(); report['records'][0]['normalizedInputFailure']['reason']='unknown'
+        detail['rowCause']='unknown'
+        self.assertEqual(self.collector.report()['records'][0]['normalizedInputFailure']['rowCause'],'UNRECOGNIZED_SHAPE')
+        for invalid in (None,{}, {'reason':'ELIGIBLE'}, {'reason':'NO_MARKER','rowCause':'MARKER_WIDTH'},
+                {'reason':'UNSUPPORTED_ROW','rowCause':'MARKER_WIDTH'}, {'reason':'NO_MARKER','text':'synthetic-content'}):
+            self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=base,normalizedInputFailure=invalid)
+        self.assertEqual(len(self.collector.report()['records']),1)
+        self.assertTrue(self.collector.report()['rejected'])
+        self.assertNotIn('synthetic-content',json.dumps(self.collector.report()))
+
+    def test_normalized_sibling_uses_actual_export_budget(self):
+        base={'phase':'COMMAND_ECHO_MATCHED','check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0}
+        detail={'reason':'UNSUPPORTED_ROW','rowRelation':'CURSOR_OUTSIDE_CAPTURE','rowCause':'UNSUPPORTED_WHITESPACE'}
+        for _ in range(100):
+            self.collector.add('failure','INPUT_PROBE_REVOKED',contextCommandFailure=base,normalizedInputFailure=detail)
+        report=self.collector.report()
+        self.assertGreater(len(report['records']),0); self.assertLessEqual(len(report['records']),16)
+        self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),3072)
+        self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
+
     def test_context_failure_budget_and_detached_report(self):
         valid={'phase':'COMMAND_ECHO_MATCHED','check':'NORMALIZED_ELIGIBILITY',
             'commandBytesWritten':8,'enterBytesWritten':0}
