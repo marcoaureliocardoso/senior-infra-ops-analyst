@@ -63,5 +63,7 @@ The proposed development-only
 [rejected edit-row diagnostic](../superpowers/specs/2026-10-15-p0-04b-rejected-edit-row-debug-design.md)
 would permit one bounded, sanitized rejected-row excerpt after verified disposal,
 under separate explicit opt-in and final-commit authorization. Its architectural
-direction is approved, but the written spec awaits review; it is not implemented
-or an extension of the existing raw-debug eligibility or production policy.
+direction and written spec are approved; its
+[implementation plan](../superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md)
+awaits review and execution-method selection. It is not implemented or an
+extension of the existing raw-debug eligibility or production policy.

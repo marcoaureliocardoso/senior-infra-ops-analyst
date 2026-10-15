@@ -1,8 +1,8 @@
 # P0-04B rejected edit-row development diagnostic
 
-Status: architectural direction operator-approved; written specification awaiting
-operator review. Not implemented. No implementation plan or native execution is
-authorized by approval of the direction.
+Status: architectural direction and written specification operator-approved.
+The implementation plan awaits operator review and execution-method selection.
+Not implemented. No native execution is authorized by specification approval.
 Source baseline: `19173557b54778fb944b8b764223b58738ee8688`.
 
 ## Intent and evidence
