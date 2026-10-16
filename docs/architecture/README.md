@@ -66,6 +66,7 @@ under separate explicit offline opt-in and final-commit execution authorization.
 Its sealed first-failure binding, memory-only transport and parent-only publication
 are described in ADR-010. The approved
 [implementation plan](../superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md)
-has completed its three implementation tasks; full-gate/review results are recorded
-separately in validation notes. It does not extend old raw-debug eligibility,
+has completed local implementation and verification. One review finding was fixed
+with TDD; corrected source 3d26c56 passed 212 covering tests and the complete gate.
+Exact evidence is separate in validation notes. It does not extend old raw-debug eligibility,
 change production policy or establish native/provider/browser acceptance.

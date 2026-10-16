@@ -4926,3 +4926,34 @@ without warnings or ResourceWarnings. Content and architecture checks are also
 run before the corrected candidate is committed. Its fresh complete gate remains
 pending at this checkpoint. The first gate/review apply to afb057e, not this
 author correction. There is no second independent review under the inline method.
+
+### Corrected immutable final package evidence
+
+Corrected candidate: `3d26c560b8c9cb04f4f8e5089c52eb6a3d478e90`. Its fresh complete
+`bash tests/validate-package.sh` exited 0 with `package validation passed`.
+Tracked tree and HEAD stayed unchanged through the observed result. Retained log:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-edit-row-3d26c56-package.log`.
+The opt-in 37-scenario production browser adapter skipped CAPABILITY_UNAVAILABLE.
+Three Python cases skipped: native-Windows MCP rejection on POSIX, confirmed-window
+CLI validation and Nori argument validation without Git Bash in WSL. PowerShell
+was unavailable, so `.ps1` syntax validation skipped. Schema and local CI workflow
+validation passed; this is not remote CI/Security or native/provider acceptance.
+No warnings or ResourceWarnings were observed in the covering or complete gate.
+
+The independent review remains on `afb057e`, with one Important issue addressed
+by the single author TDD fix pass and 212 covering tests plus the corrected full
+gate. No second independent review or native attempt was performed. The six
+rulings above are exhaustive; there are no deferred Minor findings.
+
+This result-only closeout changes documentation, not the tested source. Its later
+HEAD is distinct from the reviewed and corrected/gated candidates. Content and
+13 architecture tests, whitespace and a documentation-only diff are checked for
+the closeout. Root/component versions remain unchanged. Only this plan's owned
+ignored execution scratch is removed after its evidence/rulings are versioned;
+source commits and both external package logs remain. The branch/worktree stay.
+No real Claude/provider/browser execution, operator configuration/credential
+access, push, PR, merge, release or definitive TODO completion occurred in this
+implementation. Native text/skill-turn/resume and provider/browser acceptance,
+remote CI/Security and integration remain pending. The next native observation
+requires new final-commit authorization explicitly permitting the separate
+`--debug-context-edit` excerpt and a potentially persistent chat copy.

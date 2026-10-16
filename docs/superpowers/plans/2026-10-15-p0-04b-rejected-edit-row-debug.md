@@ -16,7 +16,7 @@ passive Node/xterm helper, controlled Python PTY peers and Debian WSL; no depend
 
 ## Global Constraints
 
-- Written spec and plan operator-approved; inline execution selected (2). Tasks 1-3 implemented; Task 4 verification/review is in progress. No new native execution has occurred.
+- Written spec and plan operator-approved; inline execution selected (2). Tasks 1-4 locally completed, including one review fix pass and corrected immutable full gate. No new native execution has occurred.
 - Planning baseline: `562ee10c620ec3fe6ec9b730bf3644c40dd6fe6d`. Last native commit: `19173557b54778fb944b8b764223b58738ee8688`; that one-shot grant is consumed.
 - Reuse the verified linked `p0-04b-browser-automation` worktree; preserve operator changes. Use command-local Windows Git safe.directory, not WSL Git.
 - New option `--debug-context-edit` is offline-only, off by default and mutually exclusive with `--debug-context`; no environment fallback or live/audit activation.
@@ -178,17 +178,17 @@ and `package validation passed`. Inspect and record every capability/platform sk
 
 **Interfaces:** Documentation describes implemented controls and evidence, not new authority.
 
-- [ ] Document the separate opt-in boundary, exact tuple, sealed provenance, 120-cell/4096-byte minimization, memory-only IPC, disposal-before-export, alternatives, residual disclosure risk and rollback in ADR-010/index.
-- [ ] Record actual RED/GREEN and command counts; update unreleased CHANGELOG without a manifest/version bump unless scope changed. Preserve 1917355 as consumed inconclusive evidence, not a successful acceptance test.
-- [ ] Run `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py` with the explicit prefix. Expected: content validation passed and unittest OK/exit 0. Check whitespace, links, <=300-character lines, test-only mounts/staging scope and unchanged production policy.
-- [ ] Commit the explicit documentation files and verify clean tracked tree. Capture an immutable implementation candidate.
-- [ ] Run complete `bash tests/validate-package.sh` on that candidate. Expected: exit 0 and package validation passed. Retain exact source hash, command/log, exit and all platform/capability skips. Local workflow checks are not remote CI/Security.
-- [ ] Obtain scoped independent review from this plan's recorded implementation baseline through the immutable candidate, plus unchanged interacting
+- [x] Document the separate opt-in boundary, exact tuple, sealed provenance, 120-cell/4096-byte minimization, memory-only IPC, disposal-before-export, alternatives, residual disclosure risk and rollback in ADR-010/index.
+- [x] Record actual RED/GREEN and command counts; update unreleased CHANGELOG without a manifest/version bump unless scope changed. Preserve 1917355 as consumed inconclusive evidence, not a successful acceptance test.
+- [x] Run `python3 tests/validate-content.py` and `python3 tests/test-architecture-docs.py` with the explicit prefix. Expected: content validation passed and unittest OK/exit 0. Check whitespace, links, <=300-character lines, test-only mounts/staging scope and unchanged production policy.
+- [x] Commit the explicit documentation files and verify clean tracked tree. Capture an immutable implementation candidate.
+- [x] Run complete `bash tests/validate-package.sh` on that candidate. Expected: exit 0 and package validation passed. Retain exact source hash, command/log, exit and all platform/capability skips. Local workflow checks are not remote CI/Security.
+- [x] Obtain scoped independent review from this plan's recorded implementation baseline through the immutable candidate, plus unchanged interacting
   callers, using the written spec, Review Focus and actual test evidence. This is the complete new refinement, not a fresh verdict on all inherited branch
   changes. Keep full-gate evidence separate from reviewer observations.
-- [ ] Resolve findings under the chosen execution method with author TDD; any source correction requires a new immutable candidate and fresh full gate. No native attempt is an automatic fix/verification step.
-- [ ] Close result-only documentation separately, distinguish final HEAD from tested/reviewed source, verify docs-only delta and rerun content/architecture checks. Record every execution ruling and residual cost.
-- [ ] Hand off commits, clean/dirty state, tests/review, residual disclosure risk and pending native/provider/browser/remote gates. Preserve branch/worktree; no push, PR, merge, release or definitive TODO completion.
+- [x] Resolve findings under the chosen execution method with author TDD; any source correction requires a new immutable candidate and fresh full gate. No native attempt is an automatic fix/verification step.
+- [x] Close result-only documentation separately, distinguish final HEAD from tested/reviewed source, verify docs-only delta and rerun content/architecture checks. Record every execution ruling and residual cost.
+- [x] Hand off commits, clean/dirty state, tests/review, residual disclosure risk and pending native/provider/browser/remote gates. Preserve branch/worktree; no push, PR, merge, release or definitive TODO completion.
 
 ## Self-review and execution handoff
 
@@ -206,6 +206,9 @@ The default and old-debug contracts, including first-inconclusive stop, stay fix
 
 The operator selected inline execution with one final fresh independent reviewer.
 Tasks 1-3 are committed at 30e5a20, 3c1af40 and 6426fbf with their full covering
-suites repeated at task completion. Task 4 records the immutable full gate and
-review separately in validation notes. The method does not authorize a native
-run or a persistent chat excerpt; the earlier 1917355 grant remains consumed.
+suites repeated at task completion. Task 4 records the reviewed afb057e candidate,
+one Important author TDD correction (212 covering tests) and corrected 3d26c56
+complete gate separately in validation notes. The result-only closeout preserves
+source and branch/worktree, with no integration. No deferred Minor remains.
+The method does not authorize a native run or a persistent chat excerpt;
+the earlier 1917355 grant remains consumed.

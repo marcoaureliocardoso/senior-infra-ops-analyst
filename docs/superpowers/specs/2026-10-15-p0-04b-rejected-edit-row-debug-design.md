@@ -1,8 +1,9 @@
 # P0-04B rejected edit-row development diagnostic
 
 Status: direction, specification and plan operator-approved; inline execution selected.
-Locally implemented with synthetic TDD. One scoped review found a publication-lifetime
-gap; the author correction and fresh immutable gate are recorded in validation notes.
+Locally implemented with synthetic TDD. One scoped review's publication-lifetime
+finding was corrected; 212 covering tests and the fresh complete gate on 3d26c56
+passed. Exact review/source evidence and remaining native gates are in validation notes.
 No native execution is authorized by specification approval or implementation.
 Source baseline: `19173557b54778fb944b8b764223b58738ee8688`.
 
