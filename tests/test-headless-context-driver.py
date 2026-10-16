@@ -80,6 +80,13 @@ class HeadlessContextDriverTests(unittest.TestCase):
         seen=self.root/'probe-input'; fake=self.root/'probe-ui.py'
         menu_ready=self.root/'menu-ready'; menu_seen=self.root/'menu-seen'; menu_erased=self.root/'menu-erased'
         submit_ready=self.root/'submit-ready'; menu_request=self.root/'menu-request'
+        loss_ready=self.root/'loss-ready'; loss_observed=self.root/'loss-observed'
+        exit_menu_ready=self.root/'exit-menu-ready'
+        completion=mode.startswith('completion-')
+        menu_row=40 if mode=='completion-below' else 35
+        completion_text='❯ /context  Synthetic completion A'
+        if mode in ('completion-pre-enter-grid','completion-post-enter-new-grid'):
+            completion_text='❯ /context  Context Usage Free space: 99%'
         fake.write_text('import os,time,tty\nfrom pathlib import Path\n'
             'tty.setraw(0)\n'
             'os.write(1,"\\x1b[?1049h\\x1b[38;1H❯\\u00a0".encode())\n'
@@ -120,16 +127,33 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 'while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
                 'os.write(1,'+repr(('\x1b['+('40' if mode=='normalized-suggestion-below' else '35')+';1H'
                     + ('' if mode=='normalized-plain-description' else '❯ ')
-                    + '/context   Visualize current context usage as a colored grid\x1b[38;11H').encode())+')\n'
+                    + '/context Synthetic context usage detail\x1b[38;11H').encode())+')\n'
                 'Path('+repr(str(menu_ready))+').touch()\n' if mode.startswith('normalized-') else '') +
             ('while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
                 'os.write(1,'+repr(('\x1b['+('40' if mode=='edit-suggestion-below' else '35')+';1H'
                     + ('' if mode=='edit-plain-description' else '❯ ')
-                    + '/context   Visualize current context usage as a colored grid\x1b[38;11H').encode())+')\n'
+                    + '/context Synthetic context usage detail\x1b[38;11H').encode())+')\n'
                 'Path('+repr(str(menu_ready))+').touch()\n' if mode.startswith('edit-') else '') +
+            ('while not Path('+repr(str(menu_request))+').exists(): time.sleep(.005)\n'
+                + ('os.write(1,b"\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%")\n'
+                    if mode in ('completion-pre-enter-grid','completion-post-enter-new-grid') else '')
+                + 'os.write(1,'+repr(('\x1b['+str(menu_row)+';1H'+completion_text+'\x1b[38;11H').encode())+')\n'
+                'Path('+repr(str(menu_ready))+').touch()\n' if completion else '') +
+            ('while not Path('+repr(str(menu_seen))+').exists(): time.sleep(.005)\n'
+                'os.write(1,b"\\x1b[35;1H\\x1b[2K\\x1b[38;11H")\n'
+                'Path('+repr(str(loss_ready))+').touch()\n'
+                'while not Path('+repr(str(loss_observed))+').exists(): time.sleep(.005)\n'
+                'os.write(1,'+repr(('\x1b[35;1H'+completion_text+'\x1b[38;11H').encode())+')\n'
+                'Path('+repr(str(menu_erased))+').touch()\n' if mode=='completion-loss-restore' else '') +
             'if read(1)!=b"\\r": raise SystemExit(1)\n'
+            + ('os.write(1,"\\x1b[2J\\x1b[38;1H❯\\u00a0".encode())\n'
+                'read(1)\nraise SystemExit(1)\n' if mode=='completion-accept-only' else '')
             + ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\ntime.sleep(.2)\n' if mode=='pre-menu' else '') +
-            'os.write(1,"\\x1b[2J\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%\\x1b[6;1H❯ /context\\x1b[38;1H❯\\u00a0".encode())\n'
+            'os.write(1,'+repr(('\x1b[2J\x1b[HContext Usage\r\nFree space: '+
+                ('80' if mode=='completion-post-enter-new-grid' else '81')+
+                '%\r\nAutocompact buffer: 3%\x1b[6;1H❯ /context\x1b[38;1H❯\u00a0').encode())+')\n'
+            + ('os.write(1,'+repr(('\x1b[35;1H'+completion_text+'\x1b[38;3H').encode())+')\n'
+                if mode=='completion-persists-after-enter' else '')
             + ('os.write(1,b\'Try "fix tests"\\x1b[38;3H\')\n' if mode=='suggestion' else '') +
             ('os.write(1,"\\x1b[12;1H❯ /exit\\x1b[38;3H".encode())\n' if mode=='unsupported-control' else '') +
             ('os.write(1,"\\x1b[12;1H❯ /context\\x1b[38;3H".encode())\n' if mode=='duplicate-history' else '') +
@@ -145,6 +169,10 @@ class HeadlessContextDriverTests(unittest.TestCase):
             + ('os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n' if mode!='uncleared' else '') +
             ('os.write(1,b"\\x1b[1;1HYes, I trust this folder\\x1b[38;3H")\n' if mode=='postclear-menu' else '') +
             ('if read(2)!=b"/e": raise SystemExit(1)\n'
+                'os.write(1,"\\x1b[35;1H❯ /exit  Synthetic exit fixture\\x1b[38;3H".encode())\n'
+                'Path('+repr(str(exit_menu_ready))+').touch()\n'
+                'if read(4)!=b"xit\\r": raise SystemExit(1)\n' if mode=='completion-exit-menu' else
+             'if read(2)!=b"/e": raise SystemExit(1)\n'
                 + ('os.write(1,b"\\x1b[6;1H\\x1b[2K\\x1b[38;3H")\n' if mode=='partial-exit-history-restore' else
                     'os.write(1,"\\x1b[12;1H❯ unknown\\x1b[38;3H".encode())\n' if mode=='partial-exit-unowned-row-restore' else
                     'os.write(1,"\\x1b[38;1H❯ unknown".encode())\n') +
@@ -237,6 +265,9 @@ class HeadlessContextDriverTests(unittest.TestCase):
             return original_projection(journal,error,**bindings)
         def observed_snapshot():
             value=original_snapshot()
+            if mode=='completion-loss-restore' and loss_ready.exists() and not loss_observed.exists() and not any(cell.text=='❯' for cell in value.rows[34]):
+                loss_observed.touch(); until=time.monotonic()+1
+                while not menu_erased.exists() and time.monotonic()<until: time.sleep(.005)
             if mode in ('partial-exit-menu','late-writable-menu') and 'Yes, I trust this folder' in '\n'.join(
                     ''.join(cell.text for cell in row) for row in value.rows):
                 menu_seen.touch()
@@ -270,9 +301,10 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 count=original(fd,payload[:4])
                 if mode=='partial-command-fault': failed_fd=fd
                 return count
-            if mode.startswith('partial-exit-') and os.isatty(fd) and bytes(payload)==b'/exit\r':
+            if (mode.startswith('partial-exit-') or mode=='completion-exit-menu') and os.isatty(fd) and bytes(payload)==b'/exit\r':
                 count=original(fd,payload[:2]); until=time.monotonic()+1
-                while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
+                ready=exit_menu_ready if mode=='completion-exit-menu' else menu_ready
+                while not ready.exists() and time.monotonic()<until: time.sleep(.005)
                 return count
             if fault and os.isatty(fd) and len(payload)==16 and all(char in b'0123456789abcdef' for char in payload):
                 failed_fd=fd; return original(fd,payload[:8])
@@ -289,9 +321,12 @@ class HeadlessContextDriverTests(unittest.TestCase):
             nonlocal context_wait_fault
             if writes and command_accepted and mode in ('cancel-before-enter','deadline-before-enter'):
                 context_wait_fault=True
-            if reads and command_accepted and mode.startswith('edit-') and not menu_request.exists():
+            if reads and command_accepted and (mode.startswith('edit-') or completion) and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
+            if mode=='completion-loss-restore' and writes and menu_ready.exists() and not menu_seen.exists():
+                menu_seen.touch(); until=time.monotonic()+1
+                while not loss_ready.exists() and time.monotonic()<until: time.sleep(.005)
             if (mode in ('late-writable-menu','pre-enter-numeric-grid') or mode.startswith('normalized-')) and writes and submit_ready.exists() and not menu_request.exists():
                 menu_request.touch(); until=time.monotonic()+1
                 while not menu_ready.exists() and time.monotonic()<until: time.sleep(.005)
@@ -320,13 +355,14 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 **({'context_debug':debug_capture} if debug else {}),
                 **({'context_edit_debug':edit_capture} if edit_debug else {}))
         data=seen.read_bytes() if seen.exists() else b''
-        success=mode in ('success','partial-command-write','blocking-command-write','normalized-plain-description','edit-plain-description')
+        success=mode in ('success','partial-command-write','blocking-command-write','normalized-plain-description','edit-plain-description',
+            'completion-above','completion-below','completion-post-enter-new-grid')
         self.assertEqual(result,0 if success and not fault else 2)
         early=('missing-command-echo','wrong-command-echo','menu-before-submit','auth-before-submit',
             'autocomplete-marker','late-writable-menu','prefix-padding-repaint','diagnostic-loss',
             'post-command-write-failure','cancel-before-enter','deadline-before-enter',
             'normalized-suggestion-above','normalized-suggestion-below','normalized-observer-loss',
-            'edit-suggestion-above','edit-suggestion-below')
+            'edit-suggestion-above','edit-suggestion-below','completion-loss-restore')
         if mode in ('baseline-history','invalid-command-write-count'): self.assertEqual(data,b'')
         elif mode=='partial-command-fault': self.assertEqual(data,b'/con')
         elif mode in early: self.assertEqual(data,b'/context')
@@ -340,7 +376,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             if not success and not report['rejected']: self.assertEqual(sum(row['point']=='failure' for row in report['records']),1)
         else:
             self.assertFalse(any(row['point'] in ('failure','native_cleanup','helper_cleanup') for row in report['records']))
-        if collector_error is not None or mode.startswith(('normalized-','edit-')):
+        if collector_error is not None or mode.startswith(('normalized-','edit-','completion-')):
             self.assertTrue(captures); self.assertTrue(all(stream.closed for stream in captures))
             self.assertEqual(len(terminal_fds),2)
             for descriptor in terminal_fds:
@@ -348,12 +384,13 @@ class HeadlessContextDriverTests(unittest.TestCase):
                 self.assertEqual(caught.exception.errno,errno.EBADF)
             self.assertEqual(len(children),1); self.assertIsNotNone(children[0].poll())
             self.assertEqual(len(commands),1); self.assertEqual(commands[0].phase,'REVOKED')
-            if mode not in early:
+            if mode not in early+('completion-accept-only','completion-pre-enter-grid','completion-persists-after-enter'):
                 self.assertEqual(len(probes),1); self.assertEqual(probes[0].phase,'REVOKED')
             else: self.assertEqual(len(probes),0)
         if mode in ('baseline-history','partial-command-fault','invalid-command-write-count') or mode in early: pass
         elif mode=='post-enter-live-loss': self.assertEqual(data,b'/context\r')
-        elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid'):
+        elif mode in ('suggestion','pre-menu','unsupported-control','duplicate-history','different-rejected-row-debug','pre-enter-numeric-grid',
+                'completion-accept-only','completion-pre-enter-grid','completion-persists-after-enter'):
             self.assertEqual(data,b'/context\r')
         elif fault:
             self.assertLess(len(data),25); self.assertNotIn(b'\x15',data); self.assertNotIn(b'/exit',data[9:])
@@ -366,10 +403,44 @@ class HeadlessContextDriverTests(unittest.TestCase):
             elif mode=='postclear-menu': self.assertEqual(data[25:],b'\x15')
             elif mode=='expired-before-proof': self.assertEqual(data[25:],b'\x15')
             elif mode.startswith('partial-exit-'): self.assertEqual(data[25:],b'\x15/e')
+            elif mode=='completion-exit-menu': self.assertEqual(data[25:],b'\x15/e')
         if debug: self.debug_capture=debug_capture
         return report
 
     def test_pinned_input_probe_echo_clear_and_natural_exit(self): self.run_pinned_probe()
+
+    def test_correlated_completion_selected_driver_success(self):
+        import shutil
+        for mode in ('completion-above','completion-below'):
+            self.temp.cleanup(); self.setUp()
+            report=self.run_pinned_probe(mode,edit_debug=True)
+            self.assertIn('context_numeric',[row['point'] for row in report['records']])
+            self.assertNotIn('Synthetic completion',json.dumps(report))
+            shutil.rmtree(self.root)
+            self.assertEqual(self.edit_debug_capture.pending_report(),{'status':'NO_CAPTURE'})
+
+    def test_correlated_completion_only_accepts_once(self):
+        report=self.run_pinned_probe('completion-accept-only')
+        self.assertNotIn('context_numeric',[row['point'] for row in report['records']])
+
+    def test_correlated_completion_writable_loss_and_restore(self):
+        report=self.run_pinned_probe('completion-loss-restore')
+        self.assertTrue((self.root/'loss-observed').exists()); self.assertTrue((self.root/'menu-erased').exists())
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['contextCommandFailure'],{'phase':'SUBMIT_PENDING','check':'NORMALIZED_ELIGIBILITY',
+            'commandBytesWritten':8,'enterBytesWritten':0})
+        self.assertNotIn('normalizedInputFailure',failure)
+
+    def test_correlated_completion_pre_enter_numeric_not_proof(self):
+        for mode in ('completion-pre-enter-grid','completion-post-enter-new-grid'):
+            self.temp.cleanup(); self.setUp()
+            report=self.run_pinned_probe(mode)
+            self.assertEqual('input_probe_started' in [row['point'] for row in report['records']],mode=='completion-post-enter-new-grid')
+
+    def test_correlated_completion_no_post_enter_or_exit_transfer(self):
+        for mode in ('completion-persists-after-enter','completion-exit-menu'):
+            self.temp.cleanup(); self.setUp(); self.run_pinned_probe(mode)
+            if mode=='completion-exit-menu': self.assertTrue((self.root/'exit-menu-ready').exists())
     def run_owned_echo_case(self,mode='success'):
         report=self.run_pinned_probe(mode)
         return ((self.root/'probe-input').read_bytes(),
@@ -476,7 +547,7 @@ class HeadlessContextDriverTests(unittest.TestCase):
             shutil.rmtree(self.root)
             pending=self.edit_debug_capture.pending_report()
             self.assertEqual(pending,{'status':'PREPARED','excerpt':{'rowRelation':'OTHER_CAPTURED_ROW',
-                'text':'❯ /context   Visualize current context usage as a colored grid'}})
+                'text':'❯ /context Synthetic context usage detail'}})
             self.assertNotIn('excerpt',self.edit_debug_capture.pending_report())
             self.root.mkdir(mode=0o700)
         self.run_pinned_probe('edit-plain-description',edit_debug=True)

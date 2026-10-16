@@ -90,6 +90,165 @@ class ContextEchoTests(unittest.TestCase):
         self.assertNotIn('/context',repr(receipt))
         with self.assertRaises(AttributeError): receipt.history_row=0
 
+    def test_correlated_completion_full_echo_above_below(self):
+        for index,description in ((8,'Synthetic A'),(39,'Δelta fixture')):
+            self.fresh_scope(); command,_,_=self.diagnostic_edit()
+            current=frame('❯\u00a0/context',10,history=((index,'❯ /context  '+description),))
+            original=current.rows
+            with mock.patch.object(self.policy,'_empty_input_assessment',wraps=self.policy._empty_input_assessment) as assess:
+                self.assertEqual(command.observe(current,2),'COMMAND_ECHO_MATCHED')
+            self.assertEqual(assess.call_count,1)
+            self.assertEqual(assess.call_args.kwargs,{'excluded_row':index})
+            self.assertIs(current.rows,original)
+            self.assertEqual(command.submit_bytes(current,2),b'\r')
+            self.assertEqual(command.observe(replace(current),3),'SUBMIT_PENDING')
+            self.assertIsNone(self.policy.empty_input_anchor(current))
+
+    def test_correlated_completion_origin_and_baseline(self):
+        self.assertTrue(hasattr(self.m,'_correlated_menu_row'),'owned menu correlation missing')
+        current=frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),))
+        with self.assertRaises(challenge.InputProofError): self.begin(frame(history=((8,'❯ /context  Synthetic A'),)))
+        for field in ('_menu_origin','scope','state','native','transition','run','deadline','anchor','row',
+                'baseline-copy','origin-copy','selection-copy','selection-frame-copy'):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            record=self.m._COMMANDS[command]
+            # A copied dict must not alter the actual owner's phase or journal.
+            with self.assertRaises(challenge.InputProofError) as copied:
+                self.m._correlated_menu_row(dict(record),current)
+            self.assertEqual(copied.exception.reason,'INPUT_PROBE_SCOPE_REJECTED')
+            self.assertEqual(command.phase,'EDIT_PENDING')
+            self.assertIsNone(journal.project_fields(copied.exception,**bindings))
+            self.assertEqual(command.observe(current,2),'COMMAND_ECHO_MATCHED')
+            if field=='_menu_origin': record.pop(field)
+            elif field=='baseline-copy':
+                value=list(record['_menu_origin']); value[1]=replace(value[1]); record['_menu_origin']=tuple(value)
+            elif field=='origin-copy': record['_menu_origin']=tuple(list(record['_menu_origin']))
+            elif field=='selection-copy': record['_menu_selection']=tuple(list(record['_menu_selection']))
+            elif field=='selection-frame-copy':
+                value=list(record['_menu_selection']); value[2]=replace(value[2]); record['_menu_selection']=tuple(value)
+            elif field=='deadline': record[field]-=1
+            elif field=='anchor': record[field]=replace(record[field])
+            elif field=='row': record[field]=tuple(list(record[field]))
+            elif field=='native': record[field]=NativeFixture()
+            else: record[field]=object()
+            with self.assertRaises(challenge.InputProofError):
+                command.submit_bytes(current,3)
+            self.assertEqual(command.phase,'REVOKED')
+            self.assertNotIn(command,self.m._MENU_BINDINGS)
+            self.assertNotIn('_menu_origin',record); self.assertNotIn('_menu_selection',record)
+        self.fresh_scope(); first,_,_=self.diagnostic_edit(); first.observe(current,2)
+        first_record=self.m._COMMANDS[first]
+        self.fresh_scope(); second,_,_=self.diagnostic_edit(); second_record=self.m._COMMANDS[second]
+        second_record['_menu_origin']=first_record['_menu_origin']
+        second_record['_menu_selection']=first_record['_menu_selection']
+        with self.assertRaises(challenge.InputProofError): second.observe(current,2)
+        self.assertEqual(first.phase,'COMMAND_ECHO_MATCHED')
+        self.assertIn(first,self.m._MENU_BINDINGS)
+        self.assertNotIn(second,self.m._MENU_BINDINGS)
+
+    def test_correlated_completion_partial_or_wrong_echo(self):
+        menu=((8,'❯ /context  Synthetic A'),)
+        cases=[(written,frame('❯\u00a0'+'/context'[:echoed],2+echoed,history=menu))
+            for written,echoed in ((0,0),(4,4),(7,7),(4,8),(8,7))]
+        cases += [(8,current) for current in (
+            frame('❯ /context',10,history=menu),frame('❯\u00a0/context X',10,history=menu),
+            frame('❯\u00a0/contexX',10,history=menu),frame('❯\u00a0/context',9,history=menu),
+            frame('❯\u00a0/context',10,history=menu,active='normal'),
+            frame('❯\u00a0/context',10,history=menu,viewport=1),
+            frame('❯\u00a0/context',10,history=((8,'❯ /exit  Synthetic A'),)))]
+        for written,current in cases:
+            self.fresh_scope(); command=self.begin(); command.type_bytes(self.empty,1)
+            command.check_edit(self.empty,1,written)
+            with self.assertRaises(challenge.InputProofError): command.observe(current,2)
+            self.assertEqual(command.phase,'REVOKED')
+        self.fresh_scope(); command,_,_=self.diagnostic_edit()
+        with self.assertRaises(challenge.InputProofError): command.observe(frame('❯\u00a0/context',10,history=menu),1)
+
+    def test_correlated_completion_loss_is_irreversible(self):
+        current=frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),))
+        variants=[self.command_echo,
+            frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic B'),)),
+            frame('❯\u00a0/context',10,history=((9,'❯ /context  Synthetic A'),)),
+            frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),(9,'❯ /context  Synthetic B'))),
+            frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),(9,'Press Esc to close'))),
+            replace(current,active='normal'),replace(current,viewportY=1)]
+        for changed in variants+['expiry','cancel','helper','native']:
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            command.observe(current,2); deadline=self.m._COMMANDS[command]['deadline']
+            patch=(mock.patch.object(self.m,'_now',return_value=deadline) if changed=='expiry' else
+                mock.patch.object(self.state,'check_cancelled',side_effect=TerminalCancelled()) if changed=='cancel' else
+                mock.patch.object(self.native,'poll',return_value=0) if changed=='native' else mock.patch.object(self.m,'_now',wraps=self.m._now))
+            if changed=='helper': self.state.close()
+            with patch:
+                with self.assertRaises((challenge.InputProofError,TerminalCancelled)):
+                    command.observe(changed if type(changed) is TerminalSnapshot else current,3)
+            with self.assertRaises(challenge.InputProofError): command.submit_bytes(current,4)
+            record=self.m._COMMANDS[command]
+            self.assertEqual(record['deadline'],deadline); self.assertNotIn(command,self.m._MENU_BINDINGS)
+            self.assertNotIn('_menu_origin',record); self.assertNotIn('_menu_selection',record)
+
+    def test_correlated_completion_other_rejection_provenance(self):
+        for enabled in (False,True,'lost'):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit(); record=self.m._COMMANDS[command]
+            observer=None
+            if enabled:
+                observer=self.m._create_edit_row_observer(**bindings,journal=journal)
+                self.addCleanup(observer.finish); observer.bind_command(record); record['edit_observer']=observer
+            current=frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),(12,'❯ unrelated fixture')))
+            patch=mock.patch.object(self.m.EditRowObserver,'freeze',side_effect=RuntimeError('observer lost')) if enabled=='lost' else mock.patch.object(self.m,'_now',wraps=self.m._now)
+            with patch, mock.patch.object(self.policy,'_empty_input_assessment',wraps=self.policy._empty_input_assessment) as assess:
+                with self.assertRaises(challenge.InputProofError) as caught: command.observe(current,2)
+            self.assertEqual(assess.call_count,1); self.assertEqual(assess.call_args.kwargs,{'excluded_row':8})
+            fields=journal.project_fields(caught.exception,**bindings)
+            self.assertEqual(fields['context_command_failure'],{'phase':'EDIT_PENDING','check':'NORMALIZED_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':0})
+            self.assertEqual(fields['normalized_input_failure'],{'reason':'UNSUPPORTED_ROW','rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE'})
+            if enabled is True:
+                projection=observer.project(caught.exception,**bindings,journal=journal,snapshot=current)
+                self.assertIs(projection[0],current.rows[12])
+            elif enabled=='lost': self.assertIsNone(observer.project(caught.exception,**bindings,journal=journal,snapshot=current))
+            self.assertNotIn(command,self.m._MENU_BINDINGS)
+
+    def test_correlated_completion_retired_after_enter(self):
+        current=frame('❯\u00a0/context',10,history=((8,'❯ /context  Synthetic A'),))
+        for action in ('enter','invalidate','bad-ack'):
+            self.fresh_scope(); command,_,_=self.diagnostic_edit(); command.observe(current,2)
+            command.submit_bytes(current,2); record=self.m._COMMANDS[command]
+            self.assertIsNotNone(record['_menu_selection'])
+            if action=='enter':
+                command.submission_written(1)
+                with self.assertRaises(challenge.InputProofError):
+                    command.bind_history(frame(history=((8,'❯ /context  Synthetic A'),),numeric=True),3)
+            elif action=='invalidate': command.invalidate('INPUT_PROBE_REVOKED')
+            else:
+                with self.assertRaises(challenge.InputProofError): command.submission_written(0)
+            self.assertNotIn(command,self.m._MENU_BINDINGS)
+            self.assertNotIn('_menu_origin',record); self.assertNotIn('_menu_selection',record)
+
+    def test_correlated_completion_pre_enter_numeric_not_proof(self):
+        for changed_grid in (False,True):
+            self.fresh_scope(); self.empty=frame(numeric=True)
+            command,_,_=self.diagnostic_edit()
+            menu=frame('❯\u00a0/context',10,numeric=True,
+                history=((8,'❯ /context  Context Usage Free space: 99%'),))
+            command.observe(menu,2)
+            before=dict(vars(self.policy)); raw=self.policy._context_signature(menu)
+            projected=self.m._preenter_context_signature(self.m._COMMANDS[command],menu)
+            self.assertEqual(projected,('Context Usage','Free space: 81%','Autocompact buffer: 3%'))
+            self.assertEqual(len(raw),4); self.assertEqual(vars(self.policy),before)
+            command.submit_bytes(menu,2); command.observe(replace(menu),3)
+            self.assertEqual(self.m._COMMANDS[command]['submit_frame'],3)
+            self.assertEqual(self.m._COMMANDS[command]['submit_signature'],projected)
+            self.assertEqual(self.policy._context_barrier,raw)
+            command.submission_written(1)
+            post=frame(numeric=True)
+            if changed_grid:
+                rows=list(post.rows); text='Free space: 80%'
+                rows[1]=tuple([TerminalCell(c,1) for c in text]+[TerminalCell('',1)]*(120-len(text)))
+                post=replace(post,rows=tuple(rows))
+                self.assertIsNone(command.bind_history(post,4))
+            else:
+                with self.assertRaises(challenge.InputProofError): command.bind_history(post,4)
+
     def test_coordinates_are_observed_not_pinned(self):
         self.empty=frame(y=30); self.command_echo=frame('❯\u00a0/context',10,30)
         self.numeric_history=frame(y=30,history=((8,'❯ /context'),),numeric=True)
@@ -411,7 +570,7 @@ class ContextEchoTests(unittest.TestCase):
         for row in (34,39):
             self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
             snapshot=frame('❯\u00a0/context',10,
-                history=((row,'❯ /context   Visualize current context usage as a colored grid'),))
+                history=((row,'❯ /context Synthetic context usage detail'),))
             self.policy.mark_transition(self.empty); self.policy.authentication(snapshot)
             assessed=[]; original=self.policy.empty_input_assessment
             def assess(value):

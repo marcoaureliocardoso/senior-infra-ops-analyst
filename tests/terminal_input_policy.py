@@ -125,9 +125,13 @@ class TerminalInputPolicy:
         return (snapshot.active, row) if row is not None else None
 
     def _context_signature(self, snapshot):
-        return tuple(self._row_text(row) for row in snapshot.rows
+        return self._context_signature_rows(snapshot.rows)
+
+    @staticmethod
+    def _context_signature_rows(rows: tuple[tuple[TerminalCell, ...], ...]) -> tuple[str, ...]:
+        return tuple(TerminalInputPolicy._row_text(row) for row in rows
             if re.search(r'Context Usage|Free space|(?:Autocompact|Compact) buffer',
-                self._row_text(row), re.IGNORECASE))
+                TerminalInputPolicy._row_text(row), re.IGNORECASE))
 
     def mark_transition(self, snapshot: TerminalSnapshot) -> None:
         self._input_last = self._profile(snapshot)

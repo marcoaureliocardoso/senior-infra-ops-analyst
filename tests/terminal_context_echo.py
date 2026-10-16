@@ -15,6 +15,7 @@ _RECEIPTS=weakref.WeakKeyDictionary()
 _OBSERVATIONS=weakref.WeakKeyDictionary()
 _USED_SCOPES=weakref.WeakSet()
 _EDIT_ROWS=weakref.WeakKeyDictionary()
+_MENU_BINDINGS=weakref.WeakKeyDictionary()
 _BODY='/context'
 
 
@@ -60,8 +61,62 @@ def _fail(record,reason,check=None,*,normalized_input_failure=None,edit_snapshot
         except Exception:
             try: observer.finish()
             except Exception: pass
-    if record is not None: record['phase']='REVOKED'
+    if record is not None:
+        record['phase']='REVOKED'
+        _release_command_menu(record)
     raise error
+
+
+def _release_command_menu(record: dict) -> None:
+    owner=next((key for key,value in _COMMANDS.items() if value is record),None)
+    if owner is None: return
+    _MENU_BINDINGS.pop(owner,None)
+    record.pop('_menu_origin',None); record.pop('_menu_selection',None)
+
+
+def _correlated_menu_row(record: dict,snapshot: TerminalSnapshot) -> int | None:
+    """A shape is usable only under this original live pre-Enter command."""
+    owner=next((key for key,value in _COMMANDS.items() if value is record),None)
+    if owner is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
+    stored=_MENU_BINDINGS.get(owner)
+    origin=record.get('_menu_origin'); selection=record.get('_menu_selection')
+    if (stored is None or origin is not stored[0] or selection is not stored[1]
+            or type(origin) is not tuple or len(origin)!=10 or origin[0]() is not owner):
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    _,baseline,scope,state,native,transition,run,deadline,anchor,baseline_frame=origin
+    if (any(record.get(key) is not value for key,value in (
+                ('scope',scope),('state',state),('native',native),('transition',transition),('run',run),('anchor',anchor)))
+            or record.get('deadline')!=deadline or record.get('row') is not baseline.rows[anchor.row]):
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    eligible=(record['phase'] in ('EDIT_PENDING','COMMAND_ECHO_MATCHED','SUBMIT_PENDING')
+        and record['written']==8 and snapshot.cursorX-anchor.cursorX==8
+        and record['frame']>record['write_frame'] and record['frame']>baseline_frame)
+    if not eligible:
+        if selection is not None: _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+        return None
+    candidates=[index for index,row in enumerate(snapshot.rows)
+        if index!=anchor.row and record['policy']._context_completion_row(row)]
+    if selection is None:
+        if len(candidates)!=1: return None
+        index=candidates[0]
+        # The original strict baseline is the only source of baseline evidence.
+        if any('❯' in cell.text for cell in baseline.rows[index]):
+            _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+        selection=(index,snapshot.rows[index],snapshot,record['frame'])
+        record['_menu_selection']=selection; _MENU_BINDINGS[owner]=(origin,selection)
+    index,row,first,first_frame=selection
+    if (candidates!=[index] or snapshot.rows[index]!=row or first.rows[index] is not row
+            or record['frame']<first_frame
+            or (snapshot.active,snapshot.baseY,snapshot.viewportY)!=(first.active,first.baseY,first.viewportY)):
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    return index
+
+
+def _preenter_context_signature(record: dict,snapshot: TerminalSnapshot) -> tuple[str, ...]:
+    # Only called after the same snapshot passed _prefix; no acceptance or IO.
+    index=_correlated_menu_row(record,snapshot)
+    rows=tuple(row for number,row in enumerate(snapshot.rows) if number!=index)
+    return record['policy']._context_signature_rows(rows)
 
 
 class _Sealed:
@@ -163,7 +218,7 @@ def _live(record,frame=None,snapshot=None):
         if record['native'].poll() is not None: _fail(record,'INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
     except BaseException as error:
         _scope_rejection(record,error)
-        record['phase']='REVOKED'; raise
+        record['phase']='REVOKED'; _release_command_menu(record); raise
     if frame is not None:
         if type(frame) is not int or not record['frame']<=frame<=MAX_CAPTURE:
             _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
@@ -198,10 +253,13 @@ def _prefix(record,snapshot,written):
         _fail(record,'INPUT_PROBE_REVOKED','COMMAND_CELLS')
     if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0') for cell in row[anchor.cursorX+count:]):
         _fail(record,'INPUT_PROBE_REVOKED','TRAILING_CELLS')
+    excluded=_correlated_menu_row(record,snapshot)
     rows=list(snapshot.rows); rows[anchor.row]=record['row']
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
     rejected=None
-    if record.get('edit_observer') is not None:
+    if excluded is not None:
+        assessment,rejected=record['policy']._empty_input_assessment(normalized,excluded_row=excluded)
+    elif record.get('edit_observer') is not None:
         assessment,rejected=record['policy']._empty_input_assessment(normalized)
     else: assessment=record['policy'].empty_input_assessment(normalized)
     if assessment.anchor!=anchor:
@@ -242,7 +300,8 @@ class OwnedContextCommand(_Sealed):
 
     def invalidate(self,reason):
         record=_COMMANDS.get(self)
-        if record is not None: record['phase']='REVOKED'
+        if record is not None:
+            record['phase']='REVOKED'; _release_command_menu(record)
 
     def type_bytes(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
@@ -273,7 +332,7 @@ class OwnedContextCommand(_Sealed):
             # Every guarded observation is still pre-Enter until its actual write acknowledgement.
             # Keep the last numeric/frame boundary, never a post-Enter redraw.
             record['policy'].mark_transition(snapshot)
-            record['submit_signature']=record['policy']._context_signature(snapshot)
+            record['submit_signature']=_preenter_context_signature(record,snapshot)
             record['submit_frame']=frame
         elif record['phase'] not in ('CONTEXT_PENDING','RECEIPT_READY'):
             _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
@@ -285,7 +344,7 @@ class OwnedContextCommand(_Sealed):
         if _prefix(record,snapshot,record['written'])!=len(_BODY):
             _fail(record,'INPUT_PROBE_STATE_REJECTED','INCOMPLETE_ECHO')
         record['policy'].mark_transition(snapshot)
-        record['submit_signature']=record['policy']._context_signature(snapshot)
+        record['submit_signature']=_preenter_context_signature(record,snapshot)
         _phase(record,'SUBMIT_PENDING'); record['submit_frame']=frame
         return b'\r'
 
@@ -294,6 +353,7 @@ class OwnedContextCommand(_Sealed):
         if record['phase']!='SUBMIT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         if type(count) is not int or count!=1: _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
         _phase(record,'CONTEXT_PENDING')
+        _release_command_menu(record)
 
     def bind_history(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
@@ -345,6 +405,10 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
         'policy':policy,'run':run,'deadline':deadline,'time':_now(),'frame':frame,'phase':'ELIGIBLE',
         'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0,
         'journal':_diagnostic_journal}
+    command_record=_COMMANDS[value]
+    origin=(weakref.ref(value),baseline,scope,state,native_owner,transition_owner,run,deadline,assessment.anchor,frame)
+    command_record['_menu_origin']=origin; command_record['_menu_selection']=None
+    _MENU_BINDINGS[value]=(origin,None)
     if type(_edit_row_observer) is EditRowObserver:
         try:
             _edit_row_observer.bind_command(_COMMANDS[value])
