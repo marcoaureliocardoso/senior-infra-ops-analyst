@@ -1,8 +1,9 @@
 # P0-04B correlated command-menu observation
 
-Status: architectural direction and written specification operator-approved.
-The implementation plan awaits operator review and execution-method selection.
-Not implemented; no new native execution is authorized by specification approval.
+Status: specification and implementation plan operator-approved; inline execution
+selected. Locally implemented with 281 covering tests passed on source 99c9c60.
+Immutable full gate and scoped independent review pending at this checkpoint.
+No new native execution is authorized by specification or implementation approval.
 Source baseline: `e76cf95b0476c89ad3f8de11c239bb2be52d73b7`.
 
 ## Intent and observed evidence
@@ -297,5 +298,6 @@ completion follows from this specification.
 
 The operator approved this written specification. The
 [implementation plan](../plans/2026-10-15-p0-04b-correlated-command-menu.md)
-requires operator review and execution-method selection before implementation.
+was approved for inline implementation with one fresh final independent reviewer.
+Exact immutable verification and review evidence is in `tests/validation-notes.md`.
 No native execution grant is implied by either approval stage.

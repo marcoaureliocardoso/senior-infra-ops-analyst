@@ -70,3 +70,12 @@ has completed local implementation and verification. One review finding was fixe
 with TDD; corrected source 3d26c56 passed 212 covering tests and the complete gate.
 Exact evidence is separate in validation notes. It does not extend old raw-debug eligibility,
 change production policy or establish native/provider/browser acceptance.
+
+The test-only [correlated command-menu refinement](../superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md)
+and [implementation plan](../superpowers/plans/2026-10-15-p0-04b-correlated-command-menu.md)
+are implemented locally with 281 covering tests. One private pre-Enter exclusion
+requires the original owned command; actual Enter retires it, and later numeric,
+history/nonce/exit checks stay strict. ADR-010 records the boundary and rollback.
+Immutable full-gate and scoped-review results are recorded separately in validation
+notes; synthetic success neither establishes native compatibility nor renews
+the consumed e76cf95 execution grant.

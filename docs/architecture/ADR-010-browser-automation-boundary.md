@@ -758,6 +758,51 @@ secrecy guarantee: the synthetic target still requires scope discipline, and an
 authorized exported chat copy may outlive local disposal. Full-gate/review evidence
 and remaining native/provider/browser and remote gates are in validation notes.
 
+## Offline correlated pre-Enter command completion
+
+The audited offline owned-command route can now correlate one selected
+completion for the fixed eight-byte `/context` command. A pure 120-cell,
+width-one grammar recognizes the marker, exact token, at least two separating
+ASCII display spaces and a nonempty printable description. Wording and relative
+position are not pinned; a grammar match alone is never provenance or authority.
+Default/live input assessment remains strict.
+
+The existing private command state binds the original baseline, terminal,
+native process, scope, run, transition, deadline and frame. A weak identity
+registry checks that original origin and selected evidence have not been copied
+or substituted; it is not another permission state machine. Only a complete,
+acknowledged exact cursor-bound echo can correlate a newly appearing sole menu.
+The current input row is normalized exactly as before; one validated other row
+is excluded from one ordered assessment. Every remaining row is checked, and
+optional debugging observes the actual rejected index, never the excluded menu.
+
+Every observed pre-Enter frame, including writable waits, revalidates the bound
+cells and geometry. Loss, movement, mutation, duplication, scope/lifetime loss
+or conflicting UI revokes irreversibly; restoration cannot authorize a write.
+Failure evidence freezes before content-bearing bindings are released. The
+one actual Enter acknowledgement retires those bindings. No menu exception
+passes into history receipts, nonce, clear, proof or `/exit` handling.
+
+The concrete latest pre-Enter frame and raw policy transition remain the barrier.
+Only its descriptive signature projects out the validated menu, so removing a
+numeric-looking description cannot make an unchanged old grid new. Fresh
+post-Enter numeric evidence remains required. If Enter merely accepts the menu,
+the original deadline ends the dialogue inconclusively; no second Enter,
+Escape, Tab or fallback key is sent.
+
+Cursor-only assessment, an unconditional text exception, another key and changing
+operator suggestion preferences were rejected: none provides this independently
+owned transition without broadening the protocol. Controlled synthetic peers
+cover both successful execution and completion-only behavior, not real native
+compatibility. Unknown layouts and later exit menus may still be inconclusive.
+Private Python identities are not an arbitrary same-process sandbox or physical
+zeroization guarantee. The consumed e76cf95 attempt remains inconclusive; its
+chat-only row is not retained or replayed. Exact local verification and remaining
+native/provider/browser/remote gates are recorded in validation notes.
+
+This is test-only: no installed policy, Nori/staging, module mount, public
+activation flag, dependency, package/component version or original limit changes.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact
@@ -778,6 +823,11 @@ pipe/finalizer branch can be removed together with their tests. Keep default and
 old-debug routes intact. Rollback cannot erase a chat copy already exported under
 operator approval or renew the consumed native grant.
 
+Revert the correlated menu binding, bounded classifier and pre-Enter signature
+projection together to restore strict menu rejection. Preserve the original
+owned-command/history/nonce and debug disposal controls. Reversion cannot renew
+an execution grant or erase an already exported chat copy.
+
 ## Links
 
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
@@ -794,6 +844,8 @@ operator approval or renew the consumed native grant.
 - Normalized subreason plan: `docs/superpowers/plans/2026-10-15-p0-04b-normalized-eligibility-diagnostics.md`
 - Rejected edit-row spec: `docs/superpowers/specs/2026-10-15-p0-04b-rejected-edit-row-debug-design.md`
 - Rejected edit-row plan: `docs/superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md`
+- Correlated command-menu spec: `docs/superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md`
+- Correlated command-menu plan: `docs/superpowers/plans/2026-10-15-p0-04b-correlated-command-menu.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

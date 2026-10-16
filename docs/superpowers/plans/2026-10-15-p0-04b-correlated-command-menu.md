@@ -16,7 +16,7 @@ passive Node/xterm adapter and Debian WSL; no new runtime or dependency.
 
 ## Global Constraints
 
-- Written spec operator-approved. This plan awaits review and execution-method selection; no implementation or native run has started.
+- Written spec and plan operator-approved; inline execution selected. Tasks 1–2 implemented and 281 covering tests passed; Task 3 immutable gates/review pending at this checkpoint. No native run authorized.
 - Planning baseline: `f2195cad1606aa3a21a5c13aed987fc115f38263`. Reuse the linked `p0-04b-browser-automation` worktree, preserve operator edits and use command-local Windows Git safe.directory; no WSL Git.
 - Record exact HEAD after this plan is approved as the execution baseline; use that complete range for scoped review, with the approved plan/spec supplied separately. Never substitute main or HEAD~1.
 - Audited offline scope only: isolated loopback network, hidden operator state, dropped capabilities, synthetic-only authentication and disposable HOME/config/project/history.
@@ -257,8 +257,9 @@ and all post-Enter phases still reject. Ordinary newer snapshots revalidate
 unchanged evidence but cannot remint a lost binding. No raw native excerpt is
 used as a fixture or persisted in a planning artifact.
 
-Plan awaits operator review and execution-method choice. Recommend native/inline
-execution with one final fresh independent reviewer: there are three deliverables,
+The operator selected inline execution with one final fresh independent reviewer.
+Tasks 1–2 are implemented locally; Task 3 records immutable gates and review.
+There are three deliverables,
 and the command-state/driver tests form one tightly coupled authority boundary.
 The plan makes that boundary explicit while TDD and the immutable full gate cover
 it. Approval of this plan/method does not authorize a native attempt.

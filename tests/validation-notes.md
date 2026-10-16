@@ -1,5 +1,84 @@
 # Validation Notes
 
+## Correlated offline command-menu refinement - 2026-10-16
+
+Approved spec/plan: `docs/superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md`
+and `docs/superpowers/plans/2026-10-15-p0-04b-correlated-command-menu.md`.
+Inline execution baseline: `9fcd806ee04516767a6696460c5cb8fce83df5a9`.
+Task 1 source: `f95f537242d4054c52403c30cbbfd349b7395fc8`.
+Task 2 source: `99c9c6095983fc88e90c8b9aae354bb5057e882e`.
+No real Claude, provider or browser run occurred in this implementation.
+
+### TDD and controlled-peer evidence
+
+Task 1 baseline policy27 passed. The new grammar tests failed on the missing
+private predicate; the strict characterization passed after pinning its stale
+baseline. Grammar, malformed/wide/control/whitespace cases, supported combining
+description cells and no-IO/freshness mutation passed. Policy30/challenge27/echo38
+passed and were repeated by task completion.
+
+Task 2 echo RED ran 45 tests: two assertion failures and four operational
+rejections exposed missing private correlation/exclusion at NORMALIZED_ELIGIBILITY.
+The full driver RED ran 60 tests in 200.827 seconds, with exactly five new test
+failures because valid menus still blocked before Enter. Unchanged offline29,
+debug28 and wiring15 passed before implementation. New descriptions are synthetic;
+the authorized chat-only native row was neither copied to Git nor replayed.
+
+GREEN covers above/below menus, original baseline/evidence identity, copied or
+foreign records, partial/wrong echo, stale frames, lifetime/cancellation loss,
+irreversible menu loss/restoration, exact other-row rejection and one underlying
+assessment. Debug on/off or observer loss preserves operational error/cleanup;
+the excluded menu cannot become the captured rejecting row. Actual Enter and
+invalidate/failure release the raw menu bindings without harming another owner.
+
+Eight controlled PTY modes exercise successful fresh numeric proof, Enter that
+only completes, writable-wait loss/restoration, unchanged pre-Enter numeric grids,
+genuinely changed post-Enter grids, persistent menus and a later `/exit` menu.
+Read/write barriers, including a fresh exit-menu barrier, replace timing guesses.
+Success writes exactly `/context` plus one Enter, 16 hex bytes, one Ctrl+U and
+`/exit` plus one Enter; completion-only writes exactly `/context` plus one Enter
+and no nonce/retry. Pre-Enter loss stops at eight bytes/zero Enter. Exit-menu
+loss stops after the already accepted `/e` prefix, with no remaining exit bytes.
+FDs/captures close, native/helper leaders are reaped and command/probe revoke.
+Successful edit debugging remains NO_CAPTURE; structural output contains no
+description, nonce or new raw content.
+
+All 11 covering suites passed twice, including the committed task-completion run:
+policy30/challenge27/echo45/journal13/collector18/debug28/driver60/offline29/
+wiring15/cancellation11/signals5 = 281 tests. Driver times were 215.127 and
+214.940 seconds; first covering echo was 30.852 seconds. No warnings were observed.
+The clean Debian WSL/Node/xterm route was used, without new dependencies, mounts,
+operator configuration/credential access or installed/staged behavior changes.
+
+### Immutable checkpoint, decisions and remaining gates
+
+The full immutable package gate and one scoped fresh independent review remain
+pending at this checkpoint. Their hashes, exact retained log and capability/
+platform skips will be recorded only after observation. Review covers the entire
+new refinement from the execution baseline, not unrelated inherited branch work;
+author full-gate evidence remains separate from reviewer checks. Root/component
+versions remain unchanged for this test-only scope.
+
+Ruling: the readiness characterization pins a stale baseline. Existing passive
+readiness intentionally ignores control-prefix rows; strict active assessment
+still rejects them and this refinement must not change passive behavior. Cost
+if wrong: the test does not forbid unrelated existing passive freshness behavior.
+
+Ruling: the one final scoped review occurs within Task 3 before its completion
+line, because Task 3 explicitly requires review and result-only closeout. Marking
+it complete beforehand would be false. Cost if wrong: generic workflow completion
+ordering differs, without changing review count, authority or required gates.
+
+The consumed e76cf95 native attempt remains OFFLINE_CONTROLS_INCONCLUSIVE with
+EDIT_PENDING/NORMALIZED_ELIGIBILITY/eight command bytes/zero Enter. It observed
+one rejected row under runtime 2.1.301, not first-Enter semantics or later exit
+compatibility. Its content-free external result excludes the authorized chat-only
+excerpt; no deleted native evidence was reconstructed. There was no new attempt
+or retry. Native text/skill-turn/resume, provider/browser acceptance, remote
+CI/Security and integration remain pending. No push, PR, merge, release or
+definitive TODO completion is authorized; a new exact-final-commit grant is needed
+for any further real offline attempt.
+
 `tests/validate-package.sh` performs local checks that do not require internet access:
 
 - JSON syntax

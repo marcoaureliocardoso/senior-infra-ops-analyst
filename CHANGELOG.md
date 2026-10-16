@@ -7,6 +7,16 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added test-only correlation of one bounded selected `/context` completion
+  under the original audited offline owned command. Full acknowledged echo,
+  original evidence identities and every pre-Enter frame remain required;
+  loss revokes irreversibly and actual Enter retires the binding. One ordered
+  assessment still checks every other row. Numeric-looking menu removal cannot
+  turn an old grid into fresh context; history/nonce/exit and default/live
+  assessments stay strict. Synthetic peers verify one Enter without retry,
+  including completion-only inconclusive behavior. Installed packages, versions,
+  retention and execution limits are unchanged; native acceptance remains pending.
+
 - Added separate, explicit offline-development `--debug-context-edit` capture:
   one sealed first rejected row, conservatively sanitized and bounded to 120
   cells / 4096 exported JSON bytes, travels through bounded memory-only IPC.
