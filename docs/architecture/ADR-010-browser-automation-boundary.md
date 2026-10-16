@@ -736,6 +736,13 @@ reaping, real outer-root removal and validated native/helper/case disposal.
 Child cleanup flags or serialized identities alone cannot supply that receipt.
 No new frame, excerpt or report file is created by this mode.
 
+The single original outer deadline and latched interruption also fence parsing,
+namespace disposal, root cleanup and final publication. The reader disposes its
+owned child family before root removal; signal handling remains active during
+that removal. Successful context exit is required before promotion, with lifetime
+checks before and after the pure finalizer. Late cancellation/expiry permits
+cleanup only, discarding the candidate without retry or a renewed deadline.
+
 The 16-record/3072-byte structural phase and 16384-byte complete intermediate/final
 report budgets include actual JSON formatting and final metadata. Overflow drops
 the whole optional excerpt before blocking an oversized base. Original 25-second

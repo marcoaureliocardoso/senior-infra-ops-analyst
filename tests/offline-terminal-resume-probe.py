@@ -86,7 +86,9 @@ def _read_edit_namespace(command,*,cancellation,deadline):
                 remaining=deadline-time.monotonic()
                 if remaining<=0: raise TimeoutError
                 if eof and process.poll() is not None:
+                    cancellation.terminate_child(process)
                     cancellation.check()
+                    if time.monotonic()>=deadline: raise TimeoutError
                     return process.returncode,bytes(data)
                 for _key,_events in selector.select(min(.02,remaining)):
                     try: chunk=os.read(descriptor,16385-len(data))
@@ -109,6 +111,51 @@ def _edit_json(data):
         return result
     def constant(_value): raise ValueError('invalid offline value')
     return json.loads(data.decode('utf-8'),object_pairs_hook=pairs,parse_constant=constant)
+
+
+def _edit_namespace_report(command,root,identity):
+    from terminal_context_debug import _valid_edit_base, finalize_edit_report
+    report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'NO_CAPTURE'}
+    cleaned=None; namespace_reaped=False; cancellation=TerminalCancellation()
+    deadline=time.monotonic()+165
+    def live(*,active=False):
+        if active: cancellation.check()
+        elif cancellation.requested: raise TerminalCancelled()
+        if time.monotonic()>=deadline: raise TimeoutError
+    try:
+        with cancellation:
+            try:
+                code,data=_read_edit_namespace(command,cancellation=cancellation,deadline=deadline)
+                if code: raise ValueError
+                parsed=_edit_json(data)
+                if type(parsed) is not dict: raise ValueError
+                pending=parsed.pop('_pendingContextEdit',{'status':'NO_CAPTURE'})
+                if not _valid_edit_base(parsed): raise ValueError
+                report=parsed
+                live(active=True)
+            except (KeyboardInterrupt,TerminalCancelled):
+                report={'reasonCode':'OFFLINE_PROBE_INTERRUPTED'}; pending={'status':'OMITTED_SCOPE'}
+            except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
+                report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'OMITTED_PROVENANCE'}
+            finally:
+                # Reader disposal precedes root removal; keep handlers active during cleanup.
+                with cancellation.cleanup(): cleaned=finalize_owned(root,identity,report)
+            live(active=True)
+        namespace_reaped=True
+        live()
+        disposed=cleaned.pop('disposableRootAbsent',False)
+        public=finalize_edit_report(cleaned,pending,disposal_proven=disposed is True)
+        live()
+        return public
+    except (KeyboardInterrupt,TerminalCancelled):
+        reason='OFFLINE_PROBE_INTERRUPTED'
+    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
+        reason='OFFLINE_PROBE_BLOCKED'
+    if cleaned is None: cleaned=finalize_owned(root,identity,{'reasonCode':reason})
+    disposed=cleaned.pop('disposableRootAbsent',False)
+    if cleaned.get('reasonCode')!='OFFLINE_CLEANUP_FAILED': cleaned={'reasonCode':reason}
+    return finalize_edit_report(cleaned,{'status':'OMITTED_SCOPE'},
+        disposal_proven=disposed is True and namespace_reaped)
 
 
 def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False):
@@ -155,16 +202,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
             '/usr/bin/python3','/opt/probe/probe.py','--inner-audit' if audit else
                 '--inner-controls-debug' if debug_context else '--inner-controls-edit-debug' if debug_context_edit else '--inner-controls']
         if debug_context_edit:
-            from terminal_context_debug import _valid_edit_base
-            with TerminalCancellation() as cancellation:
-                code,data=_read_edit_namespace(command,cancellation=cancellation,deadline=time.monotonic()+165)
-                if code: raise ValueError
-                parsed=_edit_json(data)
-                if type(parsed) is not dict: raise ValueError
-                pending=parsed.pop('_pendingContextEdit',{'status':'NO_CAPTURE'})
-                if not _valid_edit_base(parsed): raise ValueError
-                report=parsed
-            namespace_reaped=True
+            return _edit_namespace_report(command,root,identity)
         else:
             with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
                 deadline=time.monotonic()+165

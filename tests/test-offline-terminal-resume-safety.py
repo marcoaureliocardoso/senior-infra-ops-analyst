@@ -212,7 +212,8 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             self.read_edit_peer('select.select([],[],[],60)\n',cancel=True)
         if self._edit_peer_pid is not None: self.assertFalse(Path(f'/proc/{self._edit_peer_pid}').exists())
 
-    def edit_namespace_fixture(self,*,payload=None,cleanup_fault=False,exit_fault=False,passed=False):
+    def edit_namespace_fixture(self,*,payload=None,cleanup_fault=False,exit_fault=False,passed=False,
+                               lifetime_phase=None,lifetime_fault=None):
         spec=importlib.util.spec_from_file_location('edit_debug_fixture',ROOT/'tests/test-terminal-context-debug.py')
         fixture=importlib.util.module_from_spec(spec); spec.loader.exec_module(fixture)
         base=fixture.edit_report_fixture()
@@ -233,16 +234,34 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             fake=parent/'fake-bwrap'; fake.write_text('#!/usr/bin/python3 -I\nimport os\nos.write(1,'+repr(data)+')\n')
             fake.chmod(0o700)
             self._edit_outer_absent=False
-            original_spawn=self.module.TerminalCancellation.spawn; spawns=[]
+            original_spawn=self.module.TerminalCancellation.spawn; spawns=[]; tokens=[]
+            clock=time.monotonic; offset=[0]
+            def fault(phase):
+                if phase==lifetime_phase:
+                    if lifetime_fault=='cancel': tokens[0].requested=True
+                    elif lifetime_fault=='expire': offset[0]=1000
             def spawn(token,command,**kwargs):
+                tokens.append(token)
                 spawns.append(kwargs.get('stdout')); return original_spawn(token,command,**kwargs)
             original_remove=self.module.shutil.rmtree
             original_exit=self.module.TerminalCancellation.__exit__
+            original_json=self.module._edit_json
+            original_finalize=__import__('terminal_context_debug').finalize_edit_report
+            self._edit_cleanup_guarded=False
+            def parsed(data):
+                result=original_json(data); fault('post-read'); return result
+            def finalized(*args,**kwargs):
+                result=original_finalize(*args,**kwargs); fault('publication'); return result
             def remove(path,*args,**kwargs):
                 if cleanup_fault and Path(path)==owned: raise OSError('synthetic cleanup loss')
-                return original_remove(path,*args,**kwargs)
+                result=original_remove(path,*args,**kwargs)
+                if Path(path)==owned:
+                    self._edit_cleanup_guarded=bool(tokens and tokens[0]._entered)
+                    fault('root-cleanup')
+                return result
             def exited(token,*args):
                 result=original_exit(token,*args)
+                fault('namespace-cleanup')
                 if exit_fault: raise RuntimeError('synthetic ownership cleanup loss')
                 return result
             with mock.patch.object(self.module.shutil,'which',return_value=str(fake)),\
@@ -250,6 +269,9 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
                     mock.patch.object(self.module.tempfile,'TemporaryFile',side_effect=AssertionError('report file opened')),\
                     mock.patch.object(self.module.TerminalCancellation,'spawn',new=spawn),\
                     mock.patch.object(self.module.TerminalCancellation,'__exit__',new=exited),\
+                    mock.patch.object(self.module.time,'monotonic',side_effect=lambda:clock()+offset[0]),\
+                    mock.patch.object(self.module,'_edit_json',side_effect=parsed),\
+                    mock.patch('terminal_context_debug.finalize_edit_report',side_effect=finalized),\
                     mock.patch.object(self.module.shutil,'rmtree',side_effect=remove):
                 result=self.module.run_offline_controls(source=ROOT,claude=Path('/usr/bin/true'),
                     node=Path(os.environ['P004B_TERMINAL_NODE']),
@@ -257,6 +279,18 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             self._edit_outer_absent=not owned.exists()
             self.assertEqual(spawns,[subprocess.PIPE])
             return result
+
+    def test_edit_publication_lifetime_covers_post_read_and_disposal(self):
+        for phase in ('post-read','namespace-cleanup','root-cleanup','publication'):
+            for failure in ('cancel','expire'):
+                with self.subTest(phase=phase,failure=failure):
+                    result=self.edit_namespace_fixture(lifetime_phase=phase,lifetime_fault=failure)
+                    self.assertTrue(self._edit_outer_absent)
+                    self.assertNotIn('excerpt',result['debugContextEdit'])
+                    self.assertNotEqual(result['debugContextEdit']['status'],'READY')
+                    self.assertEqual(result['reasonCode'],'OFFLINE_PROBE_INTERRUPTED' if failure=='cancel'
+                                     else 'OFFLINE_PROBE_BLOCKED')
+                    self.assertTrue(self._edit_cleanup_guarded)
 
     def test_edit_pipe_never_uses_report_tempfile(self):
         result=self.edit_namespace_fixture()

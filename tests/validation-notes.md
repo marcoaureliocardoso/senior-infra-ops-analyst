@@ -4870,5 +4870,59 @@ potentially persistent chat excerpt. Sanitization is conservative, not secrecy.
    valid descendant-heavy runs may remain conservatively inconclusive; any
    surviving owned process still fails the test.
 
-This is the one execution ruling recorded before final review. Any review rulings
-or deferred Minor findings must be appended exhaustively at result closeout.
+2. Keep deleted native row identity and actual Claude acceptance unproven: no
+   retained row or new grant exists, and synthetic suggestions are not causal
+   evidence. Cost if wrong: native root cause remains unresolved until separately
+   authorized observation.
+3. Leave provider/browser acceptance, remote CI/Security, integration and release
+   pending: a scoped local review cannot establish unexecuted external gates.
+   Cost if wrong: external problems remain undiscovered; no readiness claim follows.
+4. Leave unrelated inherited branch behavior outside this verdict: the complete
+   approved refinement and interacting callers were reviewed. Cost if wrong:
+   unrelated inherited defects await broader gates.
+5. Promise logical memory release/private provenance, not physical zeroization or
+   arbitrary same-process compromise resistance. Python identity discipline does
+   not provide those stronger properties. Cost if wrong: stronger threat models
+   need OS/process isolation, not these diagnostics.
+6. Keep the author's exact complete-gate result/skips separate from independent
+   review: the reviewer did not observe that concurrent run. Cost if wrong:
+   verification can be overstated; preserve immutable hashes and logs.
+
+These are all six execution/review rulings. No Minor review finding was deferred.
+
+### First immutable gate, independent review and author correction
+
+Reviewed candidate: `afb057e74cd38ac8358e6e31a9d871b7bf2afe75`. Its complete
+`bash tests/validate-package.sh` exited 0 with `package validation passed`; tracked
+tree/HEAD stayed unchanged through that run. External retained log:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-edit-row-afb057e-package.log`.
+The opt-in 37-scenario production browser adapter skipped CAPABILITY_UNAVAILABLE.
+Three Python cases skipped: native-Windows MCP rejection on POSIX, confirmed-window
+CLI validation and Nori argument validation without Git Bash in WSL. PowerShell
+was unavailable, so `.ps1` syntax validation skipped. Schema and local CI workflow
+validation passed, not remote CI/Security or native/provider/browser acceptance.
+
+The one fresh independent reviewer read the entire 2353-line packaged refinement
+`2d43141..afb057e`, approved spec/plan and interacting unchanged callers. Verdict:
+with fixes, one Important publication-lifetime finding, no Critical or Minor.
+Two process-free synthetic checks showed cancellation/expiry after pipe completion
+could still publish READY. The reviewer did not rerun long suites or claim the
+concurrently observed complete-gate result. The author agrees with the grading:
+outer timeout/interruption must discard the candidate and allow cleanup only.
+
+The single author fix pass adds eight synthetic fault subcases at post-read,
+namespace-context exit, outer-root cleanup and final-publication boundaries,
+each for cancellation and expiry. All eight failed before the source change;
+the same test then passed after correction. The reader now finishes owned-family
+disposal before root removal, cancellation handlers remain active during root
+cleanup, and the same original deadline/latched flag fence parsing and final
+promotion. Cleanup failures cannot become success. A service usage limit prevented
+one intended GREEN invocation from executing; after operator resume it executed
+and passed. No native attempt or automatic retry was made.
+
+Corrected covering verification passed: offline29/debug28/wiring15/driver55/
+journal13/collector18/echo38/cancellation11/signals5 = 212 tests, driver191.596s,
+without warnings or ResourceWarnings. Content and architecture checks are also
+run before the corrected candidate is committed. Its fresh complete gate remains
+pending at this checkpoint. The first gate/review apply to afb057e, not this
+author correction. There is no second independent review under the inline method.
