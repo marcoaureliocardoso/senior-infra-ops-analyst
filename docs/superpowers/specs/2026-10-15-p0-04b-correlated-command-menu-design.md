@@ -1,8 +1,8 @@
 # P0-04B correlated command-menu observation
 
-Status: architectural direction operator-approved; written specification awaiting
-operator review. Not implemented. No implementation plan or new native execution
-is authorized by direction approval.
+Status: architectural direction and written specification operator-approved.
+The implementation plan awaits operator review and execution-method selection.
+Not implemented; no new native execution is authorized by specification approval.
 Source baseline: `e76cf95b0476c89ad3f8de11c239bb2be52d73b7`.
 
 ## Intent and observed evidence
@@ -295,6 +295,7 @@ not claim implementation. Root/component versions stay unchanged unless the
 actual scope changes packaging. No push, PR, merge, release or definitive TODO
 completion follows from this specification.
 
-Direction approval permits this written specification. Its operator approval
-permits writing the implementation plan, not implementing behavior. The operator
-must then review that plan and select an execution method before implementation.
+The operator approved this written specification. The
+[implementation plan](../plans/2026-10-15-p0-04b-correlated-command-menu.md)
+requires operator review and execution-method selection before implementation.
+No native execution grant is implied by either approval stage.
