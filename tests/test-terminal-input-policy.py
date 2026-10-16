@@ -3,6 +3,7 @@ import importlib.util
 import dataclasses
 from pathlib import Path
 import unittest
+from unittest import mock
 
 from terminal_state_adapter import TerminalCell, TerminalSnapshot
 
@@ -28,6 +29,47 @@ class TerminalInputPolicyTests(unittest.TestCase):
         module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         self.policy=module.TerminalInputPolicy()
         self.policy.mark_transition(snapshot())
+
+    def test_context_completion_row_grammar(self):
+        self.assertTrue(callable(getattr(self.policy,'_context_completion_row',None)),
+            'bounded completion classifier missing')
+        cases=[('❯ /context  Synthetic A',True),('  ❯  /context       Δelta',True),
+            ('❯ /context  Cafe\u0301',True),('❯ /context',False),
+            ('❯ /contextX  Synthetic A',False),('❯ /exit  Synthetic A',False),
+            ('❯ /context  ',False),('❯ /context Synthetic A',False),
+            ('❯ /context  Synthetic ❯',False)]
+        for index,(text,want) in enumerate(cases):
+            with self.subTest(case=index):
+                self.assertEqual(self.policy._context_completion_row(snapshot([text]).rows[0]),want)
+
+    def test_context_completion_row_cells_and_purity(self):
+        self.assertTrue(callable(getattr(self.policy,'_context_completion_row',None)),
+            'bounded completion classifier missing')
+        valid=snapshot(['❯ /context  Synthetic A']).rows[0]
+        malformed=[valid[:-1],valid+(TerminalCell('',1),),list(valid),None,
+            (None,)+valid[1:],(TerminalCell('❯',0),)+valid[1:],
+            (TerminalCell('❯',2),)+valid[1:],valid[:2]+(TerminalCell('/context',1),)+valid[3:]]
+        malformed += [snapshot(['❯ /context  Synthetic'+char]).rows[0]
+            for char in ('\u200b','\ufeff','\t','\u00a0','\u2003','\x01','界')]
+        before=dict(vars(self.policy))
+        with (mock.patch.object(self.policy,'_observe',side_effect=AssertionError('impure')) as observe,
+                mock.patch('builtins.open',side_effect=AssertionError('IO')) as io):
+            self.assertTrue(self.policy._context_completion_row(valid))
+            # A combining sequence within one width-one renderer cell is still data.
+            combined=valid[:12]+(TerminalCell('e\u0301',1),)+valid[13:]
+            self.assertTrue(self.policy._context_completion_row(combined))
+            for index,row in enumerate(malformed):
+                with self.subTest(case=index): self.assertFalse(self.policy._context_completion_row(row))
+            observe.assert_not_called(); io.assert_not_called()
+        self.assertEqual(vars(self.policy),before)
+
+    def test_completion_shape_alone_keeps_strict_assessment(self):
+        current=snapshot(['❯ /context  Synthetic A','❯ '],x=2,y=1)
+        self.policy.mark_transition(current)
+        self.assertEqual(self.policy.empty_input_assessment(current).reason,'UNSUPPORTED_ROW')
+        self.assertIsNone(self.policy.empty_input_anchor(current))
+        self.assertFalse(self.policy.ready(current))
+        self.assertIsNone(self.policy.context_percent(current))
 
     def test_current_input_forms(self):
         for text,x in [('❯',1),('❯ ',2),('❯\u00a0',2),('❯ ready',7),

@@ -2,7 +2,7 @@
 import re
 import unicodedata
 from dataclasses import dataclass
-from terminal_state_adapter import TerminalSnapshot
+from terminal_state_adapter import TerminalCell, TerminalSnapshot
 
 INPUT_ELIGIBILITY_REJECTIONS=frozenset(('FORBIDDEN_STATE','NO_MARKER','UNSUPPORTED_ROW',
     'NONEMPTY_INPUT','MULTIPLE_MARKERS','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH',
@@ -88,6 +88,30 @@ class TerminalInputPolicy:
     @staticmethod
     def _row_text(row):
         return ''.join(cell.text or (' ' if cell.width else '') for cell in row).rstrip()
+
+    @staticmethod
+    def _context_completion_row(row: tuple[TerminalCell, ...]) -> bool:
+        """Bounded display grammar only; never provenance or input authority."""
+        if (type(row) is not tuple or len(row)!=120
+                or any(type(cell) is not TerminalCell or type(cell.width) is not int
+                    or cell.width!=1 or type(cell.text) is not str for cell in row)):
+            return False
+        cells=tuple(cell.text or ' ' for cell in row)
+        index=0
+        while index<120 and cells[index]==' ': index+=1
+        if index>=120 or cells[index]!='❯': return False
+        index+=1; start=index
+        while index<120 and cells[index]==' ': index+=1
+        if index==start or cells[index:index+8]!=tuple('/context'): return False
+        index+=8; start=index
+        while index<120 and cells[index]==' ': index+=1
+        if index-start<2 or index>=120: return False
+        for text in cells[index:]:
+            if (not text.isprintable() or '❯' in text
+                    or any(unicodedata.category(char) in ('Cc','Cf')
+                        or (char.isspace() and char!=' ') for char in text)):
+                return False
+        return True
 
     def screen_text(self, snapshot: TerminalSnapshot) -> str:
         return '\n'.join(self._row_text(row) for row in snapshot.rows)
