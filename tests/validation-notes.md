@@ -50,24 +50,83 @@ wiring15/cancellation11/signals5 = 281 tests. Driver times were 215.127 and
 The clean Debian WSL/Node/xterm route was used, without new dependencies, mounts,
 operator configuration/credential access or installed/staged behavior changes.
 
-### Immutable checkpoint, decisions and remaining gates
+### Immutable full gate and scoped independent review
 
-The full immutable package gate and one scoped fresh independent review remain
-pending at this checkpoint. Their hashes, exact retained log and capability/
-platform skips will be recorded only after observation. Review covers the entire
-new refinement from the execution baseline, not unrelated inherited branch work;
-author full-gate evidence remains separate from reviewer checks. Root/component
-versions remain unchanged for this test-only scope.
+Reviewed and gated candidate: `fb60e0db0021d4cc89a72f5507198b2944c33025`.
+The complete clean-prefix `bash tests/validate-package.sh` exited 0 with
+`package validation passed`. HEAD and tracked tree remained unchanged through
+the observed result. Retained full log:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-menu-fb60e0d-20261016-resume-2-package.log`.
+No warnings or ResourceWarnings were observed. This run's driver60 passed in
+215.676 seconds. Schema and local CI workflow validation passed; these are not
+remote CI/Security results.
 
-Ruling: the readiness characterization pins a stale baseline. Existing passive
-readiness intentionally ignores control-prefix rows; strict active assessment
-still rejects them and this refinement must not change passive behavior. Cost
-if wrong: the test does not forbid unrelated existing passive freshness behavior.
+Observed skips: the opt-in 37-scenario production browser adapter matrix reported
+CAPABILITY_UNAVAILABLE. Three Python cases skipped: native-Windows MCP rejection
+on POSIX, confirmed-window CLI validation without Git Bash, and Nori argument
+validation without Git Bash. PowerShell was unavailable in the clean WSL PATH,
+so `.ps1` syntax validation skipped. None is represented as an executed pass.
 
-Ruling: the one final scoped review occurs within Task 3 before its completion
-line, because Task 3 explicitly requires review and result-only closeout. Marking
-it complete beforehand would be false. Cost if wrong: generic workflow completion
-ordering differs, without changing review count, authority or required gates.
+The earlier gate stopped during driver tests without an observed final result;
+no matching gate process remained before restart. Its incomplete external log
+`p004b-menu-fb60e0d-20261016-package.log` is preserved and is not a passing gate.
+The interrupted reviewer had no retained verdict and was no longer active. The
+resumed run supplies one completed independent verdict, not two opinions.
+
+The fresh scoped reviewer examined the complete `9fcd806..fb60e0d` refinement,
+approved spec/plan, execution rulings and unchanged driver/challenge/debug/
+adapter/launcher callers. Verdict: Yes for scoped source quality; zero Critical,
+Important or Minor findings, and no source correction required. The reviewer
+independently passed three pure classifier checks and seven lifecycle checks
+with an explicitly substituted in-memory terminal and no helper/native process.
+Those checks are not transport integration; the 281-test covering runs and full
+package gate remain separate author evidence. The reviewer did not claim to
+observe that concurrently running full gate. All five review-focus cases were
+examined; no second review or author fix pass was needed.
+
+This later result-only closeout changes documentation, not the reviewed/gated
+source. Its HEAD is distinct from fb60e0d. Content and 13 architecture tests,
+whitespace and a documentation-only delta are verified for closeout. Root and
+component versions remain unchanged. Only this plan's ignored execution scratch
+is removed after its results and all rulings are versioned; commits and both
+external full-gate logs remain, and branch/worktree are preserved.
+
+### Execution and review rulings
+
+1. Pin a stale baseline in the readiness characterization: existing passive
+   readiness intentionally ignores control-prefix rows, while strict active
+   assessment rejects them. Cost if wrong: unrelated passive freshness behavior
+   is not forbidden by this test.
+2. Complete the one scoped review inside Task 3 before its completion line:
+   Task 3 explicitly includes review and result-only closeout. Cost if wrong:
+   generic workflow ordering differs, not review count, authority or gates.
+3. Replace interrupted incomplete gate/reviewer attempts on the same immutable
+   candidate, retaining the old log: no result or verdict satisfied either gate.
+   Cost if wrong: duplicate verification work, not a new native attempt or a
+   claim of two independent verdicts.
+4. Leave real renderer, first-Enter execution and native text/skill/resume/exit
+   success unproven until separately authorized observation. Cost if wrong:
+   conservative layouts or later native phases may still fail; no acceptance
+   claim follows from synthetic peers.
+5. Keep provider/browser acceptance, remote CI/Security and unrelated inherited
+   branch history outside this verdict. Cost if wrong: external or inherited
+   defects remain undiscovered until those separate gates.
+6. Keep unchanged passive readiness separate from active ownership: this exact
+   owned route uses strict assessment, not READY as authority. Cost if wrong:
+   unrelated passive consumers retain prior, not newly validated, semantics.
+7. Check every consumed parsed snapshot, not every renderer byte: wholly
+   coalesced redraws are an inherited sampling limitation. Cost if wrong: an
+   unparsed transient may be invisible; stronger sampling requires separate design.
+8. Promise trusted-process identity discipline, not arbitrary same-process
+   registry-tampering resistance or physical zeroization. Cost if wrong:
+   stronger threat models require process/OS isolation beyond this helper.
+9. Do not support external subclasses overriding private rendering helpers here:
+   there is no repository caller and the owned route requires exact policy type.
+   Cost if wrong: such external private extensions may need adaptation/tests.
+
+These are all nine execution/review rulings. No Minor finding was deferred.
+
+### Remaining authority and acceptance
 
 The consumed e76cf95 native attempt remains OFFLINE_CONTROLS_INCONCLUSIVE with
 EDIT_PENDING/NORMALIZED_ELIGIBILITY/eight command bytes/zero Enter. It observed

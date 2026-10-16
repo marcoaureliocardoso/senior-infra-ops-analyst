@@ -2,7 +2,8 @@
 
 Status: specification and implementation plan operator-approved; inline execution
 selected. Locally implemented with 281 covering tests passed on source 99c9c60.
-Immutable full gate and scoped independent review pending at this checkpoint.
+Candidate fb60e0d passed the immutable full gate and scoped independent review
+with no findings. Later result-only documentation is separate from that source.
 No new native execution is authorized by specification or implementation approval.
 Source baseline: `e76cf95b0476c89ad3f8de11c239bb2be52d73b7`.
 

@@ -76,6 +76,7 @@ and [implementation plan](../superpowers/plans/2026-10-15-p0-04b-correlated-comm
 are implemented locally with 281 covering tests. One private pre-Enter exclusion
 requires the original owned command; actual Enter retires it, and later numeric,
 history/nonce/exit checks stay strict. ADR-010 records the boundary and rollback.
-Immutable full-gate and scoped-review results are recorded separately in validation
-notes; synthetic success neither establishes native compatibility nor renews
+Candidate fb60e0d passed the complete local package gate and scoped independent
+review with no findings. Exact hashes, skips and separate reviewer evidence are
+recorded in validation notes; synthetic success neither establishes native compatibility nor renews
 the consumed e76cf95 execution grant.
