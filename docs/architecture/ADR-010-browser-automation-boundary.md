@@ -803,6 +803,22 @@ native/provider/browser/remote gates are recorded in validation notes.
 This is test-only: no installed policy, Nori/staging, module mount, public
 activation flag, dependency, package/component version or original limit changes.
 
+## Proposed offline resumed-history view
+
+Direction approved on 2026-10-17; the written specification is pending operator
+review and is not implemented. The consumed b5e0e55 native attempt identified an
+off-cursor SDK text-prompt shape blocking resume readiness. Existing input
+receipts remain process-bound and do not transfer to a resumed measurement.
+
+The proposal preserves the initial-dialogue/SDK/resume regression and adds a
+private completed-action/SDK witness plus a fresh, one-shot resumed-history
+view. Only the audited offline supervisor can supply it. Text matches and
+diagnostic labels alone cannot confer authority; default/live assessment remains
+strict. The written spec defines case/session/root binding, SDK stream validation,
+new native ownership, phased history retirement, composed command/nonce/exit
+checks, structural-only observation and unchanged limits. No further native
+execution, provider access or behavioral change follows from design approval.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact
@@ -846,6 +862,7 @@ an execution grant or erase an already exported chat copy.
 - Rejected edit-row plan: `docs/superpowers/plans/2026-10-15-p0-04b-rejected-edit-row-debug.md`
 - Correlated command-menu spec: `docs/superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md`
 - Correlated command-menu plan: `docs/superpowers/plans/2026-10-15-p0-04b-correlated-command-menu.md`
+- Proposed resumed-history spec: `docs/superpowers/specs/2026-10-17-p0-04b-resumed-history-view-design.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`
