@@ -249,39 +249,54 @@ class TerminalInputPolicy:
             'pressesctoclose','pressescapetoclose'))
 
     def _readiness(self, snapshot):
+        return self._readiness_assessment(snapshot)[0]
+
+    def _readiness_assessment(self, snapshot):
         # Same fail-closed decision tree; diagnostic projection never observes.
-        if not (self._fresh_input or self._fresh_location): return 'FRESHNESS_UNPROVEN'
-        if self._auth(snapshot): return 'AUTHENTICATION_REQUIRED'
+        if not (self._fresh_input or self._fresh_location): return 'FRESHNESS_UNPROVEN',None
+        if self._auth(snapshot): return 'AUTHENTICATION_REQUIRED',None
         text = self.screen_text(snapshot)
         folded = re.sub('[^a-z]', '', text.lower())
         if any(label in folded for label in
             ('choosethetextstylethatlooksbestwithyourterminal','yesitrustthisfolder')):
-            return 'STARTUP_SELECTION'
+            return 'STARTUP_SELECTION',None
         candidates = []
         for index,row in enumerate(snapshot.rows):
             line = self._row_text(row)
             if re.match(r'^\s*❯',line):
-                candidate = self._candidate(row)
+                candidate,cause = self._candidate_evaluation(row)
                 if candidate is not None: candidates.append((index,candidate))
                 elif not (re.match(r'^\s*❯\s*/(?:context|exit)\b',line) or
                           re.match(r'^\s*❯\s*P0-04B synthetic context measurement\.',line)):
-                    return 'UNSUPPORTED_MARKER'
-        if len(candidates)!=1: return 'CANDIDATE_COUNT'
+                    cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+                    relation=('CURSOR_OUTSIDE_CAPTURE' if not 0<=cursor<len(snapshot.rows) else
+                        'CURSOR_ROW' if index==cursor else 'OTHER_CAPTURED_ROW')
+                    # Closed display label only: spoofable, never history ownership.
+                    raw=''.join(cell.text or (' ' if cell.width else '') for cell in row)
+                    sdk_shape=(len(row)==120 and all(cell.width==1 for cell in row)
+                        and re.fullmatch(r'[ \t]*❯[ \t\u00a0]+P0-04B synthetic text control\. '
+                            r'Reply P004B_SKILL_OK only\.[ \t\u00a0]*',raw) is not None)
+                    return 'UNSUPPORTED_MARKER',{'rowRelation':relation,'rowCause':cause,
+                        'rowShape':'SDK_TEXT_PROMPT_SHAPE' if sdk_shape else 'OTHER'}
+        if len(candidates)!=1: return 'CANDIDATE_COUNT',None
         index, (marker,padding_end,text_end,tail) = candidates[0]
-        if index != snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return 'CURSOR_ROW_MISMATCH'
+        if index != snapshot.baseY+snapshot.cursorY-snapshot.viewportY: return 'CURSOR_ROW_MISMATCH',None
         cursor = snapshot.cursorX
         valid = cursor == text_end if tail == 'ready' else marker < cursor <= padding_end
-        return 'READY' if valid else 'CURSOR_COLUMN_MISMATCH'
+        return ('READY' if valid else 'CURSOR_COLUMN_MISMATCH'),None
 
     def diagnostic_state(self, snapshot: TerminalSnapshot) -> dict:
         """Pure structural projection: no cells, hashes, IPC or freshness mutation."""
         auth=self._auth(snapshot)
-        return {'buffer':snapshot.active,'cursorX':snapshot.cursorX,'cursorY':snapshot.cursorY,
+        readiness,rejection=self._readiness_assessment(snapshot)
+        result={'buffer':snapshot.active,'cursorX':snapshot.cursorX,'cursorY':snapshot.cursorY,
             'baseY':snapshot.baseY,'viewportY':snapshot.viewportY,
             'candidateCount':sum(self._candidate(row) is not None for row in snapshot.rows),
             'inputFresh':self._fresh_input,'contextFresh':self._fresh_context,
             'locationFresh':self._fresh_location,'authentication':auth.upper() if auth else 'NONE',
-            'readiness':self._readiness(snapshot)}
+            'readiness':readiness}
+        if rejection is not None: result['readinessRejection']=rejection
+        return result
 
     def context_percent(self, snapshot: TerminalSnapshot) -> int | None:
         self._observe(snapshot)

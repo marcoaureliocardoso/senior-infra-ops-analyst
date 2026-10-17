@@ -1,5 +1,89 @@
 # Validation Notes
 
+## Offline resume readiness diagnostics - 2026-10-16
+
+Baseline: `6d5528e0d49736d497ff37c8ac1b8a86e3f90556`. The operator authorized
+one offline native attempt at that commit, without content debugging or retries.
+It ended OFFLINE_CONTROLS_INCONCLUSIVE after the text-turn SDK step. Initial
+context inspection observed 16%, nonce echo/clear and natural exit passed; the
+resumed dialogue timed out at `prompt_ready` with UNSUPPORTED_MARKER, before
+creating the next owned `/context` command. The skill-turn case did not run.
+Native/helper leaders were reaped and disposable roots were absent. The helper
+close reported TERMINAL_DEADLINE_EXCEEDED after the readiness deadline expired;
+that cleanup code is not the initiating readiness rejection.
+
+Only structural results remain outside Git:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-offline-6d5528e-structural-result.json`.
+The matching `p004b-offline-6d5528e-attempt.json` marks that grant consumed.
+No native rejected-row identity can be inferred from the retained fields alone.
+
+Five process-free synthetic checks reproduced all retained structural fields
+using the public repository SDK text prompt. That prompt does not match the
+existing passive history prefix. This demonstrates a source/protocol mismatch,
+not proof of which native row failed. Substituting the recognized measurement
+prefix passes passive readiness but still fails strict active input assessment.
+Neither ignoring history nor increasing the timeout is an approved correction.
+
+The approved bounded change adds optional `structure.readinessRejection` only
+when the same ordered readiness evaluator returns UNSUPPORTED_MARKER. Its
+atomic fields are closed categories: `rowRelation`, `rowCause`, `rowShape`.
+`SDK_TEXT_PROMPT_SHAPE` matches the complete public synthetic text prompt in a
+120-cell width-one row, with supported marker padding; every other display is
+`OTHER`. The label is spoofable display classification, not provenance,
+ownership, a history receipt or authorization. No text, hashes, absolute row
+index, identifiers or additional raw evidence is retained. Other decisions
+omit the detail. Existing 16-record/3072-byte collector limits remain unchanged;
+old structural records without the optional detail remain valid.
+
+This changes test-only diagnostic production/validation, not readiness outcomes,
+active input eligibility, history ownership, Enter/nonce/exit controls, cleanup,
+installed behavior or default/live retention. No runtime/dependency/version or
+operator configuration change is required. The native resume problem remains
+unfixed and unaccepted. There is no new Claude/provider/browser invocation, no
+retry, and no push/PR/merge/release or definitive TODO completion in this work.
+Any further native attempt requires a new grant bound to the final commit.
+
+TDD: policy34 ran RED with 11 assertion failures across four new tests; the
+collector21 ran RED with two failures in new retention/budget tests, while its
+new invalid-input characterization already passed. A controlled Python PTY
+peer ran RED on the missing detail. GREEN passed policy34, collector21 and the
+single PTY case. The peer reproduced the public prompt shape after ignored
+control history, observed WAIT_DEADLINE at `prompt_ready`, received no input
+bytes, and confirmed native/helper cleanup. It is not a real Claude witness.
+
+The independent read-only review found zero Critical/Important issues and one
+Minor coverage gap in cell geometry/padding. Pure-cell characterization now
+covers 119/121-cell rows, widths zero/two and SPACE/TAB/NBSP padding, preserving
+rejection and active-input denial. Policy35 passed for author and reviewer; the
+same reviewer confirmed the Minor addressed. No implementation changed for
+that follow-up and no scoped review issue remains.
+
+Review exclusions are accepted explicitly: deleted native row identity remains
+unknown; native correction/acceptance remains pending; historical attempt and
+TDD claims are author evidence rather than independent replay; PTY transport
+execution and the full package gate require separate author observations;
+installed/live behavior and overall P0-04B readiness receive no acceptance
+verdict from this bounded test-only review. If those boundaries hide a defect,
+it remains for its separate validation gate, not an implied passing result.
+
+The complete clean Debian WSL/Node/xterm `bash tests/validate-package.sh` gate
+exited 0 with `package validation passed`; schema and local workflow checks
+passed. Retained full log:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-readiness-diagnostics-20261016-package.log`.
+The gate included policy34, collector21 and driver61 (219.047 seconds), plus all
+other package suites. During that gate only the supplemental pure-cell policy
+test and review-note prose were added; implementation and driver blobs stayed
+byte-identical. The final policy35 suite passed separately for author/reviewer.
+Result-only documentation is checked separately after this gate. No warnings
+or ResourceWarnings were observed.
+
+Observed skips: the opt-in 37-scenario production adapter matrix reported
+CAPABILITY_UNAVAILABLE; three Python cases skipped for native-Windows/Git-Bash
+capability on POSIX; `.ps1` syntax validation skipped because PowerShell was not
+available in the clean WSL PATH. These are not executed passes. Local self-tests
+used test doubles, not real Claude/provider/browser acceptance. Remote CI and
+Security were not run or inferred from local workflow/schema validation.
+
 ## Correlated offline command-menu refinement - 2026-10-16
 
 Approved spec/plan: `docs/superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md`

@@ -23,7 +23,17 @@ STRUCTURE_FIELDS=frozenset(('buffer','cursorX','cursorY','baseY','viewportY','ca
 
 
 def _structure(value):
-    if type(value) is not dict or set(value)!=STRUCTURE_FIELDS: return False
+    if (type(value) is not dict
+            or not STRUCTURE_FIELDS<=set(value)<=STRUCTURE_FIELDS|{'readinessRejection'}): return False
+    if 'readinessRejection' in value:
+        detail=value['readinessRejection']
+        if (value['readiness']!='UNSUPPORTED_MARKER' or type(detail) is not dict
+                or set(detail)!={'rowRelation','rowCause','rowShape'}
+                or type(detail['rowRelation']) is not str or detail['rowRelation'] not in INPUT_ROW_RELATIONS
+                or type(detail['rowCause']) is not str or detail['rowCause'] not in INPUT_ROW_CAUSES
+                or type(detail['rowShape']) is not str or detail['rowShape'] not in ('SDK_TEXT_PROMPT_SHAPE','OTHER')
+                or (detail['rowShape']=='SDK_TEXT_PROMPT_SHAPE' and detail['rowCause']!='UNRECOGNIZED_SHAPE')):
+            return False
     for key,maximum in (('cursorX',120),('cursorY',39),('baseY',1000),('viewportY',1000),('candidateCount',40)):
         if type(value[key]) is not int or not 0<=value[key]<=maximum: return False
     if (type(value['buffer']) is not str or value['buffer'] not in ('normal','alternate')

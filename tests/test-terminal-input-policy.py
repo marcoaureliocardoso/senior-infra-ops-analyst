@@ -1,5 +1,6 @@
 """Current-input semantic tests over explicit cell fixtures, without a model."""
 import importlib.util
+import ast
 import dataclasses
 from pathlib import Path
 import unittest
@@ -29,6 +30,101 @@ class TerminalInputPolicyTests(unittest.TestCase):
         module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         self.policy=module.TerminalInputPolicy()
         self.policy.mark_transition(snapshot())
+
+    def test_readiness_rejection_describes_actual_row_not_earlier_ignored_history(self):
+        current=snapshot(['❯ /context','❯ P0-04B synthetic text control. Reply P004B_SKILL_OK only.',
+            '❯ '],x=2,y=2)
+        self.assertFalse(self.policy.ready(current))
+        detail=self.policy.diagnostic_state(current)
+        self.assertEqual(detail['readiness'],'UNSUPPORTED_MARKER')
+        self.assertEqual(detail.get('readinessRejection'),{'rowRelation':'OTHER_CAPTURED_ROW',
+            'rowCause':'UNRECOGNIZED_SHAPE','rowShape':'SDK_TEXT_PROMPT_SHAPE'})
+        # The active gate deliberately still rejects the earlier control history.
+        self.assertEqual(self.policy.empty_input_assessment(current).rowCause,'CONTROL_COMMAND_SHAPE')
+        self.assertIsNone(self.policy.empty_input_anchor(current))
+
+    def test_readiness_rejection_reports_parser_cause_and_cursor_relation(self):
+        wide=snapshot(['❯ '],x=2)
+        row=list(wide.rows[0]); row[0]=TerminalCell('❯',2); row[1]=TerminalCell('',0)
+        wide=dataclasses.replace(wide,rows=(tuple(row),)+wide.rows[1:])
+        cases=[(snapshot(['❯ private-draft'],x=2),'CURSOR_ROW','UNRECOGNIZED_SHAPE'),
+            (snapshot(['❯\u200b','❯ '],x=2,y=1),'OTHER_CAPTURED_ROW','INVISIBLE_FORMAT_CHAR'),
+            (snapshot(['❯\u2003','❯ '],x=2,y=1),'OTHER_CAPTURED_ROW','UNSUPPORTED_WHITESPACE'),
+            (wide,'CURSOR_ROW','MARKER_WIDTH'),
+            (snapshot(['❯ unknown'],x=2,base=50),'CURSOR_OUTSIDE_CAPTURE','UNRECOGNIZED_SHAPE')]
+        for current,relation,cause in cases:
+            with self.subTest(relation=relation,cause=cause):
+                self.policy.mark_transition(snapshot())
+                # Establish freshness independently of current cursor eligibility.
+                self.policy.ready(snapshot(['❯ '],x=2))
+                detail=self.policy.diagnostic_state(current)
+                self.assertEqual(detail['readiness'],'UNSUPPORTED_MARKER')
+                self.assertEqual(detail.get('readinessRejection'),{'rowRelation':relation,
+                    'rowCause':cause,'rowShape':'OTHER'})
+                self.assertNotIn('private-draft',repr(detail))
+
+    def test_readiness_shape_is_exact_display_classification_not_history_permission(self):
+        # Consume the public fixture, not any deleted native screen or transcript.
+        source=ast.parse(Path(__file__).with_name('offline-terminal-resume-probe.py').read_text())
+        assignment=next(node for node in ast.walk(source) if isinstance(node,ast.Assign)
+            and any(isinstance(target,ast.Name) and target.id=='prompt' for target in node.targets)
+            and isinstance(node.value,ast.IfExp))
+        prompt=ast.literal_eval(assignment.value.orelse)
+        for suffix,shape in (('', 'SDK_TEXT_PROMPT_SHAPE'),(' extra','OTHER'),
+                ('\u200b','OTHER'),('!','OTHER')):
+            with self.subTest(shape=shape,suffix=repr(suffix)):
+                current=snapshot(['❯ '+prompt+suffix,'❯ '],x=2,y=1)
+                self.policy.mark_transition(snapshot())
+                self.assertFalse(self.policy.ready(current))
+                detail=self.policy.diagnostic_state(current)
+                self.assertEqual(detail.get('readinessRejection'),{'rowRelation':'OTHER_CAPTURED_ROW',
+                    'rowCause':'INVISIBLE_FORMAT_CHAR' if suffix=='\u200b' else 'UNRECOGNIZED_SHAPE',
+                    'rowShape':shape})
+                self.assertIsNone(self.policy.empty_input_anchor(current))
+                self.assertNotIn(prompt,repr(detail))
+
+    def test_readiness_diagnostic_is_pure_detached_and_absent_for_other_decisions(self):
+        rejected=snapshot(['❯ private-draft','❯ '],x=2,y=1)
+        self.assertFalse(self.policy.ready(rejected))
+        before=dict(vars(self.policy))
+        with mock.patch('builtins.open',side_effect=AssertionError('unexpected IO')):
+            detail=self.policy.diagnostic_state(rejected)
+        self.assertIsInstance(detail.get('readinessRejection'),dict)
+        detail['readinessRejection']['rowShape']='private-draft'
+        self.assertEqual(self.policy.diagnostic_state(rejected)['readinessRejection']['rowShape'],'OTHER')
+        self.assertEqual(vars(self.policy),before)
+        cases=[(snapshot(['❯ '],x=2),False,'FRESHNESS_UNPROVEN'),
+            (snapshot(['❯ '],x=2),True,'READY'),
+            (snapshot(['Do you want to use this API key?','❯ private'],x=2,y=1),True,'AUTHENTICATION_REQUIRED'),
+            (snapshot(['Yes, I trust this folder','❯ private'],x=2,y=1),True,'STARTUP_SELECTION'),
+            (snapshot(['❯ /context']),True,'CANDIDATE_COUNT')]
+        for current,fresh,reason in cases:
+            with self.subTest(reason=reason):
+                self.policy.mark_transition(snapshot())
+                if fresh: self.policy.ready(snapshot(['❯ '],x=2))
+                state_before=dict(vars(self.policy))
+                detail=self.policy.diagnostic_state(current)
+                self.assertEqual(detail['readiness'],reason)
+                self.assertNotIn('readinessRejection',detail)
+                self.assertEqual(vars(self.policy),state_before)
+
+    def test_readiness_shape_geometry_and_padding_never_grant_input_authority(self):
+        prompt='P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
+        row=snapshot(['❯ '+prompt]).rows[0]
+        malformed=[row[:-1],row+(TerminalCell('',1),),
+            row[:-1]+(TerminalCell('',0),),row[:-1]+(TerminalCell('',2),)]
+        rows=[(candidate,'OTHER') for candidate in malformed]
+        rows += [(snapshot([prefix+prompt+suffix]).rows[0],'SDK_TEXT_PROMPT_SHAPE')
+            for prefix,suffix in (('❯ ',' '),(' \t❯\t','\t'),('❯\u00a0','\u00a0'))]
+        for index,(candidate,shape) in enumerate(rows):
+            with self.subTest(case=index):
+                current=snapshot(['','❯ '],x=2,y=1)
+                current=dataclasses.replace(current,rows=(candidate,)+current.rows[1:])
+                self.policy.mark_transition(snapshot())
+                self.assertFalse(self.policy.ready(current))
+                self.assertEqual(self.policy.diagnostic_state(current).get('readinessRejection'),{
+                    'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE','rowShape':shape})
+                self.assertIsNone(self.policy.empty_input_anchor(current))
 
     def test_context_completion_row_grammar(self):
         self.assertTrue(callable(getattr(self.policy,'_context_completion_row',None)),

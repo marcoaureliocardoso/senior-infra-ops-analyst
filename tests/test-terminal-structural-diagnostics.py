@@ -13,6 +13,50 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.module=importlib.util.module_from_spec(spec); spec.loader.exec_module(self.module)
         self.collector=self.module.TerminalDiagnostics()
 
+    def test_readiness_rejection_is_retained_as_closed_atomic_structure(self):
+        structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
+            'candidateCount':1,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'NONE','readiness':'UNSUPPORTED_MARKER',
+            'readinessRejection':{'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE',
+                'rowShape':'SDK_TEXT_PROMPT_SHAPE'}}
+        self.collector.add('failure','WAIT_DEADLINE',structure=structure)
+        report=self.collector.report()
+        self.assertEqual(report,{'records':[{'point':'failure','reasonCode':'WAIT_DEADLINE',
+            'structure':structure}],'truncated':False,'rejected':False})
+        structure['readinessRejection']['rowShape']='OTHER'
+        self.assertEqual(self.collector.report()['records'][0]['structure']['readinessRejection']['rowShape'],
+            'SDK_TEXT_PROMPT_SHAPE')
+
+    def test_readiness_rejection_rejects_content_partial_detail_and_wrong_decision(self):
+        base={'buffer':'normal','cursorX':2,'cursorY':1,'baseY':0,'viewportY':0,
+            'candidateCount':1,'inputFresh':True,'contextFresh':False,'locationFresh':False,
+            'authentication':'NONE','readiness':'UNSUPPORTED_MARKER'}
+        detail={'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE','rowShape':'OTHER'}
+        changes=[{'rowShape':'private-draft'},{'rowCause':True},{'rowRelation':1},
+            {'text':'private-draft'},{'hash':'ab'*32},{'rowShape':{}},
+            {'rowCause':'CONTROL_COMMAND_SHAPE','rowShape':'SDK_TEXT_PROMPT_SHAPE'}]
+        invalid=[{**detail,**change} for change in changes]
+        invalid += [{key:value for key,value in detail.items() if key!=missing} for missing in detail]
+        invalid += [None,True,[]]
+        for value in invalid:
+            self.collector.add('failure','WAIT_DEADLINE',structure={**base,'readinessRejection':value})
+        self.collector.add('failure','WAIT_DEADLINE',structure={**base,'readiness':'READY',
+            'readinessRejection':detail})
+        self.assertEqual(self.collector.report(),{'records':[],'truncated':False,'rejected':True})
+        self.assertNotIn('private-draft',json.dumps(self.collector.report()))
+
+    def test_readiness_rejection_obeys_unchanged_budget(self):
+        structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
+            'candidateCount':1,'inputFresh':True,'contextFresh':True,'locationFresh':True,
+            'authentication':'NONE','readiness':'UNSUPPORTED_MARKER',
+            'readinessRejection':{'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE',
+                'rowShape':'SDK_TEXT_PROMPT_SHAPE'}}
+        for _ in range(100): self.collector.add('failure','WAIT_DEADLINE',structure=structure)
+        report=self.collector.report()
+        self.assertGreater(len(report['records']),0)
+        self.assertTrue(report['truncated']); self.assertFalse(report['rejected'])
+        self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),3072)
+
     def test_closed_fields_reject_content_and_hashes_without_forwarding(self):
         for fields in ({'text':'synthetic-secret'},{'hash':'ab'*32},
                        {'leaderReaped':'synthetic-secret'},{'leaderReaped':1}):

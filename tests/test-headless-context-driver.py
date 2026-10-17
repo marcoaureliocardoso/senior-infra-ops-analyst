@@ -795,6 +795,39 @@ class HeadlessContextDriverTests(unittest.TestCase):
         self.assertIn({'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':16},records)
         self.assertEqual(records[-1],{'kind':'pty-driver','stage':'terminal_cleanup','outcome':'failed'})
 
+    def test_resumed_sdk_prompt_shape_is_diagnosed_before_command_without_input(self):
+        seen=self.root/'input'; fake=self.root/'resume-ui.py'
+        fake.write_text('import os,select,time,tty\nfrom pathlib import Path\n'
+            'tty.setraw(0)\n'
+            'os.write(1,("\\x1b[?1049h\\x1b[1;1HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%"'
+            '\n "\\x1b[6;1H❯ /context\\x1b[7;1H❯ P0-04B synthetic text control. Reply P004B_SKILL_OK only."'
+            '\n "\\x1b[38;1H❯\\u00a0").encode())\n'
+            'while True:\n'
+            ' if select.select([0],[],[],.1)[0]:\n'
+            '  value=os.read(0,4096)\n'
+            '  with Path('+repr(str(seen))+').open("ab") as stream: stream.write(value)\n',encoding='utf-8')
+        state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),
+            Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+3)
+        diagnostics=TerminalDiagnostics()
+        result=self.driver.drive([sys.executable,str(fake)],self.root/'capture',3,self.root/'events',
+            dialogue='context',terminal_state=state,terminal_diagnostics=diagnostics)
+        self.assertEqual(result,2)
+        self.assertEqual(seen.read_bytes() if seen.exists() else b'',b'')
+        report=diagnostics.report()
+        self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+        failure=next(row for row in report['records'] if row['point']=='failure')
+        self.assertEqual(failure['reasonCode'],'WAIT_DEADLINE')
+        self.assertEqual(failure['structure']['readiness'],'UNSUPPORTED_MARKER')
+        self.assertEqual(failure['structure'].get('readinessRejection'),{
+            'rowRelation':'OTHER_CAPTURED_ROW','rowCause':'UNRECOGNIZED_SHAPE','rowShape':'SDK_TEXT_PROMPT_SHAPE'})
+        self.assertTrue(state.helper_reaped)
+        self.assertIn({'point':'native_cleanup','reasonCode':'CLEANUP_COMPLETED','leaderReaped':True},report['records'])
+        events=[json.loads(line) for line in (self.root/'events').read_text().splitlines()]
+        self.assertIn({'kind':'pty-driver','stage':'prompt_ready','outcome':'failed'},events)
+        self.assertFalse(any(row['stage']=='context_inspected' for row in events))
+        self.assertNotIn('P004B_SKILL_OK',json.dumps(report))
+        self.assertNotIn('❯',json.dumps(report))
+
     def test_reap_observation_failure_cannot_change_operational_result(self):
         diagnostics=TerminalDiagnostics()
         with mock.patch.object(TerminalState,'helper_reaped',new_callable=mock.PropertyMock,
