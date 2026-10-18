@@ -18,6 +18,7 @@ _SEAL=object()
 _ISSUERS=weakref.WeakSet()
 _TERMINALS=weakref.WeakSet()
 _SCOPES=weakref.WeakKeyDictionary()
+_CHALLENGES=weakref.WeakKeyDictionary()
 
 
 class InputProofError(RuntimeError):
@@ -135,6 +136,8 @@ class NonceInputChallenge:
             self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason,
                 input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause,observation=observation)
         self._row=initial.rows[self._anchor.row]
+        _CHALLENGES[self]={'scope':scope,'record':record,'native':native_owner,
+            'transition':transition_owner,'consumed':False}
 
     def __repr__(self): return '<NonceInputChallenge>'
 
@@ -281,5 +284,17 @@ class NonceInputChallenge:
                     or native_owner is not self._native or transition_owner is not self._transition
                     or self._assessment(snapshot)[0].anchor!=self._anchor):
                 self._fail('INPUT_PROBE_REVOKED')
-            self.phase='CONSUMED'; self._proof=None; return True
+            self.phase='CONSUMED'; self._proof=None
+            _CHALLENGES[self]['consumed']=True
+            return True
         except InputProofError: return False
+
+
+def _initial_nonce_completed(probe, *, state, scope, native_owner, transition_owner):
+    record=_CHALLENGES.get(probe) if type(probe) is NonceInputChallenge else None
+    scope_record=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
+    return bool(record is not None and scope_record is not None
+        and record['scope'] is scope and record['record'] is scope_record
+        and scope_record['terminal'] is state and record['native'] is native_owner
+        and record['transition'] is transition_owner and record['consumed']
+        and probe.phase=='CONSUMED' and probe._marker is None and probe._proof is None)

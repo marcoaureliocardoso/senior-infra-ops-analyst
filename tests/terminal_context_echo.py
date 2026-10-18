@@ -22,6 +22,21 @@ _BODY='/context'
 def _now(): return time.monotonic()
 
 
+def _initial_context_facts(command, *, state, scope, native_owner, transition_owner):
+    """Completed facts only: the original live validator must reject an exited owner."""
+    from terminal_input_challenge import _context_scope_binding
+    record=_COMMANDS.get(command) if type(command) is OwnedContextCommand else None
+    if record is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
+    run,deadline=_context_scope_binding(scope,state,allow_claimed=True)
+    if (any(record[key] is not value for key,value in (('state',state),('scope',scope),
+            ('native',native_owner),('transition',transition_owner),('run',run)))
+            or record['deadline']!=deadline or record['phase']!='RECEIPT_READY'
+            or record['written']!=8 or record['progress']!=8 or 'submit_frame' not in record
+            or native_owner.poll()!=0):
+        raise _error('INPUT_PROBE_SCOPE_REJECTED')
+    return 8,1
+
+
 def _error(reason,assessment=None):
     from terminal_input_challenge import InputProofError
     if assessment is None: return InputProofError(reason)

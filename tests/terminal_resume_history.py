@@ -3,8 +3,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
+import os
+from pathlib import Path
 import re
+import stat
+import time
+from typing import BinaryIO
 import unicodedata
+import weakref
 
 from terminal_state_adapter import TerminalCell
 
@@ -192,3 +199,371 @@ def parse_sdk_sample(raw: bytes, *, expected_session: str, case_kind: str) -> SD
         return SDKFacts(False, error.reason, count)
     except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
         return SDKFacts(False, 'MALFORMED', count)
+
+
+# Trusted supervisor-owned objects. Pure classifiers above never consult these.
+RESUME_REASONS = frozenset('RESUME_HISTORY_'+suffix for suffix in (
+    'SCOPE_REJECTED','SDK_REJECTED','LAYOUT_REJECTED','REPLAY_REJECTED','REVOKED'))
+_SEAL = object()
+_CASES = weakref.WeakKeyDictionary()
+_SINKS = weakref.WeakKeyDictionary()
+_PENDING = weakref.WeakKeyDictionary()
+_LAUNCHES = weakref.WeakKeyDictionary()
+_OFFERS = weakref.WeakKeyDictionary()
+_VIEWS = weakref.WeakKeyDictionary()
+
+
+class ResumeHistoryError(RuntimeError):
+    def __init__(self, reason):
+        self.reason = reason if type(reason) is str and reason in RESUME_REASONS else 'RESUME_HISTORY_REVOKED'
+        super().__init__(self.reason)
+
+
+class _Branded:
+    __slots__ = ('__weakref__',)
+    def __new__(cls, seal=None):
+        if seal is not _SEAL:
+            raise ResumeHistoryError('RESUME_HISTORY_SCOPE_REJECTED')
+        return super().__new__(cls)
+
+    def __repr__(self):
+        return '<'+type(self).__name__+'>'
+
+
+class OfflineCase(_Branded): __slots__ = ()
+class InitialCompletionSink(_Branded): __slots__ = ()
+class PendingInitialCompletion(_Branded): __slots__ = ()
+class SDKLaunch(_Branded): __slots__ = ()
+class ResumeOffer(_Branded): __slots__ = ()
+class ResumedHistoryView(_Branded): __slots__ = ()
+
+
+def _now():
+    return time.monotonic()
+
+
+def close_offline_case(case: OfflineCase) -> None:
+    if type(case) is not OfflineCase:
+        return
+    for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS):
+        for value, record in list(registry.items()):
+            if record['case'] is case:
+                for dependent in record.get('dependents', ()):
+                    current = dependent()
+                    if current is not None:
+                        current.invalidate('INPUT_PROBE_REVOKED')
+                registry.pop(value, None)
+    _CASES.pop(case, None)
+
+
+def _fail(record, reason='RESUME_HISTORY_SCOPE_REJECTED'):
+    if record is not None:
+        close_offline_case(record['case'])
+    raise ResumeHistoryError(reason)
+
+
+def _identity(path, *, directory):
+    value = path.lstat()
+    if (value.st_uid != os.getuid() or stat.S_ISLNK(value.st_mode)
+            or not (stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode))):
+        raise ValueError('owned identity rejected')
+    return value.st_dev, value.st_ino, value.st_uid, stat.S_IFMT(value.st_mode)
+
+
+def _case(case, phases=None):
+    record = _CASES.get(case) if type(case) is OfflineCase else None
+    if record is None:
+        _fail(None)
+    try:
+        now = _now()
+        if (not math.isfinite(now) or now < record['time'] or now >= record['deadline']
+                or _identity(record['root'],directory=True) != record['root_identity']
+                or _identity(record['root']/'project',directory=True) != record['project_identity']
+                or Path.cwd() != record['root']/'project'
+                or record['root'].resolve(strict=True) != record['root']):
+            _fail(record)
+        if phases is not None and record['phase'] not in phases:
+            _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+        record['time'] = now
+        return record
+    except (OSError,ValueError,AttributeError):
+        _fail(record)
+
+
+def create_offline_case(root: Path, *, session_id: str, case_kind: str, owner: object) -> OfflineCase:
+    from terminal_input_challenge import _audit
+    try:
+        _audit()
+        if (type(root) is not Path and not isinstance(root,Path)) or not root.is_absolute():
+            raise ValueError('root rejected')
+        if (type(session_id) is not str or not _LABEL.fullmatch(session_id)
+                or case_kind not in ('text-turn','skill-turn') or type(owner) is not object
+                or root.resolve(strict=True) != root or Path.cwd() != root/'project'):
+            raise ValueError('case rejected')
+        root_identity = _identity(root,directory=True)
+        project_identity = _identity(root/'project',directory=True)
+        now = _now()
+        if not math.isfinite(now): raise ValueError('clock rejected')
+    except (OSError,ValueError,RuntimeError,AttributeError):
+        _fail(None)
+    case = OfflineCase(_SEAL)
+    _CASES[case] = {'case':case,'root':root,'root_identity':root_identity,
+        'project_identity':project_identity,'session':session_id,'kind':case_kind,
+        'owner':owner,'deadline':now+165,'time':now,'phase':'CREATED'}
+    return case
+
+
+def _argv(record, stage):
+    common = ('--strict-mcp-config','--mcp-config',str(record['root']/'mcp.json'))
+    if stage != 'sdk':
+        return ('/opt/probe/claude','--session-id' if stage=='initial' else '--resume',record['session'],*common)
+    return ('/opt/probe/claude','-p',SKILL_PROMPT if record['kind']=='skill-turn' else TEXT_PROMPT,
+        '--resume',record['session'],*common,'--permission-mode','default','--tools','Skill',
+        '--allowedTools','Skill(context-continuity)','--include-hook-events','--verbose',
+        '--output-format','stream-json','--max-turns','4')
+
+
+def _scope(state, scope):
+    from terminal_input_challenge import _context_scope_binding
+    return _context_scope_binding(scope,state,allow_claimed=True)
+
+
+def _binding(case, state, scope, command, stage):
+    record = _case(case)
+    try:
+        run, deadline = _scope(state,scope)
+        if type(command) is not tuple or command != _argv(record,stage):
+            _fail(record)
+    except (RuntimeError,TypeError,AttributeError):
+        _fail(record)
+    return {'case':case,'state':state,'scope':scope,'run':run,'deadline':deadline,'command':command}
+
+
+def initial_completion_sink(case, *, state, scope, command):
+    record = _case(case,('CREATED',))
+    if 'sink' in record: _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+    binding = _binding(case,state,scope,command,'initial')
+    value = InitialCompletionSink(_SEAL)
+    _SINKS[value] = binding
+    record['sink'] = weakref.ref(value)
+    return value
+
+
+def _registered(value, registry, expected_type):
+    record = registry.get(value) if type(value) is expected_type else None
+    if record is None: _fail(None)
+    _case(record['case'])
+    return record
+
+
+def validate_initial_sink(sink, *, state, scope, command):
+    record = _registered(sink,_SINKS,InitialCompletionSink)
+    _case(record['case'],('CREATED',))
+    if state is not record['state'] or scope is not record['scope'] or command != record['command']:
+        _fail(record)
+    _binding(record['case'],state,scope,command,'initial')
+
+
+def bind_initial_sink(sink, *, controller_owner, native_owner, transition_owner):
+    record = _registered(sink,_SINKS,InitialCompletionSink)
+    validate_initial_sink(sink,state=record['state'],scope=record['scope'],command=record['command'])
+    if ('controller' in record or type(controller_owner) is not object or type(transition_owner) is not object
+            or not callable(getattr(native_owner,'poll',None)) or native_owner.poll() is not None):
+        _fail(record)
+    record.update(controller=controller_owner,native=native_owner,transition=transition_owner)
+
+
+def capture_initial_completion(sink, *, controller_owner, state, scope, native_owner,
+                               transition_owner, context_command, probe, frame, exit_written):
+    from terminal_context_echo import _initial_context_facts
+    from terminal_input_challenge import _initial_nonce_completed
+    from terminal_state_adapter import MAX_CAPTURE
+    record = _registered(sink,_SINKS,InitialCompletionSink)
+    validate_initial_sink(sink,state=state,scope=scope,command=record['command'])
+    try:
+        if (any(record.get(key) is not value for key,value in (
+                ('controller',controller_owner),('native',native_owner),('transition',transition_owner)))
+                or type(frame) is not int or not 0 <= frame <= MAX_CAPTURE
+                or type(exit_written) is not int or exit_written != 6
+                or native_owner.poll() != 0 or 'captured' in record):
+            _fail(record)
+        facts = _initial_context_facts(context_command,state=state,scope=scope,
+            native_owner=native_owner,transition_owner=transition_owner)
+        if facts != (8,1) or not _initial_nonce_completed(probe,state=state,scope=scope,
+                native_owner=native_owner,transition_owner=transition_owner):
+            _fail(record)
+    except (RuntimeError,TypeError,AttributeError):
+        _fail(record)
+    value = PendingInitialCompletion(_SEAL)
+    _PENDING[value] = {'case':record['case'],'state':state,'scope':scope,'native':native_owner,
+                       'deadline':record['deadline']}
+    record['captured'] = True
+    return value
+
+
+def finish_initial_completion(pending, *, result, native_cleanup, helper_cleanup):
+    record = _registered(pending,_PENDING,PendingInitialCompletion)
+    case = _case(record['case'],('CREATED',))
+    if (type(result) is not int or result != 0 or native_cleanup != 'CLEANUP_COMPLETED'
+            or helper_cleanup != 'CLEANUP_COMPLETED' or record['native'].poll() != 0
+            or not record['state'].helper_reaped or _now() >= record['deadline']):
+        _fail(record)
+    case.update(phase='INITIAL_COMPLETE',initial_state=weakref.ref(record['state']),
+                initial_scope=weakref.ref(record['scope']))
+    _PENDING.pop(pending)
+    sink = case.pop('sink')()
+    if sink is not None: _SINKS.pop(sink,None)
+
+
+def sdk_started(case, *, child, command, stream: BinaryIO):
+    import fcntl
+    record = _case(case,('INITIAL_COMPLETE',))
+    try:
+        path = Path(stream.name)
+        status = os.fstat(stream.fileno())
+        identity = (status.st_dev,status.st_ino,status.st_uid,stat.S_IFMT(status.st_mode))
+        if (type(command) is not tuple or command != _argv(record,'sdk')
+                or tuple(child.args) != command or child.poll() is not None
+                or path != record['root']/'sdk.stream' or _identity(path,directory=False) != identity
+                or status.st_mode & 0o077 or status.st_nlink != 1
+                or fcntl.fcntl(stream.fileno(),fcntl.F_GETFL) & os.O_ACCMODE != os.O_RDWR):
+            _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+    except (OSError,ValueError,TypeError,AttributeError):
+        _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+    launch = SDKLaunch(_SEAL)
+    _LAUNCHES[launch] = {'case':case,'child':child,'command':command,'stream':stream,'identity':identity,
+                         'deadline':min(record['deadline'],_now()+25)}
+    record['phase'] = 'SDK_RUNNING'
+    return launch
+
+
+def sdk_finished(launch):
+    record = _registered(launch,_LAUNCHES,SDKLaunch)
+    case = _case(record['case'],('SDK_RUNNING',))
+    if _now() >= record['deadline']: _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+    try:
+        stream = record['stream']; status = os.fstat(stream.fileno())
+        if ((status.st_dev,status.st_ino,status.st_uid,stat.S_IFMT(status.st_mode)) != record['identity']
+                or tuple(record['child'].args) != record['command'] or record['child'].poll() != 0):
+            _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+        stream.flush(); stream.seek(0)
+        facts = parse_sdk_sample(stream.read(MAX_SDK_BYTES+1),expected_session=case['session'],case_kind=case['kind'])
+        _case(record['case'],('SDK_RUNNING',))
+        if _now() >= record['deadline']: _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+    except (OSError,ValueError,TypeError,AttributeError):
+        _fail(record,'RESUME_HISTORY_SDK_REJECTED')
+    _LAUNCHES.pop(launch,None)
+    if facts.valid: case['phase'] = 'SDK_VALIDATED'
+    else: close_offline_case(record['case'])
+    return facts
+
+
+def offer_resume(case, *, state, scope, command):
+    record = _case(case,('SDK_VALIDATED',))
+    if state is record['initial_state']() or scope is record['initial_scope']():
+        _fail(record)
+    binding = _binding(case,state,scope,command,'resume')
+    value = ResumeOffer(_SEAL)
+    _OFFERS[value] = binding
+    record['phase'] = 'VIEW_OFFERED'
+    return value
+
+
+def validate_resume_offer(offer, *, state, scope, command):
+    record = _registered(offer,_OFFERS,ResumeOffer)
+    _case(record['case'],('VIEW_OFFERED',))
+    if state is not record['state'] or scope is not record['scope'] or command != record['command']:
+        _fail(record)
+    _binding(record['case'],state,scope,command,'resume')
+
+
+def _frame(record, snapshot, frame):
+    from terminal_state_adapter import TerminalSnapshot, MAX_CAPTURE
+    if (type(snapshot) is not TerminalSnapshot or type(frame) is not int or not 0 <= frame <= MAX_CAPTURE
+            or frame < record.get('frame',0)
+            or (frame == record.get('frame') and snapshot is not record['snapshot']())):
+        _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+    record.update(frame=frame,snapshot=weakref.ref(snapshot))
+
+
+def _current_binding(record, native_owner, controller_owner, transition_owner):
+    try:
+        run, deadline = _scope(record['state'],record['scope'])
+        if (run is not record['run'] or deadline != record['deadline'] or native_owner.poll() is not None
+                or type(controller_owner) is not object or type(transition_owner) is not object):
+            _fail(record)
+    except (RuntimeError,TypeError,AttributeError):
+        _fail(record)
+
+
+def _profiles(case, policy, snapshot, *, binding):
+    cursor = snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+    profiles = {}
+    kinds = ('CONTEXT','EXIT','SDK_SKILL' if case['kind']=='skill-turn' else 'SDK_TEXT')
+    for index, row in enumerate(snapshot.rows):
+        if index == cursor: continue
+        profile = next((candidate for kind in kinds
+            if (candidate := match_history_row(row,kind)) is not None),None)
+        if profile is not None:
+            if profile.kind in (p.kind for p in profiles.values()):
+                _fail(case,'RESUME_HISTORY_LAYOUT_REJECTED')
+            profiles[index] = profile
+        elif binding and re.match(r'^\s*❯',policy._row_text(row)):
+            _fail(case,'RESUME_HISTORY_LAYOUT_REJECTED')
+    return profiles
+
+
+def try_bind_resume_view(offer, *, policy, snapshot, frame, native_owner, controller_owner, transition_owner):
+    record = _registered(offer,_OFFERS,ResumeOffer)
+    validate_resume_offer(offer,state=record['state'],scope=record['scope'],command=record['command'])
+    _current_binding(record,native_owner,controller_owner,transition_owner)
+    _frame(record,snapshot,frame)
+    if policy.active_input_forbidden(snapshot): _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    case = _case(record['case'])
+    profiles = _profiles(case,policy,snapshot,binding=True)
+    assessment,_ = policy._empty_input_assessment(snapshot,_excluded_rows=frozenset(profiles))
+    if assessment.reason == 'NO_MARKER': return None
+    if assessment.anchor is None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    policy._observe(snapshot)
+    if not policy._input_is_fresh(): return None
+    view = ResumedHistoryView(_SEAL)
+    _VIEWS[view] = {**record,'policy':policy,'native':native_owner,'controller':controller_owner,
+        'transition':transition_owner,'geometry':(snapshot.active,snapshot.baseY,snapshot.viewportY),
+        'profiles':profiles,'phase':'BOUND','dependents':[]}
+    _OFFERS.pop(offer)
+    return view
+
+
+def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_owner, controller_owner, transition_owner):
+    record = _registered(view,_VIEWS,ResumedHistoryView)
+    _current_binding(record,native_owner,controller_owner,transition_owner)
+    if (record['phase'] not in ('BOUND','POST_SUBMIT') or any(record[key] is not value for key,value in (
+            ('policy',policy),('state',state),('scope',scope),('native',native_owner),
+            ('controller',controller_owner),('transition',transition_owner)))):
+        _fail(record)
+    _frame(record,snapshot,frame)
+    if (record['geometry'] != (snapshot.active,snapshot.baseY,snapshot.viewportY)
+            or policy.active_input_forbidden(snapshot)):
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    profiles = _profiles(_case(record['case']),policy,snapshot,binding=False)
+    if profiles != record['profiles']:
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    return frozenset(profiles)
+
+
+def finish_resume_view(view):
+    record = _registered(view,_VIEWS,ResumedHistoryView)
+    if record['native'].poll() != 0 or not record['state'].helper_reaped:
+        _fail(record)
+    _case(record['case'])['phase'] = 'FINISHED'
+    record['phase'] = 'FINISHED'
+
+
+def revoke_resume_view(view):
+    record = _VIEWS.get(view) if type(view) is ResumedHistoryView else None
+    if record is not None: close_offline_case(record['case'])
+
+
+def resume_view_decision(view):
+    record = _VIEWS.get(view) if type(view) is ResumedHistoryView else None
+    return 'VALID' if record is not None and record['phase'] in ('BOUND','POST_SUBMIT','FINISHED') else 'REJECTED'

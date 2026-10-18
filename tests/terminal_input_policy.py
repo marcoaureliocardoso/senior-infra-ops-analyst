@@ -216,12 +216,12 @@ class TerminalInputPolicy:
         """Rejecting row metadata from the same decision, never a later sample."""
         return self._empty_input_assessment(snapshot)[0]
 
-    def _empty_input_assessment(self, snapshot: TerminalSnapshot, excluded_row=None):
+    def _empty_input_assessment(self, snapshot: TerminalSnapshot, excluded_row=None, *, _excluded_rows=frozenset()):
         """Private ordered evaluator; callers validate any exclusion beforehand."""
         if self.active_input_forbidden(snapshot): return EmptyInputAssessment(None,'FORBIDDEN_STATE'),None
         candidates=[]
         for index,row in enumerate(snapshot.rows):
-            if index==excluded_row: continue
+            if index==excluded_row or index in _excluded_rows: continue
             if not re.match(r'^\s*❯',self._row_text(row)): continue
             candidate,cause=self._candidate_evaluation(row)
             if candidate is None:
@@ -251,9 +251,12 @@ class TerminalInputPolicy:
     def _readiness(self, snapshot):
         return self._readiness_assessment(snapshot)[0]
 
+    def _input_is_fresh(self):
+        return bool(self._fresh_input or self._fresh_location)
+
     def _readiness_assessment(self, snapshot):
         # Same fail-closed decision tree; diagnostic projection never observes.
-        if not (self._fresh_input or self._fresh_location): return 'FRESHNESS_UNPROVEN',None
+        if not self._input_is_fresh(): return 'FRESHNESS_UNPROVEN',None
         if self._auth(snapshot): return 'AUTHENTICATION_REQUIRED',None
         text = self.screen_text(snapshot)
         folded = re.sub('[^a-z]', '', text.lower())
