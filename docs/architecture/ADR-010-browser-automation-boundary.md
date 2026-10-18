@@ -805,8 +805,9 @@ activation flag, dependency, package/component version or original limit changes
 
 ## Proposed offline resumed-history view
 
-Direction approved on 2026-10-17; the written specification is pending operator
-review and is not implemented. The consumed b5e0e55 native attempt identified an
+Direction and written specification approved on 2026-10-17; the implementation
+plan awaits review and execution-method selection. This is not implemented.
+The consumed b5e0e55 native attempt identified an
 off-cursor SDK text-prompt shape blocking resume readiness. Existing input
 receipts remain process-bound and do not transfer to a resumed measurement.
 
@@ -863,6 +864,7 @@ an execution grant or erase an already exported chat copy.
 - Correlated command-menu spec: `docs/superpowers/specs/2026-10-15-p0-04b-correlated-command-menu-design.md`
 - Correlated command-menu plan: `docs/superpowers/plans/2026-10-15-p0-04b-correlated-command-menu.md`
 - Proposed resumed-history spec: `docs/superpowers/specs/2026-10-17-p0-04b-resumed-history-view-design.md`
+- Proposed resumed-history plan: `docs/superpowers/plans/2026-10-17-p0-04b-resumed-history-view.md`
 - Approved remediation design: `docs/superpowers/specs/2026-10-07-p0-04b-review-remediation-design.md`
 - Implemented harness author-fix plan: `docs/superpowers/plans/2026-10-07-p0-04b-harness-review-fixes.md`
 - Production-lifetime plan: `docs/superpowers/plans/2026-10-07-p0-04b-approval-lifetime-remediation.md`

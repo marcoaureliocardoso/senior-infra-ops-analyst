@@ -1,6 +1,6 @@
 # P0-04B offline resumed-history view design
 
-Status: direction operator-approved; written specification awaiting operator review.
+Status: written specification operator-approved; implementation plan awaiting review and execution-method selection.
 This is a design-only artifact, not an implementation or execution approval.
 Source baseline: `b5e0e555871f7cebaa61acf55c30a104847ca37d`.
 
@@ -314,7 +314,9 @@ Production/provider/browser acceptance, remote CI/Security, push/PR, main merge,
 release and definitive unversioned TODO completion remain independent gates.
 Conversational direction approval permits this specification only. Written-spec
 approval permits an implementation plan; the plan and execution method must
-then be approved before behavior changes. No implementation plan exists yet.
+then be approved before behavior changes. The
+[implementation plan](../plans/2026-10-17-p0-04b-resumed-history-view.md) is pending
+that review and execution-method selection; no implementation is authorized yet.
 
 ## References
 
