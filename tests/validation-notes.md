@@ -1,6 +1,6 @@
 # Validation Notes
 
-## Offline resumed-history view - 2026-10-18 candidate
+## Offline resumed-history view - 2026-10-18 local closeout
 
 Execution baseline: `62a8fe263b06b53ea4eddbbdda6467db0b0f5caa` on the isolated
 `p0-04b-browser-automation` branch. The operator approved the spec/plan and selected
@@ -23,7 +23,8 @@ signals5 and policy35. The complete driver took 244.233 seconds; the offline
 suite's final task gate took 52.384 seconds. These suites had no skips.
 The later completion-boundary regression passed in resume25; the seven private
 driver scenarios and the complete two-case namespace fixture also passed after
-that correction. No package-wide result is claimed yet.
+that correction. Those were focused results; the matching package-wide result
+is recorded below.
 
 The actual isolated harness ran a hand-authored Python CLI double labelled
 `0.0.1`, not installed Claude. Both text and short-skill cases completed in order,
@@ -52,12 +53,90 @@ Conservative implementation rulings:
 - Missing or truncated structural acceptance evidence is inconclusive even after
   successful operations; the cost is conservative acceptance failure, not changed cleanup.
 
-Review and full immutable package gate are pending. Evidence for this plan is in
-its ignored `.superpowers/sdd/2026-10-17-p0-04b-resumed-history-view/` workspace
-until closeout. Final package logs will be retained outside Git in the project's
-`.review-runtime/p004b-terminal-state/` directory. No native/provider/browser
-acceptance, remote CI/Security, push/PR/merge/release, staging refresh or definitive
-TODO completion is established. The old b5e0e55 native grant remains consumed.
+### Review, correction and immutable package gate
+
+One fresh independent review completed the whole execution range through
+`fe3fedc7cde3ab213050878af5c7f7d58ccf320a`: no Critical, one Important, no Minor.
+The reviewer independently passed resume25 and reproduced the Important finding:
+post-submit history binding discarded the composer's frozen observation, so
+debug could select accepted SDK history or omit the actual rejecting row.
+Input remained fail-closed. The author reproduced all four subcases RED using
+both `bind_history()` and the actual debug consumer, then preserved the original
+observation with and without a fresh receipt. Both tests turned GREEN; complete
+resume27, echo45 and debug29 suites passed (101 checks, no skips). No second
+independent review or re-review is claimed.
+
+Corrected/gated source: `d7f9f56ae4680901ce78df85a95d84ec59c09efc`.
+The clean-prefix complete `bash tests/validate-package.sh` exited 0 with
+`package validation passed`, schema validation and local workflow validation.
+It ran 07:44:11-07:55:21 UTC on 2026-10-18 (670 seconds). Driver68 passed in
+240.029 seconds and offline34 in 50.607 seconds. The worktree HEAD stayed at
+that SHA and remained clean during the gate.
+
+The gate used a Windows-Git archive on a native Linux temporary filesystem,
+because DrvFs exposed old/new tracked files and ignored scratch as mode 0777.
+No mount, operator configuration or preferences changed; no WSL Git was used
+for agent repository operations. Archive SHA-256:
+`21d2cef2b992cca9167abcb4f10bc263c997113705d756ce1d7fe145e66e9fe3`.
+Every one of the 539 versioned regular files matched archive content and modes
+before and after. An initial tar UID/GID comparison stopped before running any
+tests; UID/GID are not Git metadata, so verification compared file bytes/type/modes.
+
+The supplemental all-files directory digest differed after tests, and its wrapper
+assertion did not pass. The canonical 539-file comparison had already passed;
+this is not a claim that the entire runtime directory was unchanged. Extra
+non-versioned files were not inventoried before the temporary export disappeared,
+so their names/content are not inferred. The package command's recorded exit 0
+and canonical-source attribution are distinct from that stronger failed assertion.
+The archive and full unedited log remain outside Git:
+`C:\projects\senior-infra-ops-analyst\.review-runtime\p004b-terminal-state\p004b-resumed-history-20261018-package.log`.
+
+Observed skips: one opt-in real-browser test containing 37 scenarios
+(`CAPABILITY_UNAVAILABLE`); one native-Windows-only permission test; one Git-Bash
+argument-validation test each in context-continuity and Nori live-safety suites.
+PowerShell was unavailable in the clean Linux PATH, so `.ps1` syntax/help checks
+were not run. No other warning/skip was observed. These are capability/platform
+limits, not native/browser or Windows acceptance.
+
+Review exclusions and author rulings, in review order:
+
+- Actual Claude/Skill and rendering: require new exact-final-commit offline
+  authorization; synthetic contracts do not prove display compatibility. Cost:
+  a later native renderer can still be safely inconclusive.
+- Provider/browser, installed/staging, remote CI/Security and delivery: remain
+  separate unperformed gates; no merge readiness. Cost: integration/remote
+  defects remain undiscovered until those gates.
+- Arbitrary trusted-process mutation or malicious native executable: outside
+  the branded-identity trust model, not an adversarial same-process sandbox.
+  Cost: compromise of that trusted process defeats the assumption.
+- Unchanged inherited paths beyond integration: preserve the scoped review
+  range and cover inherited regressions with the full local package suite.
+  Cost: unrelated pre-existing defects can remain.
+- Package execution/export fidelity: author-owned post-fix evidence, not a
+  reviewer-run gate. Cost: export mismatch would invalidate source attribution.
+
+Additional verification rulings: use the canonical Linux archive because the
+Windows mount's mask is not Git mode evidence (cost: Windows filesystem semantics
+remain unproven); attribute immutable source through all canonical member hashes
+and modes, not a whole-directory digest that includes runtime extras (cost:
+non-versioned runtime artifacts were not fully inventoried). Do not claim the
+supplemental assertion passed or repeat the package suite merely to hide it.
+
+Coverage: Tasks 1/2 cover pure profiles/SDK and sealed case/session/lifetime;
+Task 3 covers composed assessment, retirement, numeric freshness and provenance;
+Task 4 covers concrete writes/startup/nonce/exit and cancellation; Task 5 covers
+actual supervisor/process/descriptor joins, namespace mounts and disposal.
+Synthetic successful dialogues used exactly eight command bytes, one Enter,
+16 unsubmitted nonce characters, one Ctrl+U and six exit bytes. No raw frame,
+nonce, native session or operator state is published as evidence here.
+
+This result-only closeout is a later documentation commit, not the reviewed or
+gated source SHA. Documentation verification passed: content validation,
+architecture13 and release-history42 (20.956 seconds), without skips in those
+checks. Native/provider/browser acceptance, remote CI/Security,
+push/PR/merge/release, staging refresh and definitive TODO completion remain
+pending. The b5e0e55 grant remains consumed; no new native attempt was made.
+No deferred Minor findings remain. Preserve the branch/worktree and grant markers.
 
 ## Offline resume readiness diagnostics - 2026-10-16
 

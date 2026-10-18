@@ -343,22 +343,31 @@ the recorded execution baseline and includes every task, not the inherited branc
 history. The author owns fixes and verification; one fresh independent reviewer
 owns the completed scoped verdict. No native or external workflow action follows.
 
-- [ ] Re-read every spec section and map its requirements to tests/tasks. Record TDD RED/GREEN, actual bytes/state/cleanup results, all
+- [x] Re-read every spec section and map its requirements to tests/tasks. Record TDD RED/GREEN, actual bytes/state/cleanup results, all
   warnings/skips, residual layout risks and source paths without protected content. Update ADR/spec status to implemented only for enforced/tested
   local behavior; keep native acceptance pending.
-- [ ] Run all covering suites and documentation checks; commit the candidate before review. Run `git diff --check` and record its full SHA. No source
+- [x] Run all covering suites and documentation checks; commit the candidate before review. Run `git diff --check` and record its full SHA. No source
   mutation during review. Supply the spec/plan, complete implementation range, five Review Focus cases and exact verification claims; reviewer must
   list every declined-to-judge behavior.
-- [ ] Use requesting-code-review with one fresh reviewer. For native execution, use the most capable available review model; if service limits prevent
+- [x] Use requesting-code-review with one fresh reviewer. For native execution, use the most capable available review model; if service limits prevent
   a verdict, report the pending gate instead of inventing one or silently replacing a completed seat. Address valid findings with author TDD and the
   same reviewer for clarification, not a second independent opinion. Explicitly rule on every exclusion/minor and its consequence.
-- [ ] On the final clean corrected source, run the complete clean-prefix `bash tests/validate-package.sh`. Expected exit 0 and `package validation
+- [x] On the final clean corrected source, run the complete clean-prefix `bash tests/validate-package.sh`. Expected exit 0 and `package validation
   passed`; inspect warnings, skips, absent capabilities and local schema/workflow results. Preserve logs outside Git and verify HEAD/source blobs did
   not change through the gate. Any source fix requires a fresh matching gate; never call an interrupted run passed.
-- [ ] Write result-only closeout with reviewed/gated SHAs, one review verdict, all rulings and pending native/provider/browser/remote CI/Security
+- [x] Write result-only closeout with reviewed/gated SHAs, one review verdict, all rulings and pending native/provider/browser/remote CI/Security
   gates. Check content and architecture tests after documentation-only closeout; distinguish its later SHA from the immutable source candidate. Commit
   only owned paths, confirm clean worktree and retain branch/worktree/consumed-grant metadata.
-- [ ] Stop with the final commit and remaining requirements. Do not execute Claude, update staging, push, create PR, merge, release or mark the definitive TODO done. A new exact-final-commit offline grant is required even if synthetic cases pass.
+- [x] Stop with the final commit and remaining requirements. Do not execute Claude, update staging, push, create PR, merge, release or mark the definitive TODO done. A new exact-final-commit offline grant is required even if synthetic cases pass.
+
+Local closeout: independently reviewed through `fe3fedc7cde3ab213050878af5c7f7d58ccf320a`;
+one Important provenance finding fixed with author RED/GREEN tests in
+`d7f9f56ae4680901ce78df85a95d84ec59c09efc`. The complete package command passed
+on that immutable Windows-Git archive in native Linux, with all 539 canonical
+file contents/modes unchanged. The supplemental whole-directory digest assertion
+did not pass; this is explicitly recorded, not a whole-directory immutability claim.
+See validation notes for the log, exact skips, rulings and pending acceptance.
+This later commit changes documentation only; no native or external action follows.
 
 ## Plan self-review and execution handoff
 

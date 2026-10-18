@@ -807,8 +807,10 @@ activation flag, dependency, package/component version or original limit changes
 
 Direction and written specification approved on 2026-10-17; the operator selected
 the implementation plan's native/inline method on 2026-10-18. The isolated branch
-now implements the test-only route; final review/package verification and native
-acceptance are independent pending gates at this candidate.
+now implements the test-only route. One independent scoped review, author TDD
+correction and the full local package command completed on d7f9f56; validation
+notes record exact SHAs, platform skips and the supplemental directory-digest
+limitation. Native acceptance remains an independent pending gate.
 The consumed b5e0e55 native attempt identified an
 off-cursor SDK text-prompt shape blocking resume readiness. Existing input
 receipts remain process-bound and do not transfer to a resumed measurement.

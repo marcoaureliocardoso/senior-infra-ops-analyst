@@ -1,6 +1,6 @@
 # P0-04B offline resumed-history view design
 
-Status: specification and plan approved; inline implementation on the isolated branch, final review/package gate pending.
+Status: approved specification implemented locally; independent review corrected and full package command passed on d7f9f56. See validation notes for skips and supplemental export-check limitation.
 Native/provider/browser acceptance is not established or authorized by this artifact.
 Source baseline: `b5e0e555871f7cebaa61acf55c30a104847ca37d`.
 
@@ -315,8 +315,10 @@ release and definitive unversioned TODO completion remain independent gates.
 The operator approved this written specification and then selected native/inline
 execution of the [implementation plan](../plans/2026-10-17-p0-04b-resumed-history-view.md)
 on 2026-10-18. That development approval does not authorize a native experiment
-or any external delivery action. Final review/package verification remains
-pending at this candidate; real-Claude acceptance needs a fresh final-commit grant.
+or any external delivery action. One independent review and author TDD correction
+preceded the immutable local package gate; its exact hashes, skips and supplemental
+directory-digest limitation are in validation notes. Real-Claude acceptance still
+needs a fresh final-commit grant.
 
 ## References
 

@@ -14,6 +14,8 @@ tag. Tagged versions correspond to repository tags.
   revocation is irreversible and old numeric grids cannot become fresh evidence.
   The offline skill prompt is shorter; live/provider prompts are unchanged.
   Closed structural verdicts preserve raw readiness and existing report limits.
+  Frozen post-submit failures preserve the actual rejecting row after view
+  revocation, with or without a new context receipt.
   Controlled Python CLI/PTY/namespace tests cover both cases and fail-closed
   lifecycle paths. Installed behavior, versions, dependencies, retention and
   execution budgets are unchanged. Native/provider/browser acceptance is pending.
