@@ -404,17 +404,18 @@ class OwnedContextCommand(_Sealed):
         if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED','HISTORY_AMBIGUITY')
         excluded=matches[0] if matches else None
         if record.get('resume_view') is not None:
-            assessment,rejected,_=_compose_input_assessment(record['policy'],snapshot,frame=frame,
+            assessment,rejected,observation=_compose_input_assessment(record['policy'],snapshot,frame=frame,
                 state=record['state'],scope=record['scope'],native_owner=record['native'],
                 controller_owner=record['controller'],transition_owner=record['transition'],
                 resume_view=record['resume_view'],context_command=self)
-        else: assessment,rejected=record['policy']._empty_input_assessment(snapshot,excluded)
+        else:
+            assessment,rejected=record['policy']._empty_input_assessment(snapshot,excluded)
+            observation=_observation(record['policy'],snapshot,assessment,rejected,excluded) if excluded is not None else None
         if assessment.anchor is None:
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
             _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY')
             record['phase']='REVOKED'; _revoke_record_view(record)
-            if excluded is not None: attach_context_rejection(error,
-                _observation(record['policy'],snapshot,assessment,rejected,excluded))
+            attach_context_rejection(error,observation)
             raise error
         _phase(record,'RECEIPT_READY')
         # Later receipt/nonce lifetime failures are outside this observation window.

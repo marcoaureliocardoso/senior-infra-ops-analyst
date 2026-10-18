@@ -3,10 +3,11 @@ import copy
 import dataclasses
 import importlib
 from pathlib import Path
+import shutil
 import unittest
 from unittest import mock
 
-from terminal_state_adapter import TerminalCell
+from terminal_state_adapter import TerminalCell, COUNT_KEYS
 from resume_history_fixtures import history_snapshot, sdk_stream, sdk_events, encode_events, CaseFixture
 
 SESSION = 'synthetic-session'
@@ -353,6 +354,45 @@ class ResumeCompositionTests(unittest.TestCase):
             self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
             with mock.patch.object(self.m,'validate_resume_view',side_effect=AssertionError('live proof queried')):
                 self.assertEqual(self.echo.context_rejection_projection(error,bad,f.policy),(True,39))
+
+    def reject_bound_history(self,f,has_receipt):
+        import terminal_input_challenge as challenge
+        view=self.bind(f); baseline=self.args['snapshot']; history=((5,'❯ '+TEXT),)
+        command=self.submit(f,view,baseline,history)
+        rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history)
+        if has_receipt: rows=(*rows,(20,'❯ /context'))
+        actual=dataclasses.replace(history_snapshot((*rows,(39,'❯ synthetic unknown'))),
+            replyCounts={key:0 for key in COUNT_KEYS})
+        with self.assertRaises(challenge.InputProofError) as caught: command.bind_history(actual,3)
+        self.assertEqual((caught.exception.reason,caught.exception.input_row_relation,caught.exception.input_row_cause),
+            ('INPUT_PROBE_INELIGIBLE','OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE'))
+        self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+        return actual,caught.exception
+
+    def test_bind_history_keeps_actual_rejection_with_and_without_receipt(self):
+        for has_receipt in (False,True):
+            with self.subTest(receipt=has_receipt), CaseFixture() as f:
+                actual,error=self.reject_bound_history(f,has_receipt)
+                with mock.patch.object(self.m,'validate_resume_view',side_effect=AssertionError('live proof queried')):
+                    self.assertEqual(self.echo.context_rejection_projection(error,actual,f.policy),(True,39))
+
+    def test_bind_history_debug_consumer_selects_actual_rejecting_row(self):
+        import terminal_context_debug as debug
+        facts={'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}
+        for has_receipt in (False,True):
+            with self.subTest(receipt=has_receipt), CaseFixture() as f:
+                actual,error=self.reject_bound_history(f,has_receipt)
+                root=f.root/'debug'; root.mkdir(mode=0o700)
+                with mock.patch.object(debug,'audit_offline_namespace',return_value=facts):
+                    capture=debug.create_context_debug(f.scope,f.state,root)
+                    capture.capture(f.state,f.scope,actual,error,numeric_context=True)
+                self.assertEqual(capture.report(),{'status':'OMITTED_CLEANUP'})
+                # Only this synthetic frame directory under the fixture-owned root.
+                self.assertEqual(root.parent,f.root); self.assertFalse(root.is_symlink())
+                shutil.rmtree(root)
+                report=capture.report()
+                self.assertEqual(report['status'],'READY')
+                self.assertEqual([row['index'] for row in report['excerpt']['rows']],[39,37])
 
     def test_retired_baseline_row_cannot_be_promoted_to_new_history(self):
         with CaseFixture() as f:
