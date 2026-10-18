@@ -866,8 +866,9 @@ remains null/UNKNOWN, never a reconstructed claim.
 Nonzero namespaces remain blocked even when their JSON claims success; only
 validated passive failure metadata can survive that boundary. Standard report
 metadata is validated again after identity-checked disposal. Optional metadata
-is dropped before exceeding the existing 16 KiB envelope budget, including the
-disposal receipt and final newline; an otherwise oversized report stays blocked.
+is dropped before exceeding the existing 16 KiB envelope budget. Standard inner
+serialization reserves the disposal receipt and final newline before transport;
+the parent retains its unchanged read limit. An otherwise oversized report stays blocked.
 Success emits no failure metadata. Audit and both debug routes retain their
 existing contracts, limits and retention rules. No provider/native experiment,
 installation, dependency, preference or version change follows from this decision.

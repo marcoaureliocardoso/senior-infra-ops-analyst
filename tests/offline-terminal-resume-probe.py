@@ -55,14 +55,16 @@ def _failed(report,phase,*,enabled,error=None,exit_code=None):
     return {**report,'failureDiagnostic':_failure_diagnostic(phase,error=error,exit_code=exit_code)} if enabled else report
 
 
-def _bounded_standard_report(report,exit_code):
+def _bounded_standard_report(report,exit_code,*,reserve_disposal=False):
     cases=report.get('cases',[])
     records=[report]+([case for case in cases if type(case) is dict] if type(cases) is list else [])
     success=report.get('reasonCode')=='OFFLINE_CONTROLS_PASSED'
     for record in records:
         if 'failureDiagnostic' in record and (success or not _valid_failure_diagnostic(record['failureDiagnostic'])):
             record.pop('failureDiagnostic')
-    def size(): return len((json.dumps(report,sort_keys=True)+'\n').encode())
+    def size():
+        envelope={**report,'disposableRootAbsent':True} if reserve_disposal else report
+        return len((json.dumps(envelope,sort_keys=True)+'\n').encode())
     if size()>16384:
         # Optional observation must be sacrificed before the existing result.
         for record in records: record.pop('failureDiagnostic',None)
@@ -541,6 +543,7 @@ def main():
                 report={**report,**_controls(debug_context=sys.argv[1:]==['--inner-controls-debug'],
                     debug_context_edit=sys.argv[1:]==['--inner-controls-edit-debug'])}
             else: audit_input_probe_scope(Path('/opt/probe/node'),Path('/opt/modules'))
+            if observe: report=_bounded_standard_report(report,0,reserve_disposal=True)
             print(json.dumps(report,sort_keys=True)); return 0
         except _OfflineFailure as error:
             if not observe: raise

@@ -7,7 +7,7 @@ Baseline: `e22db332de938376b706d4b85d4d83460bee71a7`, clean isolated
 design in chat; no new spec/plan document or native execution was requested.
 Root/component versions remain unchanged for this test-only scope.
 
-The one native e22db33 attempt ended after 3.302 seconds with host exit 2,
+The one native e22db33 attempt ended after 3.302 seconds with probe exit 2,
 OFFLINE_PROBE_BLOCKED and disposableRootAbsent true. It produced no aggregate
 runtime/case evidence; that does not prove no native process started. The grant
 is consumed. Its structural report and marker remain outside Git under
@@ -48,8 +48,25 @@ The first full run had a transient audit-half failure; isolated audit then passe
 and exposed the intentional new default PRECHECK-envelope expectation, which was
 updated exactly. Final combined offline58 passed (86.561 seconds), debug29,
 architecture13, release-history42 (20.479 seconds) and content validation passed,
-without skips in those focused runs. Independent review and the matching complete
-package gate remain pending at this candidate.
+without skips in those focused runs.
+
+Independent review of e22db33..d642355 found no Critical issue and one Important
+transport-budget defect: optional metadata could push inner JSON above 16 KiB
+before the parent could omit it. The new regression failed at 16463 bytes for
+both envelope and case metadata. Standard inner serialization now reserves the
+disposal receipt/newline and drops optional metadata first, before transport;
+the unchanged parent limit still rejects oversized input. All 25 diagnostic
+tests then passed (34.524 seconds). Audit/debug routes remain unchanged.
+
+The reviewer's 24-test run passed 23 tests and failed the cleanup fixture's
+runtime assertion (null instead of synthetic 0.0.1); its isolated rerun passed.
+The author's corrected 25-test run also passed that fixture. The initiating cause
+of the earlier failure remains unestablished, not classified as a flake. Runtime
+assertions now include only the closed reason/diagnostic fields to aid future
+synthetic failure investigation. The corrected full offline59 suite passed
+(86.701 seconds); three additional synthetic cleanup-fixture runs passed
+(10.639 seconds). No speculative cleanup/runtime fix was made. The immutable
+package gate remains pending.
 
 No installed Claude, real provider/browser or operator configuration/credential
 was accessed during implementation tests. No retry of the consumed native grant,

@@ -112,7 +112,8 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         if mode=='interrupt':
             self.assertIn(report['reasonCode'],('OFFLINE_PROBE_BLOCKED','OFFLINE_PROBE_INTERRUPTED'))
             self.assertNotIn('cases',report)
-        else: self.assertEqual(report.get('runtime'),'0.0.1','test double runtime, not installed Claude')
+        else: self.assertEqual(report.get('runtime'),'0.0.1',str({key:report.get(key)
+            for key in ('reasonCode','failureDiagnostic')}))
         self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),16384)
         for forbidden in ('session_id','sdk.stream','P004B_SKILL_OK','synthetic-offline-only-key','fixture-kind'):
             self.assertNotIn(forbidden,json.dumps(report))
@@ -824,6 +825,27 @@ class OfflineFailureDiagnosticsTests(unittest.TestCase):
             'failureDiagnostic':{'phase':'synthetic-private-phase'}}]}
         report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+')')
         self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_inner_budget_drops_optional_metadata_before_transport_rejection(self):
+        import copy
+        detail={'phase':'VERSION','exitCode':7,'signal':None,'exceptionClass':None,'errno':None}
+        for location in ('envelope','case'):
+            with self.subTest(location=location):
+                payload={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE',
+                    'cases':[{'case':'text-turn'}],'padding':''}
+                final={**payload,'disposableRootAbsent':True}
+                payload['padding']='x'*(16380-len((json.dumps(final,sort_keys=True)+'\n').encode()))
+                original=copy.deepcopy(payload)
+                (payload if location=='envelope' else payload['cases'][0])['failureDiagnostic']=detail
+                with mock.patch.object(sys,'argv',[str(MODULE),'--inner-controls']),\
+                        mock.patch.object(self.module,'_audit',return_value={}),\
+                        mock.patch.object(self.module,'_controls',return_value=payload),\
+                        mock.patch('builtins.print') as output:
+                    self.assertEqual(self.module.main(),0)
+                wire=(output.call_args.args[0]+'\n').encode()
+                self.assertLessEqual(len(wire),16384)
+                report=self.outer_peer('os.write(1,'+repr(wire)+')')
+                self.assertEqual(report,{**original,'disposableRootAbsent':True})
 
     def test_success_envelope_never_exports_failure_metadata(self):
         detail={'phase':'VERSION','exitCode':7,'signal':None,'exceptionClass':None,'errno':None}
