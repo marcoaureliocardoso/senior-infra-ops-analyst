@@ -936,4 +936,126 @@ class HeadlessContextDriverTests(unittest.TestCase):
             state.close()
 
 
+class ResumedHistoryDriverTests(unittest.TestCase):
+    def setUp(self):
+        spec=importlib.util.spec_from_file_location('resume_selected_driver',Path(__file__).with_name('claude-pty-driver.py'))
+        self.driver=importlib.util.module_from_spec(spec); spec.loader.exec_module(self.driver)
+        self.assertIn('_resume_offer',inspect.signature(self.driver.drive).parameters,'private resumed driver interface missing')
+
+    def run_owned(self,f,mode,**changes):
+        from resume_history_fixtures import write_context_peer
+        peer=f.root/'native-peer.py'; seen=f.root/'native-input'
+        write_context_peer(peer,mode=mode,seen=seen)
+        real_launch=subprocess.Popen
+        expected=f.initial_command if mode=='initial' else f.resume_command
+        children=[]
+        def launch(command,**kwargs):
+            self.assertEqual(tuple(command),expected)
+            child=real_launch([sys.executable,str(peer)],**kwargs); children.append(child); return child
+        kwargs=dict(terminal_state=f.state,input_probe_scope=f.scope)
+        if mode=='initial': kwargs['_initial_completion_sink']=f.sink
+        else: kwargs['_resume_offer']=f.offer()
+        kwargs.update(changes)
+        with mock.patch.object(selected_controller.subprocess,'Popen',side_effect=launch):
+            result=self.driver.drive(list(expected),f.root/'native-capture',6,f.root/'native-events',
+                dialogue='context',**kwargs)
+        self.assertTrue(all(child.poll() is not None for child in children))
+        self.assertTrue(f.state.helper_reaped)
+        return result,seen.read_bytes() if seen.exists() else b''
+
+    def test_initial_completion_is_finalized_only_after_owned_success_and_cleanup(self):
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            result,data=self.run_owned(f,'initial')
+            self.assertEqual(result,0)
+            self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+            self.assertTrue(f.validate_sdk(f.kind).valid)
+        with CaseFixture() as f:
+            original=f.state.close
+            def broken_close():
+                original(); raise TerminalStateError('TERMINAL_CLEANUP_FAILED')
+            with mock.patch.object(f.state,'close',side_effect=broken_close):
+                result,_=self.run_owned(f,'initial')
+            self.assertEqual(result,2)
+            with self.assertRaises(RuntimeError): f.validate_sdk(f.kind)
+
+    def test_resume_auth_theme_trust_never_inherits_startup_keys(self):
+        from resume_history_fixtures import CaseFixture
+        from browser_startup_approval import StartupApproval
+        for mode in ('api_key','theme','trust'):
+            with self.subTest(mode=mode), CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                result,data=self.run_owned(f,mode,startup_approval=StartupApproval(time.time()+25,time.time))
+                self.assertEqual((result,len(data)),(2,0))
+
+    def test_real_peer_resume_pinned_history_and_post_enter_retirement(self):
+        from resume_history_fixtures import CaseFixture
+        for mode in ('resume','retire'):
+            with self.subTest(mode=mode), CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                result,data=self.run_owned(f,mode)
+                self.assertEqual(result,0)
+                self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+
+    def test_replaced_root_during_writable_wait_stops_before_write(self):
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            real_select=selected_controller.select.select
+            moved=f.root.with_name(f.root.name+'-owned-moved'); replaced=False
+            def ready(reads,writes,errors,timeout):
+                nonlocal replaced
+                if writes and not replaced:
+                    f.root.rename(moved); f.root.mkdir(mode=0o700); (f.root/'project').mkdir(mode=0o700)
+                    replaced=True
+                return real_select(reads,writes,errors,timeout)
+            try:
+                with mock.patch.object(selected_controller.select,'select',side_effect=ready):
+                    result,data=self.run_owned(f,'resume')
+                self.assertTrue(replaced)
+                self.assertEqual((result,len(data)),(2,0))
+                self.assertFalse((moved/'native-input').exists())
+            finally:
+                if replaced:
+                    (f.root/'native-events').unlink(missing_ok=True)
+                    (f.root/'project').rmdir(); f.root.rmdir(); moved.rename(f.root)
+
+    def test_invalid_exit_write_acknowledgement_sends_no_remaining_bytes(self):
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            real_write=os.write
+            def write(fd,data):
+                if bytes(data)==b'/exit\r': return True
+                return real_write(fd,data)
+            with mock.patch.object(selected_controller.os,'write',side_effect=write):
+                result,data=self.run_owned(f,'initial')
+            self.assertEqual(result,2)
+            self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15$')
+            with self.assertRaises(RuntimeError): f.validate_sdk(f.kind)
+
+    def test_duplicate_current_row_and_completion_only_never_finish(self):
+        from resume_history_fixtures import CaseFixture
+        for mode in ('duplicate','current-row','completion-only'):
+            with self.subTest(mode=mode), CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                result,data=self.run_owned(f,mode)
+                self.assertEqual(result,2)
+                if mode!='completion-only': self.assertEqual(data,b'')
+                else: self.assertEqual(data,b'/context\r')
+
+    def test_serialized_private_caps_and_wrong_routes_reject_before_launch(self):
+        from resume_history_fixtures import CaseFixture
+        for field in ('_initial_completion_sink','_resume_offer'):
+            with self.subTest(field=field), CaseFixture() as f:
+                with mock.patch.object(self.driver.subprocess,'Popen',side_effect=AssertionError('launched')):
+                    self.assertEqual(self.driver.drive(list(f.resume_command),f.root/'capture',5,
+                        dialogue='context',terminal_state=f.state,input_probe_scope=f.scope,
+                        **{field:{'completed':True}}),2)
+        with CaseFixture() as f:
+            with mock.patch.object(self.driver.subprocess,'Popen',side_effect=AssertionError('launched')):
+                self.assertEqual(self.driver.drive(list(f.initial_command),f.root/'capture',5,
+                    dialogue='manual',terminal_state=f.state,input_probe_scope=f.scope,
+                    _initial_completion_sink=f.sink),2)
+
+
 if __name__=='__main__': unittest.main()
