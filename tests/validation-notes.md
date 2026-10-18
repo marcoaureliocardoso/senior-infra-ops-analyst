@@ -1,6 +1,6 @@
 # Validation Notes
 
-## Proc identity lifecycle correction - 2026-10-18 candidate
+## Proc identity lifecycle correction - 2026-10-18 local validation
 
 Baseline: `9d53ac5fb6cca66bbf7141eecf4ed48fd5be3850`, clean isolated
 `p0-04b-browser-automation` worktree. The operator approved the narrow correction
@@ -31,8 +31,33 @@ negative controls already passed before the fix. The parent-harness regression
 failed in both zero/nonzero exit subcases: zero lost its original result and
 seven lost its actual exit code. After the minimal correction all 14 cancellation
 tests passed (0.398 seconds), full offline60 passed (86.963 seconds), architecture13
-and content validation passed, without focused skips. Independent review and
-immutable package validation are pending at this candidate.
+and content validation passed, without focused skips.
+
+One independent reviewer inspected all six files in exact range
+`9d53ac5..3beff5d` and reported no Critical, Important or Minor issue. Independent
+cancellation14 passed (0.403 seconds), and the parent-harness regression passed
+both 0/7 subcases (0.238 seconds), with clean unchanged HEAD. No revision was
+requested. Historical causation, unchanged proc sites, native/provider acceptance
+and whole-branch readiness were correctly excluded; author-owned verification
+covers the RED chronology and complete package gate, not those external claims.
+
+The immutable gate on source `3beff5d8728dbc51440ed7dfe69c613d196c4029` PASSED:
+2026-10-18 18:05:01Z-18:16:43Z, exit 0, package validation passed. In that run,
+offline60 passed (84.133 seconds), cancellation14 passed (0.390 seconds), and all
+539 versioned files matched archive content/type/modes before and after execution
+in a native Linux filesystem. The archive SHA256 is
+`618f42b730472c098ef85b3d8d4ae941d41a6290d3406ae9adf3567ee8ff7c78`;
+the full external log is
+`.review-runtime/p004b-terminal-state/p004b-proc-identity-3beff5d-gate.log`.
+The previous failed 112cc2b gate remains recorded below, not replaced or erased.
+This later complete gate also covers the preceding diagnostic implementation.
+
+Observed exclusions: the opt-in real-browser adapter's 37 loopback scenarios
+were CAPABILITY_UNAVAILABLE; Python skipped the permission-MCP native-Windows rejection case
+and the Git-Bash-dependent context-continuity/Nori argument-validation cases.
+PowerShell was absent from the clean Linux PATH, so native .ps1 syntax/help checks
+were skipped. These are not native/browser/provider acceptance. Local schema and
+workflow validation passed; no remote CI/Security state was inspected or claimed.
 
 The lifecycle fixture uses a synthetic namespace peer only to control exit
 timing; it does not prove isolation or execute installed Claude. Audit/debug
