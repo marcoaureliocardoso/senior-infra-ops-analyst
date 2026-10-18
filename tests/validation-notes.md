@@ -44,7 +44,7 @@ for disposal/newline and omitting optional metadata first. Nested invalid metada
 failure metadata on success, nonobject JSON and exact ImportError classification
 also reproduced RED before correction. Full offline57 passed (85.737 seconds),
 followed by one real-namespace synthetic unexpected-exception test (0.824 seconds).
-The first full run had a transient audit-half failure; isolated audit then passed
+The first full run had an audit-half failure; isolated audit then passed
 and exposed the intentional new default PRECHECK-envelope expectation, which was
 updated exactly. Final combined offline58 passed (86.561 seconds), debug29,
 architecture13, release-history42 (20.479 seconds) and content validation passed,
@@ -65,8 +65,33 @@ of the earlier failure remains unestablished, not classified as a flake. Runtime
 assertions now include only the closed reason/diagnostic fields to aid future
 synthetic failure investigation. The corrected full offline59 suite passed
 (86.701 seconds); three additional synthetic cleanup-fixture runs passed
-(10.639 seconds). No speculative cleanup/runtime fix was made. The immutable
-package gate remains pending.
+(10.639 seconds). No speculative cleanup/runtime fix was made.
+
+The immutable package gate on corrected source
+`112cc2b468eebfe7d199d28efa30df542a1acc3c` FAILED (exit 1),
+2026-10-18 15:16:59Z-15:23:25Z. The full offline59 run passed 58 tests and failed
+`test_fake_view_loss_cleanup_failure_and_interrupt_stop_without_retry`
+in its view-loss subcase (83.763 seconds). The observed result was
+OFFLINE_PROBE_BLOCKED, NAMESPACE/RuntimeError, null exitCode/signal/errno,
+no runtime aggregate, and disposableRootAbsent true. The initiating callsite
+cannot be established from that report. Earlier suites, including headless68,
+passed; later package stages were not reached. No package/CI/Security success
+is claimed.
+
+Git archive SHA256:
+`4f3ee82dfa8219688427f46c066bfcaacce5a63d2d36a48f1eb159462d8e9e01`.
+All 539 versioned files matched archive content/type/modes before and after the
+gate in a native Linux filesystem. The complete log is outside Git at
+`.review-runtime/p004b-terminal-state/p004b-failure-diagnostics-112cc2b-gate.log`.
+
+A bounded host-side investigation then observed only closed ownership callsite
+labels/line numbers, without changing process control or capturing raw output.
+All ten additional synthetic view-loss fixtures reached the expected inconclusive
+case result, observed synthetic runtime 0.0.1 and proved outer disposal; no
+ownership exception was observed. This does not explain the gate failure or
+prove an environment/timing cause. No gate rerun was used to erase the failure.
+The next decision is a separately scoped investigation of process ownership/
+supervision before changing its existing contract or claiming package readiness.
 
 No installed Claude, real provider/browser or operator configuration/credential
 was accessed during implementation tests. No retry of the consumed native grant,
