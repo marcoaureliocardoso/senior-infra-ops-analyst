@@ -1,6 +1,5 @@
 """Current-input semantic tests over explicit cell fixtures, without a model."""
 import importlib.util
-import ast
 import dataclasses
 from pathlib import Path
 import unittest
@@ -65,11 +64,8 @@ class TerminalInputPolicyTests(unittest.TestCase):
 
     def test_readiness_shape_is_exact_display_classification_not_history_permission(self):
         # Consume the public fixture, not any deleted native screen or transcript.
-        source=ast.parse(Path(__file__).with_name('offline-terminal-resume-probe.py').read_text())
-        assignment=next(node for node in ast.walk(source) if isinstance(node,ast.Assign)
-            and any(isinstance(target,ast.Name) and target.id=='prompt' for target in node.targets)
-            and isinstance(node.value,ast.IfExp))
-        prompt=ast.literal_eval(assignment.value.orelse)
+        from terminal_resume_history import TEXT_PROMPT
+        prompt=TEXT_PROMPT
         for suffix,shape in (('', 'SDK_TEXT_PROMPT_SHAPE'),(' extra','OTHER'),
                 ('\u200b','OTHER'),('!','OTHER')):
             with self.subTest(shape=shape,suffix=repr(suffix)):

@@ -109,6 +109,87 @@ def write_context_peer(path, *, mode, seen):
         'if read(6)!=b"/exit\\r": raise SystemExit(6)\n'),encoding='utf-8')
 
 
+def write_fake_cli(path: Path, *, mode: str) -> None:
+    """Self-contained hand-authored CLI double for the actual isolated harness."""
+    if mode not in ('success','wrong-session','replace-invalid','replace-valid',
+                    'view-loss','cleanup-failure','interrupt'):
+        raise ValueError('fixture mode rejected')
+    fixtures={kind:sdk_events('synthetic-placeholder',kind) for kind in ('text-turn','skill-turn')}
+    source='''#!/usr/bin/python3 -I
+import json,os,signal,sys,tty,urllib.request
+from pathlib import Path
+MODE=__MODE__
+FIXTURES=__FIXTURES__
+TEXT='P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
+SKILL='P0-04B synthetic. Invoke Skill(context-continuity) once; reply P004B_SKILL_OK. No browser.'
+if '--version' in sys.argv:
+    print('0.0.1 (Claude Code)'); raise SystemExit(0)
+def encode(events):
+    return b''.join(json.dumps(event).encode()+b'\\n' for event in events)
+if '-p' in sys.argv:
+    prompt=sys.argv[sys.argv.index('-p')+1]
+    kind='skill-turn' if prompt==SKILL else 'text-turn'
+    if prompt not in (TEXT,SKILL): raise SystemExit(11)
+    session=sys.argv[sys.argv.index('--resume')+1]
+    for _ in range(2 if kind=='skill-turn' else 1):
+        request=urllib.request.Request(os.environ['ANTHROPIC_BASE_URL']+'/v1/messages',
+            data=b'{"messages":[],"stream":false}',headers={'Content-Type':'application/json'})
+        with urllib.request.urlopen(request,timeout=3) as response:
+            if response.status!=200: raise SystemExit(12)
+            response.read(4096)
+    Path('fixture-kind').write_text(kind)
+    events=FIXTURES[kind]
+    for event in events: event['session_id']=session
+    valid=encode(events)
+    if MODE in ('wrong-session','replace-invalid'): events[-1]['session_id']='synthetic-wrong-session'
+    actual=encode(events)
+    if MODE in ('replace-invalid','replace-valid'):
+        location=Path.cwd().parent/'sdk.stream'
+        location.unlink()
+        location.write_bytes(valid if MODE=='replace-invalid' else b'{}\\n')
+        location.chmod(0o600)
+    if MODE=='cleanup-failure':
+        root=Path.cwd().parent; root.rename(root.with_name(root.name+'-fixture-moved'))
+        root.mkdir(mode=0o700); (root/'project').mkdir(mode=0o700)
+    if MODE=='interrupt': os.kill(os.getppid(),signal.SIGTERM)
+    os.write(1,actual); raise SystemExit(0)
+resume='--session-id' not in sys.argv
+kind=Path('fixture-kind').read_text() if resume else 'text-turn'
+history=[(5,'❯ '+(SKILL if kind=='skill-turn' else TEXT)),(10,'❯ /context'),(12,'❯ /exit')] if resume else []
+def screen(numeric=False):
+    text='\\x1b[?1049h\\x1b[2J'
+    if numeric: text+='\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%'
+    for row,line in history: text+='\\x1b['+str(row+1)+';1H'+line
+    if numeric: text+='\\x1b[21;1H❯ /context'
+    return (text+'\\x1b[38;1H❯\\u00a0').encode()
+tty.setraw(0); os.write(1,screen())
+def read(count):
+    data=bytearray()
+    while len(data)<count:
+        value=os.read(0,count-len(data))
+        if not value: raise SystemExit(13)
+        data.extend(value)
+    return bytes(data)
+command=bytearray()
+for _ in range(8):
+    command.extend(read(1)); os.write(1,b'\\x1b[38;3H'+command)
+if command!=b'/context': raise SystemExit(14)
+if resume and MODE=='view-loss':
+    os.write(1,'\\x1b[6;1H\\x1b[2K\\x1b[38;11H'.encode())
+    read(1); raise SystemExit(15)
+if read(1)!=b'\\r': raise SystemExit(16)
+os.write(1,screen(True))
+marker=read(16)
+if len(marker)!=16 or any(c not in b'0123456789abcdef' for c in marker): raise SystemExit(17)
+os.write(1,b'\\x1b[38;3H'+marker)
+if read(1)!=b'\\x15': raise SystemExit(18)
+os.write(1,'\\x1b[38;1H\\x1b[2K❯\\u00a0'.encode())
+if read(6)!=b'/exit\\r': raise SystemExit(19)
+'''
+    path.write_text(source.replace('__MODE__',repr(mode)).replace('__FIXTURES__',repr(fixtures)),encoding='utf-8')
+    path.chmod(0o700)
+
+
 class CaseFixture:
     def __init__(self, case_kind='text-turn'):
         self.kind = case_kind

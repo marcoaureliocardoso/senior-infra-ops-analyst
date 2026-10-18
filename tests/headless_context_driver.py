@@ -21,7 +21,7 @@ from terminal_context_diagnostics import _create_context_journal
 from terminal_cancellation import TerminalCancelled
 from terminal_resume_history import (ResumeHistoryError,validate_initial_sink,bind_initial_sink,
     capture_initial_completion,finish_initial_completion,validate_resume_offer,try_bind_resume_view,
-    validate_resume_view,finish_resume_view,revoke_resume_view)
+    validate_resume_view,finish_resume_view,revoke_resume_view,resume_view_decision)
 
 
 class _ContextFailure(RuntimeError):
@@ -141,6 +141,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
             fields={}
+            if point not in ('native_cleanup','helper_cleanup'):
+                if resume_view is not None: fields['resumeViewDecision']=resume_view_decision(resume_view)
+                elif _resume_offer is not None and point=='failure': fields['resumeViewDecision']='REJECTED'
             if input_eligibility is not None: fields['inputEligibility']=input_eligibility
             if input_row_relation is not None: fields['inputRowRelation']=input_row_relation
             if input_row_cause is not None: fields['inputRowCause']=input_row_cause
@@ -443,6 +446,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 context_command=context_command,probe=probe,frame=frame,exit_written=exit_written)
         record(current_stage,'passed'); result=0
     except (OSError,RuntimeError,TimeoutError,subprocess.SubprocessError) as error:
+        if resume_view is not None: revoke_resume_view(resume_view)
         if isinstance(error,TerminalStateError): current_stage='terminal_state'
         record(current_stage,'failed')
         reason=(error.reason if isinstance(error,(TerminalStateError,_ContextFailure,InputProofError,ResumeHistoryError)) else

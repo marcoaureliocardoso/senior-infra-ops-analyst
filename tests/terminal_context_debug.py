@@ -313,7 +313,8 @@ def _valid_edit_base(value):
         for index,case in enumerate(value['cases']):
             if type(case) is not dict or case.get('case')!=('text-turn','skill-turn')[index]: return False
             if set(case)=={'case','caseRootAbsent'} and case['caseRootAbsent'] is False: continue
-            if set(case)!=case_keys: return False
+            if set(case) not in (case_keys,case_keys|{'validSDKSample'}): return False
+            if 'validSDKSample' in case and type(case['validSDKSample']) is not bool: return False
             if any(type(case[key]) is not bool for key in ('caseRootAbsent','contextInspected','naturalExit','validSkillSample')): return False
             if any(type(case[key]) is not int or not -255<=case[key]<=255 for key in ('beforeExit','sdkExit','afterExit')): return False
             if any(type(case[key]) is not int or not 0<=case[key]<=8388608 for key in ('messages','skillCalls')): return False

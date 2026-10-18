@@ -1,6 +1,7 @@
 """Private content-free write observations. No IO, live validation or authority."""
 import weakref
 from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
+from terminal_resume_history import RESUME_REASONS
 
 PHASES=frozenset(('BASELINE','ELIGIBLE','EDIT_PENDING','COMMAND_ECHO_MATCHED',
     'SUBMIT_PENDING','CONTEXT_PENDING','RECEIPT_READY'))
@@ -11,7 +12,7 @@ CHECKS=frozenset(('BASELINE_ELIGIBILITY','SCOPE_BINDING','DEADLINE','CANCELLATIO
     'FRESH_CONTEXT','HISTORY_AMBIGUITY','HISTORY_ELIGIBILITY','IO_WRITE'))
 FAILURE_REASONS=frozenset(('RUNTIME_REJECTED','TERMINAL_DEADLINE_EXCEEDED')) | frozenset(
     'INPUT_PROBE_'+suffix for suffix in ('SCOPE_REJECTED','INELIGIBLE','ECHO_REJECTED',
-        'CLEAR_REJECTED','REVOKED','DEADLINE','STATE_REJECTED','IO_FAILED'))
+        'CLEAR_REJECTED','REVOKED','DEADLINE','STATE_REJECTED','IO_FAILED')) | RESUME_REASONS
 _FIELDS=('phase','check','commandBytesWritten','enterBytesWritten')
 _SEAL=object()
 _JOURNALS=weakref.WeakKeyDictionary()

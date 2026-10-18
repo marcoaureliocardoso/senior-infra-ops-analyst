@@ -149,6 +149,8 @@ class NonceInputChallenge:
 
     def invalidate(self,reason):
         self.phase='REVOKED'; self._marker=None; self._proof=None
+        registered=_CHALLENGES.get(self)
+        if registered is not None: registered['consumed']=False
         if getattr(self,'_context_receipt',None) is not None:
             from terminal_context_echo import _invalidate_context_receipt
             _invalidate_context_receipt(self._context_receipt)
@@ -253,7 +255,7 @@ class NonceInputChallenge:
         normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
         assessment,observation=self._assessment(normalized)
         if assessment.anchor!=anchor:
-            if self._context_receipt is not None and assessment.reason=='UNSUPPORTED_ROW':
+            if (self._context_receipt is not None or self._resume_view is not None) and assessment.reason=='UNSUPPORTED_ROW':
                 self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason,input_row_relation=assessment.rowRelation,
                     input_row_cause=assessment.rowCause,observation=observation)
             self._fail('INPUT_PROBE_REVOKED')

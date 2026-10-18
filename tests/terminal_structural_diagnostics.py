@@ -3,6 +3,7 @@ import copy
 import json
 from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 from terminal_context_diagnostics import valid_context_failure, valid_normalized_input_failure, FAILURE_REASONS
+from terminal_resume_history import RESUME_REASONS
 
 MAX_RECORDS=16
 # Four context phases fit the existing 16 KiB outer offline-report limit.
@@ -15,7 +16,7 @@ REASONS=frozenset(('CHECKPOINT','WAIT_DEADLINE','SETTLE_DEADLINE','EXIT_WAIT_DEA
     'NATIVE_CLEANUP_FAILED','TERMINAL_PROTOCOL_REJECTED','TERMINAL_DEPENDENCY_UNAVAILABLE',
     'TERMINAL_DEADLINE_EXCEEDED','TERMINAL_CLEANUP_FAILED')) | frozenset(
         'INPUT_PROBE_'+suffix for suffix in ('SCOPE_REJECTED','INELIGIBLE','ECHO_REJECTED',
-            'CLEAR_REJECTED','REVOKED','DEADLINE','STATE_REJECTED','IO_FAILED'))
+            'CLEAR_REJECTED','REVOKED','DEADLINE','STATE_REJECTED','IO_FAILED')) | RESUME_REASONS
 READINESS=frozenset(('READY','FRESHNESS_UNPROVEN','AUTHENTICATION_REQUIRED','STARTUP_SELECTION',
     'UNSUPPORTED_MARKER','CANDIDATE_COUNT','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH'))
 STRUCTURE_FIELDS=frozenset(('buffer','cursorX','cursorY','baseY','viewportY','candidateCount',
@@ -53,7 +54,11 @@ class TerminalDiagnostics:
         if (type(point) is not str or point not in POINTS
                 or type(reasonCode) is not str or reasonCode not in REASONS
                 or not set(fields)<={'structure','leaderReaped','inputEligibility','inputRowRelation','inputRowCause',
-                    'contextCommandFailure','normalizedInputFailure'}
+                    'contextCommandFailure','normalizedInputFailure','resumeViewDecision'}
+                or (reasonCode in RESUME_REASONS and point!='failure')
+                or ('resumeViewDecision' in fields and (point in ('native_cleanup','helper_cleanup')
+                    or type(fields['resumeViewDecision']) is not str or fields['resumeViewDecision'] not in ('VALID','REJECTED')))
+                or (reasonCode in RESUME_REASONS and fields.get('resumeViewDecision','REJECTED')!='REJECTED')
                 or ('contextCommandFailure' in fields and (point!='failure' or reasonCode not in FAILURE_REASONS
                     or not valid_context_failure(fields['contextCommandFailure'])))
                 or ('normalizedInputFailure' in fields and (point!='failure' or reasonCode!='INPUT_PROBE_REVOKED'

@@ -17,6 +17,14 @@ ROOT=Path(__file__).resolve().parents[1]
 MODULE=ROOT/'tests/offline-terminal-resume-probe.py'
 
 
+def passed_stages():
+    return [{'phase':phase,'events':[{'stage':'context_inspected','outcome':'passed','percent':16},
+        {'stage':'exit','outcome':'passed'}],'diagnostics':{'records':[
+            *({'point':point,'reasonCode':'CHECKPOINT'} for point in ('input_probe_started','input_probe_echo','input_probe_cleared')),
+            *({'point':point,'reasonCode':'CLEANUP_COMPLETED','leaderReaped':True} for point in ('native_cleanup','helper_cleanup'))],
+            'truncated':False,'rejected':False}} for phase in ('before','after')]
+
+
 class OfflineTerminalResumeSafetyTests(unittest.TestCase):
     def setUp(self):
         self.assertTrue(MODULE.is_file(),'offline regression interface missing')
@@ -61,12 +69,94 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
 
     def test_acceptance_requires_operational_context(self):
         case={'case':'skill-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
-            'naturalExit':True,'caseRootAbsent':True,'skillCalls':1,'validSkillSample':True}
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':1,'validSkillSample':True,'validSDKSample':True,
+            'stages':passed_stages()}
         self.assertTrue(self.module.case_complete(case))
         for field,value in [('afterExit',2),('contextInspected',False),('naturalExit',False),
-                            ('caseRootAbsent',False),('validSkillSample',False),('skillCalls',0)]:
+                            ('caseRootAbsent',False),('validSkillSample',False),('skillCalls',0),
+                            ('validSDKSample',False),('validSDKSample',1)]:
             changed={**case,field:value}
             self.assertFalse(self.module.case_complete(changed))
+
+    def test_success_without_retained_context_proof_is_inconclusive(self):
+        case={'case':'text-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':0,'validSkillSample':False,'validSDKSample':True,
+            'stages':passed_stages()}
+        self.assertTrue(self.module.case_complete(case))
+        for fault in ('missing','empty','truncated','rejected','cleanup','echo'):
+            import copy
+            bad=copy.deepcopy(case)
+            if fault=='missing': bad.pop('stages')
+            elif fault=='empty': bad['stages']=[]
+            elif fault in ('truncated','rejected'): bad['stages'][1]['diagnostics'][fault]=True
+            else:
+                point='native_cleanup' if fault=='cleanup' else 'input_probe_echo'
+                bad['stages'][1]['diagnostics']['records']=[r for r in bad['stages'][1]['diagnostics']['records'] if r['point']!=point]
+            with self.subTest(fault=fault): self.assertFalse(self.module.case_complete(bad))
+
+    def fake_report(self,mode):
+        from resume_history_fixtures import write_fake_cli
+        if not shutil.which('bwrap'): self.skipTest('Bubblewrap unavailable; fake resume workflow NOT proven')
+        with tempfile.TemporaryDirectory(prefix='resume-cli-double-') as directory:
+            fake=Path(directory)/'synthetic-cli'
+            write_fake_cli(fake,mode=mode)
+            original=self.module.TerminalCancellation.spawn; launches=[]
+            def launch(token,command,**options):
+                launches.append(command); return original(token,command,**options)
+            with mock.patch.object(self.module.TerminalCancellation,'spawn',new=launch):
+                report=self.module.run_offline_controls(source=ROOT,claude=fake,
+                    node=Path(os.environ['P004B_TERMINAL_NODE']),
+                    module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+            self.assertEqual(len(launches),1,'isolated workflow must not repeat')
+        self.assertTrue(report.get('disposableRootAbsent'))
+        if mode=='interrupt':
+            self.assertIn(report['reasonCode'],('OFFLINE_PROBE_BLOCKED','OFFLINE_PROBE_INTERRUPTED'))
+            self.assertNotIn('cases',report)
+        else: self.assertEqual(report.get('runtime'),'0.0.1','test double runtime, not installed Claude')
+        self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),16384)
+        for forbidden in ('session_id','sdk.stream','P004B_SKILL_OK','synthetic-offline-only-key','fixture-kind'):
+            self.assertNotIn(forbidden,json.dumps(report))
+        return report
+
+    def test_isolated_fake_text_and_skill_resume_both_complete(self):
+        report=self.fake_report('success')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertEqual([case['case'] for case in report['cases']],['text-turn','skill-turn'])
+        for case,messages,calls in zip(report['cases'],(1,2),(0,1)):
+            self.assertEqual((case['messages'],case['skillCalls']),(messages,calls))
+            self.assertIs(case.get('validSDKSample'),True)
+            self.assertEqual((case['beforeExit'],case['sdkExit'],case['afterExit']),(0,0,0))
+            self.assertTrue(case['contextInspected'] and case['naturalExit'] and case['caseRootAbsent'])
+            for stage in case['stages']:
+                self.assertFalse(stage['diagnostics']['rejected'] or stage['diagnostics']['truncated'])
+                cleanups=[row for row in stage['diagnostics']['records'] if row['point'].endswith('_cleanup')]
+                self.assertEqual(len(cleanups),2)
+                self.assertTrue(all(row['reasonCode']=='CLEANUP_COMPLETED' and row['leaderReaped'] is True for row in cleanups))
+
+    def test_exit_zero_wrong_session_never_launches_after(self):
+        report=self.fake_report('wrong-session')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertEqual(len(report['cases']),1)
+        case=report['cases'][0]
+        self.assertEqual((case['beforeExit'],case['sdkExit'],case['afterExit']),(0,0,2))
+        self.assertIs(case.get('validSDKSample'),False)
+        self.assertEqual([stage['phase'] for stage in case['stages']],['before'])
+
+    def test_sdk_witness_reads_bound_descriptor_not_replaced_path(self):
+        invalid=self.fake_report('replace-invalid')
+        self.assertEqual(invalid['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertIs(invalid['cases'][0].get('validSDKSample'),False)
+        self.assertEqual([stage['phase'] for stage in invalid['cases'][0]['stages']],['before'])
+        valid=self.fake_report('replace-valid')
+        self.assertEqual(valid['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertTrue(all(case.get('validSDKSample') is True for case in valid['cases']))
+
+    def test_fake_view_loss_cleanup_failure_and_interrupt_stop_without_retry(self):
+        for mode in ('view-loss','cleanup-failure','interrupt'):
+            with self.subTest(mode=mode):
+                report=self.fake_report(mode)
+                self.assertNotEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+                if mode!='interrupt': self.assertEqual(len(report['cases']),1)
 
     def test_phase_diagnostics_are_separate_and_cannot_supply_acceptance(self):
         self.assertTrue(callable(getattr(self.module,'context_stage_report',None)),
@@ -359,7 +449,8 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             calls.append(name)
             return {'case':name,'beforeExit':0,'sdkExit':0,'afterExit':0,
                 'contextInspected':True,'naturalExit':True,'caseRootAbsent':True,
-                'validSkillSample':True,'skillCalls':1}
+                'validSkillSample':name=='skill-turn','skillCalls':1 if name=='skill-turn' else 0,
+                'validSDKSample':True,'stages':passed_stages()}
         report=self.module.run_cases(complete)
         self.assertEqual(calls,['text-turn','skill-turn'])
         self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')

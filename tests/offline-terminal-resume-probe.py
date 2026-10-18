@@ -34,11 +34,29 @@ def validate_mode(arguments):
 
 
 def case_complete(case):
-    required=(case.get('beforeExit')==0 and case.get('sdkExit')==0 and case.get('afterExit')==0
+    required=(all(type(case.get(key)) is int and case[key]==0 for key in ('beforeExit','sdkExit','afterExit'))
         and case.get('contextInspected') is True and case.get('naturalExit') is True
-        and case.get('caseRootAbsent') is True)
-    return required and (case.get('case')=='text-turn' or
-        (case.get('case')=='skill-turn' and case.get('validSkillSample') is True and case.get('skillCalls')==1))
+        and case.get('caseRootAbsent') is True and case.get('validSDKSample') is True)
+    stages=case.get('stages')
+    if not required or type(stages) is not list or len(stages)!=2: return False
+    for phase,stage in zip(('before','after'),stages):
+        if type(stage) is not dict or stage.get('phase')!=phase: return False
+        diagnostics=stage.get('diagnostics')
+        if (type(diagnostics) is not dict or diagnostics.get('rejected') is not False
+                or diagnostics.get('truncated') is not False or type(diagnostics.get('records')) is not list): return False
+        rows=diagnostics['records']
+        for point in ('input_probe_started','input_probe_echo','input_probe_cleared','native_cleanup','helper_cleanup'):
+            matches=[row for row in rows if type(row) is dict and row.get('point')==point]
+            if len(matches)!=1: return False
+            if point.endswith('_cleanup'):
+                if matches[0].get('reasonCode')!='CLEANUP_COMPLETED' or matches[0].get('leaderReaped') is not True: return False
+            elif matches[0].get('reasonCode')!='CHECKPOINT': return False
+        events=stage.get('events')
+        if type(events) is not list or any(not any(type(event) is dict and event.get('stage')==step
+                and event.get('outcome')=='passed' for event in events) for step in ('context_inspected','exit')): return False
+    return (type(case.get('skillCalls')) is int and
+        ((case.get('case')=='text-turn' and case['skillCalls']==0) or
+         (case.get('case')=='skill-turn' and case.get('validSkillSample') is True and case['skillCalls']==1)))
 
 
 def finalize_owned(root,identity,report):
@@ -187,6 +205,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
             '--ro-bind',str(source/'tests/terminal-runtime/package-lock.json'),'/opt/probe/terminal-runtime/package-lock.json']
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
                      'terminal_input_challenge.py',
+                     'terminal_resume_history.py',
                      'terminal_context_debug.py',
                      'terminal_context_echo.py',
                      'terminal_context_diagnostics.py',
@@ -251,7 +270,9 @@ def _controls(*,debug_context=False,debug_context_edit=False):
     sys.path.insert(0,'/opt/probe')
     from terminal_state_adapter import TerminalState
     from browser_startup_approval import StartupApproval
-    from browser_operations_live import evaluate_measurement_stream
+    from terminal_resume_history import (create_offline_case,initial_completion_sink,offer_resume,
+        sdk_started,sdk_finished,close_offline_case,TEXT_PROMPT,SKILL_PROMPT)
+    from headless_context_driver import _terminate
     from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug, _fit_edit_pending_report
     debug_reports=[]
     edit_reports=[]
@@ -266,8 +287,9 @@ def _controls(*,debug_context=False,debug_context_edit=False):
         root=Path(tempfile.mkdtemp(prefix='case-',dir='/work')); identity=root.stat()
         report={'case':name,'beforeExit':2,'sdkExit':2,'afterExit':2,
             'contextInspected':False,'naturalExit':False,'caseRootAbsent':False,
-            'skillCalls':0,'validSkillSample':False,'messages':0,'stages':[]}
+            'skillCalls':0,'validSkillSample':False,'validSDKSample':False,'messages':0,'stages':[]}
         server=None; thread=None; old_env=dict(os.environ); old_cwd=Path.cwd()
+        case_record=None
         debug_captures=[]
         edit_captures=[]
         class Handler(BaseHTTPRequestHandler):
@@ -322,6 +344,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                 'DISABLE_NONESSENTIAL_TRAFFIC':'1','CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC':'1',
                 'CLAUDE_CODE_DISABLE_AUTOUPDATER':'1','PYTHONDONTWRITEBYTECODE':'1'})
             os.chdir(project); session=str(uuid.uuid4())
+            case_record=create_offline_case(root,session_id=session,case_kind=name,owner=object())
             common=['--strict-mcp-config','--mcp-config',str(mcp)]
             def context(phase,resume):
                 diagnostics=TerminalDiagnostics()
@@ -334,35 +357,47 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                 if edit_debug is not None: edit_captures.append(edit_debug)
                 events=root/(phase+'.events')
                 approval=StartupApproval(time.time()+25,time.time) if not resume else None
-                code=driver.drive(['/opt/probe/claude','--resume' if resume else '--session-id',session,*common],
+                command=('/opt/probe/claude','--resume' if resume else '--session-id',session,*common)
+                private=({'_resume_offer':offer_resume(case_record,state=state,scope=scope,command=command)} if resume else
+                    {'_initial_completion_sink':initial_completion_sink(case_record,state=state,scope=scope,command=command)})
+                code=driver.drive(list(command),
                     root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,
                     terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,context_debug=debug,
-                    context_edit_debug=edit_debug)
+                    context_edit_debug=edit_debug,**private)
                 rows=[json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
                 report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
                     any(row.get('stage')=='exit' and row.get('outcome')=='passed' for row in rows)
             before,inspected,exited=context('before',False); report['beforeExit']=before
             if before==0 and inspected and exited:
-                prompt=('P0-04B synthetic context measurement. Invoke Skill exactly once with only '
-                    'skill=context-continuity, then reply P004B_SKILL_OK. Do not perform browser work.'
-                    if name=='skill-turn' else 'P0-04B synthetic text control. Reply P004B_SKILL_OK only.')
+                prompt=SKILL_PROMPT if name=='skill-turn' else TEXT_PROMPT
                 sdk=['/opt/probe/claude','-p',prompt,'--resume',session,*common,'--permission-mode','default',
                     '--tools','Skill','--allowedTools','Skill(context-continuity)','--include-hook-events',
                     '--verbose','--output-format','stream-json','--max-turns','4']
                 stream=root/'sdk.stream'
-                with stream.open('wb') as stdout,(root/'sdk.stderr').open('wb') as stderr:
-                    result=subprocess.run(sdk,stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr,timeout=25)
-                report['sdkExit']=result.returncode
-                if name=='skill-turn':
-                    sample=evaluate_measurement_stream(stream,session,'skill','synthetic-probe')
-                    report['skillCalls']=sample['skillCalls']; report['validSkillSample']=sample['terminalSuccess']
-                if result.returncode==0:
+                def owned_stdout(path,flags):
+                    return os.open(path,flags|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+                child=None
+                with open(stream,'x+b',opener=owned_stdout) as stdout,(root/'sdk.stderr').open('xb') as stderr:
+                    try:
+                        child=subprocess.Popen(sdk,stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr,
+                            start_new_session=True,close_fds=True)
+                        launch=sdk_started(case_record,child=child,command=tuple(sdk),stream=stdout)
+                        child.wait(timeout=25)
+                        report['sdkExit']=child.returncode
+                        sample=sdk_finished(launch)
+                    finally:
+                        if child is not None: _terminate(child)
+                report['validSDKSample']=sample.valid
+                report['skillCalls']=sample.skill_calls
+                if name=='skill-turn': report['validSkillSample']=sample.valid and sample.skill_calls==1
+                if sample.valid:
                     after,inspected_after,exited_after=context('after',True); report['afterExit']=after
                     report['contextInspected']=inspected and inspected_after
                     report['naturalExit']=exited and exited_after
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError): pass
         finally:
+            if case_record is not None: close_offline_case(case_record)
             if server is not None: server.shutdown(); server.server_close()
             if thread is not None: thread.join(timeout=2)
             os.chdir(old_cwd); os.environ.clear(); os.environ.update(old_env)

@@ -13,6 +13,33 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.module=importlib.util.module_from_spec(spec); spec.loader.exec_module(self.module)
         self.collector=self.module.TerminalDiagnostics()
 
+    def test_resume_decision_is_closed_detached_and_never_rewrites_raw_readiness(self):
+        structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
+            'candidateCount':1,'inputFresh':True,'contextFresh':False,'locationFresh':False,
+            'authentication':'NONE','readiness':'UNSUPPORTED_MARKER'}
+        self.collector.add('prompt_ready','CHECKPOINT',structure=structure,resumeViewDecision='VALID')
+        self.collector.add('failure','RESUME_HISTORY_REVOKED',resumeViewDecision='REJECTED')
+        report=self.collector.report()
+        self.assertFalse(report['rejected'])
+        self.assertEqual(report['records'][0]['structure']['readiness'],'UNSUPPORTED_MARKER')
+        self.assertEqual([row['resumeViewDecision'] for row in report['records']],['VALID','REJECTED'])
+        report['records'][0]['resumeViewDecision']='invalid'
+        self.assertEqual(self.collector.report()['records'][0]['resumeViewDecision'],'VALID')
+
+    def test_resume_decision_and_reason_reject_unmodelled_content(self):
+        for fields in ({'resumeViewDecision':True},{'resumeViewDecision':{}},
+                       {'resumeViewDecision':'private-content'}, {'resumeViewDecision':'VALID','session_id':'private'}):
+            self.collector.add('failure','RESUME_HISTORY_REVOKED',**fields)
+        self.collector.add('native_cleanup','CLEANUP_COMPLETED',resumeViewDecision='VALID')
+        self.collector.add('prompt_ready','RESUME_HISTORY_REVOKED',resumeViewDecision='REJECTED')
+        self.assertEqual(self.collector.report(),{'records':[],'truncated':False,'rejected':True})
+        self.assertNotIn('private-content',json.dumps(self.collector.report()))
+
+    def test_resume_failure_cannot_claim_valid_view(self):
+        self.collector.add('failure','RESUME_HISTORY_REVOKED',resumeViewDecision='VALID')
+        self.assertTrue(self.collector.report()['rejected'])
+        self.assertEqual(self.collector.report()['records'],[])
+
     def test_readiness_rejection_is_retained_as_closed_atomic_structure(self):
         structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
             'candidateCount':1,'inputFresh':True,'contextFresh':True,'locationFresh':True,

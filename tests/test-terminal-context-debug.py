@@ -66,6 +66,14 @@ class TerminalContextDebugTests(unittest.TestCase):
         with mock.patch.object(self.m,'audit_offline_namespace',return_value=FACTS):
             return self.m.create_context_debug(self.scope,self.state,self.root)
 
+    def test_reduced_sdk_verdict_is_typed_metadata_not_debug_authority(self):
+        for verdict in (False,True):
+            base=edit_report_fixture(); base['cases'][0]['validSDKSample']=verdict
+            self.assertTrue(self.m._valid_edit_base(base))
+        for verdict in (1,'VALID',{},None):
+            base=edit_report_fixture(); base['cases'][0]['validSDKSample']=verdict
+            self.assertFalse(self.m._valid_edit_base(base))
+
     def capture(self,debug,snapshot=None,error=None,**kwargs):
         with mock.patch.object(self.m,'audit_offline_namespace',return_value=FACTS):
             debug.capture(self.state,self.scope,snapshot or frame(),error or rejection(),

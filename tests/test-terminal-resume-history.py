@@ -249,6 +249,14 @@ class ResumeCaseTests(unittest.TestCase):
             self.assertFalse(challenge._initial_nonce_completed(probe,state=f.state,scope=f.scope,
                 native_owner=f.native,transition_owner=f.transition))
 
+    def test_revoked_consumed_nonce_cannot_restore_fact_by_public_phase(self):
+        import terminal_input_challenge as challenge
+        with CaseFixture() as f:
+            f.initial_protocol(); f.probe.invalidate('INPUT_PROBE_REVOKED')
+            f.probe.phase='CONSUMED'
+            self.assertFalse(challenge._initial_nonce_completed(f.probe,state=f.state,scope=f.scope,
+                native_owner=f.native,transition_owner=f.transition))
+
     def test_sdk_witness_expires_with_its_own_25_second_budget(self):
         from resume_history_fixtures import NativeFixture
         with CaseFixture() as f:
@@ -402,6 +410,25 @@ class ResumeCompositionTests(unittest.TestCase):
                 self.assertEqual((probe.phase,command.phase),('REVOKED','REVOKED'))
                 self.assertIsNone(probe._marker)
                 self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+
+    def test_nonce_without_receipt_keeps_actual_other_row_rejection(self):
+        import terminal_input_challenge as challenge
+        with CaseFixture() as f:
+            view=self.bind(f); baseline=self.args['snapshot']; history=((5,'❯ '+TEXT),)
+            command=self.submit(f,view,baseline,history)
+            rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history)
+            numeric=history_snapshot(rows)
+            self.assertIsNone(command.bind_history(numeric,3))
+            probe=challenge.NonceInputChallenge(f.scope,f.native,f.transition,f.policy,numeric,3,
+                _resume_view=view,_controller_owner=f.controller)
+            marker=probe.type_bytes(numeric,3)
+            actual=dataclasses.replace(history_snapshot((*rows,(37,'❯ '+marker.decode()),
+                (39,'❯ synthetic other row'))),cursorX=18)
+            with self.assertRaises(challenge.InputProofError) as caught: probe.observe(actual,4)
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_INELIGIBLE')
+            self.assertEqual((caught.exception.input_row_relation,caught.exception.input_row_cause),
+                ('OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE'))
+            self.assertEqual(self.echo.context_rejection_projection(caught.exception,actual,f.policy),(True,39))
 
 
 if __name__ == '__main__':
