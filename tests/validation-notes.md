@@ -1,5 +1,45 @@
 # Validation Notes
 
+## Proc identity lifecycle correction - 2026-10-18 candidate
+
+Baseline: `9d53ac5fb6cca66bbf7141eecf4ed48fd5be3850`, clean isolated
+`p0-04b-browser-automation` worktree. The operator approved the narrow correction
+after the dedicated synthetic investigation. No new spec/plan was required for
+this bounded fix. Root/component versions remain unchanged; installed behavior,
+provider/native acceptance and the consumed native grant are not changed.
+
+Investigation reproduced an audit-only supervisor RuntimeError at `_identity`
+and then deterministically produced the retained gate signature using real proc
+reads. After a single synthetic peer launch, the supervisor exited 0 and was
+reaped while its stat descriptor remained open. Reading that descriptor raised
+ProcessLookupError (errno 3); the previous implementation converted it into
+NAMESPACE/RuntimeError, null exitCode/signal/errno, with outer disposal proved.
+The kernel documents ESRCH on open proc descriptors after process death.
+This demonstrates a matching mechanism, not proof of the historical gate's
+unretained initiating exception. Full investigation notes remain outside Git at
+`.review-runtime/p004b-terminal-state/p004b-ownership-investigation-findings.md`.
+
+Only `_identity` now recognizes ProcessLookupError as absence, equivalent to its
+existing FileNotFoundError result. No other proc read, parent/start comparison,
+publication gate, adoption scope, signaling, cleanup deadline or retry rule
+changed. Permission/I/O errors, malformed/oversized metadata and changed or
+disappearing publication identity retain their blocking behavior.
+
+TDD: the real-proc regression first raised the old RuntimeError, then was made
+an explicit failing assertion. Permission/malformed-data and ownership mismatch
+negative controls already passed before the fix. The parent-harness regression
+failed in both zero/nonzero exit subcases: zero lost its original result and
+seven lost its actual exit code. After the minimal correction all 14 cancellation
+tests passed (0.398 seconds), full offline60 passed (86.963 seconds), architecture13
+and content validation passed, without focused skips. Independent review and
+immutable package validation are pending at this candidate.
+
+The lifecycle fixture uses a synthetic namespace peer only to control exit
+timing; it does not prove isolation or execute installed Claude. Audit/debug
+retention contracts, prompts, dependencies, settings and versions are unchanged.
+No provider/browser/operator configuration or credential access, native rerun,
+push/PR/merge/release, staging refresh or definitive TODO completion occurred.
+
 ## Standard offline failure diagnostics - 2026-10-18 candidate
 
 Baseline: `e22db332de938376b706d4b85d4d83460bee71a7`, clean isolated

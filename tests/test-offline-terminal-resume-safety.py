@@ -661,6 +661,46 @@ class OfflineFailureDiagnosticsTests(unittest.TestCase):
         self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':2,
             'signal':None,'exceptionClass':None,'errno':None})
 
+    def test_supervisor_exit_during_proc_read_preserves_actual_result(self):
+        for exit_code in (0,7):
+            with self.subTest(exit_code=exit_code),tempfile.TemporaryDirectory(prefix='offline-proc-race-') as directory:
+                peer=Path(directory)/'peer'; release=Path(directory)/'release'
+                payload={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[]}
+                peer.write_text('#!/usr/bin/python3 -I\nimport os,time\nfrom pathlib import Path\n'
+                    'print('+repr(json.dumps(payload))+',flush=True)\n'
+                    'deadline=time.monotonic()+10\n'
+                    'while not Path('+repr(str(release))+').exists():\n'
+                    '    if time.monotonic()>=deadline: raise SystemExit(2)\n'
+                    '    time.sleep(.005)\nraise SystemExit('+str(exit_code)+')\n')
+                peer.chmod(0o700)
+                original_open=Path.open; original_spawn=self.module.TerminalCancellation.spawn
+                state={'process':None,'opened':False,'launches':0}
+                def spawn(token,command,**options):
+                    state['launches']+=1
+                    state['process']=original_spawn(token,command,**options)
+                    return state['process']
+                def open_then_release(path,*args,**kwargs):
+                    stream=original_open(path,*args,**kwargs)
+                    process=state['process']
+                    if (process is not None and path==Path(f'/proc/{process.pid}/stat') and not state['opened']):
+                        state['opened']=True; release.touch()
+                        self.assertEqual(process.wait(timeout=3),exit_code)
+                    return stream
+                with mock.patch.object(self.module.shutil,'which',return_value=str(peer)),\
+                        mock.patch.object(self.module.TerminalCancellation,'spawn',new=spawn),\
+                        mock.patch.object(Path,'open',new=open_then_release):
+                    report=self.module.run_offline_controls(source=ROOT,claude=peer,
+                        node=Path(os.environ['P004B_TERMINAL_NODE']),
+                        module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+                self.assertTrue(state['opened']); self.assertEqual(state['launches'],1)
+                self.assertTrue(report['disposableRootAbsent'])
+                if exit_code==0: self.assertEqual(report,{**payload,'disposableRootAbsent':True})
+                else:
+                    self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+                    self.assertEqual(report['failureDiagnostic'],{'phase':'NAMESPACE','exitCode':7,
+                        'signal':None,'exceptionClass':None,'errno':None})
+                    self.assertNotIn('cases',report)
+
     def test_launch_exception_exports_only_closed_class_and_errno(self):
         error=PermissionError(13,'synthetic-private-message','/synthetic-private-path')
         report=self.outer_peer('',error=error)

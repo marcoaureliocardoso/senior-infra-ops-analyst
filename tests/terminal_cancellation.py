@@ -41,7 +41,8 @@ def _identity(pid):
         if len(data)>4096: raise _unavailable()
         tail=data.rsplit(')',1)[1].split()
         return int(tail[19]),int(tail[1])
-    except FileNotFoundError: return None
+    # An already-open proc descriptor can report ESRCH after normal exit.
+    except (FileNotFoundError,ProcessLookupError): return None
     except (OSError,ValueError,IndexError,UnicodeError): raise _unavailable() from None
 
 

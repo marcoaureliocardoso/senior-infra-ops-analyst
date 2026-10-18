@@ -873,6 +873,26 @@ Success emits no failure metadata. Audit and both debug routes retain their
 existing contracts, limits and retention rules. No provider/native experiment,
 installation, dependency, preference or version change follows from this decision.
 
+### Process disappearance during ownership observation
+
+The operator approved a narrow lifecycle correction on 2026-10-18. A real
+synthetic fixture demonstrated that a supervisor can exit 0 and be reaped after
+its proc stat descriptor was opened but before that descriptor is read. Linux
+then reports ESRCH; the previous generic OSError path converted that normal
+disappearance into NAMESPACE/RuntimeError with no observed exit code.
+See the [kernel proc documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
+
+Only `_identity` treats ProcessLookupError as the existing absent-process result.
+Permission/I/O errors, malformed metadata, changed start/parent identity and
+unproven ownership remain blocked. Publication, exclusive adoption, pidfd
+signaling, cleanup, deadlines and no-retry rules are unchanged. Other proc access
+sites do not acquire a blanket exception rule. The exact cause of the historical
+uninstrumented gate cannot be reconstructed from its retained report.
+
+Real-proc tests cover read-after-exit and preserve actual supervisor results 0
+and 7 through the parent harness. The lifecycle peer is a namespace surrogate,
+not proof of isolation, installed-native or provider acceptance.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact

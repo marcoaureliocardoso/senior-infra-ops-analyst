@@ -1,8 +1,10 @@
 """Managed cancellation and exact family ownership; synthetic processes only."""
 import importlib.util
+import io
 import os
 from pathlib import Path
 import signal
+import select
 import subprocess
 import sys
 import tempfile
@@ -43,6 +45,54 @@ class TerminalCancellationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'synthetic fixture failure'):
             with self.module.TerminalCancellation(): raise RuntimeError('synthetic fixture failure')
         for signum,handler in previous.items(): self.assertIs(signal.getsignal(signum),handler)
+
+    def test_identity_read_after_real_process_exit_is_absent(self):
+        process=subprocess.Popen([sys.executable,'-I','-c','import time; time.sleep(30)'],
+            stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        descriptor=os.pidfd_open(process.pid,0)
+        target=Path(f'/proc/{process.pid}/stat'); original=Path.open; opened=[]
+        def open_then_exit(path,*args,**kwargs):
+            stream=original(path,*args,**kwargs)
+            if path==target:
+                opened.append(True)
+                signal.pidfd_send_signal(descriptor,signal.SIGTERM,None,0)
+                process.wait(timeout=3)
+            return stream
+        try:
+            with mock.patch.object(Path,'open',new=open_then_exit):
+                try: identity=self.module._identity(process.pid)
+                except RuntimeError: self.fail('normal disappearance became ownership unavailability')
+                self.assertIsNone(identity)
+            self.assertEqual(len(opened),1)
+            self.assertIsNotNone(process.poll())
+            self.assertTrue(select.select([descriptor],[],[],0)[0])
+        finally:
+            if process.poll() is None:
+                signal.pidfd_send_signal(descriptor,signal.SIGKILL,None,0); process.wait(timeout=3)
+            os.close(descriptor)
+
+    def test_identity_permission_io_and_malformed_metadata_still_block(self):
+        for error in (PermissionError(13,'synthetic'),OSError(5,'synthetic')):
+            with self.subTest(kind=type(error).__name__),mock.patch.object(Path,'open',side_effect=error):
+                with self.assertRaises(RuntimeError): self.module._identity(os.getpid())
+        for body in ('','synthetic-invalid-stat','0 (synthetic) R invalid-parent','x'*4097):
+            with self.subTest(size=len(body)),mock.patch.object(Path,'open',return_value=io.StringIO(body)):
+                with self.assertRaises(RuntimeError): self.module._identity(os.getpid())
+
+    def test_remember_still_rejects_changed_or_disappearing_identity(self):
+        process=subprocess.Popen([sys.executable,'-I','-c','import time; time.sleep(30)'],
+            stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        parent=os.getpid()
+        try:
+            for identities in (((7,parent+1),),((7,parent),(8,parent)),
+                               ((7,parent),(7,parent+1)),((7,parent),None)):
+                with self.subTest(identities=identities),self.module.TerminalCancellation() as token:
+                    with mock.patch.object(self.module,'_identity',side_effect=identities):
+                        with self.assertRaises(RuntimeError): token._remember(process.pid,parent,process)
+                    self.assertEqual(token._records,{})
+                    self.assertIsNone(process.poll())
+        finally:
+            process.kill(); process.wait(timeout=3)
 
     def test_nonmain_thread_rejects_before_signal_change(self):
         errors=[]; previous=signal.getsignal(signal.SIGTERM)

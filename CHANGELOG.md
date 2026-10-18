@@ -7,6 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Fixed a test-only ownership-observation race: Linux ESRCH from an already-open
+  proc identity descriptor after process exit now means absence, not an opaque
+  ownership failure. Permission/I/O errors, malformed metadata and changed or
+  unproven identity still block. Real-process regressions preserve actual zero
+  and nonzero supervisor results without retries or altered execution limits.
+
 - Added optional, closed failure diagnostics to the standard offline terminal
   harness: observed phase, exit/signal, exception category and numeric errno.
   Nonzero children cannot supply a successful result through diagnostic JSON;
