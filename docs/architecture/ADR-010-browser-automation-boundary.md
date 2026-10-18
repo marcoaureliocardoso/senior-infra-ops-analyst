@@ -803,22 +803,42 @@ native/provider/browser/remote gates are recorded in validation notes.
 This is test-only: no installed policy, Nori/staging, module mount, public
 activation flag, dependency, package/component version or original limit changes.
 
-## Proposed offline resumed-history view
+## Offline resumed-history view: local implementation, native acceptance pending
 
-Direction and written specification approved on 2026-10-17; the implementation
-plan awaits review and execution-method selection. This is not implemented.
+Direction and written specification approved on 2026-10-17; the operator selected
+the implementation plan's native/inline method on 2026-10-18. The isolated branch
+now implements the test-only route; final review/package verification and native
+acceptance are independent pending gates at this candidate.
 The consumed b5e0e55 native attempt identified an
 off-cursor SDK text-prompt shape blocking resume readiness. Existing input
 receipts remain process-bound and do not transfer to a resumed measurement.
 
-The proposal preserves the initial-dialogue/SDK/resume regression and adds a
+The implementation preserves the initial-dialogue/SDK/resume regression and adds a
 private completed-action/SDK witness plus a fresh, one-shot resumed-history
 view. Only the audited offline supervisor can supply it. Text matches and
 diagnostic labels alone cannot confer authority; default/live assessment remains
 strict. The written spec defines case/session/root binding, SDK stream validation,
 new native ownership, phased history retirement, composed command/nonce/exit
-checks, structural-only observation and unchanged limits. No further native
-execution, provider access or behavioral change follows from design approval.
+checks, structural-only observation and unchanged limits. Only the additional
+reviewed component is mounted read-only; the fixture helper is never mounted.
+The text SDK case requires zero tools and the skill case exactly one successful
+matching Skill call. A replaced stdout pathname cannot replace the child's
+bound descriptor. No further native execution or provider access is authorized.
+
+History-free resumes still require a genuine new view. Old rows remain pinned
+until the actual current Enter acknowledgement; retirement never permits their
+restoration or promotion into a current history receipt. A retired CONTEXT row
+and a new CONTEXT at another position are conservatively ambiguous and reject.
+Only original current command and consumed nonce registry facts, natural exit
+and cleanup can complete the resumed controller. Default/live callers remain
+strict and receive no private capability from diagnostic fields.
+
+The new `validSDKSample` and optional `resumeViewDecision` are reduced metadata,
+not capabilities; raw diagnostic readiness is not rewritten. Missing/truncated
+nonce or cleanup evidence makes acceptance inconclusive without changing the
+underlying operational result. Legacy debug report parsing accepts the optional
+typed boolean but cannot activate a resumed view. Native display compatibility,
+production browser/provider acceptance and remote CI/Security remain unproven.
 
 ## Rollback
 

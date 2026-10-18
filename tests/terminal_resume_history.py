@@ -602,8 +602,13 @@ def note_resume_submission(view, *, command):
 
 
 def finish_resume_view(view):
+    from terminal_input_challenge import NonceInputChallenge, _initial_nonce_completed
     record = _registered(view,_VIEWS,ResumedHistoryView)
-    if record['native'].poll() != 0 or not record['state'].helper_reaped:
+    consumed=any(type(value:=item()) is NonceInputChallenge and
+        _initial_nonce_completed(value,state=record['state'],scope=record['scope'],
+            native_owner=record['native'],transition_owner=record['transition']) for item in record['dependents'])
+    if (record['phase']!='POST_SUBMIT' or not _current_command_acked(view,record) or not consumed
+            or record['native'].poll() != 0 or not record['state'].helper_reaped):
         _fail(record)
     _case(record['case'])['phase'] = 'FINISHED'
     record['phase'] = 'FINISHED'

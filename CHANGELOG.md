@@ -7,6 +7,17 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added test-only, audited offline case/SDK witnesses and a fresh resumed-history
+  view for fixed synthetic history. Actual child results and bound stdout
+  descriptors, not serialized verdicts or prompt shapes, control continuation.
+  History, command/menu, nonce and exit checks share the same consumed frame;
+  revocation is irreversible and old numeric grids cannot become fresh evidence.
+  The offline skill prompt is shorter; live/provider prompts are unchanged.
+  Closed structural verdicts preserve raw readiness and existing report limits.
+  Controlled Python CLI/PTY/namespace tests cover both cases and fail-closed
+  lifecycle paths. Installed behavior, versions, dependencies, retention and
+  execution budgets are unchanged. Native/provider/browser acceptance is pending.
+
 - Added test-only correlation of one bounded selected `/context` completion
   under the original audited offline owned command. Full acknowledged echo,
   original evidence identities and every pre-Enter frame remain required;

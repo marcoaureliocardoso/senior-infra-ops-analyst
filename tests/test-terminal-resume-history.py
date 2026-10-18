@@ -286,6 +286,12 @@ class ResumeCaseTests(unittest.TestCase):
             self.assertTrue(reference() is None,'view extended raw fixture snapshot lifetime')
             self.assertEqual(self.m.resume_view_decision(view),'VALID')
 
+    def test_exit_zero_and_reaped_helper_cannot_finish_unexecuted_resumed_view(self):
+        with CaseFixture() as f:
+            view=self.bind(f)
+            f.native.returncode=0; f.state.close()
+            with self.assertRaises(self.m.ResumeHistoryError): self.m.finish_resume_view(view)
+
 
 class ResumeCompositionTests(unittest.TestCase):
     bind=ResumeCaseTests.bind

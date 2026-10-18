@@ -1,6 +1,6 @@
 # P0-04B Resumed-History View Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Complete the offline initial-dialogue/SDK/resume regression using new, case-bound history evidence without transferring input or credential authority.
 
@@ -14,8 +14,8 @@ alone joins actual process results and stream validation; serialized output cann
 
 ## Global Constraints
 
-- Written specification operator-approved. This plan awaits review and execution-method selection; no implementation or native execution is approved by this file.
-- Planning baseline: `2f9891db26198ddf22ab907dcf3d40d5a58dfcd3`. Record the exact clean HEAD after plan approval as the execution baseline; review the complete implementation range from it, not main or HEAD~1.
+- Specification and plan operator-approved; native/inline execution selected on 2026-10-18. This file does not authorize a native experiment.
+- Planning baseline: `2f9891db26198ddf22ab907dcf3d40d5a58dfcd3`. Actual clean execution baseline: `62a8fe263b06b53ea4eddbbdda6467db0b0f5caa`; review the complete implementation range from it, not main or HEAD~1.
 - Reuse the linked `p0-04b-browser-automation` worktree. Preserve operator changes, use command-local Windows Git safe.directory and do not use WSL Git.
 - Audited offline scope only: loopback only, hidden operator state, dropped capabilities, disposable HOME/config/project/history. No production session, provider request, operator credential/configuration read or new public activation interface.
 - Keep at most two cases, 25 seconds per context dialogue and SDK process, existing SDK `--max-turns 4`, and gateway rejection beyond four messages per case. Keep the original 165-second enclosing run ceiling; no renewal, relaunch or repetition.
@@ -92,8 +92,8 @@ modify `tests/validate-package.sh` to run the new suite after the input-policy s
 - Produce `parse_sdk_sample(raw: bytes, *, expected_session: str, case_kind: str) -> SDKFacts` for `text-turn`/`skill-turn` only. Facts are ordinary immutable data, never branded authority.
 - Test helper `history_snapshot(history: tuple[tuple[int, str], ...] = (), *, cursor_row: int = 37) -> TerminalSnapshot` builds 40x120 width-one cells with an empty cursor row; `sdk_stream(session: str, case_kind: str) -> bytes` builds hand-authored valid init/message/result events.
 
-- [ ] Verify isolation/HEAD/clean status with local Git, preserve any operator delta, and run existing `test-terminal-input-policy.py`, `test-terminal-context-echo.py` and `test-terminal-input-challenge.py` as the baseline. Stop and report an unexplained failure before edits.
-- [ ] Add `test_public_fixture_profiles_are_complete_and_content_free` and `test_sdk_text_and_skill_require_session_lifecycle_and_exact_calls`. Load the new module behind an assertion that its file exists, so the initial RED names the missing component rather than crashing import.
+- [x] Verify isolation/HEAD/clean status with local Git, preserve any operator delta, and run existing `test-terminal-input-policy.py`, `test-terminal-context-echo.py` and `test-terminal-input-challenge.py` as the baseline. Stop and report an unexplained failure before edits.
+- [x] Add `test_public_fixture_profiles_are_complete_and_content_free` and `test_sdk_text_and_skill_require_session_lifecycle_and_exact_calls`. Load the new module behind an assertion that its file exists, so the initial RED names the missing component rather than crashing import.
 
   ```python
   self.assertIsNotNone(match_history_row(history_snapshot(((5, '❯ /context'),)).rows[5], 'CONTEXT'))
@@ -102,19 +102,19 @@ modify `tests/validate-package.sh` to run the new suite after the input-policy s
   self.assertEqual((facts.valid, facts.reason, facts.skill_calls), (True, 'VALID', 0))
   ```
 
-- [ ] Add independent tables for 119/121 cells, width 0/2, multi-character token cells, Cf/control/tab, NBSP vs ASCII padding, duplicate markers and
+- [x] Add independent tables for 119/121 cells, width 0/2, multi-character token cells, Cf/control/tab, NBSP vs ASCII padding, duplicate markers and
   truncated/wrapped prompts. Assert None for invalid profiles and no source text in the profile repr. For SDK input assert rejection of
   wrong/missing/duplicate init/result, wrong session on any session-bearing event, failure result, nested/unexpected calls, unmatched/failed tool
   result and calls after terminal result.
-- [ ] Run the new suite RED. Implement only these pure functions/constants/types. Inspect raw cells before trimming; treat empty width-one display
+- [x] Run the new suite RED. Implement only these pure functions/constants/types. Inspect raw cells before trimming; treat empty width-one display
   cells as ASCII space, preserve gap/tail SPACE=0 versus NBSP=1 geometry, and require at least one gap cell. Never retain arbitrary cell text. Bound
   SDK bytes at the existing 5,000,000-byte stream limit, reject duplicate JSON keys/nonfinite constants, cap nesting at 32, events at 4096 and content
   blocks at 64.
-- [ ] Accept SDK envelope types `system`, `assistant`, `user`, `result` only for this initial supported profile. Require matching session identity,
+- [x] Accept SDK envelope types `system`, `assistant`, `user`, `result` only for this initial supported profile. Require matching session identity,
   one initial `system/init`, one final `result/subtype=success/is_error=false`, no nested message owner, and exact text-zero-tool or
   skill-one-call/result semantics. Unknown envelopes fail closed. SDK reason values are `VALID`, `BOUNDS`, `MALFORMED`, `SESSION_MISMATCH`,
   `LIFECYCLE`, `TOOL_CONTRACT`; invalid call counts saturate at 4 and never become success.
-- [ ] Add `test_classifiers_do_not_open_files_spawn_or_mutate_input`; run new suite and policy suite GREEN. Register the suite in the package gate and commit as `test: add pure resumed-history profiles and SDK validation`.
+- [x] Add `test_classifiers_do_not_open_files_spawn_or_mutate_input`; run new suite and policy suite GREEN. Register the suite in the package gate and commit as `test: add pure resumed-history profiles and SDK validation`.
 
 ### Task 2: Case witnesses and one-shot fresh views
 
@@ -157,11 +157,11 @@ capability-aware public method. Case facts never contain a row, nonce, transcrip
 or reusable old proof. Root checks use lstat device/inode/UID/directory identity,
 reject links and verify the owned project cwd; namespace audit precedes issuance.
 
-- [ ] Add context-managed fixture `CaseFixture` with root/case/state/scope/policy/native/controller/transition/sink and exact `resume_command:
+- [x] Add context-managed fixture `CaseFixture` with root/case/state/scope/policy/native/controller/transition/sink and exact `resume_command:
   tuple[str, ...]` bindings. Methods `complete_initial() -> None` and `validate_sdk(case_kind: str) -> SDKFacts` drive real component state
   transitions; exit revokes the case and closes owned test resources. Reuse existing echo/challenge cell recipes, not a test-mode production
   constructor. Unit process-lifetime doubles are not transport/native evidence; Task 4/5 cover real Python children.
-- [ ] Add RED tests `test_case_cannot_advance_from_events_exit_flags_or_sdkfacts`, `test_foreign_replayed_and_serialized_bindings_reject`, and `test_initial_completion_requires_consumed_proof_exact_exit_and_cleanup`.
+- [x] Add RED tests `test_case_cannot_advance_from_events_exit_flags_or_sdkfacts`, `test_foreign_replayed_and_serialized_bindings_reject`, and `test_initial_completion_requires_consumed_proof_exact_exit_and_cleanup`.
 
   ```python
   with self.assertRaises(ResumeHistoryError):
@@ -170,28 +170,28 @@ reject links and verify the owned project cwd; namespace audit precedes issuance
   self.assertEqual(parse_sdk_sample(b'{}\n', expected_session='synthetic-session', case_kind='text-turn').valid, False)
   ```
 
-- [ ] Add `_initial_context_facts(command, *, state, scope, native_owner, transition_owner) -> tuple[int, int]` in the echo component. Query its
+- [x] Add `_initial_context_facts(command, *, state, scope, native_owner, transition_owner) -> tuple[int, int]` in the echo component. Query its
   private registry, exact bindings, `RECEIPT_READY`, eight acknowledged/echoed bytes and the actual submission path; return `(8, 1)` only as a
   completion fact after natural exit, not live authority. Do not invoke the live-owner validator, which correctly rejects an exited process. Add
   `_initial_nonce_completed(probe, *, state, scope, native_owner, transition_owner) -> bool` in the challenge component: exact type/scope
   registry/bindings, CONSUMED state and cleared marker/proof, not a copied object or writable public phase alone.
-- [ ] Implement the case/sink logic using those fact boundaries. Capture a private pending fact before finally invalidates old command/probe; finalize
+- [x] Implement the case/sink logic using those fact boundaries. Capture a private pending fact before finally invalidates old command/probe; finalize
   only after driver result 0, exact six exit bytes, native poll 0, native/helper CLEANUP_COMPLETED and helper reaped. Do not keep command/probe/raw
   references in the finalized case ledger. Reject wrong/late/duplicate completion and cleanup-deadline results even when leaders are reaped.
-- [ ] Implement SDK witness joining only after initial completion. Bind the actual supervisor-launched child identity, exact fixed
+- [x] Implement SDK witness joining only after initial completion. Bind the actual supervisor-launched child identity, exact fixed
   argv/session/project descriptor and exclusively opened owned stdout stream. `sdk_finished` reads the actual completed returncode and that still-open
   descriptor, checks fstat identity and parses it internally. A caller-provided SDKFacts, replacement child or reopened stream path cannot
   independently advance the case. The producer is the trusted supervisor, not an arbitrary data adapter.
-- [ ] Implement one offered resume and fresh binding. Add private `TerminalInputPolicy._input_is_fresh() -> bool` and reuse it in existing raw
+- [x] Implement one offered resume and fresh binding. Add private `TerminalInputPolicy._input_is_fresh() -> bool` and reuse it in existing raw
   readiness and binding. Add `_empty_input_assessment(snapshot, excluded_row=None, *, _excluded_rows=frozenset())` as the shared private multi-row
   primitive; public/default methods remain unchanged. Only genuine witness/profile validation supplies its bounded disjoint indices, never a
   caller-facing row list.
-- [ ] `try_bind_resume_view` returns None only while raw freshness or an operational marker is not yet available;
+- [x] `try_bind_resume_view` returns None only while raw freshness or an operational marker is not yet available;
   auth/menu/draft/unsupported/ambiguous operational frames revoke. A valid history-free view is a branded object, never None/passive fallback. Add
   `test_history_profiles_pin_once_before_submission`: early disappearance/replacement/movement, restoration and newly appearing absent kinds revoke.
   Same frame number requires the same actual snapshot identity; later frames are monotonic. Root/owner/case/deadline/cancellation loss revokes.
   Post-submission cases belong to Task 3.
-- [ ] Implement `close_offline_case` as idempotent irreversible revocation/release of case, sink, pending, SDK, offer and view references;
+- [x] Implement `close_offline_case` as idempotent irreversible revocation/release of case, sink, pending, SDK, offer and view references;
   process/descriptor closing remains the supervisor's responsibility. Use closed error reasons `RESUME_HISTORY_SCOPE_REJECTED`,
   `RESUME_HISTORY_SDK_REJECTED`, `RESUME_HISTORY_LAYOUT_REJECTED`, `RESUME_HISTORY_REPLAY_REJECTED`, `RESUME_HISTORY_REVOKED`. Errors contain no
   dynamic content. Run new, policy, echo and challenge suites RED/GREEN, then commit as `test: bind completed offline cases to fresh resume views`.
@@ -212,37 +212,40 @@ command record; no caller can swap it after construction.
 
 Produce `_compose_input_assessment(policy, actual_snapshot, *, frame, state,
 scope, native_owner, controller_owner, transition_owner, resume_view=None,
-context_receipt=None, context_command=None, normalized_snapshot=None)` returning
+context_receipt=None, context_command=None, normalized_snapshot=None, normalization_owner=None)` returning
 `tuple[EmptyInputAssessment, int | None, ContextRejectionObservation | None]`.
 This private echo-component helper has no index-list argument. It obtains
 validated resume/history/menu indices itself and rejects overlap.
+Execution ruling: nonce normalization forwards its actual registered owner
+through private `_normalization_owner`/`_actual_snapshot` assessment keywords;
+the exit helper uses that same owner. No serialized source can normalize a draft.
 Also produce `note_resume_submission(view: ResumedHistoryView, *, command: OwnedContextCommand) -> None`
 and `_register_resume_dependent(view: ResumedHistoryView, dependent: object) -> None`
 in the resume component. Accept only actual registered command/probe dependents
 with matching bindings. Registration does not grant or extend authority.
 
-- [ ] Write `test_history_menu_and_unknown_row_use_one_ordered_assessment` and `test_retired_baseline_row_cannot_be_promoted_to_new_history` RED.
+- [x] Write `test_history_menu_and_unknown_row_use_one_ordered_assessment` and `test_retired_baseline_row_cannot_be_promoted_to_new_history` RED.
   Compose a valid SDK row, a proven eight-byte completion menu and a different unknown row; assert the unknown row's actual index/cause, not an
   excluded row. Assert default `empty_input_anchor` still returns None on the same historical frame.
-- [ ] Consume Task 2's shared multi-row primitive through the new private composition boundary. Validate exact index types/ranges/disjointness before
+- [x] Consume Task 2's shared multi-row primitive through the new private composition boundary. Validate exact index types/ranges/disjointness before
   the call, retaining raw whole-screen auth/menu checks and exactly one cursor-bound empty candidate. No second parser or diagnostic projection
   participates in authority.
-- [ ] Implement composition on the original consumed snapshot before normalization. Existing command/nonce prefix checks alone may supply a normalized
+- [x] Implement composition on the original consumed snapshot before normalization. Existing command/nonce prefix checks alone may supply a normalized
   current row; every other row must equal the actual snapshot, and no history exclusion may cover the cursor. Never validate a derived snapshot as a
   new native frame. Obtain each exclusion once, then call the underlying ordered primitive once.
-- [ ] Thread composition through `_prefix`, `bind_history`, `_history_rows`, receipt validation and every challenge
+- [x] Thread composition through `_prefix`, `bind_history`, `_history_rows`, receipt validation and every challenge
   assessment/check/observe/clear/consume path. Fresh history searches omit validated old slots but cannot adopt a baseline row. Add
   `_resume_submission_acked(command, view) -> bool` backed by the command registry, its original view binding and actual post-ack phase;
   `note_resume_submission` uses it. Implement POST_SUBMIT and one-way row retirement now, with no reappearance/adoption. Register current
   command/probe as weak dependents so revocation invalidates both and clears the nonce without recursive reactivation.
-- [ ] Preserve actual raw snapshot/frame pairs in the challenge. A lifetime check of a cached context snapshot must use that snapshot's stored frame,
+- [x] Preserve actual raw snapshot/frame pairs in the challenge. A lifetime check of a cached context snapshot must use that snapshot's stored frame,
   not relabel it with a newer frame; each IO still validates the latest actual frame. Carry the same view through normalized nonce echoes and every
   partial owned exit. No receipt-dropping or view-dropping recovery.
-- [ ] Propagate ResumeHistoryError on the new-view route to the driver's explicit failure reducer, including from exit consumption. Preserve existing False semantics for ordinary no-view InputProofError; never flatten a resume rejection into success or dynamic exception text.
-- [ ] Extend the frozen rejection observation to retain only the exact already-validated exclusion indices and original snapshot/error identity for
+- [x] Propagate ResumeHistoryError on the new-view route to the driver's explicit failure reducer, including from exit consumption. Preserve existing False semantics for ordinary no-view InputProofError; never flatten a resume rejection into success or dynamic exception text.
+- [x] Extend the frozen rejection observation to retain only the exact already-validated exclusion indices and original snapshot/error identity for
   passive debug re-evaluation. It must not call a revoked live view to reconstruct authority. Add
   `test_debug_keeps_actual_rejection_after_view_revocation` and assert the excluded SDK/menu rows cannot be exported as the failure.
-- [ ] Add `test_retirement_and_exclusion_cannot_refresh_old_numeric_grid`, plus matrices for frame reuse, root/case/terminal substitutions, auth/menu
+- [x] Add `test_retirement_and_exclusion_cannot_refresh_old_numeric_grid`, plus matrices for frame reuse, root/case/terminal substitutions, auth/menu
   during nonce/clear/partial exit, expiry and restoration after revocation. New/default contracts must differ only with a genuine fresh view. Run the
   new suite and policy/echo/challenge/journal/debug suites GREEN; commit as `test: compose resume history with owned input proofs`.
 
@@ -261,26 +264,26 @@ live CLI must reject before launch/writes. Neither option becomes a CLI flag.
 Extend `exit_input_owned` with `_resume_view=None`, `_controller_owner=None` and
 its existing current state/scope/native/transition/frame bindings.
 
-- [ ] Add `test_initial_completion_is_finalized_only_after_owned_success_and_cleanup` RED. Use a real helper and Python PTY peer, asserting the exact
+- [x] Add `test_initial_completion_is_finalized_only_after_owned_success_and_cleanup` RED. Use a real helper and Python PTY peer, asserting the exact
   byte stream `/context\r` + 16 hex bytes + `\x15` + `/exit\r`, a completed sink, and natural exit/reap. Partial exit, wrong count and helper-close
   failure must yield no completion fact.
-- [ ] Add `test_resume_auth_theme_trust_never_inherits_startup_keys` (Review Focus 1) and `test_replaced_root_during_writable_wait_stops_before_write`
+- [x] Add `test_resume_auth_theme_trust_never_inherits_startup_keys` (Review Focus 1) and `test_replaced_root_during_writable_wait_stops_before_write`
   (Review Focus 2). Use explicit file/read-write barriers in the controlled peer, not sleep ordering guesses. Assert zero startup answer bytes and no
   byte after identity loss respectively.
-- [ ] Implement private argument validation in `drive` before native launch and forward only exact branded objects. In scoped `drive_context`, create
+- [x] Implement private argument validation in `drive` before native launch and forward only exact branded objects. In scoped `drive_context`, create
   one fresh transition before launch and retain it for command/probe/exit; remove the later second assignment. Bind the actual Popen owner once,
   including the initial sink. With a resume offer, pending auth/theme/trust fails before the generic startup auto-key loops.
-- [ ] For an offered resume, wait only through `try_bind_resume_view`; None means still pending, never ordinary readiness fallback. Recheck the bound
+- [x] For an offered resume, wait only through `try_bind_resume_view`; None means still pending, never ordinary readiness fallback. Recheck the bound
   view/composed empty anchor after settling and before command construction. Drain/pump/revalidate every consumed frame, including writable waits, and
   recheck root/lifetime immediately before each concrete write.
-- [ ] Notify POST_SUBMIT only from the actual successful one-byte Enter acknowledgement. Pass the new view through command/receipt/nonce and
+- [x] Notify POST_SUBMIT only from the actual successful one-byte Enter acknowledgement. Pass the new view through command/receipt/nonce and
   partial-exit consumers; complete it only after natural exit and successful cleanup. Before initial-dialogue invalidation capture the pending
   completion fact, then finalize it only after both cleanup results are known. Observer failure cannot finalize a fact or alter the operational
   result.
-- [ ] Apply the existing strict command acknowledgement bounds to nonce/exit writes too: exact integer `0 < count <= len(pending)`. Preserve original
+- [x] Apply the existing strict command acknowledgement bounds to nonce/exit writes too: exact integer `0 < count <= len(pending)`. Preserve original
   cancellation/deadline handling, FD closure and cleanup. Recognize ResumeHistoryError explicitly in the failure reducer; do not coerce it into a
   successful/unknown generic state or create permission from its metadata.
-- [ ] Add actual peer success for pinned history and post-Enter retirement, failure for reappearance/duplicate/current-row history, completion-only
+- [x] Add actual peer success for pinned history and post-Enter retirement, failure for reappearance/duplicate/current-row history, completion-only
   Enter, unchanged numeric grid, late auth, partial exit and signals. A sink/view serialized through JSON and a valid shape without a view must never
   reach a write. Run driver/wiring/cancellation/signals plus the new suite GREEN and commit as `test: enforce fresh resume views at terminal writes`.
 
@@ -299,35 +302,35 @@ Collector adds optional top-level record field `resumeViewDecision` accepting
 only `VALID`/`REJECTED` on the selected route's existing checkpoints/failure.
 Raw `structure.readiness` remains unchanged; no new diagnostic records are required.
 
-- [ ] Add `test_exit_zero_wrong_session_never_launches_after` and `test_sdk_witness_reads_bound_descriptor_not_replaced_path` (Review Focus 5) RED.
+- [x] Add `test_exit_zero_wrong_session_never_launches_after` and `test_sdk_witness_reads_bound_descriptor_not_replaced_path` (Review Focus 5) RED.
   Wrong-session actual output must give `validSDKSample is False`, no after invocation and one stopped case. Replacing its pathname with an older
   valid stream must not rescue invalid actual output; conversely an invalid replacement must not override valid output on the still-bound descriptor.
   An SDKFacts instance or edited event file cannot bypass the actual child/stream join.
-- [ ] Create one case after its owned root/session/project exist in the isolated inner process. Supply the initial completion sink to before. Replace
+- [x] Create one case after its owned root/session/project exist in the isolated inner process. Supply the initial completion sink to before. Replace
   SDK `subprocess.run` with one owned Popen/wait path and an exclusively created owner-only read/write stdout file using no-follow semantics. Bind
   that open stream to SDKLaunch, retain it through validation, never reopen a pathname for witness input, and terminate/reap on failure within the
   original 25-second budget. Never retry SDK or resume preparation.
-- [ ] Use the existing exact argv contracts: initial/resume is `/opt/probe/claude`, `--session-id`/`--resume`, the case session and
+- [x] Use the existing exact argv contracts: initial/resume is `/opt/probe/claude`, `--session-id`/`--resume`, the case session and
   `--strict-mcp-config --mcp-config <owned-root>/mcp.json`. SDK keeps `-p <fixed-prompt> --resume <session>` plus the same MCP arguments,
   `--permission-mode default --tools Skill --allowedTools Skill(context-continuity) --include-hook-events --verbose --output-format stream-json
   --max-turns 4`. No extra executable/environment override is introduced.
-- [ ] Have `sdk_finished` read at most 5,000,001 bytes from the bound descriptor, parse only within the original budget and release transient data.
+- [x] Have `sdk_finished` read at most 5,000,001 bytes from the bound descriptor, parse only within the original budget and release transient data.
   Use Task 1 constants/Skill witness, not a divergent validator. Report validSkillSample/skillCalls from validated facts; `case_complete` requires
   validSDKSample and existing case gates. Offer resume only from sealed SDK_VALIDATED state, not the report dictionary. In finally call
   `close_offline_case` before identity-checked disposal; the parent still owns closing stream descriptors and children.
-- [ ] Mount only `terminal_resume_history.py` as an additional read-only file in `_namespace`. Reject before capability issuance outside the audited
+- [x] Mount only `terminal_resume_history.py` as an additional read-only file in `_namespace`. Reject before capability issuance outside the audited
   namespace. Preserve root identity disposal, reduced proof events, debug eligibility, before/SDK/after order, at most two cases and
   first-inconclusive stop.
-- [ ] Add collector RED/GREEN tests for the closed decision strings, wrong types/events, no raw/session/hash fields, detached copies and unchanged
+- [x] Add collector RED/GREEN tests for the closed decision strings, wrong types/events, no raw/session/hash fields, detached copies and unchanged
   16-record/3072-byte/16384-byte budgets. Add the five RESUME_HISTORY reasons only as closed failures. Permit matching command-journal attachment only
   when actually frozen by that journal; do not synthesize normalized siblings for a new error category.
-- [ ] Add `write_fake_cli(path: Path, *, mode: str) -> None` in the test helper. Its synthetic `--version`, interactive before/resume UI and `-p`
+- [x] Add `write_fake_cli(path: Path, *, mode: str) -> None` in the test helper. Its synthetic `--version`, interactive before/resume UI and `-p`
   stream/loopback behavior exercise real Popen/PTY/bwrap without executing installed Claude. Modes cover two-case success, SDK rejection, resumed-view
   loss, cleanup failure and interruption. All prompts/screens are public hand-authored fixtures, never deleted native captures.
-- [ ] Run `test_isolated_fake_text_and_skill_resume_both_complete`: assert ordered two cases, correct request/call counts, validSDKSample, natural
+- [x] Run `test_isolated_fake_text_and_skill_resume_both_complete`: assert ordered two cases, correct request/call counts, validSDKSample, natural
   exits, no unexpected writes, reaped leaders and absent roots. Also assert missing capability/debug/collector failure never creates a passive
   fallback or raw export. Label this fixture runtime as a test double, not native acceptance.
-- [ ] Run new, collector, journal, offline, wiring, debug, cancellation and signals suites GREEN. Run the complete covering command/driver/challenge/echo suites as well; commit as `test: wire validated offline SDK resume cases end to end`.
+- [x] Run new, collector, journal, offline, wiring, debug, cancellation and signals suites GREEN. Run the complete covering command/driver/challenge/echo suites as well; commit as `test: wire validated offline SDK resume cases end to end`.
 
 ### Task 6: Immutable verification, one scoped review and honest closeout
 
@@ -367,8 +370,9 @@ two-case fixtures -> Task 5; immutable gate/review/docs/rollback status -> Task 
 Every Review Focus item has an explicit owning test. No implementation task is
 complete merely because a mocked or serialized result says so.
 
-Recommended execution is native/inline: the tasks deliberately share private
-proof interfaces and must be integrated sequentially. The alternative is
-subagent-driven execution with a fresh implementer/reviewer per task and a final
-whole-deliverable review. The operator must review this plan and choose the
-method before code changes. Neither choice grants a new native experiment.
+The operator selected native/inline execution on 2026-10-18. Tasks 1-5 are
+implemented and focused-test verified in order; Task 6 owns final review and the
+complete immutable package gate. The completion-boundary pre-review regression
+is tracked in validation notes. No real-Claude experiment or external delivery
+is authorized by this method selection. See validation notes for actual results,
+implementation rulings and the final closeout status.

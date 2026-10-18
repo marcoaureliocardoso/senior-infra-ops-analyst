@@ -1,7 +1,7 @@
 # P0-04B offline resumed-history view design
 
-Status: written specification operator-approved; implementation plan awaiting review and execution-method selection.
-This is a design-only artifact, not an implementation or execution approval.
+Status: specification and plan approved; inline implementation on the isolated branch, final review/package gate pending.
+Native/provider/browser acceptance is not established or authorized by this artifact.
 Source baseline: `b5e0e555871f7cebaa61acf55c30a104847ca37d`.
 
 ## Intent and observed evidence
@@ -138,7 +138,7 @@ Both the real child result and stream facts are required:
 Keep the current text fixture. For the offline skill case, use this complete
 short source fixture: `P0-04B synthetic. Invoke Skill(context-continuity) once; reply P004B_SKILL_OK. No browser.`
 It preserves the requested operation and fits the existing 120-column transport
-with ordinary prompt padding. This is a proposed offline fixture change, not
+with ordinary prompt padding. This is an implemented offline fixture change, not
 evidence that a particular native renderer will display it without wrapping.
 Tool-call validation, not the natural-language request alone, proves the skill
 step. Live/provider-backed fixture prompts remain unchanged.
@@ -304,19 +304,19 @@ exit remain unobserved. A safely unsupported layout may still stop the next
 experiment. Do not broaden recognition, keys, budgets or retention to conceal it.
 Consumed grants and deleted evidence cannot be recovered by rollback.
 
-Record this proposal in indexed ADR-010 with its pending-review status.
-Implementation later updates ADR status, CHANGELOG and validation notes with
-enforced behavior and actual results. Revert the view/witness integration and
+Record the local implementation in indexed ADR-010, CHANGELOG and validation
+notes, separating enforced synthetic behavior from pending review/package/native
+acceptance. Revert the view/witness integration and
 offline short-skill fixture together to restore the baseline strict resume
 rejection, preserving owned command/menu/nonce/debug/disposal protections.
 
 Production/provider/browser acceptance, remote CI/Security, push/PR, main merge,
 release and definitive unversioned TODO completion remain independent gates.
-Conversational direction approval permits this specification only. Written-spec
-approval permits an implementation plan; the plan and execution method must
-then be approved before behavior changes. The
-[implementation plan](../plans/2026-10-17-p0-04b-resumed-history-view.md) is pending
-that review and execution-method selection; no implementation is authorized yet.
+The operator approved this written specification and then selected native/inline
+execution of the [implementation plan](../plans/2026-10-17-p0-04b-resumed-history-view.md)
+on 2026-10-18. That development approval does not authorize a native experiment
+or any external delivery action. Final review/package verification remains
+pending at this candidate; real-Claude acceptance needs a fresh final-commit grant.
 
 ## References
 

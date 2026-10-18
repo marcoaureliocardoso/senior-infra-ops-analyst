@@ -1,5 +1,64 @@
 # Validation Notes
 
+## Offline resumed-history view - 2026-10-18 candidate
+
+Execution baseline: `62a8fe263b06b53ea4eddbbdda6467db0b0f5caa` on the isolated
+`p0-04b-browser-automation` branch. The operator approved the spec/plan and selected
+inline execution. Tasks 1-5 produced `50b7376`, `6bb6397`, `544e524`, `ee76fcf`
+and `645b1665d259b950b9a49444bf8f1ece691877d2`. Root/component versions and
+installed behavior are unchanged; this is test-only implementation evidence.
+
+TDD observed missing classifiers, missing case issuer, missing composition and
+missing driver interfaces before implementation. Additional RED regressions
+covered SDK's original 25-second budget, frame bounds, raw-frame lifetime,
+unowned normalization, cached receipt frames, invalid boolean exit acknowledgements,
+revoked nonce-fact restoration, the actual rejecting row without a new receipt,
+contradictory diagnostics and success without retained nonce/cleanup evidence.
+The pre-review sweep also reproduced completion from zero exit/reaped helper
+without the current command/nonce; completion now requires those private facts.
+
+At Task 5, 331 focused checks passed: driver68, offline34, resume24,
+collector24, journal13, debug29, challenge28, echo45, wiring15, cancellation11,
+signals5 and policy35. The complete driver took 244.233 seconds; the offline
+suite's final task gate took 52.384 seconds. These suites had no skips.
+The later completion-boundary regression passed in resume25; the seven private
+driver scenarios and the complete two-case namespace fixture also passed after
+that correction. No package-wide result is claimed yet.
+
+The actual isolated harness ran a hand-authored Python CLI double labelled
+`0.0.1`, not installed Claude. Both text and short-skill cases completed in order,
+with one/two loopback messages and zero/one tool-call events respectively.
+The double does not execute the actual Skill implementation. Native/helper
+leaders were reaped and owned case/outer roots removed before aggregation.
+Wrong-session exit-zero output stopped before resume; substituting an older
+valid stream pathname did not rescue invalid output on the bound descriptor.
+Conversely, replacing a valid output pathname with invalid data did not override
+the original descriptor. No real provider or operator configuration was accessed.
+
+Conservative implementation rulings:
+
+- The private composer/forwarder carries the actual command or nonce normalization
+  owner; the original signature could not prove normalization without a receipt.
+  A mismatch can cause a false-negative resumed nonce/exit, never default/live permission.
+- Frozen passive debug projection may omit the already-proven normalized cursor
+  by index to expose the actual later rejection. It cannot authorize input or
+  query a revoked live view; an error costs omitted debug evidence.
+- A retired old CONTEXT cannot be reinterpreted as a new row at another position.
+  Conservative ambiguity rejection may stop a compatible native renderer.
+- A killed namespace may yield only BLOCKED/INTERRUPTED and proved outer disposal,
+  without runtime/case claims. Tests observe one outer launch; diagnostic specificity is lost.
+- Passive debug parsing accepts the optional typed SDK boolean alongside legacy
+  reports; that compatibility cannot recreate an in-process capability.
+- Missing or truncated structural acceptance evidence is inconclusive even after
+  successful operations; the cost is conservative acceptance failure, not changed cleanup.
+
+Review and full immutable package gate are pending. Evidence for this plan is in
+its ignored `.superpowers/sdd/2026-10-17-p0-04b-resumed-history-view/` workspace
+until closeout. Final package logs will be retained outside Git in the project's
+`.review-runtime/p004b-terminal-state/` directory. No native/provider/browser
+acceptance, remote CI/Security, push/PR/merge/release, staging refresh or definitive
+TODO completion is established. The old b5e0e55 native grant remains consumed.
+
 ## Offline resume readiness diagnostics - 2026-10-16
 
 Baseline: `6d5528e0d49736d497ff37c8ac1b8a86e3f90556`. The operator authorized
