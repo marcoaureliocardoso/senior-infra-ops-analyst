@@ -245,15 +245,18 @@ def _now():
 def close_offline_case(case: OfflineCase) -> None:
     if type(case) is not OfflineCase:
         return
+    dependents = []
+    _CASES.pop(case, None)
     for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS):
         for value, record in list(registry.items()):
             if record['case'] is case:
-                for dependent in record.get('dependents', ()):
-                    current = dependent()
-                    if current is not None:
-                        current.invalidate('INPUT_PROBE_REVOKED')
                 registry.pop(value, None)
-    _CASES.pop(case, None)
+                dependents.extend(record.get('dependents', ()))
+    # Remove every capability before callbacks, preventing recursive reactivation.
+    for dependent in dependents:
+        current = dependent()
+        if current is not None:
+            current.invalidate('INPUT_PROBE_REVOKED')
 
 
 def _fail(record, reason='RESUME_HISTORY_SCOPE_REJECTED'):
@@ -496,7 +499,7 @@ def _current_binding(record, native_owner, controller_owner, transition_owner):
         _fail(record)
 
 
-def _profiles(case, policy, snapshot, *, binding):
+def _profiles(case, policy, snapshot, *, binding, allow_context_repeats=False):
     cursor = snapshot.baseY+snapshot.cursorY-snapshot.viewportY
     profiles = {}
     kinds = ('CONTEXT','EXIT','SDK_SKILL' if case['kind']=='skill-turn' else 'SDK_TEXT')
@@ -505,7 +508,8 @@ def _profiles(case, policy, snapshot, *, binding):
         profile = next((candidate for kind in kinds
             if (candidate := match_history_row(row,kind)) is not None),None)
         if profile is not None:
-            if profile.kind in (p.kind for p in profiles.values()):
+            if (profile.kind in (p.kind for p in profiles.values())
+                    and not (allow_context_repeats and profile.kind == 'CONTEXT')):
                 _fail(case,'RESUME_HISTORY_LAYOUT_REJECTED')
             profiles[index] = profile
         elif binding and re.match(r'^\s*❯',policy._row_text(row)):
@@ -529,7 +533,7 @@ def try_bind_resume_view(offer, *, policy, snapshot, frame, native_owner, contro
     view = ResumedHistoryView(_SEAL)
     _VIEWS[view] = {**record,'policy':policy,'native':native_owner,'controller':controller_owner,
         'transition':transition_owner,'geometry':(snapshot.active,snapshot.baseY,snapshot.viewportY),
-        'profiles':profiles,'phase':'BOUND','dependents':[]}
+        'profiles':profiles,'phase':'BOUND','dependents':[],'retired':set()}
     _OFFERS.pop(offer)
     return view
 
@@ -545,10 +549,56 @@ def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_
     if (record['geometry'] != (snapshot.active,snapshot.baseY,snapshot.viewportY)
             or policy.active_input_forbidden(snapshot)):
         _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
-    profiles = _profiles(_case(record['case']),policy,snapshot,binding=False)
-    if profiles != record['profiles']:
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
-    return frozenset(profiles)
+    post = record['phase'] == 'POST_SUBMIT'
+    profiles = _profiles(_case(record['case']),policy,snapshot,binding=False,allow_context_repeats=post)
+    pinned = record['profiles']
+    for index, expected in pinned.items():
+        actual = profiles.get(index)
+        if index in record['retired']:
+            if actual is not None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+        elif actual != expected:
+            if not post or actual is not None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+            record['retired'].add(index)
+    for index, actual in profiles.items():
+        if index in pinned: continue
+        # New current-command history is not an old-history exclusion. The fresh
+        # command/receipt must justify it separately; retired baseline identity
+        # cannot be promoted or interpreted as movement into that row.
+        context_retired = any(pinned[i].kind == 'CONTEXT' for i in record['retired'])
+        if (not post or actual.kind != 'CONTEXT' or context_retired
+                or not _current_command_acked(view,record)):
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    return frozenset(index for index in pinned if index not in record['retired'])
+
+
+def _register_resume_dependent(view, dependent):
+    from terminal_context_echo import OwnedContextCommand, _COMMANDS
+    from terminal_input_challenge import NonceInputChallenge, _CHALLENGES
+    record = _registered(view,_VIEWS,ResumedHistoryView)
+    if type(dependent) is OwnedContextCommand:
+        binding = _COMMANDS.get(dependent)
+    elif type(dependent) is NonceInputChallenge:
+        binding = _CHALLENGES.get(dependent)
+    else: binding = None
+    if (binding is None or binding.get('resume_view') is not view
+            or any(binding.get(key) is not record[key] for key in ('scope','native','transition','controller'))):
+        _fail(record)
+    if not any(item() is dependent for item in record['dependents']):
+        record['dependents'].append(weakref.ref(dependent))
+
+
+def _current_command_acked(view, record):
+    from terminal_context_echo import _resume_submission_acked
+    return any(_resume_submission_acked(item(),view) for item in record['dependents'])
+
+
+def note_resume_submission(view, *, command):
+    from terminal_context_echo import _resume_submission_acked
+    record = _registered(view,_VIEWS,ResumedHistoryView)
+    if (record['phase'] != 'BOUND' or not any(item() is command for item in record['dependents'])
+            or not _resume_submission_acked(command,view)):
+        _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+    record['phase'] = 'POST_SUBMIT'
 
 
 def finish_resume_view(view):

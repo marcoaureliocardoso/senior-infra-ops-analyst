@@ -117,7 +117,8 @@ class InputOwnershipProof:
 
 
 class NonceInputChallenge:
-    def __init__(self,scope,native_owner,transition_owner,policy,initial,frame,*,context_receipt=None):
+    def __init__(self,scope,native_owner,transition_owner,policy,initial,frame,*,context_receipt=None,
+                 _resume_view=None,_controller_owner=None):
         record=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
         if record is None: raise InputProofError('INPUT_PROBE_SCOPE_REJECTED')
         validate_probe_scope(scope,record['terminal']); record['claimed']=True
@@ -125,6 +126,7 @@ class NonceInputChallenge:
         self._native=native_owner; self._transition=transition_owner
         self._policy=policy; self._proof=None; self._marker=None
         self._context_receipt=context_receipt; self._context_snapshot=initial
+        self._context_frame=frame; self._resume_view=_resume_view; self._controller=_controller_owner
         self.phase='ELIGIBLE'; self._last_frame=frame; self._write_frame=frame; self._progress=0
         self._last_time=_now()
         if (type(frame) is not int or not 0<=frame<=MAX_CAPTURE
@@ -137,7 +139,11 @@ class NonceInputChallenge:
                 input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause,observation=observation)
         self._row=initial.rows[self._anchor.row]
         _CHALLENGES[self]={'scope':scope,'record':record,'native':native_owner,
-            'transition':transition_owner,'consumed':False}
+            'transition':transition_owner,'consumed':False,'resume_view':_resume_view,'controller':_controller_owner,
+            'row':self._row,'anchor':self._anchor}
+        if _resume_view is not None:
+            from terminal_resume_history import _register_resume_dependent
+            _register_resume_dependent(_resume_view,self)
 
     def __repr__(self): return '<NonceInputChallenge>'
 
@@ -147,6 +153,9 @@ class NonceInputChallenge:
             from terminal_context_echo import _invalidate_context_receipt
             _invalidate_context_receipt(self._context_receipt)
         self._reason=reason if type(reason) is str and reason in REASONS else 'INPUT_PROBE_STATE_REJECTED'
+        if getattr(self,'_resume_view',None) is not None:
+            from terminal_resume_history import revoke_resume_view
+            revoke_resume_view(self._resume_view)
 
     def _fail(self,reason,input_eligibility=None,*,input_row_relation=None,input_row_cause=None,observation=None):
         self.invalidate(reason)
@@ -157,16 +166,25 @@ class NonceInputChallenge:
         raise error
 
     def _assessment(self,snapshot):
-        if self._context_receipt is None: return self._policy.empty_input_assessment(snapshot),None
+        if self._context_receipt is None and self._resume_view is None:
+            return self._policy.empty_input_assessment(snapshot),None
         from terminal_context_echo import assess_context_input
         try:
             result=assess_context_input(self._policy,snapshot,receipt=self._context_receipt,
                 scope=self._scope,state=self._record['terminal'],native_owner=self._native,
-                transition_owner=self._transition,frame=self._last_frame)
+                transition_owner=self._transition,frame=self._context_frame,
+                _resume_view=self._resume_view,_controller_owner=self._controller,
+                _actual_snapshot=self._context_snapshot if self._resume_view is not None and snapshot is not self._context_snapshot else None,
+                _normalization_owner=self)
         except BaseException:
             self.invalidate('INPUT_PROBE_REVOKED'); raise
-        self._context_snapshot=snapshot
+        if self._resume_view is None:
+            self._context_snapshot=snapshot; self._context_frame=self._last_frame
         return result
+
+    def _actual(self,snapshot,frame):
+        if self._resume_view is not None:
+            self._context_snapshot=snapshot; self._context_frame=frame
 
     def _require_same_empty_anchor(self,snapshot):
         assessment,observation=self._assessment(snapshot)
@@ -193,11 +211,21 @@ class NonceInputChallenge:
             try:
                 validate_context_history(self._context_receipt,self._policy,self._context_snapshot,
                     scope=self._scope,state=self._record['terminal'],native_owner=self._native,
-                    transition_owner=self._transition,frame=self._last_frame)
+                    transition_owner=self._transition,frame=self._context_frame,
+                    _resume_view=self._resume_view,_controller_owner=self._controller)
+            except BaseException:
+                self.invalidate('INPUT_PROBE_REVOKED'); raise
+        elif self._resume_view is not None:
+            from terminal_resume_history import validate_resume_view
+            try:
+                validate_resume_view(self._resume_view,policy=self._policy,snapshot=self._context_snapshot,
+                    frame=self._context_frame,state=self._record['terminal'],scope=self._scope,
+                    native_owner=self._native,controller_owner=self._controller,transition_owner=self._transition)
             except BaseException:
                 self.invalidate('INPUT_PROBE_REVOKED'); raise
 
     def type_bytes(self,snapshot,frame):
+        self._actual(snapshot,frame)
         self._check(frame)
         if self.phase!='ELIGIBLE': self._fail('INPUT_PROBE_STATE_REJECTED')
         self._require_same_empty_anchor(snapshot)
@@ -232,6 +260,7 @@ class NonceInputChallenge:
         return count
 
     def observe(self,snapshot,frame):
+        self._actual(snapshot,frame)
         self._check(frame)
         if self._policy.active_input_forbidden(snapshot): self._fail('INPUT_PROBE_REVOKED')
         if self.phase=='CONSUMED':
@@ -240,10 +269,11 @@ class NonceInputChallenge:
                 try:
                     validate_context_history(self._context_receipt,self._policy,snapshot,
                         scope=self._scope,state=self._record['terminal'],native_owner=self._native,
-                        transition_owner=self._transition,frame=frame)
+                        transition_owner=self._transition,frame=frame,
+                        _resume_view=self._resume_view,_controller_owner=self._controller)
                 except BaseException:
                     self.invalidate('INPUT_PROBE_REVOKED'); raise
-                self._context_snapshot=snapshot
+                self._context_snapshot=snapshot; self._context_frame=frame
             return self.phase
         if self.phase=='ELIGIBLE':
             self._require_same_empty_anchor(snapshot)
@@ -266,6 +296,7 @@ class NonceInputChallenge:
         return self.phase
 
     def clear_bytes(self,snapshot,frame):
+        self._actual(snapshot,frame)
         self._check(frame)
         if self.phase!='ECHO_MATCHED': self._fail('INPUT_PROBE_STATE_REJECTED')
         if self._echo_length(snapshot,'INPUT_PROBE_ECHO_REJECTED')!=16: self._fail('INPUT_PROBE_ECHO_REJECTED')
@@ -279,6 +310,7 @@ class NonceInputChallenge:
 
     def consume_exit(self,proof,snapshot,frame,native_owner,transition_owner):
         try:
+            self._actual(snapshot,frame)
             self._check(frame)
             if (self.phase!='PROVEN' or proof is not self._proof or type(proof) is not InputOwnershipProof
                     or native_owner is not self._native or transition_owner is not self._transition

@@ -44,6 +44,12 @@ def _error(reason,assessment=None):
         input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
 
 
+def _revoke_record_view(record):
+    if record is not None and record.get('resume_view') is not None:
+        from terminal_resume_history import revoke_resume_view
+        revoke_resume_view(record['resume_view'])
+
+
 def _diagnostic(record,method,*args,**kwargs):
     journal=record.get('journal') if record is not None else None
     if type(journal) is not ContextFailureJournal: return
@@ -79,6 +85,7 @@ def _fail(record,reason,check=None,*,normalized_input_failure=None,edit_snapshot
     if record is not None:
         record['phase']='REVOKED'
         _release_command_menu(record)
+        _revoke_record_view(record)
     raise error
 
 
@@ -233,7 +240,7 @@ def _live(record,frame=None,snapshot=None):
         if record['native'].poll() is not None: _fail(record,'INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
     except BaseException as error:
         _scope_rejection(record,error)
-        record['phase']='REVOKED'; _release_command_menu(record); raise
+        record['phase']='REVOKED'; _release_command_menu(record); _revoke_record_view(record); raise
     if frame is not None:
         if type(frame) is not int or not record['frame']<=frame<=MAX_CAPTURE:
             _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
@@ -241,6 +248,11 @@ def _live(record,frame=None,snapshot=None):
     if snapshot is not None:
         if type(snapshot) is not TerminalSnapshot: _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
         if record['policy'].active_input_forbidden(snapshot): _fail(record,'INPUT_PROBE_REVOKED','FORBIDDEN_UI')
+        if record.get('resume_view') is not None:
+            from terminal_resume_history import validate_resume_view
+            validate_resume_view(record['resume_view'],policy=record['policy'],snapshot=snapshot,
+                frame=record['frame'],state=record['state'],scope=record['scope'],native_owner=record['native'],
+                controller_owner=record['controller'],transition_owner=record['transition'])
 
 
 def _normalized_failure_detail(assessment,expected_anchor):
@@ -268,15 +280,22 @@ def _prefix(record,snapshot,written):
         _fail(record,'INPUT_PROBE_REVOKED','COMMAND_CELLS')
     if any(cell.width!=1 or cell.text not in ('',' ','\t','\u00a0') for cell in row[anchor.cursorX+count:]):
         _fail(record,'INPUT_PROBE_REVOKED','TRAILING_CELLS')
-    excluded=_correlated_menu_row(record,snapshot)
     rows=list(snapshot.rows); rows[anchor.row]=record['row']
     normalized=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
     rejected=None
-    if excluded is not None:
-        assessment,rejected=record['policy']._empty_input_assessment(normalized,excluded_row=excluded)
-    elif record.get('edit_observer') is not None:
-        assessment,rejected=record['policy']._empty_input_assessment(normalized)
-    else: assessment=record['policy'].empty_input_assessment(normalized)
+    if record.get('resume_view') is not None:
+        command=next(key for key,value in _COMMANDS.items() if value is record)
+        assessment,rejected,_=_compose_input_assessment(record['policy'],snapshot,frame=record['frame'],
+            state=record['state'],scope=record['scope'],native_owner=record['native'],
+            controller_owner=record['controller'],transition_owner=record['transition'],
+            resume_view=record['resume_view'],context_command=command,normalized_snapshot=normalized)
+    else:
+        excluded=_correlated_menu_row(record,snapshot)
+        if excluded is not None:
+            assessment,rejected=record['policy']._empty_input_assessment(normalized,excluded_row=excluded)
+        elif record.get('edit_observer') is not None:
+            assessment,rejected=record['policy']._empty_input_assessment(normalized)
+        else: assessment=record['policy'].empty_input_assessment(normalized)
     if assessment.anchor!=anchor:
         try: detail=_normalized_failure_detail(assessment,anchor)
         except Exception: detail=None
@@ -285,11 +304,11 @@ def _prefix(record,snapshot,written):
     return count
 
 
-def _history_rows(policy,snapshot):
+def _history_rows(policy,snapshot,*,_excluded_rows=frozenset()):
     matches=[]
     cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
     for index,row in enumerate(snapshot.rows):
-        if index==cursor: continue
+        if index==cursor or index in _excluded_rows: continue
         if (all(cell.width==1 for cell in row)
                 and policy._candidate_evaluation(row)[1]=='CONTROL_COMMAND_SHAPE'
                 and re.fullmatch(r'[ \t]*❯[ \t\u00a0]*/context[ \t\u00a0]*',policy._row_text(row))):
@@ -316,7 +335,7 @@ class OwnedContextCommand(_Sealed):
     def invalidate(self,reason):
         record=_COMMANDS.get(self)
         if record is not None:
-            record['phase']='REVOKED'; _release_command_menu(record)
+            record['phase']='REVOKED'; _release_command_menu(record); _revoke_record_view(record)
 
     def type_bytes(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
@@ -369,6 +388,9 @@ class OwnedContextCommand(_Sealed):
         if type(count) is not int or count!=1: _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
         _phase(record,'CONTEXT_PENDING')
         _release_command_menu(record)
+        if record.get('resume_view') is not None:
+            from terminal_resume_history import note_resume_submission
+            note_resume_submission(record['resume_view'],command=self)
 
     def bind_history(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
@@ -377,14 +399,20 @@ class OwnedContextCommand(_Sealed):
                 or record['policy']._context_signature(snapshot)==record['submit_signature']
                 or record['policy'].context_percent(snapshot) is None):
             _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT')
-        matches=_history_rows(record['policy'],snapshot)
+        resume_indices=_resume_indices(record,snapshot,frame)
+        matches=_history_rows(record['policy'],snapshot,_excluded_rows=resume_indices)
         if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED','HISTORY_AMBIGUITY')
         excluded=matches[0] if matches else None
-        assessment,rejected=record['policy']._empty_input_assessment(snapshot,excluded)
+        if record.get('resume_view') is not None:
+            assessment,rejected,_=_compose_input_assessment(record['policy'],snapshot,frame=frame,
+                state=record['state'],scope=record['scope'],native_owner=record['native'],
+                controller_owner=record['controller'],transition_owner=record['transition'],
+                resume_view=record['resume_view'],context_command=self)
+        else: assessment,rejected=record['policy']._empty_input_assessment(snapshot,excluded)
         if assessment.anchor is None:
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
             _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY')
-            record['phase']='REVOKED'
+            record['phase']='REVOKED'; _revoke_record_view(record)
             if excluded is not None: attach_context_rejection(error,
                 _observation(record['policy'],snapshot,assessment,rejected,excluded))
             raise error
@@ -398,7 +426,7 @@ class OwnedContextCommand(_Sealed):
 
 
 def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame,*,_diagnostic_journal=None,
-                          _edit_row_observer=None):
+                          _edit_row_observer=None,_resume_view=None,_controller_owner=None):
     from terminal_input_challenge import _context_scope_binding
     record={'journal':_diagnostic_journal,'phase':'BASELINE'}
     try: run,deadline=_context_scope_binding(scope,state)
@@ -410,7 +438,11 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
             or not 0<=frame<=MAX_CAPTURE or type(baseline) is not TerminalSnapshot):
         _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
     _USED_SCOPES.add(scope)
-    assessment=policy.empty_input_assessment(baseline)
+    if _resume_view is not None:
+        assessment,_,_=_compose_input_assessment(policy,baseline,frame=frame,state=state,scope=scope,
+            native_owner=native_owner,controller_owner=_controller_owner,transition_owner=transition_owner,
+            resume_view=_resume_view)
+    else: assessment=policy.empty_input_assessment(baseline)
     if assessment.anchor is None:
         error=_error('INPUT_PROBE_INELIGIBLE',assessment)
         _diagnostic(record,'freeze',error,'BASELINE_ELIGIBILITY')
@@ -419,7 +451,10 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
     _COMMANDS[value]={'scope':scope,'state':state,'native':native_owner,'transition':transition_owner,
         'policy':policy,'run':run,'deadline':deadline,'time':_now(),'frame':frame,'phase':'ELIGIBLE',
         'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0,
-        'journal':_diagnostic_journal}
+        'journal':_diagnostic_journal,'resume_view':_resume_view,'controller':_controller_owner}
+    if _resume_view is not None:
+        from terminal_resume_history import _register_resume_dependent
+        _register_resume_dependent(_resume_view,value)
     command_record=_COMMANDS[value]
     origin=(weakref.ref(value),baseline,scope,state,native_owner,transition_owner,run,deadline,assessment.anchor,frame)
     command_record['_menu_origin']=origin; command_record['_menu_selection']=None
@@ -437,22 +472,51 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
     return value
 
 
-def validate_context_history(receipt,policy,snapshot,*,scope,state,native_owner,transition_owner,frame):
+def _resume_indices(record,snapshot,frame):
+    if record.get('resume_view') is None: return frozenset()
+    from terminal_resume_history import validate_resume_view
+    return validate_resume_view(record['resume_view'],policy=record['policy'],snapshot=snapshot,
+        frame=frame,state=record['state'],scope=record['scope'],native_owner=record['native'],
+        controller_owner=record['controller'],transition_owner=record['transition'])
+
+
+def _resume_submission_acked(command,view):
+    record=_COMMANDS.get(command) if type(command) is OwnedContextCommand else None
+    return bool(record is not None and record.get('resume_view') is view
+        and record['phase'] in ('CONTEXT_PENDING','RECEIPT_READY')
+        and record['written']==8 and record['progress']==8 and 'submit_frame' in record)
+
+
+def validate_context_history(receipt,policy,snapshot,*,scope,state,native_owner,transition_owner,frame,
+                             _resume_view=None,_controller_owner=None):
     registered=_RECEIPTS.get(receipt) if type(receipt) is ContextEchoReceipt else None
     if registered is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
     command,index,row,anchor=registered; record=_COMMANDS.get(command)
+    if (record is not None and (record.get('resume_view') is not _resume_view
+            or (record.get('resume_view') is not None and record.get('controller') is not _controller_owner))):
+        _fail(record,'INPUT_PROBE_REVOKED')
     _live(record,frame,snapshot)
+    old=_resume_indices(record,snapshot,frame)
     if (record['phase']!='RECEIPT_READY' or policy is not record['policy'] or scope is not record['scope']
             or state is not record['state'] or native_owner is not record['native']
             or transition_owner is not record['transition'] or snapshot.active!=anchor.buffer
             or snapshot.baseY!=anchor.baseY or snapshot.viewportY!=anchor.viewportY
             or snapshot.cursorY+snapshot.baseY-snapshot.viewportY!=anchor.row
-            or snapshot.rows[index]!=row or _history_rows(policy,snapshot)!=[index]):
+            or snapshot.rows[index]!=row or _history_rows(policy,snapshot,_excluded_rows=old)!=[index]
+            or index in old):
         _fail(record,'INPUT_PROBE_REVOKED')
     return index
 
 
-def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,transition_owner,frame):
+def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,transition_owner,frame,
+                         _resume_view=None,_controller_owner=None,_actual_snapshot=None,_normalization_owner=None):
+    if _resume_view is not None:
+        assessment,_,observation=_compose_input_assessment(policy,_actual_snapshot or snapshot,frame=frame,
+            state=state,scope=scope,native_owner=native_owner,controller_owner=_controller_owner,
+            transition_owner=transition_owner,resume_view=_resume_view,context_receipt=receipt,
+            normalized_snapshot=snapshot if _actual_snapshot is not None else None,
+            normalization_owner=_normalization_owner)
+        return assessment,observation
     excluded=None
     if receipt is not None:
         excluded=validate_context_history(receipt,policy,snapshot,scope=scope,state=state,
@@ -462,6 +526,69 @@ def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,tran
     if receipt is not None and assessment.anchor is None:
         _RECEIPTS[receipt][0].invalidate('INPUT_PROBE_REVOKED')
     return assessment,observation
+
+
+def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_owner,controller_owner,
+        transition_owner,resume_view=None,context_receipt=None,context_command=None,normalized_snapshot=None,
+        normalization_owner=None):
+    from terminal_resume_history import validate_resume_view, revoke_resume_view, ResumeHistoryError
+    excluded=set()
+    if resume_view is not None:
+        excluded.update(validate_resume_view(resume_view,policy=policy,snapshot=actual_snapshot,frame=frame,
+            state=state,scope=scope,native_owner=native_owner,controller_owner=controller_owner,
+            transition_owner=transition_owner))
+    def add(index):
+        if index is None: return
+        cursor=actual_snapshot.baseY+actual_snapshot.cursorY-actual_snapshot.viewportY
+        if type(index) is not int or not 0<=index<len(actual_snapshot.rows) or index in excluded or index==cursor:
+            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+        excluded.add(index)
+    if context_receipt is not None:
+        add(validate_context_history(context_receipt,policy,actual_snapshot,scope=scope,state=state,
+            native_owner=native_owner,transition_owner=transition_owner,frame=frame,
+            _resume_view=resume_view,_controller_owner=controller_owner))
+    if context_command is not None:
+        record=_COMMANDS.get(context_command) if type(context_command) is OwnedContextCommand else None
+        if record is None or record.get('resume_view') is not resume_view or record.get('controller') is not controller_owner:
+            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_SCOPE_REJECTED')
+        _live(record,frame,actual_snapshot)
+        if record['phase'] in ('ELIGIBLE','EDIT_PENDING','COMMAND_ECHO_MATCHED','SUBMIT_PENDING'):
+            add(_correlated_menu_row(record,actual_snapshot))
+        elif record['phase']=='CONTEXT_PENDING':
+            if (frame<=record['submit_frame'] or policy._context_signature(actual_snapshot)==record['submit_signature']
+                    or policy.context_percent(actual_snapshot) is None): _fail(record,'INPUT_PROBE_STATE_REJECTED')
+            matches=_history_rows(policy,actual_snapshot,_excluded_rows=frozenset(excluded))
+            if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED')
+            add(matches[0] if matches else None)
+    target=actual_snapshot
+    if normalized_snapshot is not None:
+        source=_COMMANDS.get(context_command) if type(context_command) is OwnedContextCommand else None
+        if source is None:
+            from terminal_input_challenge import NonceInputChallenge, _CHALLENGES
+            source=_CHALLENGES.get(normalization_owner) if type(normalization_owner) is NonceInputChallenge else None
+        if (source is None or source.get('resume_view') is not resume_view
+                or any(source.get(key) is not value for key,value in (
+                    ('scope',scope),('native',native_owner),('controller',controller_owner),('transition',transition_owner)))):
+            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_SCOPE_REJECTED')
+        cursor=actual_snapshot.baseY+actual_snapshot.cursorY-actual_snapshot.viewportY
+        if (type(normalized_snapshot) is not TerminalSnapshot
+                or not 0<=cursor<len(actual_snapshot.rows)
+                or (normalized_snapshot.active,normalized_snapshot.baseY,normalized_snapshot.viewportY,
+                    normalized_snapshot.cursorY)!=(actual_snapshot.active,actual_snapshot.baseY,
+                    actual_snapshot.viewportY,actual_snapshot.cursorY)
+                or len(normalized_snapshot.rows)!=len(actual_snapshot.rows)
+                or normalized_snapshot.rows[cursor]!=source['row']
+                or normalized_snapshot.cursorX!=source['anchor'].cursorX
+                or any(a!=b for i,(a,b) in enumerate(zip(actual_snapshot.rows,normalized_snapshot.rows)) if i!=cursor)):
+            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+        target=normalized_snapshot
+    assessment,index=policy._empty_input_assessment(target,_excluded_rows=frozenset(excluded))
+    # Frozen debug counterfactual may omit the already-proven normalized cursor;
+    # this never participates in input authority and stores no copied row.
+    debug_excluded=frozenset(excluded | ({cursor} if normalized_snapshot is not None else set()))
+    observation=_observation(policy,actual_snapshot,assessment,index,debug_excluded)
+    if assessment.anchor is None and resume_view is not None: revoke_resume_view(resume_view)
+    return assessment,index,observation
 
 
 def attach_context_rejection(error,observation):
@@ -490,5 +617,7 @@ def context_rejection_projection(error,snapshot,policy):
     if (policy is not original_policy or snapshot is not original or error.reason!='INPUT_PROBE_INELIGIBLE'
             or error.input_eligibility!=assessment.reason or error.input_row_relation!=assessment.rowRelation
             or error.input_row_cause!=assessment.rowCause): return True,None
-    current,rejected=policy._empty_input_assessment(snapshot,excluded)
+    if type(excluded) is frozenset:
+        current,rejected=policy._empty_input_assessment(snapshot,_excluded_rows=excluded)
+    else: current,rejected=policy._empty_input_assessment(snapshot,excluded)
     return (True,index) if current==assessment and rejected==index else (True,None)

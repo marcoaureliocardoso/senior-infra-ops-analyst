@@ -279,5 +279,130 @@ class ResumeCaseTests(unittest.TestCase):
             self.assertEqual(self.m.resume_view_decision(view),'VALID')
 
 
+class ResumeCompositionTests(unittest.TestCase):
+    bind=ResumeCaseTests.bind
+    validate=ResumeCaseTests.validate
+
+    def setUp(self):
+        self.m=importlib.import_module('terminal_resume_history')
+        self.echo=importlib.import_module('terminal_context_echo')
+        self.assertTrue(hasattr(self.echo,'_compose_input_assessment'),'composed input assessment missing')
+
+    def begin(self,f,view,baseline):
+        return self.echo.begin_context_command(f.scope,f.state,f.native,f.transition,f.policy,baseline,1,
+            _resume_view=view,_controller_owner=f.controller)
+
+    def submit(self,f,view,baseline,history):
+        command=self.begin(f,view,baseline)
+        self.assertEqual(command.type_bytes(baseline,1),b'/context')
+        command.check_edit(baseline,1,8)
+        echoed=dataclasses.replace(history_snapshot((*history,(37,'❯ /context'))),cursorX=10)
+        command.observe(echoed,2)
+        self.assertEqual(command.submit_bytes(echoed,2),b'\r')
+        command.submission_written(1)
+        return command
+
+    def test_history_menu_and_unknown_row_use_one_ordered_assessment(self):
+        import terminal_input_challenge as challenge
+        with CaseFixture() as f:
+            view=self.bind(f); baseline=self.args['snapshot']; command=self.begin(f,view,baseline)
+            command.type_bytes(baseline,1); command.check_edit(baseline,1,8)
+            menu=((5,'❯ '+TEXT),(8,'❯ /context  Synthetic menu'))
+            echoed=dataclasses.replace(history_snapshot((*menu,(37,'❯ /context'))),cursorX=10)
+            command.observe(echoed,2)
+            bad=dataclasses.replace(history_snapshot((*menu,(37,'❯ /context'),(39,'❯ synthetic unknown'))),cursorX=10)
+            with mock.patch.object(f.policy,'_empty_input_assessment',wraps=f.policy._empty_input_assessment) as assess:
+                with self.assertRaises(challenge.InputProofError): command.observe(bad,3)
+                self.assertEqual(assess.call_count,1)
+            self.assertEqual(command.phase,'REVOKED')
+            self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+            self.assertIsNone(f.policy.empty_input_anchor(bad))
+
+    def test_debug_keeps_actual_rejection_after_view_revocation(self):
+        import terminal_input_challenge as challenge
+        with CaseFixture() as f:
+            view=self.bind(f); baseline=self.args['snapshot']; command=self.begin(f,view,baseline)
+            command.type_bytes(baseline,1); command.check_edit(baseline,1,8)
+            menu=((5,'❯ '+TEXT),(8,'❯ /context  Synthetic menu'))
+            echoed=dataclasses.replace(history_snapshot((*menu,(37,'❯ /context'))),cursorX=10)
+            command.observe(echoed,2)
+            bad=dataclasses.replace(history_snapshot((*menu,(37,'❯ /context'),(39,'❯ synthetic unknown'))),cursorX=10)
+            normalized=history_snapshot((*menu,(39,'❯ synthetic unknown')))
+            assessment,index,observation=self.echo._compose_input_assessment(f.policy,bad,frame=3,state=f.state,
+                scope=f.scope,native_owner=f.native,controller_owner=f.controller,transition_owner=f.transition,
+                resume_view=view,context_command=command,normalized_snapshot=normalized)
+            self.assertEqual((assessment.reason,assessment.rowRelation,assessment.rowCause,index),
+                ('UNSUPPORTED_ROW','OTHER_CAPTURED_ROW','UNRECOGNIZED_SHAPE',39))
+            error=challenge.InputProofError('INPUT_PROBE_INELIGIBLE',assessment.reason,
+                input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause)
+            self.echo.attach_context_rejection(error,observation)
+            self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+            with mock.patch.object(self.m,'validate_resume_view',side_effect=AssertionError('live proof queried')):
+                self.assertEqual(self.echo.context_rejection_projection(error,bad,f.policy),(True,39))
+
+    def test_retired_baseline_row_cannot_be_promoted_to_new_history(self):
+        with CaseFixture() as f:
+            history=((5,'❯ '+TEXT),(10,'❯ /context'),(12,'❯ /exit'))
+            baseline=history_snapshot(history); view=self.bind(f,baseline)
+            command=self.submit(f,view,baseline,history)
+            numeric=history_snapshot(((0,'Context Usage'),(1,'Free space: 81%'),
+                (2,'Autocompact buffer: 3%'),(10,'❯ /context'),(12,'❯ /exit'),(20,'❯ /context')))
+            receipt=command.bind_history(numeric,3)
+            self.assertEqual(self.echo._RECEIPTS[receipt][1],20)
+            assessment,_=self.echo.assess_context_input(f.policy,numeric,receipt=receipt,state=f.state,
+                scope=f.scope,native_owner=f.native,transition_owner=f.transition,frame=3,
+                _resume_view=view,_controller_owner=f.controller)
+            self.assertEqual(assessment.reason,'ELIGIBLE')
+            restored=history_snapshot(((0,'Context Usage'),(1,'Free space: 81%'),
+                (2,'Autocompact buffer: 3%'),*history,(20,'❯ /context')))
+            with self.assertRaises(self.m.ResumeHistoryError):
+                self.validate(f,view,snapshot=restored,frame=4)
+            self.assertEqual(command.phase,'REVOKED')
+
+    def test_retirement_and_exclusion_cannot_refresh_old_numeric_grid(self):
+        import terminal_input_challenge as challenge
+        with CaseFixture() as f:
+            history=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),(5,'❯ '+TEXT))
+            baseline=history_snapshot(history); view=self.bind(f,baseline)
+            command=self.submit(f,view,baseline,history)
+            unchanged=history_snapshot(history[:3])
+            with self.assertRaises(challenge.InputProofError): command.bind_history(unchanged,3)
+            self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+
+    def test_unowned_normalization_cannot_hide_current_draft(self):
+        with CaseFixture() as f:
+            view=self.bind(f)
+            draft=history_snapshot(((5,'❯ '+TEXT),(37,'❯ synthetic draft')))
+            with self.assertRaises(self.m.ResumeHistoryError):
+                self.echo._compose_input_assessment(f.policy,draft,frame=2,state=f.state,scope=f.scope,
+                    native_owner=f.native,controller_owner=f.controller,transition_owner=f.transition,
+                    resume_view=view,normalized_snapshot=history_snapshot(((5,'❯ '+TEXT),)))
+
+    def test_current_nonce_echo_clear_and_consumption_keep_same_view(self):
+        import terminal_input_challenge as challenge
+        for has_receipt in (False,True):
+            with self.subTest(receipt=has_receipt), CaseFixture() as f:
+                view=self.bind(f); baseline=self.args['snapshot']; history=((5,'❯ '+TEXT),)
+                command=self.submit(f,view,baseline,history)
+                rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history)
+                if has_receipt: rows=(*rows,(20,'❯ /context'))
+                numeric=history_snapshot(rows); receipt=command.bind_history(numeric,3)
+                self.assertEqual(receipt is not None,has_receipt)
+                probe=challenge.NonceInputChallenge(f.scope,f.native,f.transition,f.policy,numeric,3,
+                    context_receipt=receipt,_resume_view=view,_controller_owner=f.controller)
+                marker=probe.type_bytes(numeric,3)
+                self.assertEqual(len(marker),16)
+                echoed=dataclasses.replace(history_snapshot((*rows,(37,'❯ '+marker.decode()))),cursorX=18)
+                self.assertEqual(probe.observe(echoed,4),'ECHO_MATCHED')
+                self.assertEqual(probe.clear_bytes(echoed,4),b'\x15')
+                self.assertEqual(probe.observe(numeric,5),'PROVEN')
+                self.assertTrue(probe.consume_exit(probe.ownership_proof(),numeric,5,f.native,f.transition))
+                auth=history_snapshot((*rows,(7,'Do you want to use this API key?')))
+                with self.assertRaises(RuntimeError): probe.observe(auth,6)
+                self.assertEqual((probe.phase,command.phase),('REVOKED','REVOKED'))
+                self.assertIsNone(probe._marker)
+                self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+
+
 if __name__ == '__main__':
     unittest.main()
