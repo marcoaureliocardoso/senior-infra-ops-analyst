@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added optional, closed failure diagnostics to the standard offline terminal
+  harness: observed phase, exit/signal, exception category and numeric errno.
+  Nonzero children cannot supply a successful result through diagnostic JSON;
+  no stderr, exception messages, paths or content are retained by this observer.
+  Metadata is omitted before exceeding the existing 16 KiB report limit.
+  Audit/debug routes, installed behavior, versions and execution limits are
+  unchanged. Native acceptance still requires a new exact-commit authorization.
+
 - Added test-only, audited offline case/SDK witnesses and a fresh resumed-history
   view for fixed synthetic history. Actual child results and bound stdout
   descriptors, not serialized verdicts or prompt shapes, control continuation.

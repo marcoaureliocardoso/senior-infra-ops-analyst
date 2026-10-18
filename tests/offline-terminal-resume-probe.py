@@ -22,6 +22,63 @@ from terminal_structural_diagnostics import TerminalDiagnostics
 from terminal_input_challenge import audit_offline_namespace, create_offline_probe_issuer, InputProofError, validate_probe_scope
 
 
+FAILURE_PHASES=frozenset(('PRECHECK','NAMESPACE','IMPORTS','VERSION','INITIAL_CONTEXT',
+    'SDK','RESUMED_CONTEXT','CLEANUP','UNKNOWN'))
+_EXCEPTION_TYPES=(json.JSONDecodeError,subprocess.TimeoutExpired,subprocess.CalledProcessError,
+    PermissionError,FileNotFoundError,TimeoutError,OSError,ModuleNotFoundError,ImportError,
+    ValueError,TypeError,RuntimeError)
+_EXCEPTION_LABELS=frozenset(kind.__name__ for kind in _EXCEPTION_TYPES)|{'OTHER'}
+
+
+def _failure_diagnostic(phase,*,error=None,exit_code=None):
+    code=exit_code if type(exit_code) is int and -255<=exit_code<=255 else None
+    label=next((kind.__name__ for kind in _EXCEPTION_TYPES if isinstance(error,kind)),
+        'OTHER' if error is not None else None)
+    number=getattr(error,'errno',None) if isinstance(error,OSError) else None
+    return {'phase':phase if type(phase) is str and phase in FAILURE_PHASES else 'UNKNOWN',
+        'exitCode':code,'signal':-code if code is not None and code<0 else None,
+        'exceptionClass':label,'errno':number if type(number) is int and 0<=number<=4095 else None}
+
+
+def _valid_failure_diagnostic(value):
+    if type(value) is not dict or set(value)!={'phase','exitCode','signal','exceptionClass','errno'}: return False
+    phase,code,signal_number,label,number=(value[key] for key in ('phase','exitCode','signal','exceptionClass','errno'))
+    if type(phase) is not str or phase not in FAILURE_PHASES: return False
+    if code is not None and (type(code) is not int or not -255<=code<=255): return False
+    if signal_number is not None and type(signal_number) is not int: return False
+    if signal_number!=(-code if code is not None and code<0 else None): return False
+    if label is not None and (type(label) is not str or label not in _EXCEPTION_LABELS): return False
+    return number is None or (type(number) is int and 0<=number<=4095)
+
+
+def _failed(report,phase,*,enabled,error=None,exit_code=None):
+    return {**report,'failureDiagnostic':_failure_diagnostic(phase,error=error,exit_code=exit_code)} if enabled else report
+
+
+def _bounded_standard_report(report,exit_code):
+    cases=report.get('cases',[])
+    records=[report]+([case for case in cases if type(case) is dict] if type(cases) is list else [])
+    success=report.get('reasonCode')=='OFFLINE_CONTROLS_PASSED'
+    for record in records:
+        if 'failureDiagnostic' in record and (success or not _valid_failure_diagnostic(record['failureDiagnostic'])):
+            record.pop('failureDiagnostic')
+    def size(): return len((json.dumps(report,sort_keys=True)+'\n').encode())
+    if size()>16384:
+        # Optional observation must be sacrificed before the existing result.
+        for record in records: record.pop('failureDiagnostic',None)
+    if size()>16384:
+        return _failed({'reasonCode':'OFFLINE_PROBE_BLOCKED',
+            'disposableRootAbsent':report.get('disposableRootAbsent') is True},
+            'NAMESPACE',enabled=True,error=ValueError(),exit_code=exit_code)
+    return report
+
+
+class _OfflineFailure(Exception):
+    def __init__(self,phase,error):
+        self.diagnostic=_failure_diagnostic(phase,error=error)
+        super().__init__('OFFLINE_PROBE_BLOCKED')
+
+
 def context_stage_report(phase,rows,diagnostics):
     """Separate structural diagnostics from the unchanged reduced proof stream."""
     reduced=[{key:row[key] for key in ('stage','outcome','percent') if key in row} for row in rows]
@@ -177,6 +234,7 @@ def _edit_namespace_report(command,root,identity):
 
 
 def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False):
+    observe=not audit and debug_context is False and debug_context_edit is False
     if (type(debug_context_edit) is not bool or (debug_context_edit and (audit or debug_context))):
         return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     if type(debug_context) is not bool or (audit and debug_context): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
@@ -184,10 +242,12 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
         source=source.resolve(strict=True); node=node.resolve(strict=True); module_root=module_root.resolve(strict=True)
         bwrap=shutil.which('bwrap')
         if not bwrap or not node.is_file(): raise ValueError
-    except (OSError,ValueError): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    except (OSError,ValueError) as error:
+        return _failed({'reasonCode':'OFFLINE_PROBE_BLOCKED'},'PRECHECK',enabled=observe,error=error)
     root=Path(tempfile.mkdtemp(prefix='p004b-offline-terminal-'))
     identity=root.stat()
     report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    phase='PRECHECK'; exit_code=None
     pending={'status':'NO_CAPTURE'}; namespace_reaped=False
     try:
         command=[bwrap,'--die-with-parent','--new-session','--unshare-user','--unshare-pid',
@@ -223,6 +283,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
         if debug_context_edit:
             return _edit_namespace_report(command,root,identity)
         else:
+            phase='NAMESPACE'
             with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
                 deadline=time.monotonic()+165
                 result=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
@@ -233,18 +294,38 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
                     time.sleep(.02)
                 cancellation.check()
                 output.seek(0); data=output.read(16385)
-            if result.returncode or len(data)>16384: raise ValueError
-            report=json.loads(data)
-    except (KeyboardInterrupt,TerminalCancelled): report={'reasonCode':'OFFLINE_PROBE_INTERRUPTED'}
-    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
+            exit_code=result.returncode
+            if exit_code:
+                report=_failed(report,'NAMESPACE',enabled=observe,exit_code=exit_code)
+                # A child failure stays blocked, even if its JSON claims success.
+                # Only closed passive metadata survives a nonzero namespace exit.
+                if observe and len(data)<=16384:
+                    try:
+                        value=_edit_json(data)
+                        detail=value.get('failureDiagnostic') if type(value) is dict else None
+                        if _valid_failure_diagnostic(detail): report['failureDiagnostic']=dict(detail)
+                    except (ValueError,UnicodeError): pass
+            else:
+                if len(data)>16384: raise ValueError
+                value=json.loads(data)
+                if observe and type(value) is not dict: raise ValueError
+                report=value
+                if observe and type(report) is dict and 'failureDiagnostic' in report:
+                    if not _valid_failure_diagnostic(report['failureDiagnostic']): report.pop('failureDiagnostic')
+    except (KeyboardInterrupt,TerminalCancelled) as error:
+        report=_failed({'reasonCode':'OFFLINE_PROBE_INTERRUPTED'},phase,enabled=observe,error=error,exit_code=exit_code)
+    except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError) as error:
+        report=_failed(report,phase,enabled=observe,error=error,exit_code=exit_code)
         if debug_context_edit:
             report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'OMITTED_PROVENANCE'}
     cleaned=finalize_owned(root,identity,report)
+    if cleaned.get('reasonCode')=='OFFLINE_CLEANUP_FAILED':
+        cleaned=_failed(cleaned,'CLEANUP',enabled=observe)
     if debug_context_edit:
         from terminal_context_debug import finalize_edit_report
         disposed=cleaned.pop('disposableRootAbsent',False)
         return finalize_edit_report(cleaned,pending,disposal_proven=disposed is True and namespace_reaped)
-    return cleaned
+    return _bounded_standard_report(cleaned,exit_code) if observe else cleaned
 
 
 def run_isolation_audit(*,source,node,module_root):
@@ -252,7 +333,9 @@ def run_isolation_audit(*,source,node,module_root):
 
 
 def run_offline_controls(*,source,claude,node,module_root,debug_context=False,debug_context_edit=False):
-    if claude is None: return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    if claude is None:
+        return _failed({'reasonCode':'OFFLINE_PROBE_BLOCKED'},'PRECHECK',
+            enabled=debug_context is False and debug_context_edit is False)
     return _namespace(source=source,claude=claude,node=node,module_root=module_root,debug_context=debug_context,
         debug_context_edit=debug_context_edit)
 
@@ -267,21 +350,31 @@ def run_cases(run_case):
 
 
 def _controls(*,debug_context=False,debug_context_edit=False):
+    observe=not debug_context and not debug_context_edit
     sys.path.insert(0,'/opt/probe')
-    from terminal_state_adapter import TerminalState
-    from browser_startup_approval import StartupApproval
-    from terminal_resume_history import (create_offline_case,initial_completion_sink,offer_resume,
-        sdk_started,sdk_finished,close_offline_case,TEXT_PROMPT,SKILL_PROMPT)
-    from headless_context_driver import _terminate
-    from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug, _fit_edit_pending_report
+    try:
+        from terminal_state_adapter import TerminalState
+        from browser_startup_approval import StartupApproval
+        from terminal_resume_history import (create_offline_case,initial_completion_sink,offer_resume,
+            sdk_started,sdk_finished,close_offline_case,TEXT_PROMPT,SKILL_PROMPT)
+        from headless_context_driver import _terminate
+        from terminal_context_debug import create_context_debug, fit_debug_report, create_context_edit_debug, _fit_edit_pending_report
+        spec=importlib.util.spec_from_file_location('offline_pty_driver','/opt/probe/claude-pty-driver.py')
+        driver=importlib.util.module_from_spec(spec); spec.loader.exec_module(driver)
+    except Exception as error:
+        if observe: raise _OfflineFailure('IMPORTS',error) from None
+        raise
     debug_reports=[]
     edit_reports=[]
-    spec=importlib.util.spec_from_file_location('offline_pty_driver','/opt/probe/claude-pty-driver.py')
-    driver=importlib.util.module_from_spec(spec); spec.loader.exec_module(driver)
-    version=subprocess.run(['/opt/probe/claude','--version'],env={'PATH':'/usr/bin:/bin','HOME':'/work'},
-        capture_output=True,timeout=5)
+    try:
+        version=subprocess.run(['/opt/probe/claude','--version'],env={'PATH':'/usr/bin:/bin','HOME':'/work'},
+            capture_output=True,timeout=5)
+    except Exception as error:
+        if observe: raise _OfflineFailure('VERSION',error) from None
+        raise
     match=re.fullmatch(rb'(\d{1,4}\.\d{1,4}\.\d{1,4}) \(Claude Code\)\s*',version.stdout)
-    if version.returncode or not match: return {'reasonCode':'OFFLINE_RUNTIME_UNAVAILABLE'}
+    if version.returncode or not match:
+        return _failed({'reasonCode':'OFFLINE_RUNTIME_UNAVAILABLE'},'VERSION',enabled=observe,exit_code=version.returncode)
 
     def run_case(name):
         root=Path(tempfile.mkdtemp(prefix='case-',dir='/work')); identity=root.stat()
@@ -290,6 +383,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
             'skillCalls':0,'validSkillSample':False,'validSDKSample':False,'messages':0,'stages':[]}
         server=None; thread=None; old_env=dict(os.environ); old_cwd=Path.cwd()
         case_record=None
+        phase='PRECHECK'; phase_exit=None
         debug_captures=[]
         edit_captures=[]
         class Handler(BaseHTTPRequestHandler):
@@ -368,8 +462,12 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                 report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
                     any(row.get('stage')=='exit' and row.get('outcome')=='passed' for row in rows)
+            phase='INITIAL_CONTEXT'
             before,inspected,exited=context('before',False); report['beforeExit']=before
+            if before!=0 or not inspected or not exited:
+                report=_failed(report,phase,enabled=observe)
             if before==0 and inspected and exited:
+                phase='SDK'
                 prompt=SKILL_PROMPT if name=='skill-turn' else TEXT_PROMPT
                 sdk=['/opt/probe/claude','-p',prompt,'--resume',session,*common,'--permission-mode','default',
                     '--tools','Skill','--allowedTools','Skill(context-continuity)','--include-hook-events',
@@ -385,6 +483,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                         launch=sdk_started(case_record,child=child,command=tuple(sdk),stream=stdout)
                         child.wait(timeout=25)
                         report['sdkExit']=child.returncode
+                        phase_exit=child.returncode
                         sample=sdk_finished(launch)
                     finally:
                         if child is not None: _terminate(child)
@@ -392,19 +491,31 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                 report['skillCalls']=sample.skill_calls
                 if name=='skill-turn': report['validSkillSample']=sample.valid and sample.skill_calls==1
                 if sample.valid:
+                    phase='RESUMED_CONTEXT'; phase_exit=None
                     after,inspected_after,exited_after=context('after',True); report['afterExit']=after
                     report['contextInspected']=inspected and inspected_after
                     report['naturalExit']=exited and exited_after
-        except (OSError,ValueError,RuntimeError,subprocess.SubprocessError): pass
+                    if after!=0 or not inspected_after or not exited_after:
+                        report=_failed(report,phase,enabled=observe)
+                else: report=_failed(report,phase,enabled=observe,exit_code=phase_exit)
+        except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+            report=_failed(report,phase,enabled=observe,error=error,exit_code=phase_exit)
+        except Exception as error:
+            if observe: raise _OfflineFailure(phase,error) from None
+            raise
         finally:
-            if case_record is not None: close_offline_case(case_record)
-            if server is not None: server.shutdown(); server.server_close()
-            if thread is not None: thread.join(timeout=2)
-            os.chdir(old_cwd); os.environ.clear(); os.environ.update(old_env)
+            try:
+                if case_record is not None: close_offline_case(case_record)
+                if server is not None: server.shutdown(); server.server_close()
+                if thread is not None: thread.join(timeout=2)
+                os.chdir(old_cwd); os.environ.clear(); os.environ.update(old_env)
+            except Exception as error:
+                if observe: raise _OfflineFailure('CLEANUP',error) from None
+                raise
         cleaned=finalize_owned(root,identity,report)
         if cleaned.get('reasonCode')=='OFFLINE_CLEANUP_FAILED':
             if debug_context: debug_reports.append({'status':'OMITTED_CLEANUP'})
-            return {'case':name,'caseRootAbsent':False}
+            return _failed({'case':name,'caseRootAbsent':False},'CLEANUP',enabled=observe)
         debug_reports.extend(debug.report() for debug in debug_captures)
         for capture in edit_captures:
             try: edit_reports.append(capture.pending_report())
@@ -423,6 +534,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
 
 def main():
     if sys.argv[1:] in (['--inner-audit'],['--inner-controls'],['--inner-controls-debug'],['--inner-controls-edit-debug']):
+        observe=sys.argv[1:]==['--inner-controls']
         try:
             report=_audit()
             if sys.argv[1:] in (['--inner-controls'],['--inner-controls-debug'],['--inner-controls-edit-debug']):
@@ -430,7 +542,16 @@ def main():
                     debug_context_edit=sys.argv[1:]==['--inner-controls-edit-debug'])}
             else: audit_input_probe_scope(Path('/opt/probe/node'),Path('/opt/modules'))
             print(json.dumps(report,sort_keys=True)); return 0
-        except (OSError,ValueError,RuntimeError): return 2
+        except _OfflineFailure as error:
+            if not observe: raise
+            print(json.dumps({'reasonCode':'OFFLINE_PROBE_BLOCKED','failureDiagnostic':error.diagnostic},sort_keys=True))
+            return 2
+        except Exception as error:
+            if observe:
+                print(json.dumps(_failed({'reasonCode':'OFFLINE_PROBE_BLOCKED'},'UNKNOWN',enabled=True,error=error),sort_keys=True))
+                return 2
+            if isinstance(error,(OSError,ValueError,RuntimeError)): return 2
+            raise
     parser=argparse.ArgumentParser(description=__doc__)
     modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--audit-isolation',dest='mode',action='store_const',const='--audit-isolation')

@@ -1,5 +1,62 @@
 # Validation Notes
 
+## Standard offline failure diagnostics - 2026-10-18 candidate
+
+Baseline: `e22db332de938376b706d4b85d4d83460bee71a7`, clean isolated
+`p0-04b-browser-automation` worktree. The operator approved the short bounded
+design in chat; no new spec/plan document or native execution was requested.
+Root/component versions remain unchanged for this test-only scope.
+
+The one native e22db33 attempt ended after 3.302 seconds with host exit 2,
+OFFLINE_PROBE_BLOCKED and disposableRootAbsent true. It produced no aggregate
+runtime/case evidence; that does not prove no native process started. The grant
+is consumed. Its structural report and marker remain outside Git under
+`.review-runtime/p004b-terminal-state/p004b-offline-e22db33-*`.
+
+Subsequent diagnostics did not execute Claude: namespace audit passed with and
+without a read-only executable mount; controller imports/case dispatch passed
+with synthetic version and subprocesses forbidden. Passive ELF inspection found
+matching x86-64 architecture and visible interpreter/libraries, not proof of
+runtime compatibility. The six-second kernel window returned no messages; clock
+mapping/retention prevents treating that as proof against OOM or signals.
+The initiating native failure cannot be recovered from the retained report.
+
+The standard route now emits optional closed `failureDiagnostic` metadata at
+the failed boundary. Exceptions from imports/version and unexpected case failures
+can traverse the existing bounded JSON result without preserving their messages.
+Existing operational reason codes, stop-first-failure, cleanup and input authority
+remain unchanged. Audit and both debug routes do not gain this field or retention.
+No new stderr capture, stream, module mount, public flag or dependency was added.
+
+Important limit: the owned supervisor maps negative target returns to exit 2.
+NAMESPACE records that observed supervisor result, with null signal; it does not
+invent the target's signal. Direct VERSION/SDK process returns can prove their
+own signals. Pre-handler/abrupt crashes may still expose only NAMESPACE/UNKNOWN.
+Exception categories are a fixed allowlist or OTHER; errno is bounded numeric.
+
+TDD: baseline offline34 passed (52.516 seconds); initial eleven regressions
+failed on missing metadata (13 failing subcases). Additional privacy/import/
+cleanup tests failed against the immutable baseline probe, including its uncaught
+exceptions. A mistaken target-signal expectation was corrected after inspecting
+the unchanged supervisor's normalization; no supervisor behavior was changed.
+Budget tests reproduced a 16415-byte final envelope, then passed after accounting
+for disposal/newline and omitting optional metadata first. Nested invalid metadata,
+failure metadata on success, nonobject JSON and exact ImportError classification
+also reproduced RED before correction. Full offline57 passed (85.737 seconds),
+followed by one real-namespace synthetic unexpected-exception test (0.824 seconds).
+The first full run had a transient audit-half failure; isolated audit then passed
+and exposed the intentional new default PRECHECK-envelope expectation, which was
+updated exactly. Final combined offline58 passed (86.561 seconds), debug29,
+architecture13, release-history42 (20.479 seconds) and content validation passed,
+without skips in those focused runs. Independent review and the matching complete
+package gate remain pending at this candidate.
+
+No installed Claude, real provider/browser or operator configuration/credential
+was accessed during implementation tests. No retry of the consumed native grant,
+push/PR/merge/release, staging refresh or definitive TODO completion occurred.
+Rollback removes only the optional observer/integration and its regressions;
+it cannot recover discarded evidence or renew authorization.
+
 ## Offline resumed-history view - 2026-10-18 local closeout
 
 Execution baseline: `62a8fe263b06b53ea4eddbbdda6467db0b0f5caa` on the isolated

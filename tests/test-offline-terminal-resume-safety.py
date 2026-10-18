@@ -469,7 +469,8 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         with mock.patch.object(sys,'argv',[str(MODULE),'--run-offline',*common]):
             with mock.patch('builtins.print') as output:
                 self.assertEqual(self.module.main(),2)
-                self.assertEqual(json.loads(output.call_args.args[0]),{'reasonCode':'OFFLINE_PROBE_BLOCKED'})
+                self.assertEqual(json.loads(output.call_args.args[0]),{'reasonCode':'OFFLINE_PROBE_BLOCKED',
+                    'failureDiagnostic':{'phase':'PRECHECK','exitCode':None,'signal':None,'exceptionClass':None,'errno':None}})
 
     def test_interruption_removes_namespace_root(self):
         with tempfile.TemporaryDirectory() as parent:
@@ -614,6 +615,250 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             'capabilitiesDropped':True,'disposableRootAbsent':True}
         self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
         self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+
+
+class OfflineFailureDiagnosticsTests(unittest.TestCase):
+    setUp=OfflineTerminalResumeSafetyTests.setUp
+    fake_report=OfflineTerminalResumeSafetyTests.fake_report
+
+    def outer_peer(self,body,*,error=None,expired=False,cancel=False,**flags):
+        with tempfile.TemporaryDirectory(prefix='offline-failure-peer-') as directory:
+            peer=Path(directory)/'peer'
+            peer.write_text('#!/usr/bin/python3 -I\nimport os,signal\n'+body+'\n')
+            peer.chmod(0o700)
+            original=self.module.TerminalCancellation.spawn; launches=[]
+            clock=time.monotonic; offset=[0]
+            def spawn(token,command,**options):
+                launches.append(command)
+                if error is not None: raise error
+                child=original(token,command,**options)
+                if expired: offset[0]=1000
+                if cancel: token.requested=True
+                return child
+            with mock.patch.object(self.module.shutil,'which',return_value=str(peer)),\
+                    mock.patch.object(self.module.TerminalCancellation,'spawn',new=spawn),\
+                    mock.patch.object(self.module.time,'monotonic',side_effect=lambda:clock()+offset[0]):
+                result=self.module.run_offline_controls(source=ROOT,claude=peer,
+                    node=Path(os.environ['P004B_TERMINAL_NODE']),
+                    module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),**flags)
+            self.assertEqual(len(launches),1)
+        self.assertTrue(result['disposableRootAbsent'])
+        self.assertLessEqual(len((json.dumps(result)+'\n').encode()),16384)
+        return result
+
+    def test_nonzero_namespace_exit_preserves_code_without_raw_output(self):
+        report=self.outer_peer('os.write(1,b"synthetic-private-output"); raise SystemExit(7)')
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':7,
+            'signal':None,'exceptionClass':None,'errno':None})
+        self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+        self.assertNotIn('synthetic-private-output',json.dumps(report))
+
+    def test_target_signal_is_not_invented_after_supervisor_normalization(self):
+        report=self.outer_peer('os.kill(os.getpid(),signal.SIGTERM)')
+        # The existing owned supervisor maps negative target returns to 2.
+        # Its observable exit is not evidence of the target's original signal.
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':2,
+            'signal':None,'exceptionClass':None,'errno':None})
+
+    def test_launch_exception_exports_only_closed_class_and_errno(self):
+        error=PermissionError(13,'synthetic-private-message','/synthetic-private-path')
+        report=self.outer_peer('',error=error)
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':None,
+            'signal':None,'exceptionClass':'PermissionError','errno':13})
+        self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_invalid_and_oversized_json_are_bounded_namespace_failures(self):
+        for body,kind in (('os.write(1,b"synthetic-invalid-json")','JSONDecodeError'),
+                          ('os.write(1,b"x"*16385)','ValueError')):
+            with self.subTest(kind=kind):
+                report=self.outer_peer(body)
+                self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':0,
+                    'signal':None,'exceptionClass':kind,'errno':None})
+                self.assertNotIn('synthetic-invalid-json',json.dumps(report))
+
+    def test_serialized_diagnostic_cannot_change_failure_or_leak_unknown_fields(self):
+        for diagnostic,want in (({'phase':'VERSION','exitCode':None,'signal':None,
+                'exceptionClass':'FileNotFoundError','errno':2},'VERSION'),
+                ({'phase':'synthetic-private-phase','exitCode':0,'signal':None,
+                  'exceptionClass':'synthetic-private-class','errno':True},'NAMESPACE')):
+            payload={'reasonCode':'OFFLINE_CONTROLS_PASSED','cases':[], 'failureDiagnostic':diagnostic}
+            report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+'); raise SystemExit(2)')
+            self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+            self.assertNotIn('cases',report)
+            self.assertEqual(report.get('failureDiagnostic',{}).get('phase'),want)
+            self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_missing_runtime_is_a_precheck_failure(self):
+        report=self.module.run_offline_controls(source=ROOT,claude=Path('/unopened-native'),
+            node=Path('/missing-synthetic-node'),module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'PRECHECK','exitCode':None,
+            'signal':None,'exceptionClass':'FileNotFoundError','errno':2})
+
+    def test_debug_route_keeps_legacy_failure_envelope(self):
+        report=self.outer_peer('raise SystemExit(7)',debug_context=True)
+        self.assertEqual(report,{'reasonCode':'OFFLINE_PROBE_BLOCKED','disposableRootAbsent':True})
+
+    def inner_peer(self,body,*,executable=True,node=None):
+        with tempfile.TemporaryDirectory(prefix='offline-version-peer-') as directory:
+            peer=Path(directory)/'peer'
+            peer.write_text('#!/usr/bin/python3 -I\nimport os,signal,sys,time\n'+body+'\n')
+            peer.chmod(0o700 if executable else 0o600)
+            return self.module.run_offline_controls(source=ROOT,claude=peer,
+                node=Path(node or os.environ['P004B_TERMINAL_NODE']),
+                module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+
+    def test_version_exec_error_survives_the_nonzero_namespace_result(self):
+        report=self.inner_peer('',executable=False)
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'VERSION','exitCode':None,
+            'signal':None,'exceptionClass':'PermissionError','errno':13})
+        self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+        self.assertTrue(report['disposableRootAbsent'])
+
+    def test_version_signal_and_timeout_do_not_require_raw_stderr(self):
+        for body,exit_code,kind in (('os.kill(os.getpid(),signal.SIGTERM)',-15,None),
+                                   ('time.sleep(60)',None,'TimeoutExpired')):
+            with self.subTest(kind=kind):
+                report=self.inner_peer(body)
+                self.assertEqual(report.get('failureDiagnostic'),{'phase':'VERSION','exitCode':exit_code,
+                    'signal':15 if exit_code==-15 else None,'exceptionClass':kind,'errno':None})
+                self.assertNotIn('runtime',report)
+
+    def test_initial_context_failure_retains_original_inconclusive_decision(self):
+        report=self.inner_peer('print("0.0.1 (Claude Code)")',node='/usr/bin/false')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        case=report['cases'][0]
+        self.assertEqual(case.get('failureDiagnostic'),{'phase':'INITIAL_CONTEXT','exitCode':None,
+            'signal':None,'exceptionClass':'RuntimeError','errno':None})
+        self.assertTrue(case['caseRootAbsent']); self.assertEqual(len(report['cases']),1)
+
+    def test_sdk_and_resume_failures_name_the_actual_phase(self):
+        for mode,phase,exit_code in (('wrong-session','SDK',0),('view-loss','RESUMED_CONTEXT',None)):
+            with self.subTest(mode=mode):
+                report=self.fake_report(mode)
+                self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+                self.assertEqual(report['cases'][0].get('failureDiagnostic'),{'phase':phase,
+                    'exitCode':exit_code,'signal':None,'exceptionClass':None,'errno':None})
+
+    def test_success_has_no_failure_metadata(self):
+        report=self.fake_report('success')
+        self.assertNotIn('failureDiagnostic',report)
+        self.assertTrue(all('failureDiagnostic' not in case for case in report['cases']))
+
+    def test_cleanup_failure_is_not_mislabeled_as_sdk_failure(self):
+        report=self.fake_report('cleanup-failure')
+        self.assertEqual(report['cases'][0].get('failureDiagnostic'),{'phase':'CLEANUP','exitCode':None,
+            'signal':None,'exceptionClass':None,'errno':None})
+
+    def test_unknown_exception_never_exports_its_name_or_message(self):
+        error=type('SyntheticPrivateClass',(Exception,),{} )('synthetic-private-message')
+        with mock.patch.object(sys,'argv',[str(MODULE),'--inner-controls']),\
+                mock.patch.object(self.module,'_audit',return_value={}),\
+                mock.patch.object(self.module,'_controls',side_effect=error),\
+                mock.patch('builtins.print') as output:
+            self.assertEqual(self.module.main(),2)
+        report=json.loads(output.call_args.args[0])
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'UNKNOWN','exitCode':None,
+            'signal':None,'exceptionClass':'OTHER','errno':None})
+        self.assertNotIn('synthetic-private',json.dumps(report).lower())
+
+    def test_import_failure_is_not_lost_before_version(self):
+        import builtins
+        original=builtins.__import__
+        def imports(name,*args,**kwargs):
+            if name=='headless_context_driver': raise ImportError('synthetic-private-import')
+            return original(name,*args,**kwargs)
+        with mock.patch.object(sys,'argv',[str(MODULE),'--inner-controls']),\
+                mock.patch.object(sys,'path',list(sys.path)),\
+                mock.patch.object(self.module,'_audit',return_value={}),\
+                mock.patch.object(builtins,'__import__',side_effect=imports),\
+                mock.patch('builtins.print') as output:
+            self.assertEqual(self.module.main(),2)
+        report=json.loads(output.call_args.args[0])
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'IMPORTS','exitCode':None,
+            'signal':None,'exceptionClass':'ImportError','errno':None})
+        self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_forged_diagnostic_types_are_not_exported(self):
+        base={'phase':'VERSION','exitCode':None,'signal':None,'exceptionClass':None,'errno':None}
+        for key,value in (('exitCode',True),('signal',True),('errno',True),('errno',5000),
+                          ('exceptionClass',[]),('phase',[]),('unapproved','synthetic-private')):
+            with self.subTest(key=key,value=value):
+                payload={'reasonCode':'OFFLINE_PROBE_BLOCKED','failureDiagnostic':{**base,key:value}}
+                report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+'); raise SystemExit(2)')
+                self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':2,
+                    'signal':None,'exceptionClass':None,'errno':None})
+
+    def test_missing_native_argument_is_diagnosed_without_launch(self):
+        report=self.module.run_offline_controls(source=ROOT,claude=None,
+            node=Path(os.environ['P004B_TERMINAL_NODE']),module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'PRECHECK','exitCode':None,
+            'signal':None,'exceptionClass':None,'errno':None})
+
+    def test_outer_timeout_and_interruption_do_not_relaunch(self):
+        for flags,reason,kind in (({'expired':True},'OFFLINE_PROBE_BLOCKED','TimeoutError'),
+                                  ({'cancel':True},'OFFLINE_PROBE_INTERRUPTED','RuntimeError')):
+            with self.subTest(flags=flags):
+                report=self.outer_peer('import time; time.sleep(60)',**flags)
+                self.assertEqual(report['reasonCode'],reason)
+                self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':None,
+                    'signal':None,'exceptionClass':kind,'errno':None})
+
+    def test_final_envelope_budget_includes_disposal_receipt(self):
+        payload={'reasonCode':'OFFLINE_PROBE_BLOCKED','padding':''}
+        payload['padding']='x'*(16384-len(json.dumps(payload).encode()))
+        self.assertEqual(len(json.dumps(payload).encode()),16384)
+        report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+')')
+        self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+        self.assertNotIn('padding',report)
+
+    def test_optional_diagnostic_is_omitted_before_rejecting_a_bounded_envelope(self):
+        detail={'phase':'VERSION','exitCode':7,'signal':None,'exceptionClass':None,'errno':None}
+        payload={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','padding':'','failureDiagnostic':detail}
+        payload['padding']='x'*(16384-len(json.dumps(payload).encode()))
+        report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+')')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertNotIn('failureDiagnostic',report)
+
+    def test_nested_unknown_metadata_is_never_exported(self):
+        payload={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[{'case':'text-turn',
+            'failureDiagnostic':{'phase':'synthetic-private-phase'}}]}
+        report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+')')
+        self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_success_envelope_never_exports_failure_metadata(self):
+        detail={'phase':'VERSION','exitCode':7,'signal':None,'exceptionClass':None,'errno':None}
+        payload={'reasonCode':'OFFLINE_CONTROLS_PASSED','cases':[], 'failureDiagnostic':detail}
+        report=self.outer_peer('os.write(1,'+repr(json.dumps(payload).encode())+')')
+        self.assertNotIn('failureDiagnostic',report)
+
+    def test_nonobject_json_is_a_structural_failure_not_an_uncaught_exception(self):
+        for value in ([],None,13,'synthetic-private-output'):
+            with self.subTest(type=type(value).__name__):
+                report=self.outer_peer('os.write(1,'+repr(json.dumps(value).encode())+')')
+                self.assertEqual(report.get('failureDiagnostic'),{'phase':'NAMESPACE','exitCode':0,
+                    'signal':None,'exceptionClass':'ValueError','errno':None})
+                self.assertNotIn('synthetic-private',json.dumps(report))
+
+    def test_unexpected_case_exception_survives_real_namespace_transport(self):
+        code=('import sys\nsys.path.insert(0,"/opt/probe")\n'
+            'import probe,terminal_state_adapter\n'
+            'def failure(*args,**kwargs): raise TypeError("synthetic-private-failure")\n'
+            'terminal_state_adapter.TerminalState=failure\n'
+            'sys.argv=["/opt/probe/probe.py","--inner-controls"]\n'
+            'raise SystemExit(probe.main())\n')
+        original=self.module.TerminalCancellation.spawn; calls=[]
+        def launch(token,command,**options):
+            self.assertEqual(command[-2:],['/opt/probe/probe.py','--inner-controls'])
+            calls.append(command)
+            return original(token,command[:-2]+['-c',code],**options)
+        with mock.patch.object(self.module.TerminalCancellation,'spawn',new=launch):
+            report=self.inner_peer('print("0.0.1 (Claude Code)")')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+        self.assertEqual(report.get('failureDiagnostic'),{'phase':'INITIAL_CONTEXT','exitCode':None,
+            'signal':None,'exceptionClass':'TypeError','errno':None})
+        self.assertTrue(report['disposableRootAbsent'])
+        self.assertNotIn('synthetic-private',json.dumps(report))
 
 
 if __name__=='__main__': unittest.main()

@@ -842,6 +842,36 @@ underlying operational result. Legacy debug report parsing accepts the optional
 typed boolean but cannot activate a resumed view. Native display compatibility,
 production browser/provider acceptance and remote CI/Security remain unproven.
 
+## Standard offline failure diagnostics
+
+The operator approved a bounded diagnostic change on 2026-10-18 after the
+e22db33 attempt returned only OFFLINE_PROBE_BLOCKED and proved outer disposal.
+Its initiating failure remains unknown; no native rerun is implied.
+
+Only the standard offline route adds optional `failureDiagnostic` to a fatal
+envelope or failed case. It contains exactly `phase`, `exitCode`, `signal`,
+`exceptionClass` and `errno`. Phase and exception categories are closed; numeric
+fields reject booleans and out-of-range values. There is no exception message,
+stderr capture, traceback, pathname, identifier, prompt or new progress channel.
+The owned initial/SDK/resume witnesses and acceptance rules are unchanged.
+
+Recognized phases are PRECHECK, NAMESPACE, IMPORTS, VERSION, INITIAL_CONTEXT,
+SDK, RESUMED_CONTEXT, CLEANUP and UNKNOWN. Only the currently observed boundary
+is reported. Pre-handler crashes cannot provide an inner phase. The namespace
+exit belongs to the existing owned supervisor, which normalizes negative target
+returns to 2; that value cannot reveal the original target signal. Direct native
+version/SDK subprocess results can expose their own signal. Missing evidence
+remains null/UNKNOWN, never a reconstructed claim.
+
+Nonzero namespaces remain blocked even when their JSON claims success; only
+validated passive failure metadata can survive that boundary. Standard report
+metadata is validated again after identity-checked disposal. Optional metadata
+is dropped before exceeding the existing 16 KiB envelope budget, including the
+disposal receipt and final newline; an otherwise oversized report stays blocked.
+Success emits no failure metadata. Audit and both debug routes retain their
+existing contracts, limits and retention rules. No provider/native experiment,
+installation, dependency, preference or version change follows from this decision.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact
@@ -852,6 +882,10 @@ ownership procedure. Pending operations and credential reuse are not restored.
 The test-only observer can be reverted with its command/controller/collector and
 namespace-mount integration, preserving strict input/receipt/nonce behavior.
 Reverting it does not restore a consumed native execution grant.
+
+The standard failure metadata can be reverted with its harness and synthetic
+regressions alone. That removes diagnostic detail, not input safeguards or
+cleanup ownership. It does not renew the consumed e22db33 authorization.
 
 The normalized sibling can be removed with its paired projection and collector
 coupling as one unit, leaving the original four-field observer and strict input
