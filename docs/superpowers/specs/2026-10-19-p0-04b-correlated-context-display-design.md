@@ -1,7 +1,7 @@
 # P0-04B correlated context-display evidence design
 
 Date: 2026-10-19
-Status: Specification, plan and inline execution approved; implemented locally. Final review/package gate pending; native support unproven.
+Status: Local implementation, independent source review and immutable complete package gate passed. Native support/acceptance remains unproven and separately authorization-gated.
 Baseline: a7f53075d553865af2c3ee1a32727cc8e5e9c286.
 
 ## Intent and approval boundary

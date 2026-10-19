@@ -68,13 +68,91 @@ Implementation rulings, in order:
 2. Preserve the shared evaluator's actual rejected-row index, not committed
    history index. Binding reads the latter only from its private witness.
    Cost if wrong: incorrect diagnostic row attribution.
+3. Installed-native layout compatibility was excluded from synthetic review;
+   retain it as unproven and require fresh bounded exact-commit authorization.
+   Cost if wrong: a later native attempt can remain inconclusive.
+4. Hidden recomputation, identical cached output and dishonest native binaries
+   are outside CORRELATED_DISPLAY's accepted trust guarantee. Keep the explicit
+   trusted-display limitation. Cost if wrong: internal computation/binary honesty
+   is not proved, and must not be claimed.
+5. Pre-existing numeric grammar/float validation beyond this compatibility
+   extraction remains unchanged; no practical introduced defect was identified.
+   Cost if wrong: inherited parser quirks need separately scoped hardening.
+6. Real provider/browser, remote CI/Security and external delivery are outside
+   this source review. Keep those gates pending without external write authority.
+   Cost if wrong: local verification cannot establish external acceptance.
 
-Final independent review and immutable full package gate are pending at this
-implementation checkpoint; earlier reviews/gates do not certify this source.
+At the implementation checkpoint final review and the immutable package gate
+were pending; their later evidence is recorded below, not inferred from older
+reviews/gates.
 The a7f5307 native grant and inconclusive result remain unchanged and consumed.
 No installed-Claude/native/provider/browser attempt, operator-state/credential
 access, push/PR/merge/release, staging refresh or definitive TODO completion has
 occurred. A later native attempt needs separate exact-final-commit authorization.
+
+### Independent final source review
+
+The single fresh read-only reviewer inspected exact range
+`8fb6582d41f8c19ef0659993c1db83ed49c589f2..c3f5cf0e0c6bedc7dadbb4c1521a2b9701dc99e0`,
+the full diff/specification/plan/ledger and surrounding receipt/nonce/exit paths.
+Verdict: local source approved, no Critical/Important/Minor findings. No author
+fix pass or second reviewer was needed, and no Minor findings were deferred.
+
+Independent executable evidence on clean c3f5cf0: display17, numeric sample4,
+selected reducer/budget3 and selected real Python PTY3 = 27 tests passed, no
+skips. Whitespace and final worktree status were clean. These are reviewer
+results; the author's 380 covering tests remain separate. The first reviewer
+turn failed before execution due a service usage limit. After operator resume,
+the same reviewer seat executed; no verdict was presumed from the failed turn.
+
+All four declined-to-judge categories were expressly ruled above. Arbitrary
+fragmentation was not excluded: every consumed invalid history/geometry state
+still revokes irreversibly, while universal renderer success is not promised.
+This review is not native/provider/browser acceptance or permission to deliver.
+The complete immutable package gate is still pending at this review checkpoint.
+
+### Immutable package gate and documentation closeout
+
+Reviewed source `c3f5cf0e0c6bedc7dadbb4c1521a2b9701dc99e0` passed the complete
+`bash tests/validate-package.sh`: 2026-10-19T20:25:39Z through
+2026-10-19T20:39:20Z (821 seconds), exit 0, package validation passed.
+The Windows Git archive was extracted into a bounded native Linux temporary
+export. All 545 versioned source files matched archive content/type/modes before
+and after the gate. This checks canonical source members, not a digest of
+unversioned runtime extras. Archive SHA256:
+`e0c567cc067f39c885ec46d986f11255e6511439d774d24f9759b8811d66e7c6`.
+
+Retained external evidence under `.review-runtime/p004b-terminal-state/`:
+`p004b-correlated-display-c3f5cf0-source.tar` and
+`p004b-correlated-display-c3f5cf0-gate.log`. The gate's driver74 passed
+(282.207s) and offline64 passed (115.992s). No unexpected failure markers or
+ResourceWarnings were observed. The independent review and 380 focused tests
+remain distinct evidence, not inferred from this package verdict.
+
+Observed exclusions: one opt-in real-browser test covering 37 loopback scenarios
+was CAPABILITY_UNAVAILABLE; three Python cases skipped the native-Windows
+permission-MCP rejection and Git-Bash-dependent context-continuity/Nori argument
+validation. PowerShell was absent from the clean Linux PATH, so native .ps1 syntax
+validation was skipped. Local schema and CI workflow validation passed; these
+are not remote CI/Security or native/provider/browser acceptance.
+
+The later closeout changes only this validation record and the approved
+specification/plan status. Fresh content, architecture and release-history tests,
+whitespace and a documentation-only diff are required before its commit; runtime
+source remains identical to the reviewed/gated candidate. The six rulings above
+are exhaustive. No deferred Minor finding or source fix pass remains.
+
+This completes the local implementation/review/package-validation arc only.
+Keep branch and worktree in place; preserve the full external gate evidence and
+archive this plan's ignored execution scratch outside the active source tree.
+No push/PR/merge/release, staging refresh or definitive TODO completion follows.
+The next native observation remains a separate unproven gate requiring one new
+exact-final-commit offline authorization: up to two synthetic cases, 25 seconds
+per context dialogue and 165 seconds overall, loopback-only gateway, no real
+provider or operator state/credentials, no content debug/export, disposal before
+aggregation, stop-first-inconclusive and no automatic retry. The existing
+command-echo, 16-character non-submitted nonce, single guarded Ctrl+U and newer
+empty-frame exit protocol stays unchanged. No native run occurred in this arc.
 
 ## Fresh-context first-failure diagnostics - 2026-10-19 local validation
 

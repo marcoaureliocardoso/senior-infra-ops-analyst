@@ -19,7 +19,7 @@ nonce/clear/exit evidence.
 
 **Spec:** [Approved evidence specification](../specs/2026-10-19-p0-04b-correlated-context-display-design.md), approved by the operator after source `aee14a68bd420d59249639dae7e6be20aa5146f7`.
 
-**Status:** Operator approved the plan and inline execution. Tasks 1-3 are implemented locally; final review, immutable package gate and closeout are pending. Native execution still needs separate exact-final-commit authorization.
+**Status:** Approved inline local implementation, independent review and immutable package gate passed. Documentation-only closeout preserves the tested runtime. Native execution remains unproven and needs separate exact-final-commit authorization.
 
 ## Global Constraints
 
@@ -121,7 +121,7 @@ Unexpected failure is investigated, not called a flake or silently rerun green.
 - `parse_context_percent(text: str, allow_rendered_row_order: bool = False) -> int | None` remains importable from `terminal_input_policy` and returns the same legacy result.
 - `sample_context(snapshot: TerminalSnapshot) -> ContextSample | None` reads current cells with rendered-row-order support and no policy observation, IPC, IO or clock query.
 
-- [ ] **1.1 Write `test_decimal_identity_and_legacy_rounding` and `test_sample_is_pure_and_not_authority`.** Use hand-derived assertions, including:
+- [x] **1.1 Write `test_decimal_identity_and_legacy_rounding` and `test_sample_is_pure_and_not_authority`.** Use hand-derived assertions, including:
 
 ```python
 a = parse_context_values("Context Usage\nFree space: 81%\nAutocompact buffer: 3%", True)
@@ -141,14 +141,14 @@ legacy used-percent calculation preserves the existing float-and-round result.
 Characterized baseline assertions for free 81.5, 80.5 and 81.5001 with buffer 3
 are used percentages 16, 16 and 15, respectively; pin these literal results.
 
-- [ ] **1.2 Run:** `python3 tests/test-terminal-context-sample.py`. Expect the new API/behavior to be absent before implementation, not a fixture/syntax error. Run `python3 tests/test-terminal-input-policy.py` as baseline compatibility control.
-- [ ] **1.3 Implement the pure module and legacy re-export.** Move the existing parser grammar into the new module rather than adding a competing parser. Do not change sticky policy freshness or default validation behavior. Derive canonical numbers from the same validated matches.
-- [ ] **1.4 Add `test_numeric_module_is_read_only_mounted_and_importable`.**
+- [x] **1.2 Run:** `python3 tests/test-terminal-context-sample.py`. Expect the new API/behavior to be absent before implementation, not a fixture/syntax error. Run `python3 tests/test-terminal-input-policy.py` as baseline compatibility control.
+- [x] **1.3 Implement the pure module and legacy re-export.** Move the existing parser grammar into the new module rather than adding a competing parser. Do not change sticky policy freshness or default validation behavior. Derive canonical numbers from the same validated matches.
+- [x] **1.4 Add `test_numeric_module_is_read_only_mounted_and_importable`.**
   Exercise the actual namespace audit and existing Python fake workflow; assert
   unchanged audit facts, one owned launch, disposal and exact `--ro-bind`
   source/destination. No host operator mount and no installed Claude. Add the
   module to the mount list and the new test script to the package gate.
-- [ ] **1.5 Run:** sample, input-policy and offline-terminal-resume-safety suites. Expect exit 0 with exact counts/skip reasons recorded. Commit only this tested deliverable: `test: share pure context number observations`.
+- [x] **1.5 Run:** sample, input-policy and offline-terminal-resume-safety suites. Expect exit 0 with exact counts/skip reasons recorded. Commit only this tested deliverable: `test: share pure context number observations`.
 
 ## Task 2: One owned resumed-display coordinator and sealed witness
 
@@ -170,7 +170,7 @@ native IO; `observe(rows, frame)` passes prescribed cell fixtures through the
 real command observer. Expose `command`, `view`, `journal`, `bindings` and original
 owners for negative controls. No product methods added solely for tests.
 
-- [ ] **2.1 Write `test_equal_values_need_new_owned_commit` and `test_text_change_without_commit_is_not_evidence`.** Start with baseline 81/3, retained SDK history and a submitted owned command. Use separate fresh cases:
+- [x] **2.1 Write `test_equal_values_need_new_owned_commit` and `test_text_change_without_commit_is_not_evidence`.** Start with baseline 81/3, retained SDK history and a submitted owned command. Use separate fresh cases:
 
 ```python
 assert command.context_display_percent(old_grid_without_new_history, 3) is None
@@ -184,20 +184,20 @@ Heading changes, numeric row reorder or cursor noise without the new commit must
 not create a witness. A complete legitimate changed-value display must also use
 the new witness; never fall back to inequality when correlation fails.
 
-- [ ] **2.2 Write `test_conflicting_sample_cannot_restore_baseline` and
+- [x] **2.2 Write `test_conflicting_sample_cannot_restore_baseline` and
   `test_candidate_loss_is_irreversible`.** Observe 80/3 after Enter and then return
   to 81/3 with a new row: reject and revoke view/command. Baseline repeats before
   a legitimate 80/3 commit are not themselves conflicts. After a candidate,
   disappearance/movement/duplication or sample change must revoke; restoration
   cannot rebind.
-- [ ] **2.3 Write `test_witness_cannot_cross_command_or_be_forged`.** Assert public
+- [x] **2.3 Write `test_witness_cannot_cross_command_or_be_forged`.** Assert public
   construction, dictionary/copy/replayed attachment, foreign
   scope/controller/native/helper/run, expired/backwards deadline and bool/stale
   frame are rejected. Pre-existing/pinned/retired/menu-bound/current-input rows
   cannot become the new row. A witness does not construct InputOwnershipProof
   or waive nonce eligibility.
-- [ ] **2.4 Run:** `python3 tests/test-terminal-context-display.py`. Record expected RED for each new behavior before implementation; negative controls already green remain documented controls.
-- [ ] **2.5 Implement the coordinator in the existing capability module.** Bind
+- [x] **2.4 Run:** `python3 tests/test-terminal-context-display.py`. Record expected RED for each new behavior before implementation; negative controls already green remain documented controls.
+- [x] **2.5 Implement the coordinator in the existing capability module.** Bind
   tracker state at the original resumed command, refresh pre-Enter
   inventory/baseline during guarded observations, arm AWAIT_DISPLAY only after
   actual Enter acknowledgement, and issue CANDIDATE only after current sample +
@@ -210,14 +210,14 @@ the new witness; never fall back to inequality when correlation fails.
   guard. Candidate geometry is pinned when the witness is issued. All existing
   invalidation/cleanup paths revoke and release the associated witness as well
   as the command/view.
-- [ ] **2.6 Revalidate through `validate_context_history`.** Preserve old-history
+- [x] **2.6 Revalidate through `validate_context_history`.** Preserve old-history
   exclusions/retirement and the existing nonce/exit normalization. Numeric
   geometry excludes controlled input cursor/text changes; numeric/history/owner
   changes do not become permitted normalization. Keep initial/default behavior
   and readable legacy diagnostics unchanged. Old resumed zero-history acceptance
   fixtures must become explicit unsupported/pending controls with separate valid
   new-history positives; never remove a regression merely to make the suite green.
-- [ ] **2.7 Run:** display, context-echo, resumed-history and input-challenge
+- [x] **2.7 Run:** display, context-echo, resumed-history and input-challenge
   suites. Add the display test script to `validate-package.sh` and verify
   per-decision assessment count with the existing real evaluator plus a justified
   counting spy. Commit: `test: bind resumed context displays to owned history commits`.
@@ -239,7 +239,7 @@ failure merely because the next frame has not arrived. Deadline, cancellation
 and lifetime failures retain their existing precedence/reason rather than being
 rewritten as missing display evidence.
 
-- [ ] **3.1 Add controlled Python PTY profiles and real assertion tests.** Extend
+- [x] **3.1 Add controlled Python PTY profiles and real assertion tests.** Extend
   the existing fixture utility to render a baseline grid during resumed startup,
   exact command echo, one Enter, then equal or changed numbers with one new
   current history row. Include completion-only, no-history and conflicting-sample
@@ -258,14 +258,14 @@ Use read/write barriers instead of sleep-based success assumptions. Numeric-only
 observations must not emit passed context_inspected. Verify current command/view
 is revoked after failed profiles and all owned processes/descriptors are closed.
 
-- [ ] **3.2 Add `test_candidate_loss_on_drain_revokes_before_nonce`.** Inject loss
+- [x] **3.2 Add `test_candidate_loss_on_drain_revokes_before_nonce`.** Inject loss
   at the actual final drain/writable boundary, then restore. Assert no nonce or
   remaining input, original reason/frozen first failure and unconditional cleanup.
   Cover cancellation, owner/helper loss, late authentication/modal and optional
   collector failure without changing authority. Equivalent valid numeric byte
   chunkings produce the same interpretation; intermediate history-loss profiles
   remain rejected rather than coalesced into success.
-- [ ] **3.3 Add reducer/collector regressions.** Missing, duplicate or late
+- [x] **3.3 Add reducer/collector regressions.** Missing, duplicate or late
   context_display, numeric-only evidence, forged new fields/labels, bool counters,
   nonzero child claiming success and resumed-vs-before checkpoint confusion must
   reject. Four maximal phase reports with the new point must remain within
@@ -275,13 +275,13 @@ is revoked after failed profiles and all owned processes/descriptors are closed.
   the driver's owned input decisions; the outer reducer may still withhold
   success when required serialized proof is unavailable. Never manufacture a
   checkpoint to reconcile those distinct outcomes.
-- [ ] **3.4 Run:** headless-context-driver, terminal-context-diagnostics, terminal-structural-diagnostics and offline-terminal-resume-safety tests; record expected RED before implementing the driver/collector/reducer change.
-- [ ] **3.5 Implement the interfaces above and integrate them atomically.** Keep
+- [x] **3.4 Run:** headless-context-driver, terminal-context-diagnostics, terminal-structural-diagnostics and offline-terminal-resume-safety tests; record expected RED before implementing the driver/collector/reducer change.
+- [x] **3.5 Implement the interfaces above and integrate them atomically.** Keep
   final drain/revalidation before binding and nonce typing, retain old failure
   provenance through the actual rejection, and keep no-signature-fallback on the
   resumed route. The context_display checkpoint must reflect an actual consumed
   private witness, not merely the presence of a row in JSON.
-- [ ] **3.6 Run those complete suites plus terminal-wiring and context-debug.**
+- [x] **3.6 Run those complete suites plus terminal-wiring and context-debug.**
   The actual isolated Python fake text-turn/skill-turn workflow must complete,
   and fail-closed peers must stop without retry with disposal proved. No installed
   Claude or real provider. Commit:
@@ -296,28 +296,28 @@ the frozen implementation candidate. Review is read-only; no reviewer subagents,
 source mutation or native/provider execution. Gate consumes a Windows Git archive
 of the exact corrected commit in a native Linux export, not DrvFs permission bits.
 
-- [ ] **4.1 Update English documentation to describe actual local behavior.**
+- [x] **4.1 Update English documentation to describe actual local behavior.**
   Narrowly supersede the resumed different-signature rule with HISTORY_COMMIT_V1;
   retain non-profile controls. Record CORRELATED_DISPLAY rather than
   NATIVE_RECOMPUTED, cached-output limitation, unsupported zero-history/partial-layout
   cases, original bounds and consumed grant. Root/component versions unchanged;
   README changes only if its public summary would otherwise be false. Do not mark
   native/browser/provider/remote acceptance or TODO complete.
-- [ ] **4.2 Run all affected suites and document exact RED/GREEN, counts, skips
+- [x] **4.2 Run all affected suites and document exact RED/GREEN, counts, skips
   and provenance.** Run `python3 tests/validate-content.py`,
   `python3 tests/test-architecture-docs.py`, `python3 tests/test-release-history.py`
   and `git diff --check`. Commit the tested candidate and verify clean exact HEAD.
-- [ ] **4.3 Request one independent final reviewer.** Use requesting-code-review
+- [x] **4.3 Request one independent final reviewer.** Use requesting-code-review
   with a clean fork and exact immutable base..head, approved spec/plan, explicit
   invariants and synthetic-only commands. Require Critical/Important/Minor
   findings and a Declined-to-judge list. Reviewer checks all changed runtime roots
   and task interfaces, not only textual plan compliance. Author rules on
   exclusions. Do not call source review native acceptance or merge authority.
-- [ ] **4.4 Fix valid findings with author-owned RED/GREEN tests.** No fresh review
+- [x] **4.4 Fix valid findings with author-owned RED/GREEN tests.** No fresh review
   seat by default. If scope expands or an important requirement cannot be
   satisfied, stop and obtain the needed decision. Freeze corrected source for
   its gate; do not replace a failed gate by unexplained reruns.
-- [ ] **4.5 Run the complete immutable package gate.** Use Windows `git archive`
+- [x] **4.5 Run the complete immutable package gate.** Use Windows `git archive`
   for the exact source SHA; record archive SHA256. Extract with original modes
   into a bounded native Linux temporary directory, verify every versioned
   path/type/mode/hash before and after, and execute `bash tests/validate-package.sh`
@@ -326,16 +326,16 @@ of the exact corrected commit in a native Linux export, not DrvFs permission bit
   the established route; read/validate their exact inputs before reuse. Do not
   assert that runtime-created non-source files make the entire directory
   unchanged. Do not hardcode the old 539 source-member count after adding files.
-- [ ] **4.6 Inspect the entire verdict and exclusions.** Expect exit 0 and
+- [x] **4.6 Inspect the entire verdict and exclusions.** Expect exit 0 and
   `package validation passed`; record actual source hash/count, UTC times and log
   location. Existing opt-in real-browser/platform/Git-Bash/PowerShell omissions
   must be named when observed, not converted to passed native tests. Local
   schema/workflow checks are not remote CI/Security.
-- [ ] **4.7 Record gate/review results in a docs-only closeout.** Fresh
+- [x] **4.7 Record gate/review results in a docs-only closeout.** Fresh
   content/architecture/release-history checks, local commit, clean final worktree.
   Preserve earlier failed/inconclusive evidence and consumed markers. Report local
   implementation complete only if all required local work passed.
-- [ ] **4.8 Stop for the next authorization boundary.** Native support remains
+- [x] **4.8 Stop for the next authorization boundary.** Native support remains
   unproven. Propose, but do not execute, one new exact-final-commit offline attempt
   with the original up-to-two-case/25-second/165-second scope, loopback isolation,
   no real provider/operator state/debug content/retry and cleanup before
