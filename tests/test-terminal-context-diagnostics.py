@@ -42,6 +42,32 @@ class ContextDiagnosticsTests(unittest.TestCase):
         journal.freeze(InputProofError('INPUT_PROBE_REVOKED'),'PHASE_STATE')
         self.assertEqual(journal.project(error,**bindings),expected)
 
+    def test_fresh_context_closed_labels_survive_serialized_structural_projection(self):
+        from terminal_structural_diagnostics import TerminalDiagnostics,MAX_BYTES
+        for check in ('FRESH_CONTEXT_FRAME_NOT_ADVANCED','FRESH_CONTEXT_SIGNATURE_UNCHANGED',
+                'FRESH_CONTEXT_NUMERIC_UNAVAILABLE','FRESH_CONTEXT'):
+            with self.subTest(check=check):
+                journal,bindings=self.journal(); journal.bind_run(object())
+                journal.set_phase('EDIT_PENDING'); journal.acknowledge(8,submission=False,remaining=8)
+                journal.set_phase('SUBMIT_PENDING'); journal.acknowledge(1,submission=True,remaining=1)
+                journal.set_phase('CONTEXT_PENDING')
+                error=InputProofError('INPUT_PROBE_STATE_REJECTED'); journal.freeze(error,check)
+                projected=journal.project_fields(error,**bindings)
+                expected={'phase':'CONTEXT_PENDING','check':check,'commandBytesWritten':8,'enterBytesWritten':1}
+                self.assertEqual(projected,{'context_command_failure':expected})
+                collector=TerminalDiagnostics()
+                collector.add('failure',error.reason,contextCommandFailure=projected['context_command_failure'])
+                encoded=json.dumps(collector.report(),sort_keys=True).encode()
+                self.assertLessEqual(len(encoded),MAX_BYTES)
+                self.assertEqual(json.loads(encoded),{'records':[{'point':'failure',
+                    'reasonCode':'INPUT_PROBE_STATE_REJECTED','contextCommandFailure':expected}],
+                    'truncated':False,'rejected':False})
+                for change in ({'check':check+' synthetic-private'},{'signature':'synthetic-private'},
+                        {'commandBytesWritten':True},{'enterBytesWritten':2}):
+                    rejected=TerminalDiagnostics()
+                    rejected.add('failure',error.reason,contextCommandFailure={**expected,**change})
+                    self.assertEqual(rejected.report(),{'records':[],'truncated':False,'rejected':True})
+
     def test_invalid_ack_suppresses_projection(self):
         for count in (True,0,-1,9,1.0,None):
             with self.subTest(count=count):

@@ -333,6 +333,38 @@ class ResumeCompositionTests(unittest.TestCase):
             self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
             self.assertIsNone(f.policy.empty_input_anchor(bad))
 
+    def test_fresh_context_diagnostic_keeps_owned_history_revocation_strict(self):
+        from terminal_context_diagnostics import _create_context_journal
+        from terminal_input_challenge import InputProofError
+        for numeric_rows,expected in (((),'FRESH_CONTEXT_SIGNATURE_UNCHANGED'),
+                (((0,'Context Usage'),),'FRESH_CONTEXT_NUMERIC_UNAVAILABLE'),
+                (((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%')),None)):
+            with self.subTest(check=expected),CaseFixture() as f:
+                view=self.bind(f); baseline=self.args['snapshot']
+                bindings={'controller_owner':f.controller,'scope':f.scope,'state':f.state,
+                    'transition_owner':f.transition}
+                journal=_create_context_journal(**bindings); self.addCleanup(journal.finish)
+                command=self.echo.begin_context_command(f.scope,f.state,f.native,f.transition,f.policy,baseline,1,
+                    _resume_view=view,_controller_owner=f.controller,_diagnostic_journal=journal)
+                self.addCleanup(command.invalidate,'INPUT_PROBE_REVOKED')
+                command.type_bytes(baseline,1); journal.acknowledge(8,submission=False,remaining=8)
+                command.check_edit(baseline,1,8)
+                echoed=dataclasses.replace(history_snapshot(((5,'❯ '+TEXT),(37,'❯ /context'))),cursorX=10)
+                command.observe(echoed,2); command.submit_bytes(echoed,2)
+                journal.acknowledge(1,submission=True,remaining=1); command.submission_written(1)
+                actual=history_snapshot((*numeric_rows,(5,'❯ '+TEXT),(20,'❯ /context')))
+                if expected is None:
+                    self.assertIsNotNone(command.bind_history(actual,3))
+                    self.assertEqual(command.phase,'RECEIPT_READY')
+                    self.assertEqual(self.m.resume_view_decision(view),'VALID')
+                else:
+                    with self.assertRaises(InputProofError) as caught: command.bind_history(actual,3)
+                    self.assertEqual(caught.exception.reason,'INPUT_PROBE_STATE_REJECTED')
+                    self.assertEqual(command.phase,'REVOKED')
+                    self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+                    self.assertEqual(journal.project(caught.exception,**bindings),{
+                        'phase':'CONTEXT_PENDING','check':expected,'commandBytesWritten':8,'enterBytesWritten':1})
+
     def test_debug_keeps_actual_rejection_after_view_revocation(self):
         import terminal_input_challenge as challenge
         with CaseFixture() as f:

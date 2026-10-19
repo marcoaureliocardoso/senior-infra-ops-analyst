@@ -699,8 +699,46 @@ class ContextEchoTests(unittest.TestCase):
                     self.assertEqual(journal.project(error,**bindings)['check'],expected)
                 else: self.fail('expected a real rejection')
 
+    def test_fresh_context_first_failure_is_content_free_and_short_circuited(self):
+        cases=((2,frame(numeric=True),'FRESH_CONTEXT_FRAME_NOT_ADVANCED'),
+            (3,frame(),'FRESH_CONTEXT_SIGNATURE_UNCHANGED'),
+            (3,frame(history=((0,'Context Usage'),)),'FRESH_CONTEXT_NUMERIC_UNAVAILABLE'))
+        for frame_id,snapshot,expected in cases:
+            with self.subTest(check=expected):
+                self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+                command.observe(self.command_echo,2); command.submit_bytes(self.command_echo,2)
+                journal.acknowledge(1,submission=True,remaining=1); command.submission_written(1)
+                # Later predicates must not run after the first rejection. Real predicates
+                # remain in use up to that boundary; no diagnostic-only observations.
+                with mock.patch.object(self.policy,'_context_signature',
+                        side_effect=AssertionError('signature after frame rejection') if frame_id==2
+                        else self.policy._context_signature),\
+                        mock.patch.object(self.policy,'context_percent',
+                            side_effect=self.policy.context_percent if expected.endswith('NUMERIC_UNAVAILABLE')
+                            else AssertionError('numeric observation after earlier rejection')):
+                    with self.assertRaises(challenge.InputProofError) as caught:
+                        command.bind_history(snapshot,frame_id)
+                self.assertEqual(caught.exception.reason,'INPUT_PROBE_STATE_REJECTED')
+                self.assertEqual(command.phase,'REVOKED')
+                self.assertEqual(journal.project_fields(caught.exception,**bindings),{
+                    'context_command_failure':{'phase':'CONTEXT_PENDING','check':expected,
+                        'commandBytesWritten':8,'enterBytesWritten':1}})
+
+    def test_fresh_context_observer_loss_cannot_change_rejection_or_revocation(self):
+        for snapshot,frame_id in ((frame(numeric=True),2),(frame(),3),
+                (frame(history=((0,'Context Usage'),)),3)):
+            self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
+            command.observe(self.command_echo,2); command.submit_bytes(self.command_echo,2)
+            journal.acknowledge(1,submission=True,remaining=1); command.submission_written(1)
+            with mock.patch.object(ContextFailureJournal,'freeze',side_effect=RuntimeError('observer loss')):
+                with self.assertRaises(challenge.InputProofError) as caught:
+                    command.bind_history(snapshot,frame_id)
+            self.assertEqual(caught.exception.reason,'INPUT_PROBE_STATE_REJECTED')
+            self.assertEqual(command.phase,'REVOKED')
+            self.assertIsNone(journal.project_fields(caught.exception,**bindings))
+
     def test_history_rejection_codes_and_baseline_eligibility(self):
-        for scenario,expected in (('fresh','FRESH_CONTEXT'),('duplicate','HISTORY_AMBIGUITY'),
+        for scenario,expected in (('fresh','FRESH_CONTEXT_SIGNATURE_UNCHANGED'),('duplicate','HISTORY_AMBIGUITY'),
                 ('eligibility','HISTORY_ELIGIBILITY')):
             self.fresh_scope(); command,journal,bindings=self.diagnostic_edit()
             command.observe(self.command_echo,2); command.submit_bytes(self.command_echo,2)

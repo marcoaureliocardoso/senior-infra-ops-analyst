@@ -7,6 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Refined test-only post-Enter context rejection diagnostics to identify the
+  first failing frame, numeric-signature or numeric-availability condition.
+  The existing four-field record, predicate order, revocation and report limits
+  remain unchanged; no extra observation or content retention was added.
+  Installed behavior, versions and native/provider acceptance are unchanged.
+
 - Fixed a test-only ownership-observation race: Linux ESRCH from an already-open
   proc identity descriptor after process exit now means absence, not an opaque
   ownership failure. Permission/I/O errors, malformed metadata and changed or

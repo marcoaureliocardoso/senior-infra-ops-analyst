@@ -1,5 +1,42 @@
 # Validation Notes
 
+## Fresh-context first-failure diagnostics - 2026-10-19 candidate
+
+Baseline: `c8990d342f05421c876680f5b0bbcf482b9b79c6`, clean existing isolated
+`p0-04b-browser-automation` worktree. The operator approved the bounded diagnostic
+refinement, TDD, independent review and full package gate. This is test-only;
+root/component versions and installed behavior are unchanged.
+
+The single native offline attempt on c8990d3 was already consumed. It ended
+OFFLINE_CONTROLS_INCONCLUSIVE after 10.521 seconds with probe exit 2: text-turn
+initial context and synthetic SDK sample passed, resumed numeric inspection
+preceded a CONTEXT_PENDING/FRESH_CONTEXT rejection, and skill-turn did not run.
+Native/helper leaders were reaped and case/outer disposable roots were absent.
+Its structural report and consumed marker remain outside Git at
+`.review-runtime/p004b-terminal-state/p004b-offline-c8990d3-*`.
+
+Subsequent synthetic-only investigation showed unchanged current signature and
+lost current numbers can share that old diagnostic even with sticky contextFresh
+true. The raw SDK history shape occurs in a passing control too. These fixtures
+do not prove which condition caused the historical native rejection.
+
+Only the existing guard's first failed condition is now identified by three
+closed `check` labels. Same predicates/order, error reason, irreversible command
+and resumed-view revocation; no additional observations, fields or content.
+Legacy FRESH_CONTEXT remains readable. Unknown labels, extra fields and invalid
+write counts stay rejected. Optional observer failure does not change rejection.
+
+TDD: the three guard subcases failed with old FRESH_CONTEXT, and the three new
+journal/collector labels failed with missing projection before implementation.
+After the minimal change, echo47 passed (34.020 seconds), diagnostics14 passed
+(0.030 seconds), resumed-history28 passed (15.523 seconds) and offline61 passed
+(87.759 seconds), without focused skips. Content validation and architecture13
+also passed. Independent-review and immutable-gate results are not yet claimed.
+
+No new installed-Claude/offline-native/provider/browser execution, operator
+configuration or credential access, raw export, push/PR/merge/release, staging
+refresh or definitive TODO completion is part of this refinement.
+
 ## Proc identity lifecycle correction - 2026-10-18 local validation
 
 Baseline: `9d53ac5fb6cca66bbf7141eecf4ed48fd5be3850`, clean isolated

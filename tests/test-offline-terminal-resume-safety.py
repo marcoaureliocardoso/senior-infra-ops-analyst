@@ -581,6 +581,31 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             'capabilitiesDropped':True,'disposableRootAbsent':True}
         self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
 
+    def test_fresh_context_labels_survive_failed_stage_aggregation_without_authority(self):
+        for check in ('FRESH_CONTEXT_FRAME_NOT_ADVANCED','FRESH_CONTEXT_SIGNATURE_UNCHANGED',
+                'FRESH_CONTEXT_NUMERIC_UNAVAILABLE'):
+            with self.subTest(check=check):
+                diagnostics=TerminalDiagnostics()
+                observation={'phase':'CONTEXT_PENDING','check':check,'commandBytesWritten':8,'enterBytesWritten':1}
+                diagnostics.add('failure','INPUT_PROBE_STATE_REJECTED',contextCommandFailure=observation)
+                for _ in range(100):
+                    diagnostics.add('failure','INPUT_PROBE_STATE_REJECTED',contextCommandFailure=observation)
+                phase=self.module.context_stage_report('after',[
+                    {'stage':'context_inspected','outcome':'passed','percent':16,'private':'synthetic-private'}],diagnostics)
+                self.assertEqual(phase['events'],[{'stage':'context_inspected','outcome':'passed','percent':16}])
+                self.assertTrue(phase['diagnostics']['truncated'])
+                self.assertFalse(phase['diagnostics']['rejected'])
+                self.assertTrue(all(row['contextCommandFailure']==observation for row in phase['diagnostics']['records']))
+                self.assertLessEqual(len(json.dumps(phase['diagnostics'],sort_keys=True).encode()),3072)
+                case={'case':'text-turn','stages':[phase]}
+                report=self.module._bounded_standard_report({'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE',
+                    'cases':[case,case]},2,reserve_disposal=True)
+                encoded=(json.dumps({**report,'disposableRootAbsent':True},sort_keys=True)+'\n').encode()
+                self.assertLessEqual(len(encoded),16384)
+                self.assertNotIn(b'synthetic-private',encoded)
+                self.assertEqual(json.loads(encoded)['cases'][0]['stages'][0],phase)
+                self.assertFalse(self.module.case_complete(case))
+
     def test_observer_is_read_only_mounted_without_native_in_audit(self):
         commands=[]
         def capture(command,**kwargs):

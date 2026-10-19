@@ -893,6 +893,32 @@ Real-proc tests cover read-after-exit and preserve actual supervisor results 0
 and 7 through the parent harness. The lifecycle peer is a namespace surrogate,
 not proof of isolation, installed-native or provider acceptance.
 
+## Test-only post-Enter freshness diagnostic refinement
+
+The offline c8990d3 attempt reached resumed numeric inspection but then rejected
+the owned command with the generic `FRESH_CONTEXT` check. Its retained evidence
+cannot distinguish stale frame, unchanged numeric signature or unavailable
+current numbers. A sticky freshness flag and an earlier numeric observation
+cannot authorize the later consumed snapshot. Synthetic owned-history controls
+reproduce distinct causes with the same old diagnostic; they do not establish
+the initiating condition of that native attempt.
+
+The existing `contextCommandFailure.check` now identifies the first failure as
+`FRESH_CONTEXT_FRAME_NOT_ADVANCED`, `FRESH_CONTEXT_SIGNATURE_UNCHANGED` or
+`FRESH_CONTEXT_NUMERIC_UNAVAILABLE`, in that order. The comparisons and
+short-circuit evaluation are unchanged; there are no diagnostic-only snapshot,
+signature, percentage, clock, IO or authority queries. No signature, percentage
+or terminal text is added to this four-field observer. The legacy generic label
+remains readable, without retroactively assigning a cause to old records.
+
+The same state rejection and irreversible command/view revocation apply even
+if optional observation fails. The closed collector and parent report retain
+their existing size limits and cannot turn diagnostics into acceptance evidence.
+No installed policy, native route, settings, dependency or version changes.
+This refinement does not renew the consumed grant; a new native attempt requires
+fresh bounded authority. Revert these labels and the split guard together to
+restore generic reporting without changing safety behavior.
+
 ## Rollback
 
 Run the browser configurator with `--remove-owned`. It removes only exact

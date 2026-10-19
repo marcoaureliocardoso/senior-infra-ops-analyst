@@ -395,10 +395,12 @@ class OwnedContextCommand(_Sealed):
     def bind_history(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
         if record['phase']!='CONTEXT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
-        if (frame<=record['submit_frame']
-                or record['policy']._context_signature(snapshot)==record['submit_signature']
-                or record['policy'].context_percent(snapshot) is None):
-            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT')
+        if frame<=record['submit_frame']:
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT_FRAME_NOT_ADVANCED')
+        if record['policy']._context_signature(snapshot)==record['submit_signature']:
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT_SIGNATURE_UNCHANGED')
+        if record['policy'].context_percent(snapshot) is None:
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT_NUMERIC_UNAVAILABLE')
         resume_indices=_resume_indices(record,snapshot,frame)
         matches=_history_rows(record['policy'],snapshot,_excluded_rows=resume_indices)
         if len(matches)>1: _fail(record,'INPUT_PROBE_REVOKED','HISTORY_AMBIGUITY')
