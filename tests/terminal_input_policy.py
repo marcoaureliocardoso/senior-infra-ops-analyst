@@ -3,6 +3,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from terminal_state_adapter import TerminalCell, TerminalSnapshot
+from terminal_context_sample import parse_context_percent
 
 INPUT_ELIGIBILITY_REJECTIONS=frozenset(('FORBIDDEN_STATE','NO_MARKER','UNSUPPORTED_ROW',
     'NONEMPTY_INPUT','MULTIPLE_MARKERS','CURSOR_ROW_MISMATCH','CURSOR_COLUMN_MISMATCH',
@@ -27,53 +28,6 @@ class EmptyInputAssessment:
     reason: str
     rowRelation: str | None = None
     rowCause: str | None = None
-
-def parse_context_percent(
-    text: str, allow_rendered_row_order: bool = False,
-) -> int | None:
-    if "Context Usage" not in text:
-        return None
-    folded = bytes(value for value in text.lower().encode("utf-8") if 97 <= value <= 122)
-    free_matches = re.findall(
-        r"Free space[^\r\n%]{0,160}?(\d{1,3}(?:\.\d+)?)%",
-        text,
-        flags=re.IGNORECASE,
-    )
-    buffer_matches = re.findall(
-        r"(?<![A-Za-z])(?:Autocompact buffer|Compact buffer)"
-        r"[^\r\n%]{0,160}?(\d{1,3}(?:\.\d+)?)%",
-        text,
-        flags=re.IGNORECASE,
-    )
-    free_row_matches = [
-        value
-        for line in text.splitlines() if re.search(r"Free space", line, re.IGNORECASE)
-        for value in re.findall(r"(?<!\d)(\d{1,3}(?:\.\d+)?)%", line)
-    ]
-    buffer_row_matches = [
-        value
-        for line in text.splitlines()
-        if re.search(r"(?<![A-Za-z])(?:Autocompact buffer|Compact buffer)", line, re.IGNORECASE)
-        for value in re.findall(r"(?<!\d)(\d{1,3}(?:\.\d+)?)%", line)
-    ]
-    if allow_rendered_row_order and len(set(free_row_matches)) == 1:
-        free_matches = free_row_matches
-    if allow_rendered_row_order and len(set(buffer_row_matches)) == 1:
-        buffer_matches = buffer_row_matches
-    free_values = [float(value) for value in free_matches]
-    buffer_values = [float(value) for value in buffer_matches]
-    buffer_label_present = b"compactbuffer" in folded
-    if (not free_values
-            or any(not 0 <= value <= 100 for value in free_values + buffer_values)
-            or len(set(free_values)) != 1
-            or (buffer_label_present and not buffer_values)
-            or len(set(buffer_values)) > 1):
-        return None
-    used = 100 - free_values[-1] - (buffer_values[-1] if buffer_values else 0)
-    if not 0 <= used <= 100:
-        return None
-    return round(used)
-
 
 class TerminalInputPolicy:
     def __init__(self):

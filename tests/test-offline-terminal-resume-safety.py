@@ -545,6 +545,29 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertEqual(command[index-2:index+1],['--ro-bind',str(ROOT/'tests/terminal_context_echo.py'),target])
         self.assertNotIn('/opt/probe/claude',command)
 
+    def test_numeric_module_is_read_only_mounted_and_importable(self):
+        commands=[]
+        original=self.module.TerminalCancellation.spawn
+        def launch(token,command,**options):
+            commands.append(command)
+            return original(token,command,**options)
+        with mock.patch.object(self.module.TerminalCancellation,'spawn',new=launch):
+            audit=self.module.run_isolation_audit(source=ROOT,
+                node=Path(os.environ['P004B_TERMINAL_NODE']),
+                module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertEqual(len(commands),1)
+        command=commands[0]; target='/opt/probe/terminal_context_sample.py'
+        self.assertIn(target,command,'shared numeric parser is missing from the isolated mount')
+        index=command.index(target)
+        self.assertEqual(command[index-2:index+1],
+            ['--ro-bind',str(ROOT/'tests/terminal_context_sample.py'),target])
+        self.assertNotIn('/opt/probe/claude',command)
+        self.assertEqual(audit,{'networkIsolated':True,'operatorStateHidden':True,
+            'capabilitiesDropped':True,'disposableRootAbsent':True})
+        report=self.fake_report('success')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertTrue(all(case['caseRootAbsent'] for case in report['cases']))
+
     def test_owned_echo_failure_stops_first_case_and_disposes(self):
         spec=importlib.util.spec_from_file_location('owned_echo_fixture',ROOT/'tests/test-headless-context-driver.py')
         fixture=importlib.util.module_from_spec(spec); spec.loader.exec_module(fixture)
