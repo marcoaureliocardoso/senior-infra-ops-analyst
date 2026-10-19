@@ -605,6 +605,9 @@ exclude only one newly observed exact history row. It binds the original
 scope/run/terminal/native/transition/deadline and observed geometry; changes,
 duplication, owner/lifetime loss or auth/menu observations revoke it.
 
+The later HISTORY_COMMIT_V1 section below narrowly supersedes that signature
+inequality for the audited resumed profile only. Other callers retain this rule.
+
 The shared ordered evaluator preserves strict default APIs. Receipt validation
 continues through nonce eligibility, normalized echo, clear, proof consumption
 and each partial exit write. The receipt does not mint nonce ownership or
@@ -948,10 +951,71 @@ projection together to restore strict menu rejection. Preserve the original
 owned-command/history/nonce and debug disposal controls. Reversion cannot renew
 an execution grant or erase an already exported chat copy.
 
+## Offline correlated context display: HISTORY_COMMIT_V1
+
+The operator approved the 2026-10-19 evidence specification, implementation plan
+and inline implementation with TDD and one final independent reviewer. The local
+implementation distinguishes three separate facts: numeric observation,
+CORRELATED_DISPLAY under the exact owned command, and nonce input ownership.
+Final review and immutable package evidence are recorded separately in validation
+notes. Native layout support and native/provider/browser acceptance are unproven.
+
+Only an audited offline resumed dialogue with a private case/SDK witness and
+resumed-history view can use this profile. Initial/default/live/provider behavior
+is unchanged. No public flag, dependency, version allowlist, parser observer,
+credential transport or operator setting was added. A pure shared parser returns
+canonical Decimal free/buffer values and the legacy rounded used percentage from
+current cells, without touching sticky freshness. These values are not authority.
+
+The owned coordinator retains baseline/pre-Enter row inventory and the latest
+numeric boundary through writable waits. After eight concretely acknowledged
+command bytes, exact echo and one actual Enter acknowledgement, a later snapshot
+must contain exactly one new supported /context history row outside the current
+input and validated old exclusions, an empty input anchor and complete numbers.
+One ordered assessment checks all remaining rows. Pre-existing, menu-bound,
+pinned, retired, moved or duplicated rows cannot be promoted. Once a distinct
+complete numeric sample is seen, baseline restoration or a second distinct
+sample rejects rather than silently discarding the conflict.
+
+A private sealed witness pins original owners/run/deadline, submit boundary,
+new history, canonical sample and metric geometry. Its lifecycle is PRE_ENTER ->
+AWAIT_DISPLAY -> CANDIDATE -> CONSUMED, or terminal REVOKED. The final drain and
+binding revalidate it; loss cannot restore or rebind it. Binding consumes it once
+into the existing four-part context receipt. Numeric/history/owner continuity
+remains checked during independent nonce/clear/exit assessment. A resumed nonce
+without a consumed receipt is rejected; a candidate never authorizes input.
+
+The resumed driver emits passed context_inspected only after binding/current
+receipt validation. A small content-free context_display checkpoint precedes
+nonce start. Aggregation requires exactly one such after-phase checkpoint in
+order, rejects before-phase substitution, malformed records and failed children,
+and never treats serialized observations as capabilities. Optional collector
+loss does not change owned input decisions; missing required retained proof can
+still withhold aggregate success. The closed checks DISPLAY_WITNESS_UNPROVEN,
+DISPLAY_WITNESS_AMBIGUOUS and CONTEXT_SAMPLE_UNSTABLE preserve existing reasons
+and four-field diagnostics; timeout/cancellation/lifetime precedence remains.
+
+Equal numbers are admissible only with the complete owned display commit. This
+narrowly supersedes the prior blanket equal-grid prohibition for this profile,
+not its non-profile signature controls. It trusts native display semantics and
+cannot distinguish identical cached output from internal recomputation. It does
+not certify NATIVE_RECOMPUTED. No-history/fullscreen/partial or ambiguous layouts
+remain unsupported or inconclusive, with no signature fallback. Every consumed
+old-history/auth/geometry/lifetime invalidation remains irreversible, including
+invalid intermediate states exposed by fragmentation.
+
+Limits remain 25 seconds per dialogue, 165 seconds overall, up to two cases,
+16 records/3072 bytes per phase and 16384 bytes including final disposal/newline.
+There are no extra keys, retries, raw retention or content exports. Debug opt-ins
+are unchanged; the a7f5307 native grant remains consumed. Synthetic success does
+not authorize another run. Revert coordinator, resumed driver and reducer
+together to restore the conservative signature contract; preserve evidence and
+consumed markers. Versions and installed package behavior remain unchanged.
+
 ## Links
 
-- Approved correlated-display specification (plan review pending; not implemented): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
-- Proposed correlated-display implementation plan: `docs/superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md`
+- Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
+- Approved correlated-display implementation plan: `docs/superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md`
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
 - Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
 - Test-only terminal design: `docs/superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md`

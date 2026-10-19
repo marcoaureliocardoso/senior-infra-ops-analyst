@@ -19,7 +19,7 @@ nonce/clear/exit evidence.
 
 **Spec:** [Approved evidence specification](../specs/2026-10-19-p0-04b-correlated-context-display-design.md), approved by the operator after source `aee14a68bd420d59249639dae7e6be20aa5146f7`.
 
-**Status:** Proposed implementation plan awaiting operator review and execution confirmation. No implementation or native execution is authorized by this document alone.
+**Status:** Operator approved the plan and inline execution. Tasks 1-3 are implemented locally; final review, immutable package gate and closeout are pending. Native execution still needs separate exact-final-commit authorization.
 
 ## Global Constraints
 

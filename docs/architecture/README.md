@@ -17,13 +17,16 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
-ADR-010 links the approved test-only
+ADR-010 records the locally implemented, approved test-only
 [correlated context-display evidence contract](../superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md).
 It distinguishes observed numbers, an owned current-command display and nonce
 ownership, without claiming native recomputation from terminal output. The
 [implementation plan](../superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md)
-awaits operator review and execution confirmation; it is not implemented and
-changes no current acceptance rule, runtime behavior or consumed execution grant.
+uses HISTORY_COMMIT_V1 only in audited resumed dialogues: equal numbers need
+an owned new-history display commit, a consumed private witness and independent
+nonce ownership. This narrowly supersedes resumed signature inequality, not
+default/live behavior. Review/gate evidence is separate in validation notes;
+native support remains unproven and the prior execution grant remains consumed.
 
 ADR-010 also indexes the test-only
 [headless terminal design](../superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md)

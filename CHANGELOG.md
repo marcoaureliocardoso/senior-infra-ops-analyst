@@ -7,6 +7,18 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added test-only HISTORY_COMMIT_V1 for audited offline resumed context displays.
+  Equal numeric values require the exact owned command's newly observed history
+  commit and a private single-use display witness; nonce/clear/exit ownership
+  remains independent. Shared canonical numeric observations preserve legacy
+  parser behavior. Missing/conflicting/lost display evidence fails closed, and
+  aggregation requires one ordered content-free display checkpoint. This
+  narrowly supersedes earlier resumed equal-grid/signature restrictions, not
+  initial/default/live/provider behavior. It certifies CORRELATED_DISPLAY, not
+  internal recomputation: identical native cached output is indistinguishable.
+  Budgets, privacy, dependencies and versions are unchanged. Native support and
+  native/provider/browser acceptance remain unproven; no execution grant renews.
+
 - Refined test-only post-Enter context rejection diagnostics to identify the
   first failing frame, numeric-signature or numeric-availability condition.
   The existing four-field record, predicate order, revocation and report limits

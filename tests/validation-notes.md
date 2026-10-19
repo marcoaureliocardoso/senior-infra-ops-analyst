@@ -1,5 +1,81 @@
 # Validation Notes
 
+## Correlated context display - 2026-10-19 local implementation
+
+Approved execution baseline: `8fb6582d41f8c19ef0659993c1db83ed49c589f2`, clean
+existing isolated p0-04b-browser-automation worktree. The operator approved the
+written specification, four-task plan and inline implementation with TDD and
+one final independent read-only reviewer. Runtime changes remain test-only;
+root/component versions, installed behavior and all execution/retention limits
+are unchanged. Native support, provider/browser acceptance and remote delivery
+are not established by these results.
+
+Implementation commits: aac7ff6 shares the pure canonical numeric parser and
+exact read-only namespace mount; 1da4ca8 adds the sealed owned display coordinator
+and receipt continuity; 2eb24c5 integrates the resumed driver and closed reducer.
+The profile certifies CORRELATED_DISPLAY, never NATIVE_RECOMPUTED. A trusted
+native application's identical cached output cannot be distinguished from a
+new computation solely by terminal observation. Equal numbers require the
+full new-history commit profile; unsupported zero-history or ambiguous layouts
+remain inconclusive. Initial/default/live/provider routes retain their controls.
+
+Author-owned RED evidence:
+
+- New numeric API tests failed before extraction. The actual namespace audit
+  regression independently exposed the missing module mount before correction.
+  An early asynchronous offline control overlapped extraction and is not counted
+  as clean-baseline evidence; the corrected standalone full suite passed.
+- Display tests failed before the readiness/witness API. Separate regressions
+  exposed missing closed failure labels, nonce construction without a consumed
+  display receipt, owner substitution before safe dereference, and a shared
+  composer's wrong rejected-row index/missing immediate revocation.
+- Real Python PTY tests rejected legitimate equal-value output, omitted the
+  checkpoint on changed values, or prematurely reported inspection without a
+  display commit before driver correction. Reducer tests accepted ten missing,
+  duplicate, late, forged or phase-confused checkpoint variants before correction.
+  Nonzero/bool child-result controls already rejected those inputs.
+
+Task gates passed: pure numbers3/input-policy35/offline62 for Task 1;
+display17/echo47/resumed-history28/input-challenge28/journal14 for Task 2.
+Task 3 precommit covering suites passed: driver74 (286.406s), offline64
+(119.184s), journal14 (0.069s), collector25 (0.404s), wiring15 (9.287s), debug29
+(5.307s), sample4 (0.511s). These focused runs had no skips. The fourth numeric
+test uses the real locked terminal helper to compare identical bytes fed whole,
+one byte at a time and in seven-byte chunks; it claims numeric interpretation,
+not compatible history ownership through arbitrary invalid intermediate layouts.
+
+Actual Python peers verify exactly /context plus one Enter, then either no
+further input on rejection or a 16-character unsubmitted nonce, one Ctrl+U and
+the owned /exit command. A real pipe barrier separates conflicting complete
+numeric samples. Candidate loss is injected into PTY output at the final drain;
+unit tests also prove restoration cannot rebind a revoked candidate. Cancellation
+uses the real cooperative token/supervisor, and helper/native losses are real
+owned-process failures. All process leaders/helpers are checked reaped. Both
+synthetic text-turn and skill-turn workflows pass in the actual isolated harness
+with equal values; no installed Claude or external provider is used.
+
+Optional collector failure neither grants nor removes owned input authority;
+required receipt loss prevents nonce and passed inspection. Outer aggregation
+still withholds success without its required retained checkpoint. Closed record
+replay, exact phase/order, unchanged 16-record/3072-byte phase limits and the
+16384-byte disposal/newline envelope are exercised without raw content exports.
+
+Implementation rulings, in order:
+
+1. Introduce the three closed diagnostic labels in Task 2 rather than Task 3:
+   the coordinator already emits them and its tests need provenance. Cost if
+   wrong: implementation ordering only; no added diagnostics or authority.
+2. Preserve the shared evaluator's actual rejected-row index, not committed
+   history index. Binding reads the latter only from its private witness.
+   Cost if wrong: incorrect diagnostic row attribution.
+
+Final independent review and immutable full package gate are pending at this
+implementation checkpoint; earlier reviews/gates do not certify this source.
+The a7f5307 native grant and inconclusive result remain unchanged and consumed.
+No installed-Claude/native/provider/browser attempt, operator-state/credential
+access, push/PR/merge/release, staging refresh or definitive TODO completion has
+occurred. A later native attempt needs separate exact-final-commit authorization.
+
 ## Fresh-context first-failure diagnostics - 2026-10-19 local validation
 
 Baseline: `c8990d342f05421c876680f5b0bbcf482b9b79c6`, clean existing isolated
