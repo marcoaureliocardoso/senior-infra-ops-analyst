@@ -336,8 +336,8 @@ class ResumeCompositionTests(unittest.TestCase):
     def test_fresh_context_diagnostic_keeps_owned_history_revocation_strict(self):
         from terminal_context_diagnostics import _create_context_journal
         from terminal_input_challenge import InputProofError
-        for numeric_rows,expected in (((),'FRESH_CONTEXT_SIGNATURE_UNCHANGED'),
-                (((0,'Context Usage'),),'FRESH_CONTEXT_NUMERIC_UNAVAILABLE'),
+        for numeric_rows,expected in (((),'DISPLAY_WITNESS_UNPROVEN'),
+                (((0,'Context Usage'),),'DISPLAY_WITNESS_UNPROVEN'),
                 (((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%')),None)):
             with self.subTest(check=expected),CaseFixture() as f:
                 view=self.bind(f); baseline=self.args['snapshot']
@@ -472,7 +472,14 @@ class ResumeCompositionTests(unittest.TestCase):
                 command=self.submit(f,view,baseline,history)
                 rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history)
                 if has_receipt: rows=(*rows,(20,'❯ /context'))
-                numeric=history_snapshot(rows); receipt=command.bind_history(numeric,3)
+                numeric=history_snapshot(rows)
+                if not has_receipt:
+                    self.assertIsNone(command.context_display_percent(numeric,3))
+                    with self.assertRaises(challenge.InputProofError): command.bind_history(numeric,3)
+                    self.assertEqual(command.phase,'REVOKED')
+                    self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
+                    continue
+                receipt=command.bind_history(numeric,3)
                 self.assertEqual(receipt is not None,has_receipt)
                 probe=challenge.NonceInputChallenge(f.scope,f.native,f.transition,f.policy,numeric,3,
                     context_receipt=receipt,_resume_view=view,_controller_owner=f.controller)
@@ -489,16 +496,17 @@ class ResumeCompositionTests(unittest.TestCase):
                 self.assertIsNone(probe._marker)
                 self.assertEqual(self.m.resume_view_decision(view),'REJECTED')
 
-    def test_nonce_without_receipt_keeps_actual_other_row_rejection(self):
+    def test_nonce_with_display_receipt_keeps_actual_other_row_rejection(self):
         import terminal_input_challenge as challenge
         with CaseFixture() as f:
             view=self.bind(f); baseline=self.args['snapshot']; history=((5,'❯ '+TEXT),)
             command=self.submit(f,view,baseline,history)
-            rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history)
+            rows=((0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),*history,(20,'❯ /context'))
             numeric=history_snapshot(rows)
-            self.assertIsNone(command.bind_history(numeric,3))
+            receipt=command.bind_history(numeric,3)
+            self.assertIsNotNone(receipt)
             probe=challenge.NonceInputChallenge(f.scope,f.native,f.transition,f.policy,numeric,3,
-                _resume_view=view,_controller_owner=f.controller)
+                context_receipt=receipt,_resume_view=view,_controller_owner=f.controller)
             marker=probe.type_bytes(numeric,3)
             actual=dataclasses.replace(history_snapshot((*rows,(37,'❯ '+marker.decode()),
                 (39,'❯ synthetic other row'))),cursorX=18)

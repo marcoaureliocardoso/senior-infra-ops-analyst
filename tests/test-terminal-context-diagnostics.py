@@ -45,7 +45,8 @@ class ContextDiagnosticsTests(unittest.TestCase):
     def test_fresh_context_closed_labels_survive_serialized_structural_projection(self):
         from terminal_structural_diagnostics import TerminalDiagnostics,MAX_BYTES
         for check in ('FRESH_CONTEXT_FRAME_NOT_ADVANCED','FRESH_CONTEXT_SIGNATURE_UNCHANGED',
-                'FRESH_CONTEXT_NUMERIC_UNAVAILABLE','FRESH_CONTEXT'):
+                'FRESH_CONTEXT_NUMERIC_UNAVAILABLE','FRESH_CONTEXT','DISPLAY_WITNESS_UNPROVEN',
+                'DISPLAY_WITNESS_AMBIGUOUS','CONTEXT_SAMPLE_UNSTABLE'):
             with self.subTest(check=check):
                 journal,bindings=self.journal(); journal.bind_run(object())
                 journal.set_phase('EDIT_PENDING'); journal.acknowledge(8,submission=False,remaining=8)
