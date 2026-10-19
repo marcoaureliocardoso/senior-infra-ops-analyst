@@ -1,6 +1,6 @@
 # Validation Notes
 
-## Fresh-context first-failure diagnostics - 2026-10-19 candidate
+## Fresh-context first-failure diagnostics - 2026-10-19 local validation
 
 Baseline: `c8990d342f05421c876680f5b0bbcf482b9b79c6`, clean existing isolated
 `p0-04b-browser-automation` worktree. The operator approved the bounded diagnostic
@@ -31,7 +31,33 @@ journal/collector labels failed with missing projection before implementation.
 After the minimal change, echo47 passed (34.020 seconds), diagnostics14 passed
 (0.030 seconds), resumed-history28 passed (15.523 seconds) and offline61 passed
 (87.759 seconds), without focused skips. Content validation and architecture13
-also passed. Independent-review and immutable-gate results are not yet claimed.
+also passed; release-history42 passed (21.886 seconds).
+
+One independent read-only reviewer inspected the complete nine-file range
+`c8990d3..8f83c28`, the affected guard/driver, frozen journal, collector and parent
+budget paths. No Critical, Important or Minor issue was identified and no source
+revision requested. The reviewer checked clean exact HEAD and diff whitespace;
+focused executable results remain author-owned, not independently repeated.
+Historical causation, native/provider/browser/operator-state behavior and whole
+branch/remote delivery readiness were excluded, not inferred from source review.
+
+The immutable full package gate on source
+`8f83c289e08fb854488da8abe4c94b9cb8436bc1` PASSED: 2026-10-19
+15:38:39Z-15:50:28Z (709 seconds), exit 0, package validation passed.
+Headless68 passed (240.901 seconds), offline61 passed (84.497 seconds) and
+cancellation14 passed (0.401 seconds). All 539 versioned files matched archive
+content/type/modes before and after execution in a native Linux filesystem.
+Archive SHA256:
+`6ce7afc1372dbef3e503a85d43728ad773d54389fe45fd10859bb45f567bf740`.
+External log:
+`.review-runtime/p004b-terminal-state/p004b-fresh-context-8f83c28-gate.log`.
+
+Observed exclusions: the opt-in real-browser adapter's 37 scenarios were
+CAPABILITY_UNAVAILABLE (one test skipped); Python skipped the permission-MCP
+native-Windows rejection case and the Git-Bash-dependent context-continuity/Nori
+argument-validation cases. PowerShell was absent from the clean Linux PATH, so
+native .ps1 syntax/help checks were skipped. Local schema/workflow checks passed;
+remote CI/Security and native/provider/browser acceptance are not established.
 
 No new installed-Claude/offline-native/provider/browser execution, operator
 configuration or credential access, raw export, push/PR/merge/release, staging
