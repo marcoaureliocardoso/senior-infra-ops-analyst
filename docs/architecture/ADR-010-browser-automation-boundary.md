@@ -950,6 +950,7 @@ an execution grant or erase an already exported chat copy.
 
 ## Links
 
+- Proposed correlated-display contract (awaiting written-spec approval; not implemented): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
 - Design: `docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md`
 - Acceptance permission design: `docs/superpowers/specs/2026-09-17-p0-04b-disposable-permission-handler-design.md`
 - Test-only terminal design: `docs/superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md`

@@ -17,6 +17,13 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 links a proposed test-only
+[correlated context-display evidence contract](../superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md).
+It distinguishes observed numbers, an owned current-command display and nonce
+ownership, without claiming native recomputation from terminal output. Written
+specification review is pending; it is not implemented and changes no current
+acceptance rule, runtime behavior or consumed execution grant.
+
 ADR-010 also indexes the test-only
 [headless terminal design](../superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md)
 and [implementation plan](../superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md).
