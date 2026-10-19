@@ -1,7 +1,7 @@
 # P0-04B correlated context-display evidence design
 
 Date: 2026-10-19
-Status: Proposed; written specification awaiting operator review.
+Status: Written specification approved by the operator; implementation plan awaiting review. Not implemented.
 Baseline: a7f53075d553865af2c3ee1a32727cc8e5e9c286.
 
 ## Intent and approval boundary
@@ -12,9 +12,9 @@ must not automatically mean stale output, and different text must not by itself
 mean a fresh measurement. Keep the original isolation, authorization, input and
 disposal controls.
 
-The operator approved investigation and then revision of the evidence design.
-That permits this proposed specification, not implementation, a native/provider
-run or delivery. Written-spec approval precedes the implementation plan; plan
+The operator approved investigation, revision of the evidence design and then
+this written specification. This permits the implementation plan, not behavior
+changes, a native/provider run or delivery. Written-spec approval precedes the implementation plan; plan
 approval and execution-method selection precede implementation. A native run
 still needs its own bounded exact-final-commit authorization.
 
