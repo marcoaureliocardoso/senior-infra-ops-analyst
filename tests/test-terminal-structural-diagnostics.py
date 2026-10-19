@@ -183,6 +183,17 @@ class TerminalStructuralDiagnosticsTests(unittest.TestCase):
         self.assertTrue(report['rejected'])
         self.assertNotIn('synthetic marker',json.dumps(report))
 
+    def test_display_checkpoint_is_small_closed_and_content_free(self):
+        self.collector.add('context_display','CHECKPOINT',resumeViewDecision='VALID')
+        self.assertEqual(self.collector.report(),{'records':[{'point':'context_display',
+            'reasonCode':'CHECKPOINT','resumeViewDecision':'VALID'}],'truncated':False,'rejected':False})
+        for reason,fields in (('WAIT_DEADLINE',{}),('CHECKPOINT',{'resumeViewDecision':'REJECTED'}),
+                ('CHECKPOINT',{'text':'synthetic-private'}),('CHECKPOINT',{'structure':{}}),
+                ('CHECKPOINT',{'leaderReaped':True})):
+            rejected=self.module.TerminalDiagnostics()
+            rejected.add('context_display',reason,**fields)
+            self.assertEqual(rejected.report(),{'records':[],'truncated':False,'rejected':True})
+
     def test_structure_is_whitelisted_and_numeric_coordinates_are_bounded(self):
         structure={'buffer':'alternate','cursorX':2,'cursorY':37,'baseY':0,'viewportY':0,
             'candidateCount':1,'inputFresh':False,'contextFresh':True,'locationFresh':False,

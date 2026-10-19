@@ -20,6 +20,7 @@ MODULE=ROOT/'tests/offline-terminal-resume-probe.py'
 def passed_stages():
     return [{'phase':phase,'events':[{'stage':'context_inspected','outcome':'passed','percent':16},
         {'stage':'exit','outcome':'passed'}],'diagnostics':{'records':[
+            *([{'point':'context_display','reasonCode':'CHECKPOINT','resumeViewDecision':'VALID'}] if phase=='after' else []),
             *({'point':point,'reasonCode':'CHECKPOINT'} for point in ('input_probe_started','input_probe_echo','input_probe_cleared')),
             *({'point':point,'reasonCode':'CLEANUP_COMPLETED','leaderReaped':True} for point in ('native_cleanup','helper_cleanup'))],
             'truncated':False,'rejected':False}} for phase in ('before','after')]
@@ -78,6 +79,29 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             changed={**case,field:value}
             self.assertFalse(self.module.case_complete(changed))
 
+    def test_resumed_display_checkpoint_is_required_unique_ordered_and_closed(self):
+        import copy
+        case={'case':'text-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':0,'validSkillSample':False,'validSDKSample':True,
+            'stages':passed_stages()}
+        self.assertTrue(self.module.case_complete(case))
+        for mutation in ('missing','duplicate','late','before-only','both-phases','numeric-only',
+                'content','bool-reason','wrong-reason','nonzero','bool-exit','rejected-view'):
+            with self.subTest(mutation=mutation):
+                bad=copy.deepcopy(case); rows=bad['stages'][1]['diagnostics']['records']; display=rows.pop(0)
+                if mutation not in ('missing','before-only','numeric-only'): rows.insert(0,display)
+                if mutation=='duplicate': rows.insert(0,dict(display))
+                if mutation=='late': rows.append(rows.pop(0))
+                if mutation in ('before-only','both-phases'): bad['stages'][0]['diagnostics']['records'].insert(0,dict(display))
+                if mutation=='numeric-only': rows.insert(0,{'point':'context_numeric','reasonCode':'CHECKPOINT'})
+                if mutation=='content': display['text']='synthetic-private'
+                if mutation=='bool-reason': display['reasonCode']=True
+                if mutation=='wrong-reason': display['reasonCode']='WAIT_DEADLINE'
+                if mutation=='nonzero': bad['afterExit']=2
+                if mutation=='bool-exit': bad['afterExit']=False
+                if mutation=='rejected-view': display['resumeViewDecision']='REJECTED'
+                self.assertFalse(self.module.case_complete(bad))
+
     def test_success_without_retained_context_proof_is_inconclusive(self):
         case={'case':'text-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
             'naturalExit':True,'caseRootAbsent':True,'skillCalls':0,'validSkillSample':False,'validSDKSample':True,
@@ -134,6 +158,16 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
                 self.assertEqual(len(cleanups),2)
                 self.assertTrue(all(row['reasonCode']=='CLEANUP_COMPLETED' and row['leaderReaped'] is True for row in cleanups))
 
+    def test_isolated_equal_value_resume_completes_both_synthetic_cases(self):
+        report=self.fake_report('equal-values')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertEqual([case['case'] for case in report['cases']],['text-turn','skill-turn'])
+        for case in report['cases']:
+            self.assertTrue(self.module.case_complete(case))
+            points=[row['point'] for row in case['stages'][1]['diagnostics']['records']]
+            self.assertEqual(points.count('context_display'),1)
+            self.assertLess(points.index('context_display'),points.index('input_probe_started'))
+
     def test_exit_zero_wrong_session_never_launches_after(self):
         report=self.fake_report('wrong-session')
         self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
@@ -175,6 +209,7 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
 
     def test_four_maximal_context_diagnostics_fit_unchanged_outer_report_bound(self):
         diagnostics=TerminalDiagnostics()
+        diagnostics.add('context_display','CHECKPOINT',resumeViewDecision='VALID')
         structure={'buffer':'normal','cursorX':120,'cursorY':39,'baseY':1000,'viewportY':1000,
             'candidateCount':40,'inputFresh':True,'contextFresh':True,'locationFresh':True,
             'authentication':'API_KEY_APPROVAL_REQUIRED','readiness':'AUTHENTICATION_REQUIRED'}
@@ -190,7 +225,7 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             for name in ('text-turn','skill-turn')]
         report={'reasonCode':'OFFLINE_CONTROLS_PASSED','runtime':'9999.9999.9999','cases':cases,
             'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True,'disposableRootAbsent':True}
-        self.assertLessEqual(len(json.dumps(report,sort_keys=True).encode()),16384)
+        self.assertLessEqual(len((json.dumps(report,sort_keys=True)+'\n').encode()),16384)
 
     def test_no_live_mode_or_retry_authority(self):
         self.assertEqual(self.module.validate_mode(['--run-live']),False)

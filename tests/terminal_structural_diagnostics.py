@@ -10,7 +10,7 @@ MAX_RECORDS=16
 MAX_BYTES=3072
 POINTS=frozenset(('initial','prompt_ready','context_sent','context_numeric','panel_close_sent',
     'panel_closed','exit_ready','failure','native_cleanup','helper_cleanup',
-    'input_probe_started','input_probe_echo','input_probe_cleared'))
+    'input_probe_started','input_probe_echo','input_probe_cleared','context_display'))
 REASONS=frozenset(('CHECKPOINT','WAIT_DEADLINE','SETTLE_DEADLINE','EXIT_WAIT_DEADLINE','PROCESS_EXITED',
     'INPUT_UNPROVEN','RUNTIME_REJECTED','IO_FAILED','SUBPROCESS_FAILED','CLEANUP_COMPLETED',
     'NATIVE_CLEANUP_FAILED','TERMINAL_PROTOCOL_REJECTED','TERMINAL_DEPENDENCY_UNAVAILABLE',
@@ -55,6 +55,9 @@ class TerminalDiagnostics:
                 or type(reasonCode) is not str or reasonCode not in REASONS
                 or not set(fields)<={'structure','leaderReaped','inputEligibility','inputRowRelation','inputRowCause',
                     'contextCommandFailure','normalizedInputFailure','resumeViewDecision'}
+                or (point=='context_display' and (reasonCode!='CHECKPOINT'
+                    or set(fields)-{'resumeViewDecision'}
+                    or fields.get('resumeViewDecision','VALID')!='VALID'))
                 or (reasonCode in RESUME_REASONS and point!='failure')
                 or ('resumeViewDecision' in fields and (point in ('native_cleanup','helper_cleanup')
                     or type(fields['resumeViewDecision']) is not str or fields['resumeViewDecision'] not in ('VALID','REJECTED')))

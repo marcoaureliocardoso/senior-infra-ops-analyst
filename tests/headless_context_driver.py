@@ -13,6 +13,7 @@ import time
 from dataclasses import replace
 
 from terminal_input_policy import TerminalInputPolicy
+from terminal_context_sample import sample_context
 from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
 from terminal_structural_diagnostics import TerminalDiagnostics
 from terminal_input_challenge import NonceInputChallenge, InputProofError, validate_probe_scope
@@ -399,15 +400,31 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         else:
             send('/context'); policy.mark_transition(snapshot)
         diagnose('context_sent')
-        wait_for(lambda: policy.context_percent(snapshot) is not None)
-        percentage=policy.context_percent(snapshot)
-        record(current_stage,'passed',percentage)
-        numeric_context_observed=True
-        diagnose('context_numeric')
+        if resume_view is not None:
+            def display_ready():
+                nonlocal numeric_context_observed
+                if not numeric_context_observed and sample_context(snapshot) is not None:
+                    numeric_context_observed=True
+                    diagnose('context_numeric')
+                return context_command.context_display_percent(snapshot,frame) is not None
+            wait_for(display_ready)
+            percentage=context_command.context_display_percent(snapshot,frame)
+        else:
+            wait_for(lambda: policy.context_percent(snapshot) is not None)
+            percentage=policy.context_percent(snapshot)
+            record(current_stage,'passed',percentage)
+            numeric_context_observed=True
+            diagnose('context_numeric')
         if input_probe_scope is not None:
             while pump(0): pass
             operation_live(); auth_clear()
             context_receipt=context_command.bind_history(snapshot,frame)
+            if resume_view is not None:
+                validate_context_history(context_receipt,policy,snapshot,scope=input_probe_scope,
+                    state=state,native_owner=process,transition_owner=transition,frame=frame,
+                    _resume_view=resume_view,_controller_owner=controller_owner)
+                record(current_stage,'passed',percentage)
+                diagnose('context_display',structural=False)
             journal_active=False
             probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame,
                 context_receipt=context_receipt,

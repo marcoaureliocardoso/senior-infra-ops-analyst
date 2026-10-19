@@ -65,11 +65,13 @@ class NativeFixture:
         return self.returncode
 
 
-def write_context_peer(path, *, mode, seen):
+def write_context_peer(path, *, mode, seen, barrier_fd=None):
     """Real Python PTY peer, with explicit reads as protocol barriers."""
     text='P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
     history=((5,'❯ '+text),(10,'❯ /context'),(12,'❯ /exit')) if mode!='initial' else ()
     initial='\x1b[?1049h'
+    if mode in ('equal-values','changed-values','no-history','cosmetic-only','conflicting-sample'):
+        initial+='\x1b[HContext Usage\r\nFree space: 81%\r\nAutocompact buffer: 3%'
     for row,line in history:
         initial+='\x1b['+str(row+1)+';1H'+line
     if mode=='duplicate': initial+='\x1b[7;1H❯ '+text
@@ -84,6 +86,15 @@ def write_context_peer(path, *, mode, seen):
         if mode=='retire' and row==5: continue
         after+='\x1b['+str(row+1)+';1H'+line
     after+='\x1b[21;1H❯ /context\x1b[38;1H❯\u00a0'
+    if mode=='changed-values': after=after.replace('Free space: 81%','Free space: 80%')
+    if mode in ('no-history','cosmetic-only'):
+        after=after.replace('\x1b[21;1H❯ /context','')
+    if mode=='cosmetic-only': after=after.replace('Context Usage','Context Usage (local)')
+    transition=''
+    if mode=='conflicting-sample':
+        if type(barrier_fd) is not int: raise ValueError('fixture barrier required')
+        intermediate=after.replace('\x1b[21;1H❯ /context','').replace('Free space: 81%','Free space: 80%')
+        transition='os.write(1,'+repr(intermediate.encode())+')\n'+'os.read('+str(barrier_fd)+',1)\n'
     if mode=='completion-only': after='\x1b[2J\x1b[38;1H❯\u00a0'
     path.write_text('import os,tty\nfrom pathlib import Path\n'
         'tty.setraw(0)\n'
@@ -101,7 +112,7 @@ def write_context_peer(path, *, mode, seen):
         'for _ in range(8):\n'
         ' command.extend(read(1)); os.write(1,b"\\x1b[38;3H"+command)\n'
         'if command!=b"/context" or read(1)!=b"\\r": raise SystemExit(4)\n'
-        'os.write(1,'+repr(after.encode())+')\n'
+        +transition+'os.write(1,'+repr(after.encode())+')\n'
         'marker=read(16)\n'
         'os.write(1,b"\\x1b[38;3H"+marker)\n'
         'if read(1)!=b"\\x15": raise SystemExit(5)\n'
@@ -111,7 +122,7 @@ def write_context_peer(path, *, mode, seen):
 
 def write_fake_cli(path: Path, *, mode: str) -> None:
     """Self-contained hand-authored CLI double for the actual isolated harness."""
-    if mode not in ('success','wrong-session','replace-invalid','replace-valid',
+    if mode not in ('success','equal-values','wrong-session','replace-invalid','replace-valid',
                     'view-loss','cleanup-failure','interrupt'):
         raise ValueError('fixture mode rejected')
     fixtures={kind:sdk_events('synthetic-placeholder',kind) for kind in ('text-turn','skill-turn')}
@@ -158,7 +169,8 @@ kind=Path('fixture-kind').read_text() if resume else 'text-turn'
 history=[(5,'❯ '+(SKILL if kind=='skill-turn' else TEXT)),(10,'❯ /context'),(12,'❯ /exit')] if resume else []
 def screen(numeric=False):
     text='\\x1b[?1049h\\x1b[2J'
-    if numeric: text+='\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%'
+    if numeric or (resume and MODE=='equal-values'):
+        text+='\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%'
     for row,line in history: text+='\\x1b['+str(row+1)+';1H'+line
     if numeric: text+='\\x1b[21;1H❯ /context'
     return (text+'\\x1b[38;1H❯\\u00a0').encode()
@@ -222,12 +234,12 @@ class CaseFixture:
             scope=self.scope, command=self.initial_command)
         return self
 
-    def fresh_terminal(self):
+    def fresh_terminal(self, *, cancellation=None):
         from terminal_state_adapter import TerminalState
         from terminal_input_policy import TerminalInputPolicy
         import terminal_input_challenge as challenge
         self.state = TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),
-            Path(os.environ['P004B_TERMINAL_MODULE_ROOT']), time.monotonic()+20)
+            Path(os.environ['P004B_TERMINAL_MODULE_ROOT']), time.monotonic()+20,cancellation=cancellation)
         self.resources.append(self.state)
         self.scope = challenge.create_offline_probe_issuer().issue_scope(self.state, object())
         self.policy = TerminalInputPolicy(); self.native = NativeFixture()

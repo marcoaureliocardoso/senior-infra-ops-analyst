@@ -2,12 +2,15 @@
 import dataclasses
 from decimal import Decimal
 import importlib
+import os
 from pathlib import Path
 import unittest
+import time
 from unittest import mock
 
 from terminal_input_policy import TerminalInputPolicy, parse_context_percent
 from terminal_state_adapter import TerminalCell, TerminalSnapshot
+from terminal_state_adapter import TerminalState
 
 
 def grid(free='81', buffer='3', *, y=10, cursor=2):
@@ -74,6 +77,21 @@ class ContextSampleTests(unittest.TestCase):
         self.assertIsNone(policy.context_percent(current))
         with self.assertRaises(dataclasses.FrozenInstanceError): sample.numbers.used = 99
         self.assertEqual(self.module.ContextNumbers(Decimal('81'),Decimal('3'),16),sample.numbers)
+
+    def test_identical_repaint_chunkings_have_identical_numeric_interpretation(self):
+        data=b'\x1b[?1049h\x1b[2J\x1b[HContext Usage\r\nFree space: 81.0%\r\nAutocompact buffer: 3.00%'
+        samples=[]
+        for size in (len(data),1,7):
+            with self.subTest(chunk_size=size):
+                state=TerminalState(Path(os.environ['P004B_TERMINAL_NODE']),
+                    Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),time.monotonic()+10)
+                try:
+                    for offset in range(0,len(data),size): state.feed(data[offset:offset+size])
+                    samples.append(self.module.sample_context(state.snapshot()))
+                finally: state.close()
+        self.assertTrue(all(sample is not None for sample in samples))
+        self.assertEqual(samples[0],samples[1]); self.assertEqual(samples[1],samples[2])
+        self.assertEqual(samples[0].numbers.used,16)
 
 
 if __name__ == '__main__': unittest.main()

@@ -104,6 +104,20 @@ def case_complete(case):
         if (type(diagnostics) is not dict or diagnostics.get('rejected') is not False
                 or diagnostics.get('truncated') is not False or type(diagnostics.get('records')) is not list): return False
         rows=diagnostics['records']
+        # Serialized observations cannot mint a capability, but missing or forged
+        # required evidence must still withhold aggregate success.
+        replay=TerminalDiagnostics()
+        for row in rows:
+            if (type(row) is not dict or not {'point','reasonCode'}<=set(row)
+                    or any(type(key) is not str for key in row)): return False
+            replay.add(row['point'],row['reasonCode'],
+                **{key:value for key,value in row.items() if key not in ('point','reasonCode')})
+        if replay.report()!=diagnostics: return False
+        display=[index for index,row in enumerate(rows) if row['point']=='context_display']
+        if phase=='before' and display: return False
+        if phase=='after':
+            started=[index for index,row in enumerate(rows) if row['point']=='input_probe_started']
+            if len(display)!=1 or len(started)!=1 or display[0]>=started[0]: return False
         for point in ('input_probe_started','input_probe_echo','input_probe_cleared','native_cleanup','helper_cleanup'):
             matches=[row for row in rows if type(row) is dict and row.get('point')==point]
             if len(matches)!=1: return False

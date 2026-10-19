@@ -945,23 +945,180 @@ class ResumedHistoryDriverTests(unittest.TestCase):
     def run_owned(self,f,mode,**changes):
         from resume_history_fixtures import write_context_peer
         peer=f.root/'native-peer.py'; seen=f.root/'native-input'
-        write_context_peer(peer,mode=mode,seen=seen)
+        barrier_fd=changes.pop('_peer_barrier_fd',None)
+        write_context_peer(peer,mode=mode,seen=seen,barrier_fd=barrier_fd)
         real_launch=subprocess.Popen
         expected=f.initial_command if mode=='initial' else f.resume_command
         children=[]
-        def launch(command,**kwargs):
+        def actual_command(command):
+            if '--owned-child' in command:
+                boundary=command.index('--')+1
+                self.assertEqual(tuple(command[boundary:]),expected)
+                return [*command[:boundary],sys.executable,str(peer)]
             self.assertEqual(tuple(command),expected)
-            child=real_launch([sys.executable,str(peer)],**kwargs); children.append(child); return child
+            return [sys.executable,str(peer)]
+        def launch(command,**kwargs):
+            if barrier_fd is not None: kwargs['pass_fds']=(barrier_fd,)
+            child=real_launch(actual_command(command),**kwargs); children.append(child); return child
+        if f.state.cancellation is not None:
+            class PeerPopen(real_launch):
+                def __init__(child,command,**options):
+                    if barrier_fd is not None: options['pass_fds']=(barrier_fd,)
+                    super().__init__(actual_command(command),**options)
+                    children.append(child)
+            replacement=PeerPopen
+        else: replacement=mock.Mock(side_effect=launch)
         kwargs=dict(terminal_state=f.state,input_probe_scope=f.scope)
+        if 'diagnostics' in changes: changes['terminal_diagnostics']=changes.pop('diagnostics')
         if mode=='initial': kwargs['_initial_completion_sink']=f.sink
         else: kwargs['_resume_offer']=f.offer()
         kwargs.update(changes)
-        with mock.patch.object(selected_controller.subprocess,'Popen',side_effect=launch):
+        with mock.patch.object(selected_controller.subprocess,'Popen',new=replacement):
             result=self.driver.drive(list(expected),f.root/'native-capture',6,f.root/'native-events',
                 dialogue='context',**kwargs)
         self.assertTrue(all(child.poll() is not None for child in children))
         self.assertTrue(f.state.helper_reaped)
         return result,seen.read_bytes() if seen.exists() else b''
+
+    def test_resumed_equal_and_changed_values_require_display_before_nonce(self):
+        from resume_history_fixtures import CaseFixture
+        for mode,percent in (('equal-values',16),('changed-values',17)):
+            with self.subTest(mode=mode),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                diagnostics=TerminalDiagnostics()
+                result,data=self.run_owned(f,mode,diagnostics=diagnostics)
+                self.assertEqual(result,0)
+                self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+                rows=diagnostics.report()['records']; points=[row['point'] for row in rows]
+                self.assertEqual(points.count('context_display'),1)
+                self.assertLess(points.index('context_numeric'),points.index('context_display'))
+                self.assertLess(points.index('context_display'),points.index('input_probe_started'))
+                display=rows[points.index('context_display')]
+                self.assertEqual(display,{'point':'context_display','reasonCode':'CHECKPOINT','resumeViewDecision':'VALID'})
+                events=[json.loads(row) for row in (f.root/'native-events').read_text().splitlines()]
+                self.assertIn({'kind':'pty-driver','stage':'context_inspected','outcome':'passed','percent':percent},events)
+
+    def test_numeric_only_or_cosmetic_output_never_claims_inspection(self):
+        from resume_history_fixtures import CaseFixture
+        for mode in ('no-history','cosmetic-only'):
+            with self.subTest(mode=mode),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                diagnostics=TerminalDiagnostics()
+                result,data=self.run_owned(f,mode,diagnostics=diagnostics)
+                self.assertEqual((result,data),(2,b'/context\r'))
+                rows=diagnostics.report()['records']
+                self.assertTrue(any(row['point']=='context_numeric' for row in rows))
+                self.assertFalse(any(row['point'] in ('context_display','input_probe_started') for row in rows))
+                events=[json.loads(row) for row in (f.root/'native-events').read_text().splitlines()]
+                self.assertFalse(any(row['stage']=='context_inspected' and row['outcome']=='passed' for row in events))
+
+    def test_conflicting_complete_samples_stop_without_nonce(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_sample import sample_context
+        from terminal_context_echo import OwnedContextCommand
+        read_fd,write_fd=os.pipe()
+        try:
+            with CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                diagnostics=TerminalDiagnostics(); observed=False
+                original=OwnedContextCommand.observe
+                def observe(command,snapshot,frame):
+                    nonlocal observed
+                    result=original(command,snapshot,frame)
+                    sample=sample_context(snapshot)
+                    if command.phase=='CONTEXT_PENDING' and sample is not None and sample.numbers.used==17 and not observed:
+                        observed=True; os.write(write_fd,b'1')
+                    return result
+                with mock.patch.object(OwnedContextCommand,'observe',new=observe):
+                    result,data=self.run_owned(f,'conflicting-sample',diagnostics=diagnostics,_peer_barrier_fd=read_fd)
+                self.assertTrue(observed)
+                self.assertEqual((result,data),(2,b'/context\r'))
+                failure=next(row for row in diagnostics.report()['records'] if row['point']=='failure')
+                self.assertEqual(failure['contextCommandFailure']['check'],'CONTEXT_SAMPLE_UNSTABLE')
+        finally:
+            os.close(read_fd); os.close(write_fd)
+
+    def test_candidate_loss_on_drain_revokes_before_nonce(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            diagnostics=TerminalDiagnostics(); candidate=False; injected=False; slave_copy=None
+            real_launch=subprocess.Popen; real_select=selected_controller.select.select
+            original=OwnedContextCommand.context_display_percent
+            def launch(command,**options):
+                nonlocal slave_copy
+                slave_copy=os.dup(options['stdout'])
+                return real_launch(command,**options)
+            def ready(command,snapshot,frame):
+                nonlocal candidate
+                value=original(command,snapshot,frame)
+                if value is not None: candidate=True
+                return value
+            def select_ready(reads,writes,errors,timeout):
+                nonlocal injected
+                if candidate and reads and timeout==0 and not injected:
+                    injected=True; os.write(slave_copy,b'\x1b[21;1H\x1b[2K\x1b[38;3H')
+                return real_select(reads,writes,errors,timeout)
+            try:
+                with mock.patch.object(OwnedContextCommand,'context_display_percent',new=ready), \
+                        mock.patch.object(selected_controller.select,'select',side_effect=select_ready), \
+                        mock.patch.object(subprocess,'Popen',side_effect=launch):
+                    result,data=self.run_owned(f,'equal-values',diagnostics=diagnostics)
+                self.assertTrue(injected)
+                self.assertEqual((result,data),(2,b'/context\r'))
+                rows=diagnostics.report()['records']
+                self.assertFalse(any(row['point'] in ('context_display','input_probe_started') for row in rows))
+                failure=next(row for row in rows if row['point']=='failure')
+                self.assertEqual(failure['contextCommandFailure']['check'],'CONTEXT_SAMPLE_UNSTABLE')
+            finally:
+                if slave_copy is not None: os.close(slave_copy)
+
+    def test_optional_collector_loss_does_not_supply_or_remove_display_authority(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        for missing in (False,True):
+            with self.subTest(missing=missing),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                diagnostics=TerminalDiagnostics()
+                original=OwnedContextCommand.bind_history
+                def bind(command,snapshot,frame):
+                    receipt=original(command,snapshot,frame)
+                    return None if missing else receipt
+                with mock.patch.object(TerminalDiagnostics,'add',side_effect=LookupError), \
+                        mock.patch.object(OwnedContextCommand,'bind_history',new=bind):
+                    result,data=self.run_owned(f,'equal-values',diagnostics=diagnostics)
+                self.assertEqual(result,2 if missing else 0)
+                if missing: self.assertEqual(data,b'/context\r')
+                else: self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+
+    def test_candidate_lifetime_loss_never_becomes_unproven_display_or_nonce(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_cancellation import TerminalCancellation
+        import terminal_context_echo as echo
+        for fault in ('cancel','helper','native'):
+            with self.subTest(fault=fault),CaseFixture() as f,TerminalCancellation() as token:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal(cancellation=token)
+                diagnostics=TerminalDiagnostics(); triggered=False
+                original=echo.OwnedContextCommand.context_display_percent
+                def ready(command,snapshot,frame):
+                    nonlocal triggered
+                    value=original(command,snapshot,frame)
+                    if value is not None and not triggered:
+                        triggered=True
+                        if fault=='cancel': token.requested=True
+                        elif fault=='helper': f.state.close()
+                        else:
+                            child=echo._COMMANDS[command]['native']
+                            child.terminate(); child.wait(timeout=1)
+                    return value
+                with mock.patch.object(echo.OwnedContextCommand,'context_display_percent',new=ready):
+                    result,data=self.run_owned(f,'equal-values',diagnostics=diagnostics)
+                self.assertTrue(triggered)
+                self.assertEqual((result,data),(2,b'/context\r'))
+                failure=next(row for row in diagnostics.report()['records'] if row['point']=='failure')
+                self.assertNotEqual(failure.get('contextCommandFailure',{}).get('check'),'DISPLAY_WITNESS_UNPROVEN')
+                if fault=='cancel': self.assertEqual(failure['contextCommandFailure']['check'],'CANCELLATION')
 
     def test_initial_completion_is_finalized_only_after_owned_success_and_cleanup(self):
         from resume_history_fixtures import CaseFixture
