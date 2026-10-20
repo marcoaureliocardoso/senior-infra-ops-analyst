@@ -32,7 +32,7 @@ class ObservationGuardTests(unittest.TestCase):
     def test_guard_does_not_require_retired_command_registry(self):
         with ObservationCase() as c:
             c.submit(); guard=c.detach()
-            echo._COMMANDS.pop(c.command)
+            echo._COMMANDS.pop(c.command,None)
             self.assertEqual(c.validate_guard(guard,c.snapshot(commit=20)),frozenset({5}))
 
     def test_detach_requires_actual_submission(self):
@@ -96,6 +96,85 @@ class ObservationGuardTests(unittest.TestCase):
             history.close_post_enter_history(guard)
             history.close_post_enter_history(guard)
             with self.assertRaises(RuntimeError): c.validate_guard(guard)
+
+
+class ObservationHandoffTests(unittest.TestCase):
+    def setUp(self):
+        self.assertTrue(callable(getattr(echo,'_prepare_post_enter_observation',None)),
+            'owned observation handoff is absent')
+
+    def test_handoff_retires_all_acceptance_paths(self):
+        with ObservationCase() as c:
+            c.submit(extra=((8,'❯ /context  Synthetic completion'),))
+            self.assertEqual(c.observer.phase,'AWAIT_DISPLAY')
+            self.assertIs(c.command.post_enter_observation(),c.observer)
+            self.assertNotIn(c.command,echo._COMMANDS)
+            for method in (c.command.bind_history,c.command.context_display_percent,c.command.type_bytes):
+                with self.assertRaises(RuntimeError): method(c.snapshot(commit=20),4)
+
+    def test_handoff_uses_last_writable_wait_frame(self):
+        with ObservationCase() as c:
+            c.submit(extra=((8,'❯ /context  Synthetic completion'),),wait_free='80')
+            import terminal_post_enter_observation as observation
+            record=observation._OBSERVATIONS[c.observer]
+            self.assertEqual(record['submit_frame'],3)
+            self.assertEqual(record['baseline'].used,17)
+            self.assertIn(8,record['inventory'])
+            self.assertEqual(record['menu_index'],8)
+
+    def test_handoff_rejects_wrong_counts_and_replay(self):
+        for count in (0,2,True):
+            with self.subTest(count=count),ObservationCase() as c:
+                with self.assertRaises(RuntimeError): c.submit(ack=count)
+        with ObservationCase() as c:
+            c.submit()
+            with self.assertRaises(RuntimeError): c.command.submission_written(1)
+
+    def test_handoff_cannot_prepare_from_incomplete_or_foreign_evidence(self):
+        with ObservationCase() as c:
+            f=c.fixture
+            with self.assertRaises(RuntimeError):
+                echo._prepare_post_enter_observation(c.command,c.baseline,1,
+                    request=c.request,controller_owner=f.controller)
+        with ObservationCase() as c:
+            c.command.type_bytes(c.baseline,1); c.command.check_edit(c.baseline,1,8)
+            current=replace(c.snapshot(extra=((37,'❯ /context'),)),cursorX=10)
+            c.command.observe(current,2)
+            with self.assertRaises(RuntimeError):
+                echo._prepare_post_enter_observation(c.command,current,2,
+                    request=c.request,controller_owner=object())
+
+    def test_handoff_preparation_rejects_lost_or_copied_evidence(self):
+        for kind in ('partial','snapshot-copy','frame','request','native','helper','deadline','menu'):
+            with self.subTest(kind=kind),ObservationCase() as c:
+                c.command.type_bytes(c.baseline,1); c.command.check_edit(c.baseline,1,8)
+                extra=() if kind=='partial' else ((8,'❯ /context  Synthetic completion'),)
+                current=replace(c.snapshot(extra=(*extra,
+                    (37,'❯ /conte' if kind=='partial' else '❯ /context'))),cursorX=8 if kind=='partial' else 10)
+                c.command.observe(current,2)
+                f=c.fixture; request=c.request; frame=2
+                if kind=='snapshot-copy': current=replace(current)
+                elif kind=='frame': frame=True
+                elif kind=='request': request=object()
+                elif kind=='native': f.native.returncode=0
+                elif kind=='helper': f.state.close()
+                elif kind=='deadline': echo._COMMANDS[c.command]['deadline']=0
+                elif kind=='menu':
+                    current=replace(c.snapshot(extra=((8,'❯ /context  Changed completion'),(37,'❯ /context'))),cursorX=10)
+                    frame=3
+                with self.assertRaises(RuntimeError):
+                    echo._prepare_post_enter_observation(c.command,current,frame,
+                        request=request,controller_owner=f.controller)
+
+    def test_handoff_unbranded_view_is_rejected_before_registry_indexing(self):
+        with CaseFixture() as f:
+            f.fresh_terminal()
+            from resume_history_fixtures import history_snapshot
+            try:
+                echo.begin_context_command(f.scope,f.state,f.native,f.transition,
+                    f.policy,history_snapshot(),1,_resume_view={},_controller_owner=f.controller)
+            except Exception as error: self.assertIsInstance(error,RuntimeError)
+            else: self.fail('unbranded view accepted')
 
 
 if __name__=='__main__': unittest.main()

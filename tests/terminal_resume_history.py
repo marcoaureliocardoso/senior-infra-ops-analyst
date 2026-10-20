@@ -639,6 +639,17 @@ def close_post_enter_history(guard):
     if type(guard) is PostEnterHistoryGuard: _OBS_GUARDS.pop(guard,None)
 
 
+def take_post_enter_result(request):
+    record=_OBS_REQUESTS.get(request) if type(request) is PostEnterObservationRequest else None
+    if record is None or record.get('result_taken'): return None
+    observer=record.get('observer')
+    from terminal_post_enter_observation import PostEnterObservation,_OBSERVATIONS
+    evidence=_OBSERVATIONS.get(observer) if type(observer) is PostEnterObservation else None
+    if evidence is None or not evidence.get('closed'): return None
+    record['result_taken']=True
+    return observer.summary()
+
+
 def _register_resume_dependent(view, dependent):
     from terminal_context_echo import OwnedContextCommand, _COMMANDS
     from terminal_input_challenge import NonceInputChallenge, _CHALLENGES

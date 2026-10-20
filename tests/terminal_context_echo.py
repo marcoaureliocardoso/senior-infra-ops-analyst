@@ -479,6 +479,12 @@ class OwnedContextCommand(_Sealed):
         if record is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
         return record['phase']
 
+    def post_enter_observation(self):
+        from terminal_post_enter_observation import _COMMAND_OBSERVERS
+        observer=_COMMAND_OBSERVERS.get(self)
+        if observer is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
+        return observer
+
     def invalidate(self,reason):
         record=_COMMANDS.get(self)
         if record is not None:
@@ -522,6 +528,9 @@ class OwnedContextCommand(_Sealed):
             tracker=_DISPLAY_TRACKERS.get(self)
             if record['phase']=='CONTEXT_PENDING' and tracker['phase']=='CANDIDATE':
                 self.context_display_percent(snapshot,frame)
+        if record.get('post_observer') is not None:
+            from terminal_post_enter_observation import _refresh
+            _refresh(record['post_observer'],self,record,snapshot,frame)
         return record['phase']
 
     def submit_bytes(self,snapshot,frame):
@@ -533,22 +542,35 @@ class OwnedContextCommand(_Sealed):
         record['submit_signature']=_preenter_context_signature(record,snapshot)
         _phase(record,'SUBMIT_PENDING'); record['submit_frame']=frame
         if record.get('resume_view') is not None: _observe_resumed_display(self,snapshot,frame)
+        if record.get('post_observer') is not None:
+            from terminal_post_enter_observation import _refresh
+            _refresh(record['post_observer'],self,record,snapshot,frame)
         return b'\r'
 
     def submission_written(self,count):
         record=_COMMANDS.get(self); _live(record)
         if record['phase']!='SUBMIT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         if type(count) is not int or count!=1: _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
+        observer=record.get('post_observer')
+        if record.get('post_request') is not None and observer is None:
+            _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         _phase(record,'CONTEXT_PENDING')
         try: _note_diagnostic_menu(self)
         except Exception: pass
-        _release_command_menu(record)
+        if observer is None: _release_command_menu(record)
         if record.get('resume_view') is not None:
             tracker=_display_tracker(self,record)
             if tracker['phase']!='PRE_ENTER': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
             tracker['phase']='AWAIT_DISPLAY'
             from terminal_resume_history import note_resume_submission
             note_resume_submission(record['resume_view'],command=self)
+        if observer is not None:
+            from terminal_post_enter_observation import _activate
+            try: _activate(observer,self,record)
+            except BaseException:
+                observer.close(); _fail(record,'INPUT_PROBE_REVOKED','SCOPE_BINDING')
+            _release_command_menu(record); _release_display(record)
+            _COMMANDS.pop(self)
 
     def context_display_percent(self,snapshot,frame):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
@@ -602,7 +624,7 @@ class OwnedContextCommand(_Sealed):
 
 
 def begin_context_command(scope,state,native_owner,transition_owner,policy,baseline,frame,*,_diagnostic_journal=None,
-                          _edit_row_observer=None,_resume_view=None,_controller_owner=None):
+                          _edit_row_observer=None,_resume_view=None,_controller_owner=None,_post_enter_request=None):
     from terminal_input_challenge import _context_scope_binding
     record={'journal':_diagnostic_journal,'phase':'BASELINE'}
     try: run,deadline=_context_scope_binding(scope,state)
@@ -614,6 +636,13 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
             or not 0<=frame<=MAX_CAPTURE or type(baseline) is not TerminalSnapshot):
         _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
     _USED_SCOPES.add(scope)
+    from terminal_resume_history import _VIEWS,_OBS_REQUESTS,PostEnterObservationRequest,ResumedHistoryView
+    if _resume_view is not None and type(_resume_view) is not ResumedHistoryView:
+        _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
+    purpose=_VIEWS.get(_resume_view,{}).get('observation_request') if _resume_view is not None else None
+    if purpose is not _post_enter_request or (_post_enter_request is not None and (
+            type(_post_enter_request) is not PostEnterObservationRequest or _post_enter_request not in _OBS_REQUESTS)):
+        _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
     if _resume_view is not None:
         assessment,_,_=_compose_input_assessment(policy,baseline,frame=frame,state=state,scope=scope,
             native_owner=native_owner,controller_owner=_controller_owner,transition_owner=transition_owner,
@@ -628,6 +657,7 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
         'policy':policy,'run':run,'deadline':deadline,'time':_now(),'frame':frame,'phase':'ELIGIBLE',
         'anchor':assessment.anchor,'row':baseline.rows[assessment.anchor.row],'written':0,'progress':0,
         'journal':_diagnostic_journal,'resume_view':_resume_view,'controller':_controller_owner}
+    if _post_enter_request is not None: _COMMANDS[value]['post_request']=_post_enter_request
     if _resume_view is not None:
         from terminal_resume_history import _register_resume_dependent
         _register_resume_dependent(_resume_view,value)
@@ -650,6 +680,19 @@ def begin_context_command(scope,state,native_owner,transition_owner,policy,basel
     _diagnostic(_COMMANDS[value],'set_phase','ELIGIBLE')
     _live(_COMMANDS[value],frame,baseline)
     return value
+
+
+def _prepare_post_enter_observation(command,snapshot,frame,*,request,controller_owner):
+    record=_COMMANDS.get(command); _live(record,frame,snapshot)
+    if (record['phase']!='COMMAND_ECHO_MATCHED' or record.get('post_request') is not request
+            or record['controller'] is not controller_owner or record.get('post_observer') is not None):
+        _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
+    if _prefix(record,snapshot,8)!=8: _fail(record,'INPUT_PROBE_REVOKED','INCOMPLETE_ECHO')
+    _observe_resumed_display(command,snapshot,frame)
+    from terminal_post_enter_observation import _create
+    observer=_create(command,record,request,snapshot,frame)
+    record['post_observer']=observer
+    return observer
 
 
 def _resume_indices(record,snapshot,frame):
