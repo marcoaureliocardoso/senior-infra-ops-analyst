@@ -177,4 +177,121 @@ class ObservationHandoffTests(unittest.TestCase):
             else: self.fail('unbranded view accepted')
 
 
+class ObservationClassifierTests(unittest.TestCase):
+    def setUp(self):
+        import terminal_post_enter_observation as observation
+        self.module=observation
+        self.assertTrue(callable(getattr(observation.PostEnterObservation,'observe',None)),
+            'read-only observational assessment is absent')
+
+    def test_known_menu_does_not_hide_unknown_row(self):
+        with ObservationCase() as c:
+            menu=((8,'❯ /context  Synthetic completion'),)
+            c.submit(extra=menu)
+            c.observer.observe(c.snapshot(extra=(*menu,(39,'❯ Unknown input'))),3)
+            self.assertEqual(c.observer.summary()['outcome'],'UNSUPPORTED_TRANSITION')
+            self.assertEqual(c.observer.summary()['stopCategory'],'UNKNOWN_ROW')
+            self.assertFalse(c.observer.candidate_ready)
+
+    def test_menu_and_owned_echo_can_only_wait_without_authority(self):
+        with ObservationCase() as c:
+            menu=((8,'❯ /context  Synthetic completion'),)
+            c.submit(extra=menu)
+            c.observer.observe(replace(c.snapshot(extra=(*menu,(37,'❯ /context'))),cursorX=10),3)
+            self.assertEqual(c.observer.phase,'AWAIT_DISPLAY')
+            self.assertFalse(c.observer.candidate_ready)
+            with self.assertRaises(RuntimeError): c.observer.summary()
+            with self.assertRaises(RuntimeError): c.command.bind_history(c.snapshot(commit=20),4)
+
+    def test_same_cell_history_is_classified_not_promoted(self):
+        with ObservationCase() as c:
+            c.submit(extra=((8,'❯ /context  Synthetic completion'),))
+            c.observer.observe(c.snapshot(commit=8),3)
+            self.assertEqual(c.observer.summary()['outcome'],'INVENTORIED_CELL_REPLACEMENT')
+            self.assertEqual(c.observer.summary()['commitRelation'],'PREENTER_INVENTORY')
+
+    def test_full_profile_needs_latest_revalidation(self):
+        for menu in ((),((8,'❯ /context  Synthetic completion'),)):
+            with self.subTest(menu=menu),ObservationCase() as c:
+                c.submit(extra=menu)
+                self.assertIsNone(c.observer.observe(c.snapshot(),3))
+                final=c.snapshot(commit=20)
+                c.observer.observe(final,4)
+                self.assertTrue(c.observer.candidate_ready)
+                with self.assertRaises(RuntimeError): c.observer.summary()
+                c.observer.complete(final,4)
+                self.assertEqual(c.observer.summary()['outcome'],'CURRENT_PROFILE_OBSERVED')
+                self.assertTrue(c.observer.summary()['profileObserved'])
+                self.assertNotIn(c.command,echo._COMMANDS)
+
+    def test_menu_and_input_disappearance_are_monotonic(self):
+        for kind in ('menu','input'):
+            with self.subTest(kind=kind),ObservationCase() as c:
+                menu=((8,'❯ /context  Synthetic completion'),)
+                c.submit(extra=menu); c.observer.observe(c.snapshot(),3)
+                frame=(c.snapshot(extra=menu) if kind=='menu' else
+                    replace(c.snapshot(extra=((37,'❯ /context'),)),cursorX=10))
+                c.observer.observe(frame,4)
+                self.assertEqual(c.observer.summary()['outcome'],'UNSUPPORTED_TRANSITION')
+                self.assertFalse(c.observer.summary()['profileObserved'])
+
+    def test_candidate_loss_never_returns_to_waiting(self):
+        for bad in ('commit','sample','input','duplicate'):
+            with self.subTest(bad=bad),ObservationCase() as c:
+                c.submit(); c.observer.observe(c.snapshot(commit=20),3)
+                changed=c.snapshot(commit=None if bad=='commit' else 20,
+                    free='80' if bad=='sample' else None,
+                    extra=((39,'❯ Unknown'),) if bad=='input' else ((21,'❯ /context'),) if bad=='duplicate' else ())
+                c.observer.observe(changed,4)
+                first=c.observer.summary()
+                c.observer.observe(c.snapshot(commit=20),5)
+                self.assertEqual(c.observer.summary(),first)
+                self.assertNotEqual(first['outcome'],'CURRENT_PROFILE_OBSERVED')
+
+    def test_conflicting_then_restored_sample_cannot_recover(self):
+        with ObservationCase() as c:
+            c.submit(); c.observer.observe(c.snapshot(free='80'),3)
+            c.observer.observe(c.snapshot(commit=20),4)
+            self.assertEqual(c.observer.summary()['stopCategory'],'NUMERIC_CONFLICT')
+
+    def test_menu_change_move_duplicate_and_unowned_layout_reject(self):
+        for rows in (((8,'❯ /context  Changed'),),((9,'❯ /context  Synthetic completion'),),
+                ((8,'❯ /context  Synthetic completion'),(9,'❯ /context  Synthetic completion')),
+                ((8,'❯ /model  Synthetic completion'),)):
+            with self.subTest(rows=rows),ObservationCase() as c:
+                c.submit(extra=((8,'❯ /context  Synthetic completion'),))
+                c.observer.observe(c.snapshot(extra=rows),3)
+                self.assertEqual(c.observer.summary()['outcome'],'UNSUPPORTED_TRANSITION')
+
+    def test_observer_owner_deadline_auth_geometry_and_frame_guards(self):
+        for kind in ('native','helper','deadline','auth','geometry','stale','bool','case'):
+            with self.subTest(kind=kind),ObservationCase() as c:
+                c.submit(); frame=3; current=c.snapshot(commit=20)
+                if kind=='native': c.fixture.native.returncode=0
+                elif kind=='helper': c.fixture.state.close()
+                elif kind=='deadline': self.module._OBSERVATIONS[c.observer]['deadline']=0
+                elif kind=='auth': current=c.snapshot(extra=((9,'Do you want to use this API key?'),))
+                elif kind=='geometry': current=replace(current,baseY=1)
+                elif kind=='stale': frame=2
+                elif kind=='bool': frame=True
+                elif kind=='case': history.close_offline_case(c.fixture.case)
+                c.observer.observe(current,frame)
+                self.assertEqual(c.observer.phase,'FINISHED')
+                self.assertFalse(c.observer.summary()['profileObserved'])
+
+    def test_unsupported_input_cells_and_unowned_completion_stop(self):
+        for kind in ('draft','wide','invisible','unowned-menu'):
+            with self.subTest(kind=kind),ObservationCase() as c:
+                c.submit(); current=c.snapshot(commit=20)
+                if kind=='unowned-menu': current=c.snapshot(extra=((8,'❯ /context  Synthetic completion'),))
+                else:
+                    rows=list(current.rows); row=list(rows[37])
+                    row[2]=replace(row[2],text='X' if kind=='draft' else '\u200b' if kind=='invisible' else '',
+                        width=2 if kind=='wide' else 1)
+                    rows[37]=tuple(row); current=replace(current,rows=tuple(rows))
+                c.observer.observe(current,3)
+                self.assertEqual(c.observer.phase,'FINISHED')
+                self.assertFalse(c.observer.summary()['profileObserved'])
+
+
 if __name__=='__main__': unittest.main()
