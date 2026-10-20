@@ -16,6 +16,8 @@ python3 tests/test-terminal-input-challenge.py
 python3 tests/test-terminal-context-echo.py
 python3 tests/test-terminal-context-display.py
 python3 tests/test-terminal-history-rejection.py
+python3 tests/test-terminal-post-enter-observation.py
+python3 tests/test-post-enter-observation-report.py
 python3 tests/test-terminal-context-diagnostics.py
 python3 tests/test-terminal-structural-diagnostics.py
 python3 tests/test-terminal-context-debug.py

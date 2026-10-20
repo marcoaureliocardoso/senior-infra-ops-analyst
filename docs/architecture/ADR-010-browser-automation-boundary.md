@@ -1057,7 +1057,7 @@ Focused/full-gate evidence and independent-review status belong in validation
 notes, not an inferred acceptance claim. Roll back the optional observer,
 journal/collector/driver plumbing and tests together; old grants stay consumed.
 
-## Proposed passive post-Enter observation - 2026-10-20
+## Offline passive post-Enter observation - 2026-10-20
 
 The operator approved designing a separate disposable observational probe after
 the consumed d3e9816 attempt. That attempt identified a completion-shaped first
@@ -1068,22 +1068,31 @@ HISTORY_COMMIT_V1 forbids promotion of pre-Enter menu positions to new history.
 The [written specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md)
 was approved on 2026-10-20. Its
 [implementation plan](../superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md)
-awaits review and execution-method selection. The design defines an explicit offline-only mode, separate
+was approved for inline execution. The local implementation provides an explicit offline-only mode, separate
 schema and irreversible no-input boundary after the one owned Enter. It reuses
 isolation and cleanup, retains only closed structural results, and cannot emit
 acceptance receipts or resume a revoked operation. Full existing profile shape,
 unsupported transitions and deadline/safety stops remain distinct observations.
 
-This section records proposed architecture, not implemented or enforced
-behavior. Existing immediate rejection, pre-Enter-only menu lifetime and all
-acceptance invariants remain unchanged. No native execution, plan execution,
-provider/browser acceptance or new retention permission is implied. A later
-implementation and exact-final-commit native authorization are separate gates.
+The private case request transfers validated history into an independent
+read-only guard only after the actual owned Enter. It retires acceptance without
+closing or renewing the shared case. Final pre-Enter writable-wait evidence is
+preserved; every marker row remains assessed. No input is possible afterward,
+and menu-cell history replacement remains unsupported. The distinct structural
+report passes through a 16 KiB bounded memory pipe; the parent verifies actual
+child status/reap and owned disposal before publishing. It cannot become an
+acceptance report through exit zero or added legacy fields.
+
+Focused synthetic tests, including the real namespace with a Python CLI double,
+passed. Final independent review and the complete immutable gate remain pending.
+Existing immediate rejection, pre-Enter-only menu lifetime and all acceptance
+invariants remain unchanged on the default route. Native feasibility and
+provider/browser acceptance remain unproven; no native execution grant renews.
 
 ## Links
 
-- Approved passive post-Enter observation design (not implemented): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
-- Passive post-Enter observation plan (review/method pending): `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
+- Approved passive post-Enter observation design (local implementation; final gates pending): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+- Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
 - Approved correlated-display implementation plan: `docs/superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md`

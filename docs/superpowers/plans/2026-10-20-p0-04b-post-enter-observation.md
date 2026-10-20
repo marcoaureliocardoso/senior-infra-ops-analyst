@@ -15,8 +15,10 @@ Bubblewrap, existing Node/xterm helper, native runtime only under a later grant.
 No new dependencies or runtime/provider/version pins.
 
 **Spec:** [Approved written design](../specs/2026-10-20-p0-04b-post-enter-observation-design.md).
-Design approved by the operator on 2026-10-20. Plan review and execution-method
-selection are pending. No task below has been executed by writing this plan.
+Design and plan approved by the operator on 2026-10-20; option 2 selected:
+inline implementation with a fresh final independent reviewer. Tasks 1-4 are
+committed locally; Task 5 final review and immutable gate remain pending.
+Exact progress and rulings are in this plan's git-ignored SDD ledger.
 Planning baseline: `af14ac1580624c49fcd322c048fe1f25c0de3801`.
 
 ## Global Constraints
@@ -449,5 +451,5 @@ Execution choices are subagent-driven per task with fresh reviews, or native
 inline implementation of all five tasks with a fresh final whole-change review.
 Inline is recommended here because the lifecycle/handoff/driver interfaces are
 tightly coupled and the native execution gate remains separately controlled.
-The operator must review this plan and choose the execution method before code
-changes. All later native/provider/browser execution remains separately gated.
+The operator approved this plan and selected inline execution. All later
+native/provider/browser execution remains separately gated.

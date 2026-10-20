@@ -7,11 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
-- Documented a proposed development-only passive post-Enter observation mode,
-  with separate reporting, no further input and unchanged acceptance contracts.
-  The written design is approved; its implementation plan awaits review and
-  execution-method selection. No implementation, native run, installed behavior,
-  retention or version change.
+- Added development-only `--observe-post-enter` to the isolated offline harness:
+  one synthetic text-turn, an owned submission handoff to private read-only
+  guards, zero further input and a separate bounded structural report published
+  after parent disposal. It cannot emit acceptance receipts or promote menu-cell
+  history. Focused synthetic verification passed; final review/gate and native
+  feasibility remain pending. Default/installed behavior, durable-content
+  retention, providers and versions are unchanged. No native grant renews.
 
 - Added optional test-only structural facts for the exact resumed
   HISTORY_ELIGIBILITY rejection: row shape, relation to a pre-Enter menu cell

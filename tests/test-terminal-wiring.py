@@ -26,6 +26,14 @@ class TerminalWiringTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(prefix='terminal-wiring-test-')
         self.addCleanup(self.temp.cleanup); self.root=Path(self.temp.name)
 
+    def test_browser_context_entry_cannot_activate_offline_observation(self):
+        with mock.patch.object(sys,'argv',['context-entry','--observe-post-enter']),\
+                contextlib.redirect_stderr(io.StringIO()),\
+                mock.patch.object(self.module,'prepare_approval',side_effect=AssertionError('approval consumed')) as approval:
+            with self.assertRaises(SystemExit) as error: self.module.main()
+        self.assertEqual(error.exception.code,2)
+        approval.assert_not_called()
+
     def test_missing_runtime_precedes_claim_consumption(self):
         claim=self.root/'claim'; claim.write_text('owned test claim')
         args=['context-entry','--claim',str(claim),'--commit','a'*40,'--run-nonce','p004b-'+'b'*32,

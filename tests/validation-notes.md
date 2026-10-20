@@ -1,5 +1,31 @@
 # Validation Notes
 
+## Passive post-Enter observation - local implementation, final gates pending
+
+Approved spec/plan: `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+and `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`.
+The operator selected inline execution with one fresh final reviewer.
+Implementation commits so far: e151630 (guard), d4024d5 (handoff), add35df
+(classifier), 8af1266 (driver). All execution in this delivery uses synthetic
+fixtures/CLI doubles, never the installed Claude, real provider or operator state.
+
+Observed RED-to-GREEN boundaries include absent factories/handoff/classifier,
+incoherent positive summaries, wide input cells and the missing bounded transport.
+Focused runs passed observer25, summary/mode/transport14, driver80 plus one later
+cancellation control, CLI25, wiring16 and signals5. The complete current-source
+gate and final independent review have not yet run for this change.
+
+One concurrent cancellation-suite run failed
+`test_gated_spawn_reaps_fast_orphan_before_returning_success` (exit2 versus0).
+The unchanged targeted test and subsequent isolated full14 passed. No supervisor
+fix is claimed; any recurrence remains reportable in final gate evidence.
+The delayed-peer fixture initially changed the proved NBSP prefix to ASCII space;
+fixing only that synthetic fixture preserved the strict recognizer.
+
+No new native attempt, raw-content export, version bump, push, PR, merge, release,
+staging refresh, remote CI/Security claim or definitive TODO completion occurred.
+Native observation still needs exact-final-commit authorization after local gates.
+
 ## Frozen history-eligibility observer - 2026-10-20
 
 Approved bounded implementation baseline: clean f2810ea0da9210e7ba9f4f545ddc09987b498285

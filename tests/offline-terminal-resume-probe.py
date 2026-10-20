@@ -89,10 +89,68 @@ def context_stage_report(phase,rows,diagnostics):
 
 def validate_mode(arguments):
     return arguments in (['--run-offline'],['--audit-isolation'],['--run-offline','--debug-context'],
-                         ['--run-offline','--debug-context-edit'])
+                         ['--run-offline','--debug-context-edit'],['--observe-post-enter'])
+
+
+def _new_post_enter_report(outcome='SETUP_BLOCKED',category='SETUP'):
+    return {'schema':'p004b-post-enter-observation-v1','mode':'observe-post-enter','acceptance':False,
+        'outcome':outcome,'stopCategory':category,'setup':{'initialCompleted':False,'sdkValidated':False},
+        'cleanup':{'nativeReaped':False,'helperReaped':False,'caseRootAbsent':False,'disposableRootAbsent':False}}
+
+
+def valid_post_enter_report(value):
+    from terminal_post_enter_observation import OUTCOMES,STOP_CATEGORIES,valid_observation_summary
+    keys={'schema','mode','acceptance','outcome','stopCategory','setup','cleanup'}
+    if type(value) is not dict or not keys<=set(value)<=keys|{'summary'}: return False
+    if (value['schema']!='p004b-post-enter-observation-v1' or value['mode']!='observe-post-enter'
+            or value['acceptance'] is not False or type(value['outcome']) is not str or value['outcome'] not in OUTCOMES
+            or type(value['stopCategory']) is not str or value['stopCategory'] not in STOP_CATEGORIES): return False
+    for name,fields in (('setup',{'initialCompleted','sdkValidated'}),
+            ('cleanup',{'nativeReaped','helperReaped','caseRootAbsent','disposableRootAbsent'})):
+        if (type(value[name]) is not dict or set(value[name])!=fields
+                or any(type(item) is not bool for item in value[name].values())): return False
+    if 'summary' in value:
+        summary=value['summary']
+        if (not valid_observation_summary(summary) or summary['outcome']!=value['outcome']
+                or summary['stopCategory']!=value['stopCategory'] or not all(value['setup'].values())): return False
+        if len((json.dumps(summary,sort_keys=True)+'\n').encode())>3072: return False
+    if value['outcome']=='CURRENT_PROFILE_OBSERVED':
+        return ('summary' in value and value['stopCategory']=='COMPLETE'
+            and all(value['cleanup'][key] for key in ('nativeReaped','helperReaped','caseRootAbsent')))
+    return not (value['outcome']=='CLEANUP_FAILED' and 'summary' in value)
+
+
+def fit_post_enter_report(value,*,reserve_disposal=False):
+    report=dict(value) if type(value) is dict else _new_post_enter_report('SAFETY_STOP','REPORT')
+    if not valid_post_enter_report(report):
+        original=report; report=_new_post_enter_report('SAFETY_STOP','REPORT')
+        for key in ('setup','cleanup'):
+            candidate=original.get(key)
+            if (type(candidate) is dict and set(candidate)==set(report[key])
+                    and all(type(item) is bool for item in candidate.values())): report[key]=dict(candidate)
+        summary=original.get('summary')
+        # An invalid optional annotation must not erase an independent negative.
+        reduced={key:item for key,item in original.items() if key!='summary'}
+        if summary is not None and valid_post_enter_report(reduced): report=reduced
+    size_report={**report,'cleanup':{**report['cleanup'],
+        'disposableRootAbsent':True if reserve_disposal else report['cleanup']['disposableRootAbsent']}}
+    if len((json.dumps(size_report,sort_keys=True)+'\n').encode())>16384:
+        return _new_post_enter_report('SAFETY_STOP','REPORT')
+    return report
+
+
+def _post_enter_child_code(report):
+    return 0 if (valid_post_enter_report(report) and report['outcome']=='CURRENT_PROFILE_OBSERVED'
+        and all(report['setup'].values()) and all(report['cleanup'][key]
+            for key in ('nativeReaped','helperReaped','caseRootAbsent'))) else 2
+
+
+def post_enter_exit_code(report):
+    return 0 if _post_enter_child_code(report)==0 and report['cleanup']['disposableRootAbsent'] is True else 2
 
 
 def case_complete(case):
+    if type(case) is not dict or 'schema' in case or 'acceptance' in case: return False
     required=(all(type(case.get(key)) is int and case[key]==0 for key in ('beforeExit','sdkExit','afterExit'))
         and case.get('contextInspected') is True and case.get('naturalExit') is True
         and case.get('caseRootAbsent') is True and case.get('validSDKSample') is True)
@@ -249,8 +307,42 @@ def _edit_namespace_report(command,root,identity):
         disposal_proven=disposed is True and namespace_reaped)
 
 
-def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False):
-    observe=not audit and debug_context is False and debug_context_edit is False
+def _post_enter_namespace_report(command,root,identity,*,deadline=None):
+    # Reuse only the bounded pipe reader, not the edit-debug capture/export path.
+    hard_deadline=time.monotonic()+165 if deadline is None else deadline
+    report=_new_post_enter_report(); reaped=False
+    try:
+        with TerminalCancellation() as cancellation:
+            try:
+                code,data=_read_edit_namespace(command,cancellation=cancellation,deadline=hard_deadline-5)
+                value=_edit_json(data)
+                if (not valid_post_enter_report(value) or value['cleanup']['disposableRootAbsent'] is not False
+                        or type(code) is not int or code not in (0,2) or code!=_post_enter_child_code(value)):
+                    raise ValueError
+                report=value
+            except (KeyboardInterrupt,TerminalCancelled):
+                report=_new_post_enter_report('SAFETY_STOP','CANCELLED')
+            except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
+                report=_new_post_enter_report('SAFETY_STOP','CAPTURE_PROTOCOL')
+        reaped=True
+    except (OSError,ValueError,RuntimeError,KeyboardInterrupt,TerminalCancelled):
+        report=_new_post_enter_report('CLEANUP_FAILED','CLEANUP')
+    cleaned=finalize_owned(root,identity,report)
+    disposed=cleaned.get('disposableRootAbsent') is True
+    if not disposed or not reaped:
+        failed=_new_post_enter_report('CLEANUP_FAILED','CLEANUP')
+        failed['cleanup']['disposableRootAbsent']=disposed
+        return failed
+    report['cleanup']={**report['cleanup'],'disposableRootAbsent':True}
+    return fit_post_enter_report(report)
+
+
+def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False,post_enter_observation=False):
+    outer_deadline=time.monotonic()+165 if post_enter_observation is True else None
+    if (type(post_enter_observation) is not bool or (post_enter_observation and
+            (audit or debug_context is not False or debug_context_edit is not False))):
+        return _new_post_enter_report()
+    observe=not audit and debug_context is False and debug_context_edit is False and not post_enter_observation
     if (type(debug_context_edit) is not bool or (debug_context_edit and (audit or debug_context))):
         return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     if type(debug_context) is not bool or (audit and debug_context): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
@@ -259,10 +351,10 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
         bwrap=shutil.which('bwrap')
         if not bwrap or not node.is_file(): raise ValueError
     except (OSError,ValueError) as error:
-        return _failed({'reasonCode':'OFFLINE_PROBE_BLOCKED'},'PRECHECK',enabled=observe,error=error)
+        return _new_post_enter_report() if post_enter_observation else _failed({'reasonCode':'OFFLINE_PROBE_BLOCKED'},'PRECHECK',enabled=observe,error=error)
     root=Path(tempfile.mkdtemp(prefix='p004b-offline-terminal-'))
     identity=root.stat()
-    report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}
+    report=_new_post_enter_report() if post_enter_observation else {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     phase='PRECHECK'; exit_code=None
     pending={'status':'NO_CAPTURE'}; namespace_reaped=False
     try:
@@ -290,15 +382,20 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
                      'terminal_state_adapter.py','terminal-state-adapter.mjs','browser_startup_approval.py',
                      'browser_operations_live.py'):
             command += ['--ro-bind',str(source/'tests'/name),'/opt/probe/'+name]
+        if post_enter_observation:
+            command += ['--ro-bind',str(source/'tests/terminal_post_enter_observation.py'),'/opt/probe/terminal_post_enter_observation.py']
         if not audit:
             claude=claude.resolve(strict=True)
             if not claude.is_file(): raise ValueError
             command += ['--ro-bind',str(claude),'/opt/probe/claude']
         command += ['--clearenv','--setenv','PATH','/usr/bin:/bin','--setenv','PYTHONDONTWRITEBYTECODE','1',
             '/usr/bin/python3','/opt/probe/probe.py','--inner-audit' if audit else
-                '--inner-controls-debug' if debug_context else '--inner-controls-edit-debug' if debug_context_edit else '--inner-controls']
+                '--inner-controls-debug' if debug_context else '--inner-controls-edit-debug' if debug_context_edit else
+                '--inner-post-enter-observation' if post_enter_observation else '--inner-controls']
         if debug_context_edit:
             return _edit_namespace_report(command,root,identity)
+        if post_enter_observation:
+            return _post_enter_namespace_report(command,root,identity,deadline=outer_deadline)
         else:
             phase='NAMESPACE'
             with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:
@@ -330,12 +427,22 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
                 if observe and type(report) is dict and 'failureDiagnostic' in report:
                     if not _valid_failure_diagnostic(report['failureDiagnostic']): report.pop('failureDiagnostic')
     except (KeyboardInterrupt,TerminalCancelled) as error:
-        report=_failed({'reasonCode':'OFFLINE_PROBE_INTERRUPTED'},phase,enabled=observe,error=error,exit_code=exit_code)
+        report=(_new_post_enter_report('SAFETY_STOP','CANCELLED') if post_enter_observation else
+            _failed({'reasonCode':'OFFLINE_PROBE_INTERRUPTED'},phase,enabled=observe,error=error,exit_code=exit_code))
     except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError) as error:
-        report=_failed(report,phase,enabled=observe,error=error,exit_code=exit_code)
+        report=(_new_post_enter_report('SAFETY_STOP','CAPTURE_PROTOCOL') if post_enter_observation else
+            _failed(report,phase,enabled=observe,error=error,exit_code=exit_code))
         if debug_context_edit:
             report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; pending={'status':'OMITTED_PROVENANCE'}
     cleaned=finalize_owned(root,identity,report)
+    if post_enter_observation:
+        disposed=cleaned.pop('disposableRootAbsent',False) is True
+        if not disposed:
+            failed=_new_post_enter_report('CLEANUP_FAILED','CLEANUP')
+            failed['cleanup']['disposableRootAbsent']=disposed
+            return failed
+        report['cleanup']={**report['cleanup'],'disposableRootAbsent':True}
+        return fit_post_enter_report(report)
     if cleaned.get('reasonCode')=='OFFLINE_CLEANUP_FAILED':
         cleaned=_failed(cleaned,'CLEANUP',enabled=observe)
     if debug_context_edit:
@@ -357,6 +464,11 @@ def run_offline_controls(*,source,claude,node,module_root,debug_context=False,de
         debug_context_edit=debug_context_edit)
 
 
+def run_post_enter_observation(*,source,claude,node,module_root):
+    if claude is None: return _new_post_enter_report()
+    return _namespace(source=source,claude=claude,node=node,module_root=module_root,post_enter_observation=True)
+
+
 def run_cases(run_case):
     cases=[]
     for name in ('text-turn','skill-turn'):
@@ -366,7 +478,7 @@ def run_cases(run_case):
     return {'reasonCode':'OFFLINE_CONTROLS_PASSED','cases':cases}
 
 
-def _controls(*,debug_context=False,debug_context_edit=False):
+def _controls(*,debug_context=False,debug_context_edit=False,post_enter_observation=False):
     observe=not debug_context and not debug_context_edit
     sys.path.insert(0,'/opt/probe')
     try:
@@ -469,12 +581,18 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                 events=root/(phase+'.events')
                 approval=StartupApproval(time.time()+25,time.time) if not resume else None
                 command=('/opt/probe/claude','--resume' if resume else '--session-id',session,*common)
-                private=({'_resume_offer':offer_resume(case_record,state=state,scope=scope,command=command)} if resume else
+                if resume and post_enter_observation:
+                    from terminal_resume_history import offer_post_enter_observation,take_post_enter_result
+                    request=offer_post_enter_observation(case_record,state=state,scope=scope,command=command)
+                private=({'_post_enter_observation':request} if resume and post_enter_observation else
+                    {'_resume_offer':offer_resume(case_record,state=state,scope=scope,command=command)} if resume else
                     {'_initial_completion_sink':initial_completion_sink(case_record,state=state,scope=scope,command=command)})
                 code=driver.drive(list(command),
                     root/(phase+'.capture'),25,events,dialogue='context',startup_approval=approval,
                     terminal_state=state,terminal_diagnostics=diagnostics,input_probe_scope=scope,context_debug=debug,
                     context_edit_debug=edit_debug,**private)
+                if resume and post_enter_observation:
+                    report['observationSummary']=take_post_enter_result(request)
                 rows=[json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
                 report['stages'].append(context_stage_report(phase,rows,diagnostics))
                 return code,any(row.get('stage')=='context_inspected' and row.get('outcome')=='passed' for row in rows),\
@@ -512,7 +630,7 @@ def _controls(*,debug_context=False,debug_context_edit=False):
                     after,inspected_after,exited_after=context('after',True); report['afterExit']=after
                     report['contextInspected']=inspected and inspected_after
                     report['naturalExit']=exited and exited_after
-                    if after!=0 or not inspected_after or not exited_after:
+                    if not post_enter_observation and (after!=0 or not inspected_after or not exited_after):
                         report=_failed(report,phase,enabled=observe)
                 else: report=_failed(report,phase,enabled=observe,exit_code=phase_exit)
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
@@ -539,6 +657,29 @@ def _controls(*,debug_context=False,debug_context_edit=False):
             except Exception: edit_reports.append({'status':'OMITTED_OBSERVER'})
         cleaned.pop('disposableRootAbsent',None); cleaned['caseRootAbsent']=True
         return cleaned
+    if post_enter_observation:
+        case=run_case('text-turn')
+        report=_new_post_enter_report()
+        stages=case.get('stages',[])
+        initial=(type(case.get('beforeExit')) is int and case['beforeExit']==0 and bool(stages)
+            and all(any(row.get('stage')==point and row.get('outcome')=='passed'
+                for row in stages[0].get('events',[])) for point in ('context_inspected','exit')))
+        report['setup']={'initialCompleted':initial,'sdkValidated':case.get('validSDKSample') is True}
+        for key,point in (('nativeReaped','native_cleanup'),('helperReaped','helper_cleanup')):
+            report['cleanup'][key]=bool(stages) and all(any(row.get('point')==point and
+                row.get('reasonCode')=='CLEANUP_COMPLETED' and row.get('leaderReaped') is True
+                for row in stage['diagnostics']['records']) for stage in stages)
+        report['cleanup']['caseRootAbsent']=case.get('caseRootAbsent') is True
+        summary=case.get('observationSummary')
+        from terminal_post_enter_observation import valid_observation_summary
+        if summary is not None and valid_observation_summary(summary):
+            report.update(summary=summary,outcome=summary['outcome'],stopCategory=summary['stopCategory'])
+        elif all(report['setup'].values()): report.update(outcome='SAFETY_STOP',stopCategory='REPORT')
+        if case.get('caseRootAbsent') is not True:
+            report.update(outcome='CLEANUP_FAILED',stopCategory='CLEANUP'); report.pop('summary',None)
+        if case.get('afterExit')!=0 and report['outcome']=='CURRENT_PROFILE_OBSERVED':
+            report.update(outcome='SAFETY_STOP',stopCategory='REPORT'); report.pop('summary',None)
+        return fit_post_enter_report(report,reserve_disposal=True)
     report={'runtime':match[1].decode('ascii'),**run_cases(run_case)}
     if debug_context:
         debug=next((value for value in debug_reports if value['status']!='NO_CAPTURE'),{'status':'NO_CAPTURE'})
@@ -550,6 +691,13 @@ def _controls(*,debug_context=False,debug_context_edit=False):
 
 
 def main():
+    if sys.argv[1:]==['--inner-post-enter-observation']:
+        try:
+            _audit()
+            report=fit_post_enter_report(_controls(post_enter_observation=True),reserve_disposal=True)
+        except BaseException:
+            report=_new_post_enter_report('SETUP_BLOCKED','SETUP')
+        print(json.dumps(report,sort_keys=True)); return _post_enter_child_code(report)
     if sys.argv[1:] in (['--inner-audit'],['--inner-controls'],['--inner-controls-debug'],['--inner-controls-edit-debug']):
         observe=sys.argv[1:]==['--inner-controls']
         try:
@@ -574,6 +722,7 @@ def main():
     modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--audit-isolation',dest='mode',action='store_const',const='--audit-isolation')
     modes.add_argument('--run-offline',dest='mode',action='store_const',const='--run-offline')
+    modes.add_argument('--observe-post-enter',dest='mode',action='store_const',const='--observe-post-enter')
     parser.add_argument('--source',type=Path,required=True)
     parser.add_argument('--node',type=Path,required=True)
     parser.add_argument('--module-root',type=Path,required=True)
@@ -581,10 +730,15 @@ def main():
     parser.add_argument('--debug-context',action='store_true',help='Opt-in offline synthetic context failure excerpt; chat copy may persist')
     parser.add_argument('--debug-context-edit',action='store_true',help='Opt-in offline rejected edit-row excerpt; chat copy may persist')
     args=parser.parse_args()
+    if args.mode=='--observe-post-enter' and sys.argv[1:].count('--observe-post-enter')!=1:
+        parser.error('observation mode cannot be repeated')
     if sys.argv[1:].count('--debug-context-edit')>1: parser.error('edit debug cannot be repeated')
     if args.debug_context and args.mode!='--run-offline': parser.error('debug context requires offline controls')
     if args.debug_context_edit and (args.mode!='--run-offline' or args.debug_context):
         parser.error('edit debug requires exclusive offline controls')
+    if args.mode=='--observe-post-enter':
+        report=run_post_enter_observation(source=args.source,node=args.node,module_root=args.module_root,claude=args.claude)
+        print(json.dumps(report,sort_keys=True)); return post_enter_exit_code(report)
     report=(run_isolation_audit(source=args.source,node=args.node,module_root=args.module_root)
         if args.mode=='--audit-isolation' else run_offline_controls(source=args.source,node=args.node,
             module_root=args.module_root,claude=args.claude,debug_context=args.debug_context,

@@ -1,9 +1,11 @@
 # P0-04B passive post-Enter observation
 
-Status: written specification operator-approved on 2026-10-20. The
-[implementation plan](../plans/2026-10-20-p0-04b-post-enter-observation.md) awaits
-operator review and execution-method selection. Not implemented. No code change
-or new native execution is authorized by this document alone. Source baseline:
+Status: written specification and
+[implementation plan](../plans/2026-10-20-p0-04b-post-enter-observation.md)
+operator-approved on 2026-10-20, inline execution selected. Locally implemented
+with focused synthetic verification; final independent review and immutable
+package gate pending. No native execution is authorized by implementation.
+Source baseline:
 `d3e98160e4921443ad02e564e89b4d8002601de2`.
 
 ## Intent and evidence
