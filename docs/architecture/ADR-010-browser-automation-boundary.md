@@ -1065,8 +1065,10 @@ rejection at a noted pre-Enter menu position after one Enter, but did not observ
 the later timeline or prove row identity. Waiting alone may still fail because
 HISTORY_COMMIT_V1 forbids promotion of pre-Enter menu positions to new history.
 
-The proposed [written specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md)
-is awaiting operator review. It defines an explicit offline-only mode, separate
+The [written specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md)
+was approved on 2026-10-20. Its
+[implementation plan](../superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md)
+awaits review and execution-method selection. The design defines an explicit offline-only mode, separate
 schema and irreversible no-input boundary after the one owned Enter. It reuses
 isolation and cleanup, retains only closed structural results, and cannot emit
 acceptance receipts or resume a revoked operation. Full existing profile shape,
@@ -1080,7 +1082,8 @@ implementation and exact-final-commit native authorization are separate gates.
 
 ## Links
 
-- Proposed passive post-Enter observation (written review pending; not implemented): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+- Approved passive post-Enter observation design (not implemented): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+- Passive post-Enter observation plan (review/method pending): `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
 - Approved correlated-display implementation plan: `docs/superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md`

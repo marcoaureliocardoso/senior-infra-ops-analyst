@@ -1,8 +1,9 @@
 # P0-04B passive post-Enter observation
 
-Status: conversational direction approved; written specification awaiting
-operator review. Not implemented. No implementation plan or new native execution
-is authorized by this document. Source baseline:
+Status: written specification operator-approved on 2026-10-20. The
+[implementation plan](../plans/2026-10-20-p0-04b-post-enter-observation.md) awaits
+operator review and execution-method selection. Not implemented. No code change
+or new native execution is authorized by this document alone. Source baseline:
 `d3e98160e4921443ad02e564e89b4d8002601de2`.
 
 ## Intent and evidence
@@ -289,8 +290,9 @@ No consumed grant is restored by rollback.
 
 This specification is indexed from ADR-010 as proposed, not enforced. The
 design-only commit updates the changelog truthfully without a version bump.
-After written-spec approval, produce the implementation plan and obtain the
-operator's execution-method choice. Implementation must later update ADR/index,
+Written-spec approval permits producing the implementation plan, not executing
+it. Obtain plan review and the operator's execution-method choice first.
+Implementation must later update ADR/index,
 validation notes and changelog with observed behavior, not intentions.
 No push, PR, merge, release, staging refresh, remote CI/Security claim or
 definitive TODO completion follows from this design approval.

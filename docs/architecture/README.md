@@ -19,8 +19,10 @@ New implemented solutions must add an ADR or explicitly supersede an existing on
 
 ADR-010 separately indexes the proposed
 [passive post-Enter observation specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md).
-The conversational direction is approved; written review and implementation
-remain pending. This isolated diagnostic would observe the later native display
+The written specification is approved; its
+[implementation plan](../superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md)
+awaits review and execution-method selection. Implementation remains pending.
+This isolated diagnostic would observe the later native display
 without granting input or acceptance. Current enforced behavior is unchanged;
 no native execution grant, profile compatibility or acceptance is implied.
 
