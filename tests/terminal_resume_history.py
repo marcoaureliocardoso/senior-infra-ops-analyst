@@ -211,6 +211,8 @@ _PENDING = weakref.WeakKeyDictionary()
 _LAUNCHES = weakref.WeakKeyDictionary()
 _OFFERS = weakref.WeakKeyDictionary()
 _VIEWS = weakref.WeakKeyDictionary()
+_OBS_REQUESTS = weakref.WeakKeyDictionary()
+_OBS_GUARDS = weakref.WeakKeyDictionary()
 
 
 class ResumeHistoryError(RuntimeError):
@@ -236,6 +238,8 @@ class PendingInitialCompletion(_Branded): __slots__ = ()
 class SDKLaunch(_Branded): __slots__ = ()
 class ResumeOffer(_Branded): __slots__ = ()
 class ResumedHistoryView(_Branded): __slots__ = ()
+class PostEnterObservationRequest(_Branded): __slots__ = ()
+class PostEnterHistoryGuard(_Branded): __slots__ = ()
 
 
 def _now():
@@ -247,7 +251,7 @@ def close_offline_case(case: OfflineCase) -> None:
         return
     dependents = []
     _CASES.pop(case, None)
-    for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS):
+    for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS, _OBS_REQUESTS, _OBS_GUARDS):
         for value, record in list(registry.items()):
             if record['case'] is case:
                 registry.pop(value, None)
@@ -550,6 +554,11 @@ def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_
             or policy.active_input_forbidden(snapshot)):
         _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
     post = record['phase'] == 'POST_SUBMIT'
+    return _history_indices(record,policy,snapshot,post=post,
+        current_acked=lambda: _current_command_acked(view,record))
+
+
+def _history_indices(record,policy,snapshot,*,post,current_acked):
     profiles = _profiles(_case(record['case']),policy,snapshot,binding=False,allow_context_repeats=post)
     pinned = record['profiles']
     for index, expected in pinned.items():
@@ -566,9 +575,68 @@ def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_
         # cannot be promoted or interpreted as movement into that row.
         context_retired = any(pinned[i].kind == 'CONTEXT' for i in record['retired'])
         if (not post or actual.kind != 'CONTEXT' or context_retired
-                or not _current_command_acked(view,record)):
+                or not current_acked()):
             _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
     return frozenset(index for index in pinned if index not in record['retired'])
+
+
+def offer_post_enter_observation(case, *, state, scope, command):
+    from terminal_input_challenge import _audit
+    _audit()
+    record=_case(case,('SDK_VALIDATED',))
+    if record['kind']!='text-turn': _fail(record)
+    offer=offer_resume(case,state=state,scope=scope,command=command)
+    request=PostEnterObservationRequest(_SEAL)
+    _OFFERS[offer]['observation_request']=request
+    _OBS_REQUESTS[request]={**_OFFERS[offer],'offer':offer,'phase':'OFFERED'}
+    return request
+
+
+def observation_resume_offer(request, *, state, scope, command):
+    record=_registered(request,_OBS_REQUESTS,PostEnterObservationRequest)
+    if record['phase']!='OFFERED': _fail(record)
+    offer=record['offer']
+    validate_resume_offer(offer,state=state,scope=scope,command=command)
+    return offer
+
+
+def detach_post_enter_history(request, *, view, command, snapshot, frame, controller_owner):
+    request_record=_registered(request,_OBS_REQUESTS,PostEnterObservationRequest)
+    record=_registered(view,_VIEWS,ResumedHistoryView)
+    if (request_record['phase']!='OFFERED' or record.get('observation_request') is not request
+            or request_record['case'] is not record['case'] or record['phase']!='POST_SUBMIT'
+            or controller_owner is not record['controller'] or not _current_command_acked(view,record)
+            or not any(item() is command for item in record['dependents'])):
+        _fail(record)
+    validate_resume_view(view,policy=record['policy'],snapshot=snapshot,frame=frame,
+        state=record['state'],scope=record['scope'],native_owner=record['native'],
+        controller_owner=controller_owner,transition_owner=record['transition'])
+    guard=PostEnterHistoryGuard(_SEAL)
+    _OBS_GUARDS[guard]={**record,'profiles':dict(record['profiles']),
+        'retired':set(record['retired']),'dependents':[],'acked':True}
+    _VIEWS.pop(view)
+    request_record['phase']='CONSUMED'
+    _case(record['case'])['phase']='OBSERVING'
+    return guard
+
+
+def validate_post_enter_history(guard, *, policy, snapshot, frame, state, scope,
+        native_owner, controller_owner, transition_owner):
+    record=_registered(guard,_OBS_GUARDS,PostEnterHistoryGuard)
+    _case(record['case'],('OBSERVING',))
+    _current_binding(record,native_owner,controller_owner,transition_owner)
+    if (any(record[key] is not value for key,value in (('policy',policy),('state',state),
+            ('scope',scope),('native',native_owner),('controller',controller_owner),
+            ('transition',transition_owner))) or record['acked'] is not True): _fail(record)
+    _frame(record,snapshot,frame)
+    if (record['geometry']!=(snapshot.active,snapshot.baseY,snapshot.viewportY)
+            or policy.active_input_forbidden(snapshot)):
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED')
+    return _history_indices(record,policy,snapshot,post=True,current_acked=lambda: record['acked'] is True)
+
+
+def close_post_enter_history(guard):
+    if type(guard) is PostEnterHistoryGuard: _OBS_GUARDS.pop(guard,None)
 
 
 def _register_resume_dependent(view, dependent):
