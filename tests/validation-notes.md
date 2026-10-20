@@ -44,9 +44,44 @@ gap: optional-only deepcopy failures could suppress the base failure or entire
 export. Author reproduction confirmed both paths. Base append now precedes
 best-effort annotation storage, and optional copy/decoration/size failures omit
 only the annotation. Fresh observer16 and collector25 passed with add/export-copy
-and annotation-only serialization faults. The same review seat must recheck the
-correction; immutable full package gate is still pending at this checkpoint.
-Do not infer completion from focused success. Root/component versions and README behavior remain unchanged
+and annotation-only serialization faults. The same independent review seat
+rechecked corrected source 8f5d77180850159ee18f087c0b721618c9af8f32 and approved
+it as local-source-ready: no remaining Critical/Important/Minor findings.
+Independent observer16+collector25 (41 tests,9.930s) passed, no skips. Actual
+native/provider/browser/operator-data flows, remote CI/Security, staging,
+release and merge were explicitly outside that review and remain separate.
+
+The corrected immutable source passed the complete package gate from
+2026-10-20T12:52:42Z through 2026-10-20T13:06:21Z (819 seconds), exit0,
+package validation passed. Windows Git archive SHA256:
+`3c559bc397234fe8407518da016f3fafad30a6aef844e5c778c92b2a589d6761`.
+All546 canonical source files matched archive content/type/modes before and
+after execution in the native Linux export. The gate included observer16,
+driver75 (281.478s), offline65 (115.577s), and the new optional-copy/serialization
+and four-phase envelope regressions. No unexpected failure markers or
+ResourceWarnings were observed.
+
+Observed exclusions: one opt-in production-adapter test representing37 browser
+loopback scenarios reported CAPABILITY_UNAVAILABLE; three Python cases skipped
+the native-Windows permission-MCP rejection and Git-Bash-dependent
+context-continuity/Nori argument validation. PowerShell was unavailable in the
+clean Linux PATH, so native .ps1 syntax validation was skipped. Local schema and
+CI workflow validation passed; this is not remote CI/Security or native browser
+acceptance. No installed Claude process, real provider or operator state was
+used for this observer's implementation/validation.
+
+External evidence under .review-runtime/p004b-terminal-state/:
+p004b-history-observer-8f5d771-source.tar,
+p004b-history-observer-8f5d771-gate.log,
+p004b-history-observer-source-review.md and p004b-history-observer-progress.md.
+The versioned closeout after reviewed8f5d771 changes these validation notes only;
+the implementation remains identical to the reviewed and gated runtime source.
+No native usefulness is inferred from these synthetic results. Another native
+observation still requires a fresh exact-final-commit one-shot grant, keeping
+the original up-to-two-case/25-second-dialogue/165-second-total loopback-only
+synthetic scope, no real provider/operator state/content debug/export, disposal
+before aggregation and stop-first-inconclusive/no-automatic-retry constraints.
+The f2810ea grant remains consumed. Root/component versions and README behavior remain unchanged
 for this test-only extension. Native usefulness, provider/browser acceptance,
 remote CI/Security, staging, release and merge gates remain separate.
 
