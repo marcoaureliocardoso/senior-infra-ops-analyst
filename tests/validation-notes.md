@@ -33,13 +33,20 @@ A later candidate test initially reused a frame with a different snapshot and
 correctly hit RESUME_HISTORY_REPLAY_REJECTED; the fixture was corrected to frame4,
 without changing the guard. Diagnostic facts never revive a revoked command.
 
-Current focused checks passed: observer15, echo47, journal14, collector25,
-display17, history28, the new resumed PTY scenario and the four-phase envelope
-pressure test. No skips in those checks. The last test measures the existing
-16384-byte ceiling and confirms optional metadata cannot supply missing success
-evidence. Full driver/offline suites, independent review and immutable full gate
-are pending at this documentation checkpoint; do not infer completion from
-focused success. Root/component versions and README behavior remain unchanged
+Initial candidate 395df50 passed all315 affected runtime tests: observer15,
+echo47, journal14, collector25, display17, history28, debug29, full driver75
+(287.157s) and offline65 (118.721s), no skips. Content/architecture13/release42
+also passed. The new PTY scenario and four-phase envelope pressure test are
+included in those suites; optional metadata cannot supply missing success evidence.
+
+The one independent source review nevertheless found an Important fault-isolation
+gap: optional-only deepcopy failures could suppress the base failure or entire
+export. Author reproduction confirmed both paths. Base append now precedes
+best-effort annotation storage, and optional copy/decoration/size failures omit
+only the annotation. Fresh observer16 and collector25 passed with add/export-copy
+and annotation-only serialization faults. The same review seat must recheck the
+correction; immutable full package gate is still pending at this checkpoint.
+Do not infer completion from focused success. Root/component versions and README behavior remain unchanged
 for this test-only extension. Native usefulness, provider/browser acceptance,
 remote CI/Security, staging, release and merge gates remain separate.
 

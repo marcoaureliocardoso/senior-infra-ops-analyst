@@ -1,5 +1,6 @@
 """Frozen structural rejection facts; no Claude/provider or acceptance authority."""
 from dataclasses import replace
+import copy
 import json
 import unittest
 from unittest import mock
@@ -171,6 +172,30 @@ class HistoryRejectionTests(unittest.TestCase):
         for row in report['records']: row.pop('historyRejection',None)
         self.assertEqual(report,plain)
         self.assertEqual(annotated.report(),annotated.report())
+
+    def test_optional_copy_failure_keeps_base_at_add_and_export(self):
+        original=copy.deepcopy
+        original_json=json.dumps
+        def lose_optional(value,*args,**kwargs):
+            if type(value) is dict and set(value)==set(DETAIL): raise ValueError('synthetic optional copy loss')
+            return original(value,*args,**kwargs)
+        def lose_serialization(value,*args,**kwargs):
+            if any('historyRejection' in row for row in value.get('records',[])):
+                raise ValueError('synthetic optional serialization loss')
+            return original_json(value,*args,**kwargs)
+        for phase in ('add','export','serialization'):
+            with self.subTest(phase=phase):
+                collector=TerminalDiagnostics(); baseline=TerminalDiagnostics()
+                if phase!='add': collector.add('failure','INPUT_PROBE_INELIGIBLE',**FIELDS,historyRejection=DETAIL)
+                target=('terminal_structural_diagnostics.json.dumps' if phase=='serialization'
+                    else 'terminal_structural_diagnostics.copy.deepcopy')
+                with mock.patch(target,side_effect=lose_serialization if phase=='serialization' else lose_optional):
+                    if phase=='add': collector.add('failure','INPUT_PROBE_INELIGIBLE',**FIELDS,historyRejection=DETAIL)
+                    collector.add('native_cleanup','CLEANUP_COMPLETED',leaderReaped=True)
+                    report=collector.report()
+                baseline.add('failure','INPUT_PROBE_INELIGIBLE',**FIELDS)
+                baseline.add('native_cleanup','CLEANUP_COMPLETED',leaderReaped=True)
+                self.assertEqual(report,baseline.report())
 
 
 if __name__=='__main__': unittest.main()

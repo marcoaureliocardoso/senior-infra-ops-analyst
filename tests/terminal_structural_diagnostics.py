@@ -97,14 +97,19 @@ class TerminalDiagnostics:
         if (len(self._records)>=MAX_RECORDS
                 or len(json.dumps(candidate,sort_keys=True).encode('utf-8'))>MAX_BYTES):
             self._truncated=True; return
-        if keep_history: self._history_annotations[len(self._records)]=copy.deepcopy(optional)
         self._records.append(record)
+        if keep_history:
+            try: self._history_annotations[len(self._records)-1]=copy.deepcopy(optional)
+            except Exception: pass
 
     def report(self):
         result=copy.deepcopy({'records':self._records,'truncated':self._truncated,'rejected':self._rejected})
         # Decorate only after all base records (including cleanup) have priority.
         for index,detail in self._history_annotations.items():
-            result['records'][index]['historyRejection']=copy.deepcopy(detail)
-            if len(json.dumps(result,sort_keys=True).encode('utf-8'))>MAX_BYTES:
-                result['records'][index].pop('historyRejection')
+            try:
+                result['records'][index]['historyRejection']=copy.deepcopy(detail)
+                if len(json.dumps(result,sort_keys=True).encode('utf-8'))>MAX_BYTES:
+                    result['records'][index].pop('historyRejection')
+            except Exception:
+                result['records'][index].pop('historyRejection',None)
         return result
