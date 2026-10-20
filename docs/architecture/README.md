@@ -17,6 +17,13 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 separately indexes the proposed
+[passive post-Enter observation specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md).
+The conversational direction is approved; written review and implementation
+remain pending. This isolated diagnostic would observe the later native display
+without granting input or acceptance. Current enforced behavior is unchanged;
+no native execution grant, profile compatibility or acceptance is implied.
+
 ADR-010 records the locally implemented, approved test-only
 [correlated context-display evidence contract](../superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md).
 It distinguishes observed numbers, an owned current-command display and nonce

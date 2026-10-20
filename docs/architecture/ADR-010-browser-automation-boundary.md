@@ -1057,7 +1057,30 @@ Focused/full-gate evidence and independent-review status belong in validation
 notes, not an inferred acceptance claim. Roll back the optional observer,
 journal/collector/driver plumbing and tests together; old grants stay consumed.
 
+## Proposed passive post-Enter observation - 2026-10-20
+
+The operator approved designing a separate disposable observational probe after
+the consumed d3e9816 attempt. That attempt identified a completion-shaped first
+rejection at a noted pre-Enter menu position after one Enter, but did not observe
+the later timeline or prove row identity. Waiting alone may still fail because
+HISTORY_COMMIT_V1 forbids promotion of pre-Enter menu positions to new history.
+
+The proposed [written specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md)
+is awaiting operator review. It defines an explicit offline-only mode, separate
+schema and irreversible no-input boundary after the one owned Enter. It reuses
+isolation and cleanup, retains only closed structural results, and cannot emit
+acceptance receipts or resume a revoked operation. Full existing profile shape,
+unsupported transitions and deadline/safety stops remain distinct observations.
+
+This section records proposed architecture, not implemented or enforced
+behavior. Existing immediate rejection, pre-Enter-only menu lifetime and all
+acceptance invariants remain unchanged. No native execution, plan execution,
+provider/browser acceptance or new retention permission is implied. A later
+implementation and exact-final-commit native authorization are separate gates.
+
 ## Links
+
+- Proposed passive post-Enter observation (written review pending; not implemented): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`
 - Approved correlated-display implementation plan: `docs/superpowers/plans/2026-10-19-p0-04b-correlated-context-display.md`

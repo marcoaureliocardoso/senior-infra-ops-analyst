@@ -7,6 +7,11 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Documented a proposed development-only passive post-Enter observation mode,
+  with separate reporting, no further input and unchanged acceptance contracts.
+  The design direction is approved; written-spec review and implementation are
+  pending. No native run, installed behavior, retention or version change.
+
 - Added optional test-only structural facts for the exact resumed
   HISTORY_ELIGIBILITY rejection: row shape, relation to a pre-Enter menu cell
   and pinned/retired history position, sample presence, candidate count and
