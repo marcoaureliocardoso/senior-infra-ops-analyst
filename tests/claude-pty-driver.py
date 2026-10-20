@@ -300,9 +300,22 @@ def drive(
     compact_events_path: Path | None = None,
     startup_approval=None,
     *, terminal_state=None, terminal_diagnostics=None, input_probe_scope=None, context_debug=None, context_edit_debug=None,
-    _initial_completion_sink=None, _resume_offer=None,
+    _initial_completion_sink=None, _resume_offer=None, _post_enter_observation=None,
 ) -> int:
     """Run the fixed continuity dialogue and retain only the temporary PTY capture."""
+    if _post_enter_observation is not None:
+        from terminal_resume_history import observation_resume_offer
+        try:
+            if (terminal_state is None or input_probe_scope is None or os.name!='posix' or dialogue!='context'
+                    or any(value is not None for value in (_resume_offer,_initial_completion_sink,
+                        context_debug,context_edit_debug,startup_approval))): raise RuntimeError
+            observation_resume_offer(_post_enter_observation,state=terminal_state,
+                scope=input_probe_scope,command=tuple(command))
+        except (RuntimeError,TypeError,ValueError):
+            if terminal_state is not None:
+                try: terminal_state.close()
+                except RuntimeError: pass
+            return 2
     if _initial_completion_sink is not None or _resume_offer is not None:
         from terminal_resume_history import validate_initial_sink, validate_resume_offer
         try:
@@ -359,7 +372,8 @@ def drive(
                              terminal_state,writer=write_all,diagnostics=terminal_diagnostics,
                              input_probe_scope=input_probe_scope,context_debug=context_debug,context_edit_debug=context_edit_debug,
                              **({'_initial_completion_sink':_initial_completion_sink} if _initial_completion_sink is not None else {}),
-                             **({'_resume_offer':_resume_offer} if _resume_offer is not None else {}))
+                             **({'_resume_offer':_resume_offer} if _resume_offer is not None else {}),
+                             **({'_post_enter_observation':_post_enter_observation} if _post_enter_observation is not None else {}))
     if (startup_approval is not None and dialogue != "context") or os.name != "posix" or not drive_request_valid(
         command, timeout_seconds, dialogue, filler_path, compact_events_path,
     ):

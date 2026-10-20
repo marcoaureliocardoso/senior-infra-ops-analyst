@@ -946,6 +946,7 @@ class ResumedHistoryDriverTests(unittest.TestCase):
         from resume_history_fixtures import write_context_peer
         peer=f.root/'native-peer.py'; seen=f.root/'native-input'
         barrier_fd=changes.pop('_peer_barrier_fd',None)
+        observation=changes.pop('observation',False)
         write_context_peer(peer,mode=mode,seen=seen,barrier_fd=barrier_fd)
         real_launch=subprocess.Popen
         expected=f.initial_command if mode=='initial' else f.resume_command
@@ -971,6 +972,11 @@ class ResumedHistoryDriverTests(unittest.TestCase):
         kwargs=dict(terminal_state=f.state,input_probe_scope=f.scope)
         if 'diagnostics' in changes: changes['terminal_diagnostics']=changes.pop('diagnostics')
         if mode=='initial': kwargs['_initial_completion_sink']=f.sink
+        elif observation:
+            import terminal_resume_history as history
+            request=history.offer_post_enter_observation(f.case,state=f.state,
+                scope=f.scope,command=expected)
+            kwargs['_post_enter_observation']=request
         else: kwargs['_resume_offer']=f.offer()
         kwargs.update(changes)
         with mock.patch.object(selected_controller.subprocess,'Popen',new=replacement):
@@ -978,7 +984,90 @@ class ResumedHistoryDriverTests(unittest.TestCase):
                 dialogue='context',**kwargs)
         self.assertTrue(all(child.poll() is not None for child in children))
         self.assertTrue(f.state.helper_reaped)
+        if observation:
+            self.last_observation=history.take_post_enter_result(request)
         return result,seen.read_bytes() if seen.exists() else b''
+
+    def test_observer_seals_every_write_after_one_enter(self):
+        self.assertIn('_post_enter_observation',inspect.signature(self.driver.drive).parameters,
+            'exclusive observer driver interface absent')
+        from resume_history_fixtures import CaseFixture
+        for mode in ('equal-values','changed-values','no-history','observe-lingering'):
+            with self.subTest(mode=mode),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                result,data=self.run_owned(f,mode,observation=True)
+                self.assertEqual(data,b'/context\r')
+                self.assertEqual(result,0 if mode in ('equal-values','changed-values') else 2)
+                self.assertEqual(self.last_observation['profileObserved'],result==0)
+                events=[json.loads(line) for line in (f.root/'native-events').read_text().splitlines()]
+                self.assertFalse(any(row['outcome']=='passed' and row['stage'] in
+                    ('context_display','context_inspected','input_probe_started','input_probe_echo',
+                     'input_probe_cleared','exit') for row in events))
+
+    def test_observation_never_constructs_acceptance_receipts(self):
+        self.assertIn('_post_enter_observation',inspect.signature(self.driver.drive).parameters,
+            'exclusive observer driver interface absent')
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            # A forbidden call raises; success must come from the real observer.
+            with mock.patch.object(selected_controller,'NonceInputChallenge',side_effect=AssertionError('nonce attempted')):
+                result,data=self.run_owned(f,'equal-values',observation=True)
+            self.assertEqual((result,data),(0,b'/context\r'))
+            self.assertEqual(self.last_observation['outcome'],'CURRENT_PROFILE_OBSERVED')
+
+    def test_observer_delayed_fragmented_and_terminal_response_peers(self):
+        from resume_history_fixtures import CaseFixture
+        for mode,want in (('observe-delayed',0),('observe-cell',2),('observe-fragmented',2),('observe-response',0)):
+            with self.subTest(mode=mode),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                result,data=self.run_owned(f,mode,observation=True)
+                self.assertEqual((result,data),(want,b'/context\r'),self.last_observation)
+                if mode=='observe-cell': self.assertEqual(self.last_observation['outcome'],'INVENTORIED_CELL_REPLACEMENT')
+
+    def test_observer_blocks_alternate_writer_callback_before_io(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_post_enter_observation import PostEnterObservation
+        actual=PostEnterObservation.observe
+        for direct in (True,False):
+            with self.subTest(direct=direct),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                def attempt(observer,snapshot,frame):
+                    actual(observer,snapshot,frame)
+                    if not observer.candidate_ready: return
+                    current=inspect.currentframe()
+                    try:
+                        while current is not None and current.f_code.co_name!='drive_context': current=current.f_back
+                        self.assertIsNotNone(current)
+                        with self.assertRaises(RuntimeError): current.f_locals['write_terminal'](b'X',direct=direct)
+                    finally: del current
+                with mock.patch.object(PostEnterObservation,'observe',new=attempt):
+                    result,data=self.run_owned(f,'equal-values',observation=True)
+                self.assertEqual((result,data),(2,b'/context\r'))
+                self.assertEqual(self.last_observation['stopCategory'],'WRITE_ATTEMPT')
+
+    def test_observer_typed_request_and_mode_conflicts_stop_before_launch(self):
+        from resume_history_fixtures import CaseFixture
+        for bad in ({'_post_enter_observation':True},{'context_debug':object()},
+                {'_resume_offer':object()},{'startup_approval':object()}):
+            with self.subTest(bad=bad),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                self.assertEqual(self.run_owned(f,'equal-values',observation=True,**bad),(2,b''))
+
+    def test_observer_cancellation_after_profile_stops_without_input(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_post_enter_observation import PostEnterObservation
+        from terminal_cancellation import TerminalCancellation
+        actual=PostEnterObservation.observe
+        with CaseFixture() as f,TerminalCancellation() as token:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal(cancellation=token)
+            def cancelled(observer,snapshot,frame):
+                actual(observer,snapshot,frame)
+                if observer.candidate_ready: os.kill(os.getpid(),signal.SIGTERM)
+            with mock.patch.object(PostEnterObservation,'observe',new=cancelled):
+                result,data=self.run_owned(f,'equal-values',observation=True)
+            self.assertEqual((result,data),(2,b'/context\r'))
+            self.assertFalse(self.last_observation['profileObserved'])
 
     def test_resumed_equal_and_changed_values_require_display_before_nonce(self):
         from resume_history_fixtures import CaseFixture

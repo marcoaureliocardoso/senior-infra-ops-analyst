@@ -31,6 +31,9 @@ class _ContextFailure(RuntimeError):
         super().__init__(reason)
 
 
+class _ObservationComplete(Exception): pass
+
+
 def exit_input_owned(policy,snapshot,anchor,original_row,written,*,context_receipt=None,scope=None,state=None,
                      native_owner=None,transition_owner=None,frame=None,_resume_view=None,_controller_owner=None,
                      _normalization_owner=None):
@@ -82,7 +85,19 @@ def _terminate(process):
 
 def drive_context(command,capture_path,timeout_seconds,events_path,startup_approval,state,*,writer,diagnostics=None,
                   input_probe_scope=None,context_debug=None,context_edit_debug=None,
-                  _initial_completion_sink=None,_resume_offer=None):
+                  _initial_completion_sink=None,_resume_offer=None,_post_enter_observation=None):
+    if _post_enter_observation is not None:
+        from terminal_resume_history import observation_resume_offer
+        try:
+            if (input_probe_scope is None or any(value is not None for value in
+                    (_initial_completion_sink,_resume_offer,context_debug,context_edit_debug,startup_approval))):
+                raise RuntimeError
+            _resume_offer=observation_resume_offer(_post_enter_observation,state=state,
+                scope=input_probe_scope,command=tuple(command))
+        except (RuntimeError,TypeError,ValueError):
+            try: state.close()
+            except RuntimeError: pass
+            return 2
     if _initial_completion_sink is not None or _resume_offer is not None:
         try:
             if (input_probe_scope is None or (_initial_completion_sink is not None and _resume_offer is not None)):
@@ -114,6 +129,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     context_command=None; context_receipt=None
     context_journal=None; journal_active=False; controller_owner=object()
     numeric_context_observed=False
+    observer=None; input_sealed=False
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
@@ -140,6 +156,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
                  input_row_relation=None,input_row_cause=None,context_command_failure=None,normalized_input_failure=None,
                  history_rejection=None):
+        if _post_enter_observation is not None and point not in ('native_cleanup','helper_cleanup'): return
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
             fields={}
@@ -171,6 +188,16 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if percent is not None: value['percent']=percent
         with events_path.open('a',encoding='utf-8') as stream:
             stream.write(json.dumps(value,sort_keys=True)+'\n')
+
+    def write_terminal(data,*,direct=False):
+        if input_sealed:
+            if observer is not None: observer.stop('SAFETY_STOP','WRITE_ATTEMPT')
+            raise _ContextFailure('INPUT_UNPROVEN')
+        return os.write(master,data) if direct else writer(master,data)
+
+    def seal_terminal_input():
+        nonlocal input_sealed
+        input_sealed=True
 
     def exit_owned(written):
         return exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
@@ -211,6 +238,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         except TerminalStateError as error:
             if error.reason=='TERMINAL_DEADLINE_EXCEEDED': note_failure(error,'DEADLINE')
             raise
+        if input_sealed:
+            observer.observe(snapshot,frame)
+            return True
         authentication=policy.authentication(snapshot)
         if _resume_offer is not None and policy.active_input_forbidden(snapshot):
             if resume_view is not None: revoke_resume_view(resume_view)
@@ -262,8 +292,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             selection=startup_approval.selection(policy.screen_text(snapshot))
             if selection is None: raise RuntimeError('startup decision unavailable')
             policy.mark_transition(snapshot)
-            if selection: writer(master,selection)
-            writer(master,b'\r')
+            if selection: write_terminal(selection)
+            write_terminal(b'\r')
             wait_for(lambda: policy.authentication(snapshot) is None)
             settle()
             if policy.authentication(snapshot): raise RuntimeError('startup authentication reappeared')
@@ -276,7 +306,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         while pump(0): pass
         auth_clear()
         if not policy.ready(snapshot): raise _ContextFailure('INPUT_UNPROVEN')
-        writer(master,line.encode('utf-8')+b'\r')
+        write_terminal(line.encode('utf-8')+b'\r')
 
     def operation_live():
         check_cancelled()
@@ -302,7 +332,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
             if phase=='CONSUMED' and not exit_owned(written):
                 raise InputProofError('INPUT_PROBE_REVOKED')
-            try: count=os.write(master,pending)
+            try: count=write_terminal(pending,direct=True)
             except BlockingIOError: continue
             except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
             if type(count) is not int or not 0<count<=len(pending):
@@ -312,6 +342,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             pending=pending[count:]
 
     def command_write(payload,*,submission=False):
+        nonlocal observer,resume_view
         pending=memoryview(payload); written=0
         while pending:
             def check():
@@ -325,7 +356,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
             while pump(0): pass
             check()
-            try: count=os.write(master,pending)
+            try: count=write_terminal(pending,direct=True)
             except BlockingIOError: continue
             except OSError: raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE') from None
             if type(count) is not int or not 0<count<=len(pending):
@@ -333,7 +364,12 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE')
             journal_call('acknowledge',count,submission=submission,remaining=len(pending))
             written+=count; pending=pending[count:]
-            if submission: context_command.submission_written(count)
+            if submission:
+                context_command.submission_written(count)
+                if _post_enter_observation is not None:
+                    observer=context_command.post_enter_observation()
+                    seal_terminal_input()
+                    resume_view=None
             else: context_command.check_edit(snapshot,frame,written)
 
     try:
@@ -363,8 +399,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if heading not in text_folded(): continue
             if _resume_offer is not None: raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
             current_stage=stage; policy.mark_transition(snapshot)
-            if selection: writer(master,selection)
-            writer(master,b'\r')
+            if selection: write_terminal(selection)
+            write_terminal(b'\r')
             wait_for(lambda: heading not in text_folded())
             settle(); auth_clear(); record(stage,'passed')
         current_stage='prompt_ready'
@@ -393,15 +429,26 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame,
                 _diagnostic_journal=context_journal,
                 **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}),
+                **({'_post_enter_request':_post_enter_observation} if _post_enter_observation is not None else {}),
                 **({'_edit_row_observer':edit_observer} if edit_observer is not None else {}))
             command_write(context_command.type_bytes(snapshot,frame))
             wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
             while pump(0): pass
             operation_live(); auth_clear()
+            if _post_enter_observation is not None:
+                from terminal_context_echo import _prepare_post_enter_observation
+                observer=_prepare_post_enter_observation(context_command,snapshot,frame,
+                    request=_post_enter_observation,controller_owner=controller_owner)
             command_write(context_command.submit_bytes(snapshot,frame),submission=True)
         else:
             send('/context'); policy.mark_transition(snapshot)
         diagnose('context_sent')
+        if _post_enter_observation is not None:
+            wait_for(lambda: observer.phase=='FINISHED' or observer.candidate_ready)
+            while pump(0): pass
+            if observer.candidate_ready: observer.complete(snapshot,frame)
+            result=0 if observer.summary()['outcome']=='CURRENT_PROFILE_OBSERVED' else 2
+            raise _ObservationComplete()
         if resume_view is not None:
             def display_ready():
                 nonlocal numeric_context_observed
@@ -442,7 +489,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             diagnose('input_probe_cleared',structural=False)
         elif not policy.ready(snapshot):
             auth_clear(); policy.mark_transition(snapshot)
-            writer(master,b'\x1b')
+            write_terminal(b'\x1b')
             diagnose('panel_close_sent')
             wait_for(lambda: policy.ready(snapshot)); settle(); auth_clear()
             diagnose('panel_closed')
@@ -464,7 +511,14 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 state=state,scope=input_probe_scope,native_owner=process,transition_owner=transition,
                 context_command=context_command,probe=probe,frame=frame,exit_written=exit_written)
         record(current_stage,'passed'); result=0
+    except _ObservationComplete:
+        pass
     except (OSError,RuntimeError,TimeoutError,subprocess.SubprocessError) as error:
+        if observer is not None and observer.phase!='FINISHED':
+            expired=time.monotonic()>=deadline or isinstance(error,TimeoutError)
+            observer.stop('DEADLINE' if expired else 'SAFETY_STOP',
+                'DEADLINE' if expired else 'CANCELLED' if isinstance(error,TerminalCancelled) else
+                'CAPTURE_PROTOCOL' if isinstance(error,TerminalStateError) else 'PROCESS_EXIT')
         if resume_view is not None: revoke_resume_view(resume_view)
         if isinstance(error,TerminalStateError): current_stage='terminal_state'
         record(current_stage,'failed')
@@ -493,6 +547,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             try: context_edit_debug.finish()
             except Exception: pass
         journal_call('finish')
+        if observer is not None: observer.close()
         if result!=0 and resume_view is not None: revoke_resume_view(resume_view)
         if startup_approval is not None: startup_approval.revoke()
         native_cleanup='CLEANUP_COMPLETED'
