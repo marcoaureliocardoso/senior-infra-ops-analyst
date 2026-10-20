@@ -639,6 +639,28 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
             'capabilitiesDropped':True,'disposableRootAbsent':True}
         self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
 
+    def test_four_history_observer_phases_keep_outer_budget_and_cannot_supply_success(self):
+        detail={'rowShape':'CONTEXT_COMPLETION','preEnterMenuCell':True,'historyCell':'NONE',
+            'samplePresent':True,'newHistoryCount':0,'displayPhase':'AWAIT_DISPLAY'}
+        failure={'phase':'CONTEXT_PENDING','check':'HISTORY_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':1}
+        diagnostics=TerminalDiagnostics()
+        for _ in range(7):
+            diagnostics.add('failure','INPUT_PROBE_INELIGIBLE',inputEligibility='UNSUPPORTED_ROW',
+                inputRowRelation='OTHER_CAPTURED_ROW',inputRowCause='UNRECOGNIZED_SHAPE',
+                contextCommandFailure=failure,historyRejection=detail)
+        for point in ('native_cleanup','helper_cleanup'):
+            diagnostics.add(point,'CLEANUP_COMPLETED',leaderReaped=True)
+        phase=diagnostics.report()
+        self.assertFalse(phase['truncated']); self.assertFalse(phase['rejected'])
+        self.assertTrue(any('historyRejection' in row for row in phase['records']))
+        stages=[{'phase':name,'events':[],'diagnostics':phase} for name in ('before','after')]
+        case={'case':'text-turn','stages':stages,'beforeExit':0,'sdkExit':0,'afterExit':0,
+            'contextInspected':True,'naturalExit':True,'caseRootAbsent':True,'validSDKSample':True,'skillCalls':0}
+        self.assertFalse(self.module.case_complete(case))
+        envelope={'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[case,{**case,'case':'skill-turn'}],
+            'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True,'disposableRootAbsent':True}
+        self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
+
     def test_fresh_context_labels_survive_failed_stage_aggregation_without_authority(self):
         for check in ('FRESH_CONTEXT_FRAME_NOT_ADVANCED','FRESH_CONTEXT_SIGNATURE_UNCHANGED',
                 'FRESH_CONTEXT_NUMERIC_UNAVAILABLE'):

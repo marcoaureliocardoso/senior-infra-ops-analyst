@@ -1012,6 +1012,23 @@ class ResumedHistoryDriverTests(unittest.TestCase):
                 events=[json.loads(row) for row in (f.root/'native-events').read_text().splitlines()]
                 self.assertFalse(any(row['stage']=='context_inspected' and row['outcome']=='passed' for row in events))
 
+    def test_resumed_lingering_menu_exports_frozen_failure_without_nonce(self):
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            diagnostics=TerminalDiagnostics()
+            result,data=self.run_owned(f,'lingering-menu',diagnostics=diagnostics)
+            self.assertEqual(result,2)
+            self.assertEqual(data,b'/context\r')
+            report=diagnostics.report(); self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+            failure=next(row for row in report['records'] if row['point']=='failure')
+            self.assertEqual(failure['contextCommandFailure'],{'phase':'CONTEXT_PENDING','check':'HISTORY_ELIGIBILITY',
+                'commandBytesWritten':8,'enterBytesWritten':1})
+            self.assertEqual(failure['historyRejection'],{'rowShape':'CONTEXT_COMPLETION','preEnterMenuCell':True,
+                'historyCell':'NONE','samplePresent':True,'newHistoryCount':0,'displayPhase':'AWAIT_DISPLAY'})
+            self.assertNotIn('input_probe_started',[row['point'] for row in report['records']])
+            self.assertEqual([row['leaderReaped'] for row in report['records'] if 'leaderReaped' in row],[True,True])
+
     def test_conflicting_complete_samples_stop_without_nonce(self):
         from resume_history_fixtures import CaseFixture
         from terminal_context_sample import sample_context

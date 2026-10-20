@@ -1,5 +1,48 @@
 # Validation Notes
 
+## Frozen history-eligibility observer - 2026-10-20
+
+Approved bounded implementation baseline: clean f2810ea0da9210e7ba9f4f545ddc09987b498285
+in the existing isolated p0-04b-browser-automation worktree. The operator approved
+the in-chat design: optional frozen structural categories only, no change to
+acceptance/writes/timeouts/retention, followed by independent review and the full
+package gate. No new installed-Claude/provider/browser execution is authorized.
+
+The consumed f2810ea attempt was inconclusive in 10.625 seconds, not a timeout.
+Initial context/nonce/clear/exit and the synthetic SDK control passed. Resumed
+HISTORY_ELIGIBILITY failed after 8+1 writes with UNSUPPORTED_ROW /
+OTHER_CAPTURED_ROW / UNRECOGNIZED_SHAPE. Cleanup was proved. Its initial
+SDK_TEXT_PROMPT_SHAPE label does not identify the later composed rejection.
+Construction evidence is outside Git under .review-runtime/p004b-terminal-state/:
+p004b-offline-f2810ea-outcome.md and p004b-history-eligibility-findings.md.
+The old marker is consumed and must never be removed/reused.
+
+Implementation freezes closed shape/menu-position/history-position/sample/count/
+display-phase facts at the exact ordered rejection before view revocation. Facts
+are projected through the bound failure journal, not a later passive snapshot.
+Optional collection/projection/schema loss preserves the original failure.
+Export decorates the existing failure only after all base phase records are
+known, so optional bytes cannot displace cleanup or change base truncation.
+No new content copy, raw export, public capability, flag or acceptance exception.
+
+Author RED/GREEN evidence: the schema test failed for the missing API; induced
+optional-validator loss exposed loss of the base journal and passed after it was
+isolated; the new PTY scenario first demonstrated the default peer's successful
+path and then passed with the explicitly lingering post-Enter menu fixture.
+A later candidate test initially reused a frame with a different snapshot and
+correctly hit RESUME_HISTORY_REPLAY_REJECTED; the fixture was corrected to frame4,
+without changing the guard. Diagnostic facts never revive a revoked command.
+
+Current focused checks passed: observer15, echo47, journal14, collector25,
+display17, history28, the new resumed PTY scenario and the four-phase envelope
+pressure test. No skips in those checks. The last test measures the existing
+16384-byte ceiling and confirms optional metadata cannot supply missing success
+evidence. Full driver/offline suites, independent review and immutable full gate
+are pending at this documentation checkpoint; do not infer completion from
+focused success. Root/component versions and README behavior remain unchanged
+for this test-only extension. Native usefulness, provider/browser acceptance,
+remote CI/Security, staging, release and merge gates remain separate.
+
 ## Correlated context display - 2026-10-19 local implementation
 
 Approved execution baseline: `8fb6582d41f8c19ef0659993c1db83ed49c589f2`, clean

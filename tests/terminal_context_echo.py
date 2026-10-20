@@ -14,6 +14,7 @@ _SEAL=object()
 _COMMANDS=weakref.WeakKeyDictionary()
 _RECEIPTS=weakref.WeakKeyDictionary()
 _OBSERVATIONS=weakref.WeakKeyDictionary()
+_REJECTION_DETAILS=weakref.WeakKeyDictionary()
 _USED_SCOPES=weakref.WeakSet()
 _EDIT_ROWS=weakref.WeakKeyDictionary()
 _MENU_BINDINGS=weakref.WeakKeyDictionary()
@@ -240,6 +241,9 @@ def _assess_resumed_context(command,snapshot,frame):
     assessment,rejected=record['policy']._empty_input_assessment(snapshot,_excluded_rows=excluded)
     observation=_observation(record['policy'],snapshot,assessment,rejected,excluded)
     if assessment.anchor is None:
+        # Optional facts are frozen before revocation removes the private view.
+        try: _freeze_history_rejection(observation,record,tracker,snapshot,rejected,index)
+        except Exception: pass
         _revoke_record_view(record)
         return assessment,rejected,observation
     sample=sample_context(snapshot)
@@ -429,6 +433,43 @@ def _observation(policy,snapshot,assessment,rejected,excluded):
     return value
 
 
+def _note_diagnostic_menu(command):
+    """Keep only a bounded cell position, never the menu row or its permission."""
+    tracker=_DISPLAY_TRACKERS.get(command); binding=_MENU_BINDINGS.get(command)
+    if tracker is not None and binding is not None and binding[1] is not None:
+        tracker['diagnostic_menu_cell']=binding[1][0]
+
+
+def _freeze_history_rejection(observation,record,tracker,snapshot,rejected,index):
+    from terminal_resume_history import _VIEWS, match_history_row
+    from terminal_context_diagnostics import valid_history_rejection
+    if observation is None or type(rejected) is not int or not 0<=rejected<len(snapshot.rows): return
+    view=_VIEWS.get(record['resume_view'])
+    if view is None: return
+    row=snapshot.rows[rejected]; profile=view['profiles'].get(rejected)
+    shape=next((kind for kind in ('CONTEXT','EXIT','SDK_TEXT','SDK_SKILL')
+        if match_history_row(row,kind) is not None),'OTHER')
+    if shape in ('CONTEXT','EXIT'): shape+='_COMMAND'
+    if record['policy']._context_completion_row(row): shape='CONTEXT_COMPLETION'
+    detail={'rowShape':shape,'preEnterMenuCell':rejected==tracker.get('diagnostic_menu_cell'),
+        'historyCell':('RETIRED_' if rejected in view['retired'] else 'PINNED_')+profile.kind if profile else 'NONE',
+        'samplePresent':sample_context(snapshot) is not None,'newHistoryCount':int(index is not None),
+        'displayPhase':tracker['phase']}
+    if valid_history_rejection(detail): _REJECTION_DETAILS[observation]=tuple(sorted(detail.items()))
+
+
+def _history_rejection_detail(observation):
+    detail=_REJECTION_DETAILS.get(observation) if observation is not None else None
+    return dict(detail) if detail is not None else None
+
+
+def _diagnose_history_rejection(record,error,observation):
+    detail=None
+    try: detail=_history_rejection_detail(observation)
+    except Exception: pass
+    _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY',history_rejection=detail)
+
+
 class OwnedContextCommand(_Sealed):
     __slots__=()
 
@@ -499,6 +540,8 @@ class OwnedContextCommand(_Sealed):
         if record['phase']!='SUBMIT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         if type(count) is not int or count!=1: _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
         _phase(record,'CONTEXT_PENDING')
+        try: _note_diagnostic_menu(self)
+        except Exception: pass
         _release_command_menu(record)
         if record.get('resume_view') is not None:
             tracker=_display_tracker(self,record)
@@ -515,7 +558,7 @@ class OwnedContextCommand(_Sealed):
         assessment,_,observation=result
         if assessment.anchor is None:
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
-            _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY')
+            _diagnose_history_rejection(record,error,observation)
             self.invalidate('INPUT_PROBE_REVOKED')
             attach_context_rejection(error,observation); raise error
         return _DISPLAYS[record['display_witness']]['sample'].numbers.used
@@ -543,7 +586,7 @@ class OwnedContextCommand(_Sealed):
             observation=_observation(record['policy'],snapshot,assessment,rejected,excluded) if excluded is not None else None
         if assessment.anchor is None:
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
-            _diagnostic(record,'freeze',error,'HISTORY_ELIGIBILITY')
+            _diagnose_history_rejection(record,error,observation)
             self.invalidate('INPUT_PROBE_REVOKED')
             attach_context_rejection(error,observation)
             raise error

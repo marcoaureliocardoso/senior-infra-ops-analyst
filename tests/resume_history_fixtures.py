@@ -70,7 +70,7 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
     text='P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
     history=((5,'❯ '+text),(10,'❯ /context'),(12,'❯ /exit')) if mode!='initial' else ()
     initial='\x1b[?1049h'
-    if mode in ('equal-values','changed-values','no-history','cosmetic-only','conflicting-sample'):
+    if mode in ('equal-values','changed-values','no-history','cosmetic-only','conflicting-sample','lingering-menu'):
         initial+='\x1b[HContext Usage\r\nFree space: 81%\r\nAutocompact buffer: 3%'
     for row,line in history:
         initial+='\x1b['+str(row+1)+';1H'+line
@@ -96,6 +96,10 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
         intermediate=after.replace('\x1b[21;1H❯ /context','').replace('Free space: 81%','Free space: 80%')
         transition='os.write(1,'+repr(intermediate.encode())+')\n'+'os.read('+str(barrier_fd)+',1)\n'
     if mode=='completion-only': after='\x1b[2J\x1b[38;1H❯\u00a0'
+    menu='\x1b[9;1H❯ /context  Synthetic completion\x1b[38;11H'
+    if mode=='lingering-menu':
+        after=after.replace('\x1b[21;1H❯ /context','').replace('\x1b[38;1H❯\u00a0',
+            '\x1b[38;1H❯ /context'+menu)
     path.write_text('import os,tty\nfrom pathlib import Path\n'
         'tty.setraw(0)\n'
         'def read(n):\n'
@@ -111,6 +115,7 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
         'command=bytearray()\n'
         'for _ in range(8):\n'
         ' command.extend(read(1)); os.write(1,b"\\x1b[38;3H"+command)\n'
+        + ('os.write(1,'+repr(menu.encode())+')\n' if mode=='lingering-menu' else '') +
         'if command!=b"/context" or read(1)!=b"\\r": raise SystemExit(4)\n'
         +transition+'os.write(1,'+repr(after.encode())+')\n'
         'marker=read(16)\n'

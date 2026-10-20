@@ -2,7 +2,7 @@
 import copy
 import json
 from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
-from terminal_context_diagnostics import valid_context_failure, valid_normalized_input_failure, FAILURE_REASONS
+from terminal_context_diagnostics import valid_context_failure, valid_normalized_input_failure, valid_history_rejection, FAILURE_REASONS
 from terminal_resume_history import RESUME_REASONS
 
 MAX_RECORDS=16
@@ -49,8 +49,18 @@ def _structure(value):
 class TerminalDiagnostics:
     def __init__(self):
         self._records=[]; self._truncated=False; self._rejected=False
+        self._history_annotations={}
 
     def add(self,point,reasonCode,**fields):
+        optional=fields.pop('historyRejection',None)
+        base=fields.get('contextCommandFailure')
+        keep_history=False
+        try:
+            keep_history=(point=='failure' and reasonCode=='INPUT_PROBE_INELIGIBLE'
+                and fields.get('inputEligibility')=='UNSUPPORTED_ROW' and valid_context_failure(base)
+                and base=={'phase':'CONTEXT_PENDING','check':'HISTORY_ELIGIBILITY','commandBytesWritten':8,'enterBytesWritten':1}
+                and valid_history_rejection(optional))
+        except Exception: pass
         if (type(point) is not str or point not in POINTS
                 or type(reasonCode) is not str or reasonCode not in REASONS
                 or not set(fields)<={'structure','leaderReaped','inputEligibility','inputRowRelation','inputRowCause',
@@ -87,7 +97,14 @@ class TerminalDiagnostics:
         if (len(self._records)>=MAX_RECORDS
                 or len(json.dumps(candidate,sort_keys=True).encode('utf-8'))>MAX_BYTES):
             self._truncated=True; return
+        if keep_history: self._history_annotations[len(self._records)]=copy.deepcopy(optional)
         self._records.append(record)
 
     def report(self):
-        return copy.deepcopy({'records':self._records,'truncated':self._truncated,'rejected':self._rejected})
+        result=copy.deepcopy({'records':self._records,'truncated':self._truncated,'rejected':self._rejected})
+        # Decorate only after all base records (including cleanup) have priority.
+        for index,detail in self._history_annotations.items():
+            result['records'][index]['historyRejection']=copy.deepcopy(detail)
+            if len(json.dumps(result,sort_keys=True).encode('utf-8'))>MAX_BYTES:
+                result['records'][index].pop('historyRejection')
+        return result

@@ -1012,6 +1012,51 @@ not authorize another run. Revert coordinator, resumed driver and reducer
 together to restore the conservative signature contract; preserve evidence and
 consumed markers. Versions and installed package behavior remain unchanged.
 
+## Optional frozen history-eligibility diagnostics - 2026-10-20
+
+The consumed f2810ea offline attempt reached HISTORY_ELIGIBILITY but its closed
+labels could not distinguish a lingering completion, partially replaced old
+history or another unsupported marker row. Synthetic examples reproduce all
+three. None identifies the deleted native row. The operator approved a bounded
+diagnostic extension, not another native run or a change to acceptance policy.
+
+For the audited resumed CONTEXT_PENDING / HISTORY_ELIGIBILITY failure after
+eight command bytes and one Enter, freeze optional facts from the same ordered
+rejection before revocation removes the history view. Reuse the existing sealed
+rejection observation and journal error/controller/scope/state/transition binding.
+No current-state reconstruction, alternate evaluator or public capability is added.
+
+The optional historyRejection sibling contains only closed categories/booleans:
+rowShape, preEnterMenuCell, historyCell, samplePresent, newHistoryCount (0/1),
+and displayPhase (AWAIT_DISPLAY/CANDIDATE). Menu geometry is noted before its
+pre-Enter binding is released; this never extends that binding's lifetime.
+historyCell describes a previously pinned/retired position and fixture kind,
+not the identity or provenance of the currently displayed text. In particular,
+OTHER at RETIRED_SDK_TEXT does not prove that the current row is partial SDK text.
+A false preEnterMenuCell means no matching noted bound-menu position, not proof
+that the UI never displayed a menu. Shapes remain spoofable observations.
+
+Store no new raw row, snapshot copy, prompt, nonce, transcript, signature, hash,
+SDK stream or excerpt. The private side table holds only the closed frozen facts.
+Projection cannot use a copied exception, foreign binding or finished journal.
+Missing/failed observation is omitted while retaining the original rejection.
+Legacy records without this sibling remain valid.
+
+Decorate the existing failure record only when exporting the completed phase.
+All base records, including cleanup, take priority. Invalid or oversized optional
+facts are omitted, not allowed to reject/truncate/displace an otherwise retained
+base record. Keep 16 records / 3072 bytes per phase and 16384 bytes for the outer
+envelope including disposal/newline. Diagnostics never supply the operational
+context/display/nonce/exit evidence required by aggregation.
+
+The extension does not add a key, retry, sleep, CLI flag, dependency, runtime pin,
+permission, production behavior or retention exception. All guards, irreversible
+revocation and original execution/disposal limits remain unchanged. Native
+usefulness/compatibility and provider/browser acceptance are still unproven.
+Focused/full-gate evidence and independent-review status belong in validation
+notes, not an inferred acceptance claim. Roll back the optional observer,
+journal/collector/driver plumbing and tests together; old grants stay consumed.
+
 ## Links
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`

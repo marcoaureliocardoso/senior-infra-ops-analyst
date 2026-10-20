@@ -28,6 +28,11 @@ nonce ownership. This narrowly supersedes resumed signature inequality, not
 default/live behavior. Review/gate evidence is separate in validation notes;
 native support remains unproven and the prior execution grant remains consumed.
 
+ADR-010 also records the optional frozen HISTORY_ELIGIBILITY diagnostic extension
+approved on 2026-10-20. Closed row/display categories attach only to the original
+failure journal, never to input authority; base failure/cleanup records retain
+priority within unchanged budgets. Native usefulness still needs separate proof.
+
 ADR-010 also indexes the test-only
 [headless terminal design](../superpowers/specs/2026-10-07-p0-04b-headless-terminal-adapter-design.md)
 and [implementation plan](../superpowers/plans/2026-10-07-p0-04b-headless-terminal-adapter.md).

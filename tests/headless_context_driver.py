@@ -138,7 +138,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             note_failure(error,'CANCELLATION'); raise
 
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
-                 input_row_relation=None,input_row_cause=None,context_command_failure=None,normalized_input_failure=None):
+                 input_row_relation=None,input_row_cause=None,context_command_failure=None,normalized_input_failure=None,
+                 history_rejection=None):
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
             fields={}
@@ -150,6 +151,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if input_row_cause is not None: fields['inputRowCause']=input_row_cause
             if context_command_failure is not None: fields['contextCommandFailure']=context_command_failure
             if normalized_input_failure is not None: fields['normalizedInputFailure']=normalized_input_failure
+            if history_rejection is not None: fields['historyRejection']=history_rejection
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
@@ -475,7 +477,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             'input_row_cause':error.input_row_cause} if isinstance(error,InputProofError) else {})
         observation=journal_call('project_fields',error,controller_owner=controller_owner,
             scope=input_probe_scope,state=state,transition_owner=transition)
-        if type(observation) is dict and set(observation)<={'context_command_failure','normalized_input_failure'}:
+        if type(observation) is dict and set(observation)<={'context_command_failure','normalized_input_failure','history_rejection'}:
             metadata.update(observation)
         diagnose('failure',reason,**metadata)
         if context_edit_debug is not None:

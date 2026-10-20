@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added optional test-only structural facts for the exact resumed
+  HISTORY_ELIGIBILITY rejection: row shape, relation to a pre-Enter menu cell
+  and pinned/retired history position, sample presence, candidate count and
+  display phase. Facts freeze before revocation and are exported through the
+  existing failure journal; shape/position never grants input authority.
+  Base failure and cleanup records take priority within unchanged report limits.
+  No raw content, new native execution, policy relaxation or version change.
+
 - Added test-only HISTORY_COMMIT_V1 for audited offline resumed context displays.
   Equal numeric values require the exact owned command's newly observed history
   commit and a private single-use display witness; nonce/clear/exit ownership

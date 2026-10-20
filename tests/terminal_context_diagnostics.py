@@ -21,6 +21,20 @@ _JOURNALS=weakref.WeakKeyDictionary()
 _ATTACHMENTS=weakref.WeakKeyDictionary()
 
 
+def valid_history_rejection(value):
+    """Closed observations only: geometry and shape never imply input ownership."""
+    return (type(value) is dict and set(value)=={'rowShape','preEnterMenuCell','historyCell',
+            'samplePresent','newHistoryCount','displayPhase'}
+        and type(value['rowShape']) is str and value['rowShape'] in (
+            'CONTEXT_COMPLETION','CONTEXT_COMMAND','EXIT_COMMAND','SDK_TEXT','SDK_SKILL','OTHER')
+        and type(value['preEnterMenuCell']) is bool and type(value['samplePresent']) is bool
+        and type(value['historyCell']) is str and value['historyCell'] in (
+            'NONE','PINNED_CONTEXT','PINNED_EXIT','PINNED_SDK_TEXT','PINNED_SDK_SKILL',
+            'RETIRED_CONTEXT','RETIRED_EXIT','RETIRED_SDK_TEXT','RETIRED_SDK_SKILL')
+        and type(value['newHistoryCount']) is int and 0<=value['newHistoryCount']<=1
+        and type(value['displayPhase']) is str and value['displayPhase'] in ('AWAIT_DISPLAY','CANDIDATE'))
+
+
 def valid_normalized_input_failure(value):
     if (type(value) is not dict or type(value.get('reason')) is not str
             or value['reason'] not in INPUT_ELIGIBILITY_REJECTIONS): return False
@@ -77,7 +91,7 @@ class ContextFailureJournal(_Sealed):
         record[key]+=count
         return True
 
-    def freeze(self,error,check,*,normalized_input_failure=None):
+    def freeze(self,error,check,*,normalized_input_failure=None,history_rejection=None):
         record=_JOURNALS.get(self)
         if record is None or record['attempted']: return
         record['attempted']=True
@@ -90,10 +104,18 @@ class ContextFailureJournal(_Sealed):
         if (check=='NORMALIZED_ELIGIBILITY' and getattr(error,'reason',None)=='INPUT_PROBE_REVOKED'
                 and valid_normalized_input_failure(normalized_input_failure)):
             detail=tuple(sorted(normalized_input_failure.items()))
+        history=None
+        try:
+            if (check=='HISTORY_ELIGIBILITY' and payload[0]=='CONTEXT_PENDING' and payload[2:]==(8,1)
+                    and getattr(error,'reason',None)=='INPUT_PROBE_INELIGIBLE'
+                    and getattr(error,'input_eligibility',None)=='UNSUPPORTED_ROW'
+                    and valid_history_rejection(history_rejection)):
+                history=tuple(sorted(history_rejection.items()))
+        except Exception: pass
         attachment=_ContextFailureAttachment(_SEAL)
-        _ATTACHMENTS[attachment]=(weakref.ref(self),payload,detail)
+        _ATTACHMENTS[attachment]=(weakref.ref(self),payload,detail,history)
         # Exception identity is held only for this transition and released by finish().
-        record['failure']=(error,attachment,payload,detail)
+        record['failure']=(error,attachment,payload,detail,history)
         error._context_command_failure=attachment
 
     def project(self,error,*,controller_owner,scope,state,transition_owner):
@@ -118,6 +140,11 @@ class ContextFailureJournal(_Sealed):
         if registered[2] is not None:
             detail=dict(registered[2])
             if valid_normalized_input_failure(detail): fields['normalized_input_failure']=detail
+        if registered[3] is not None:
+            try:
+                history=dict(registered[3])
+                if valid_history_rejection(history): fields['history_rejection']=history
+            except Exception: pass
         return fields
 
     def finish(self):
