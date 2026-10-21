@@ -10,6 +10,8 @@ and independent nonce/clear/exit protocol justify the next bytes.
 context-command lifecycle, not to the read-only observer. Compose transient,
 history and numeric checks before producing the existing display witness.
 Integrate a central phase-aware driver fence that never reopens generic input.
+Task 3 also isolates the ordinary outer acceptance lifecycle under one
+supervisor through parsing, reap, disposal and final checked result selection.
 
 **Tech Stack:** Existing Python unittest, PTY/namespace fixtures, terminal-state
 adapter and Node/xterm helper; Debian WSL package-validation route.
@@ -17,7 +19,9 @@ adapter and Node/xterm helper; Debian WSL package-validation route.
 **Spec:** [Approved bounded-transition specification](../specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 
 Plan status: approved for native/inline execution on 2026-10-21; Tasks 1/2 complete,
-Task 3 blocked at a reproduced preexisting outer-publication lifecycle gap.
+Task 3 paused at RED pending review of this amended implementation plan.
+The operator approved the narrow written lifecycle amendment on 2026-10-21;
+this Task 3 plan revision awaits review. Preserve the selected inline method.
 Written specification approved on 2026-10-21; planning baseline `5bd1dd6`.
 No native execution is authorized by this document or the inline method choice.
 
@@ -39,6 +43,9 @@ No native execution is authorized by this document or the inline method choice.
 - No deadline renewal, automatic repeat, installation, runtime/provider/model/window
   pin or operator-state/credential access. No product version bump for test-only scope.
 - Keep cancellation supervision through owned reap/disposal; cleanup failure dominates.
+- Ordinary acceptance has one absolute 165-second deadline from entry, with
+  its final five seconds reserved for bounded cleanup; no renewed timer after
+  spawn, read, parse or disposal. No hard real-time cleanup guarantee is claimed.
 - Existing native grants are consumed. A later native run requires fresh final-commit
   authorization explicitly covering resumed nonce/clear/exit; no native run in this plan.
 - No push, PR, merge, release, staging refresh or definitive TODO completion.
@@ -69,6 +76,7 @@ No native execution is authorized by this document or the inline method choice.
 | `tests/test-terminal-context-display.py`, `tests/test-terminal-context-echo.py` | Pending, submission, provenance, candidate and retirement regressions |
 | `tests/test-headless-context-driver.py`, `tests/test-claude-pty-driver.py` | Concrete input bytes, callback isolation, wrapper and drain regressions |
 | `tests/test-offline-terminal-resume-safety.py` | Existing complete-case aggregator, bounded reporting and disposal regressions |
+| `tests/offline-terminal-resume-probe.py` | Ordinary acceptance-owned outer supervision through parsing, reap, disposal and final checked return only |
 | ADR-010/index, CHANGELOG, validation notes | Truthful implementation, review, gate and native-proof status |
 
 `terminal_resume_history.py` and `terminal_input_challenge.py` retain their current
@@ -266,6 +274,8 @@ to preserve the existing private routing/cancellation contract.
 
 **Files:** Extend `tests/test-offline-terminal-resume-safety.py` and controlled
 namespace peers in `tests/resume_history_fixtures.py`; update
+`tests/offline-terminal-resume-probe.py` only for the approved outer lifecycle;
+update
 `docs/architecture/ADR-010-browser-automation-boundary.md`,
 `docs/architecture/README.md`, `CHANGELOG.md` and `tests/validation-notes.md`.
 Do not relax `offline-terminal-resume-probe.py` acceptance predicates.
@@ -274,6 +284,13 @@ Do not relax `offline-terminal-resume-probe.py` acceptance predicates.
 `run_cases(run_case) -> dict` and namespace fixture routing. Output remains the
 existing acceptance schema/checkpoints, not the observational report schema.
 No new retained chronology, diagnostic enum or authority-bearing JSON.
+Produce private `_acceptance_namespace_report(command: list[str], root: Path,
+identity: os.stat_result, *, deadline: float) -> dict` in the existing probe.
+It consumes the already-built namespace command, original root identity and
+absolute deadline; returns the existing bounded standard report after cleanup.
+Consume unchanged `TerminalCancellation`, `finalize_owned(root, identity,
+report) -> dict`, `_failed(...)` and `_bounded_standard_report(...)` contracts.
+Do not modify `case_complete`, `run_cases` or the generic cancellation API.
 
 - [x] **Step 1: Write `test_transient_acceptance_preserves_complete_case_contract`.**
   Run only controlled synthetic peers through the existing isolated namespace
@@ -290,10 +307,54 @@ No new retained chronology, diagnostic enum or authority-bearing JSON.
   loss cannot bypass failure, missing mandatory proof fails, phase records<=16,
   actual encoded phase bytes<=3072 and outer bytes including newline<=16384;
   no raw content/nonce/history/trace/hash in retained results.**
-- [ ] **Step 3: Correct only fixture or earlier-task implementation defects
-  exposed by RED; do not weaken aggregator, report caps or cleanup policy.**
-  Any necessary production-harness contract change beyond Tasks 1/2 requires
-  stopping for design review instead of silently widening scope.
+- [ ] **Step 3a: Reproduce the preserved lifecycle RED before source changes.**
+  Run `tests/test-offline-terminal-resume-safety.py -k success_is_suppressed`.
+  Expect six failing parse/dispose x SIGTERM/SIGHUP/expiry subcases, not a setup
+  error. Keep the valid fixed text/skill envelopes and dedicated subprocess
+  supervisor; no native client or provider. Step 1 and report pressure already
+  passed as characterization; do not relabel them as failing behavior tests.
+- [ ] **Step 3b: Add boundary regressions before implementing the helper.**
+  Add `test_acceptance_lifecycle_checks_read_and_teardown`: inject latched
+  cancellation and simulated expiry after capture read and during supervisor
+  teardown; expect interrupted/blocked, never passed, and actual owned-root
+  removal. Extend the existing parse/dispose signal tests to assert those exact
+  closed reasons and no post-terminal continuation, not merely "not passed".
+  Add `test_acceptance_cleanup_failure_dominates_every_outcome`: complete,
+  incomplete, invalid JSON, nonzero child, cancelled and expired inputs with
+  simulated reap/disposal failure must return OFFLINE_CLEANUP_FAILED and cannot
+  claim unproved cleanup. Use only owned synthetic fixture roots; the parent
+  removes deliberately retained test residue. Record each actual RED/GREEN.
+  Add `test_acceptance_deadline_is_not_renewed` with a controlled monotonic
+  clock: preparation consumes the original budget, execution stops at its
+  original cutoff and post-disposal expiry blocks success. Add
+  `test_acceptance_mode_routing_is_unchanged`: only standard acceptance reaches
+  the planned helper; audit, debug-context, debug-context-edit and
+  observe-post-enter use their original routes. An absent helper is expected
+  RED until Step 3c, not evidence of mode coverage.
+- [ ] **Step 3c: Implement `_acceptance_namespace_report` and ordinary routing.**
+  In `_namespace`, establish the ordinary acceptance deadline before preparation
+  and route only its existing standard mode to the helper. Audit, debug and
+  read-only observer retain their current routes, schemas and helpers. The
+  helper keeps one `TerminalCancellation` active before spawn through bounded
+  capture, parse/classification and report fitting. Stop child work at
+  `deadline - 5`; check liveness/deadline across phase boundaries. Close capture
+  handles, reap the owned cohort, then call `finalize_owned` under the same
+  owner's cleanup deferral. Every entered error path must attempt that cleanup.
+  Select the bounded result under supervision and check the latched request and
+  original deadline again after teardown, immediately before return. Never
+  replace a known cleanup failure with interrupted/blocked/success. A late
+  cancellation/expiry must replace a passed result, not just annotate it.
+  Use existing structural diagnostics/reasons only; keep valid nonzero-child
+  diagnostics without trusting child success, and keep the full encoded report
+  including disposal/newline <=16384 bytes. No duplicate reap/disposal in the
+  caller, observation capability reuse, generic cancellation changes or new
+  input authority. If this private boundary cannot meet the approved amendment,
+  stop for scope review rather than refactor other modes.
+- [ ] **Step 3d: Run the lifecycle regressions and compatibility checks.**
+  Run the offline suite with `-k acceptance`, then `-k success_is_suppressed`;
+  expect exit0/OK, including the original-budget and mode-routing tests written
+  in Step 3b. Retain malformed/oversize/nonzero-child tests,
+  missing mandatory proof rejection and first-inconclusive case stopping.
 - [ ] **Step 4: Run `tests/test-offline-terminal-resume-safety.py`,
   `tests/test-post-enter-observation-report.py`, `tests/test-terminal-cancellation.py`
   and `tests/test-headless-driver-signals.py`; confirm GREEN without installed
@@ -350,7 +411,10 @@ Task 3's namespace contract and pressure checks passed; its final-publication
 lifetime test reproduced six failures. The ordinary outer `_namespace` ends
 its cancellation supervisor before parsing/disposal and does not recheck expiry
 there. This unchanged preexisting path is outside Tasks 1/2's implementation
-units. Step 3's design-review stop applies: no silent lifecycle expansion.
-The failing test and synthetic fixture remain uncommitted for continuation.
+units. The operator approved the narrow lifecycle amendment after the original
+design-review stop; Steps 3a-3d are the proposed plan revision for that scope.
+This written revision awaits review before implementation, retaining inline
+execution and the two uncommitted RED test/fixture files. No native grant is
+renewed, and no source fix is represented by the planning change.
 Independent whole-change review, complete package gate and native acceptance
 remain pending. See `tests/validation-notes.md` for exact outcomes and scope.

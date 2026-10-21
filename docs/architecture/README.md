@@ -25,8 +25,8 @@ was approved for native/inline execution. Tasks 1/2 are implemented locally and
 the Task 2 gate passed 315 synthetic tests. Task 3 is blocked by a reproduced
 preexisting outer-publication cancellation/expiry gap; its design-review stop
 applies before expanding that lifecycle. The operator authorized the narrow
-scope expansion; the proposed outer-lifecycle amendment in that specification
-awaits written review and a corresponding plan revision, not implementation.
+scope expansion and its written outer-lifecycle amendment. The corresponding
+Task 3 implementation-plan revision awaits review before implementation.
 Final review, full package validation
 and native acceptance remain pending.
 The implementation extends only passive pending in audited resumed acceptance, retaining

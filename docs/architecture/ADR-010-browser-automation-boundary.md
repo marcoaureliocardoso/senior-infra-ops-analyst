@@ -1139,9 +1139,10 @@ remain pending. Exact evidence is in `tests/validation-notes.md`.
 
 The operator subsequently authorized expanding Task 3 only for the ordinary
 offline aggregator's cancellation, deadline and disposal lifecycle. The
-proposed amendment in the bounded acceptance specification preserves schema,
-predicates and limits; it awaits written review and plan revision. This is
-scope authorization, not an implemented fix or a renewed native grant.
+written amendment in the bounded acceptance specification preserves schema,
+predicates and limits and was subsequently approved. The corresponding Task 3
+plan revision awaits review before implementation. Neither approval is an
+implemented fix or a renewed native grant.
 
 ## Links
 

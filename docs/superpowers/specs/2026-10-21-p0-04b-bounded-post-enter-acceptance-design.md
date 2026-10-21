@@ -3,8 +3,8 @@
 Date: 2026-10-21
 Status: approved on 2026-10-21; acceptance transition/fence implemented locally;
 complete validation blocked at the preexisting outer-publication lifecycle.
-Amendment status: narrow lifecycle scope authorized; written amendment below
-awaits operator review before implementation-plan revision.
+Amendment status: narrow written lifecycle amendment approved on 2026-10-21;
+corresponding Task 3 implementation-plan revision awaits operator review.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
 Scope: test-only extension; no production policy change or new native execution grant.
 
@@ -23,7 +23,7 @@ approved this written specification. The [implementation plan](../plans/2026-10-
 was approved for native/inline execution. Tasks 1/2 are implemented; Task 3
 requires design review before changing the separate outer lifecycle.
 The operator subsequently authorized that narrow scope expansion; the
-outer-lifecycle amendment below is proposed, not implemented or verified.
+outer-lifecycle amendment below is approved, not implemented or verified.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 
@@ -231,13 +231,14 @@ Keep cancellation supervision through owned reap/disposal, suppress success
 after cancellation/expiry, and make known cleanup failure dominate every result.
 Delete owned raw evidence/history/roots before aggregation/publication.
 
-## Proposed amendment: outer acceptance publication lifecycle
+## Approved amendment: outer acceptance publication lifecycle
 
 The operator authorized expanding Task 3 only to correct cancellation, deadline
 and disposal in the ordinary offline acceptance aggregator. Preserve the
 approved correlated-display transition, independent input proof, report schema,
-acceptance predicates and limits. Scope authorization does not approve this
-written amendment or grant any native execution.
+acceptance predicates and limits. The operator subsequently approved this
+written amendment; the revised implementation plan still requires review.
+Neither approval grants any native execution.
 
 ### Evidence and alternatives
 
@@ -300,7 +301,8 @@ complete-case evidence and first-inconclusive stopping. Demonstrate unchanged
 audit/debug/read-only routing and no observation-to-acceptance conversion.
 
 Tasks 1/2 remain complete locally; do not repeat or discard them. Update Task 3
-in the existing inline plan only after this written amendment is approved.
+in the existing inline plan according to this approved written amendment;
+obtain review of that revised plan before implementation.
 Then run its full focused gate, one fresh independent whole-change review and
 the immutable full package gate. All previous native grants remain consumed;
 native acceptance, provider/browser tests and remote gates remain separate.

@@ -1,5 +1,14 @@
 # Validation Notes
 
+## Lifecycle amendment approved - amended plan pending review - 2026-10-21
+
+The operator approved the written narrow lifecycle amendment. Task 3 of the
+existing inline plan now specifies the private acceptance lifecycle helper,
+boundary RED/GREEN checks, deadline reservation and unchanged-mode regressions.
+The revised plan awaits review before source implementation. No behavior fix,
+native execution or renewed native grant follows from this planning update;
+the two Task 3 RED test/fixture files remain preserved and uncommitted.
+
 ## Narrow lifecycle scope authorized - written amendment pending - 2026-10-21
 
 The operator authorized expanding Task 3 to correct only the ordinary offline
