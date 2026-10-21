@@ -16,8 +16,11 @@ tag. Tagged versions correspond to repository tags.
   parsing, owned reap/disposal and bounded result selection, with a final checked
   return, original overall deadline and cleanup-failure precedence. Audit/debug/
   read-only routes and acceptance predicates are unchanged. The corrected
-  focused gate passed 109 tests; task recording, independent review, full
-  package gate and native acceptance remain pending.
+  committed-source focused gate passed 109 tests. Independent review identified
+  one numeric-token guard defect; author TDD fixed signed/oversized conflict
+  extraction while preserving legacy parsing; 184 corrected-source regressions
+  passed. Full package validation and native acceptance remain pending; the fix
+  was not independently re-reviewed.
   Observational results are not promoted.
 
 - Added development-only `--observe-post-enter` to the isolated offline harness:

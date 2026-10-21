@@ -1144,9 +1144,13 @@ the final checked return honors late requests/expiry. Cleanup failure dominates
 positive and negative outcomes, including interruption of teardown. Raw capture
 handles close before root removal. Audit/debug/read-only modes retain their
 separate routes; there is no generic cancellation API or acceptance predicate
-change. The corrected focused task gate passed 109 tests. Task recording,
-independent whole-change review, immutable package gate and native acceptance
-remain pending. Neither approval renews a grant.
+change. The corrected committed-source focused task gate passed 109 tests.
+One fresh whole-plan reviewer found one Important numeric-token guard defect
+and no Critical/Minor findings. Author TDD reproduced seven pure and fourteen
+acceptance failures, then corrected signed/oversized token extraction without
+changing legacy display parsing. Corrected-source regressions passed 184 tests;
+the immutable package gate remains pending. The author fix is not independently
+re-reviewed. Native acceptance remains unproved. Neither approval renews a grant.
 Exact evidence is in `tests/validation-notes.md`.
 
 ## Links

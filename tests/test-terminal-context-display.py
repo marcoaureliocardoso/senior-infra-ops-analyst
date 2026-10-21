@@ -307,6 +307,17 @@ class AcceptancePendingTests(unittest.TestCase):
                 c.submit()
                 self.assert_terminal_rejection(c,c.snapshot(numeric=False,extra=extra))
 
+    def test_malformed_numeric_tokens_cannot_restore_acceptance(self):
+        for text in ('Free space: -1%','Free space: 1000%',
+                'Free space: 81% -81%','Autocompact buffer: -3%',
+                'Free space: -0.1%','Free space: 1000000.5%',
+                'Compact buffer: 1000%'):
+            for kind in ('text-turn','skill-turn'):
+                with self.subTest(text=text,kind=kind),DisplayCase(case_kind=kind,acceptance_pending=True) as c:
+                    c.submit()
+                    self.assert_terminal_rejection(c,c.snapshot(numeric=False,extra=((0,text),)))
+                    with self.assertRaises(RuntimeError): c.command.bind_history(c.snapshot(commit=20),5)
+
     def test_candidate_loss_during_revalidation_is_terminal(self):
         for change in ('missing','moved','duplicate','numbers','anchor','menu'):
             with self.subTest(change=change),DisplayCase(acceptance_pending=True) as c:

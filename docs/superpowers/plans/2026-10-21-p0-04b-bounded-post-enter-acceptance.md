@@ -19,7 +19,9 @@ adapter and Node/xterm helper; Debian WSL package-validation route.
 **Spec:** [Approved bounded-transition specification](../specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 
 Plan status: approved for native/inline execution on 2026-10-21; Tasks 1/2 complete,
-Task 3 implemented with 109 focused tests passed; task completion recording pending.
+Task 3 complete at `5a8fb7e` with 109 committed-source focused tests passed.
+Independent review completed with one Important finding; the author fix passed
+184 regressions. The complete immutable package gate remains pending.
 The operator approved the narrow written lifecycle amendment on 2026-10-21;
 this Task 3 plan revision was subsequently approved for the same inline method.
 Written specification approved on 2026-10-21; planning baseline `5bd1dd6`.
@@ -367,10 +369,10 @@ Do not modify `case_complete`, `run_cases` or the generic cancellation API.
 
 ## Whole-Change Review and Immutable Gate
 
-- [ ] Self-check every spec requirement against Tasks 1-3; record any untested
+- [x] Self-check every spec requirement against Tasks 1-3; record any untested
   platform path rather than assuming support. Verify executable-source diff,
   unchanged runtime/Nori/provider/production/version policies and clean status.
-- [ ] Request one fresh independent whole-change review using the applicable
+- [x] Request one fresh independent whole-change review using the applicable
   review skill after the selected execution workflow's task gates. Review the
   cumulative immutable commit range and this spec/plan; assess authority, all
   writer paths, intermediate observations, witness retirement and cleanup.
@@ -416,6 +418,10 @@ design-review stop and then approved Steps 3a-3d for inline implementation.
 The acceptance-only outer helper is implemented locally and the preserved RED
 tests now pass. Final report selection stays supervised; cleanup/teardown
 failure dominates every result. The corrected full task gate passed 109 tests;
-the separate completion command/record is pending. No native grant is renewed.
-Independent whole-change review, complete package gate and native acceptance
-remain pending. See `tests/validation-notes.md` for exact outcomes and scope.
+the separate committed-source completion command also passed. One independent
+whole-change review identified a numeric-token guard defect. The author TDD
+fix preserves legacy parsing and rejects signed/oversized conflicts irreversibly;
+its corrected-source 184-test regression group passed. The immutable package
+gate remains pending. No second
+review or renewed native grant. Native acceptance remains unproved. See
+`tests/validation-notes.md` for exact outcomes and scope.

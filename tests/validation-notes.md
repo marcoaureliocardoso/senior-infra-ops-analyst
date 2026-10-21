@@ -1,5 +1,40 @@
 # Validation Notes
 
+## Independent bounded-acceptance review and author fix - 2026-10-21
+
+One fresh read-only reviewer (gpt-6-astra/high, clean context) reviewed the whole
+plan range `67e8eeb..5a8fb7e`, its spec/amendment and all ledger rulings. The
+review reported no Critical or Minor findings and one Important: the shared
+conflict matcher discarded negative signs or oversized completed percentages,
+letting invalid incomplete evidence disappear before baseline restoration.
+The author independently reproduced seven pure-guard and fourteen acceptance
+failures (both case kinds), then changed only conflict-token extraction.
+Targeted GREEN: pure1/0.032s and display1/8.133s. Partial harmless observations,
+equivalent decimals and legacy display parsing remain regression targets.
+The corrected-source regression group passed 184 tests: display30/67.642s,
+echo49/64.613s, history28/18.934s, input28/13.518s, sample5/0.749s,
+rejection16/8.048s and observer28/39.986s. This single author fix pass is not
+independently re-reviewed; the complete immutable package gate remains pending.
+
+An earlier run passed display30/84.915s but echo49/45.187s had one setup error
+in `test_correlated_completion_full_echo_above_below`: helper initialization
+raised TERMINAL_CLEANUP_FAILED, with a subprocess ResourceWarning. The affected
+fixture and adapter were unchanged; the numeric guard/test body had not run.
+A bounded check found the reported helper PID already absent, and the exact
+isolated test passed in 0.622s. The original exchange error was masked by cleanup,
+so an environmental cause is not established. No code or timeout was changed
+for this episode; the unchanged full regression rerun above passed. This is
+an observed intermittent failure, not a claimed helper defect fix.
+
+The review expressly excluded unrelated older branch history, broader
+preexisting standard report-schema/predicate hardening, unproved native/remote
+behavior, hidden recomputation and arbitrary trusted in-process mutation.
+The ledger records each scope ruling and its cost; none waives an acceptance
+gate. The sanitized review/fix record is outside Git at
+`.review-runtime/p004b-terminal-state/p004b-bounded-review-5a8fb7e.md`.
+No deferred minors or new native/provider/browser execution. Full immutable
+package validation and later native/provider/browser/remote gates remain pending.
+
 ## Bounded acceptance outer lifecycle - local synthetic implementation - 2026-10-21
 
 The operator approved the narrow written amendment and revised inline plan.
@@ -26,7 +61,8 @@ No native CLI, real provider, credentials or operator configuration was used.
 
 The corrected-source focused gate passed 109 tests: offline73/144.539s,
 observer-report17/8.245s, cancellation14/0.401s and signals5/5.535s. Final
-task recording remains pending. The targeted
+task recording subsequently passed at `5a8fb7e`: offline73/146.766s,
+observer-report17/8.586s, cancellation14/0.420s and signals5/6.022s. The targeted
 acceptance group passed 9 tests/22.093s, including the complete namespace
 text/skill transient contract. These counts overlap, not additive unique tests.
 Content validation passed; architecture13/6.362s and release42/23.272s passed.

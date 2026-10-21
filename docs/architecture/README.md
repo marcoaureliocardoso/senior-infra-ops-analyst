@@ -26,8 +26,10 @@ the Task 2 gate passed 315 synthetic tests. Task 3 reproduced a preexisting
 outer-publication cancellation/expiry gap and stopped for design review.
 The operator approved the narrow written lifecycle amendment and plan revision;
 the acceptance-only outer correction is implemented locally. Its focused gate
-passed 109 tests; task completion recording, final review, full package
-validation and native acceptance remain pending.
+passed 109 tests and task completion was recorded. Independent whole-change
+review found one numeric-token guard defect; its author TDD fix is implemented.
+The author fix passed 184 regressions. Full package validation and native
+acceptance remain pending.
 The implementation extends only passive pending in audited resumed acceptance, retaining
 the existing correlated-display and independent nonce/clear/exit contract.
 The observation-only mode remains permanently read-only after Enter.

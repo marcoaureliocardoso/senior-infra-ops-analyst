@@ -78,6 +78,19 @@ class ContextSampleTests(unittest.TestCase):
         with self.assertRaises(dataclasses.FrozenInstanceError): sample.numbers.used = 99
         self.assertEqual(self.module.ContextNumbers(Decimal('81'),Decimal('3'),16),sample.numbers)
 
+    def test_numeric_conflict_preserves_complete_signed_and_oversized_tokens(self):
+        for free,buffer in (('-1','3'),('1000','3'),('81% -81','3'),
+                ('81','-3'),('-0.1','3'),('1000000.5','3'),('81','1000')):
+            with self.subTest(free=free,buffer=buffer):
+                self.assertTrue(self.module.context_numeric_conflict(grid(free,buffer)))
+        for text in ('Free space:','Free space: -','Free space: 1000',
+                'Free space: 81.0%','Free space: 81% 81.00%'):
+            with self.subTest(text=text):
+                current=grid(); rows=list(current.rows)
+                rows[11]=tuple(TerminalCell(char,1) for char in text.ljust(120))
+                current=dataclasses.replace(current,rows=tuple(rows))
+                self.assertFalse(self.module.context_numeric_conflict(current))
+
     def test_identical_repaint_chunkings_have_identical_numeric_interpretation(self):
         data=b'\x1b[?1049h\x1b[2J\x1b[HContext Usage\r\nFree space: 81.0%\r\nAutocompact buffer: 3.00%'
         samples=[]

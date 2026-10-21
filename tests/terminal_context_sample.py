@@ -95,8 +95,10 @@ def context_numeric_conflict(snapshot: TerminalSnapshot) -> bool:
         for row in snapshot.rows)
     groups=[]
     for label in (r'Free space',r'(?<![A-Za-z])(?:Autocompact|Compact) buffer'):
+        # Unlike the legacy display parser, do not discard a sign or truncate
+        # an oversized completed value into harmless absence/another number.
         values={Decimal(value) for line in lines if re.search(label,line,re.IGNORECASE)
-            for value in re.findall(r'(?<!\d)(\d{1,3}(?:\.\d+)?)%',line)}
+            for value in re.findall(r'(?<![\d.])([+-]?\d+(?:\.\d+)?)%',line)}
         if len(values)>1 or any(not 0<=value<=100 for value in values): return True
         groups.append(values)
     return bool(all(groups) and next(iter(groups[0]))+next(iter(groups[1]))>100)
