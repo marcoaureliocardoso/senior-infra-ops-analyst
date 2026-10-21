@@ -1,5 +1,45 @@
 # Validation Notes
 
+## Bounded acceptance - one-shot native offline result inconclusive - 2026-10-21
+
+One newly authorized ordinary offline acceptance ran against exact commit
+`b6fff615b0070719b2d849cf0209e42044ee3467`, with the installed native client
+reporting runtime `2.1.306` inside the disposable namespace. The reserved grant
+was consumed once; no automatic retry occurred. The harness returned exit2,
+OFFLINE_CONTROLS_INCONCLUSIVE, in 12.783 seconds (21:52:07Z to 21:52:20Z).
+This was not a dialogue or overall deadline expiry.
+
+The initial text-turn context dialogue completed normally, and one synthetic
+SDK message passed validation. In the resumed dialogue, the owned context
+command, correlated current display and nonce echo/clear checkpoints passed;
+the reported context percentage was 9. Exit-stage validation then rejected
+RESUME_HISTORY_LAYOUT_REJECTED. The resumed dialogue returned exit2 without a
+natural-exit proof, so the text case was incomplete and skill-turn was not run.
+The final structural snapshot also reported UNSUPPORTED_MARKER with
+SDK_TEXT_PROMPT_SHAPE on another captured row. These observations locate the
+remaining boundary after nonce clearing; they do not identify the exact failed
+history invariant or prove that relaxing any history check would be correct.
+
+Both native/helper leaders were reaped in each dialogue. The text-case root
+and outer disposable root were confirmed absent before result publication;
+raw evidence and native history were deleted. Network isolation, hidden
+operator state and dropped capabilities were confirmed. Only structural
+diagnostics were retained, without content debug or excerpts. No real provider,
+operator credentials/configuration or browser workflow was used.
+
+Host archive SHA-256 was
+`c7da9828d1ede991f8199381cd95f5883d60a3d5ac24420dbed5640f78f596b7`;
+all 554 canonical contents/types/modes matched before and after the run.
+The one-shot reservation and structural result remain outside Git under
+`.review-runtime/p004b-terminal-state/`, respectively
+`p004b-offline-b6fff61-attempt.json` and
+`p004b-offline-b6fff61-structural-result.json`.
+Native acceptance remains open. The next diagnostic step is a focused
+synthetic investigation of resumed-history revalidation after nonce clearing,
+without weakening exit ownership or repeating the consumed native grant.
+This result adds no behavior change and closes no provider/browser, remote
+CI/Security or merge gate.
+
 ## Bounded acceptance - immutable corrected-source gate passed - 2026-10-21
 
 The complete package gate passed at corrected executable-source commit
