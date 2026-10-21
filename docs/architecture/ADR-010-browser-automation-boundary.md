@@ -1137,6 +1137,12 @@ expanding that lifecycle beyond Tasks 1/2; no fix was silently added. Task 3,
 independent whole-change review, complete package gate and native acceptance
 remain pending. Exact evidence is in `tests/validation-notes.md`.
 
+The operator subsequently authorized expanding Task 3 only for the ordinary
+offline aggregator's cancellation, deadline and disposal lifecycle. The
+proposed amendment in the bounded acceptance specification preserves schema,
+predicates and limits; it awaits written review and plan revision. This is
+scope authorization, not an implemented fix or a renewed native grant.
+
 ## Links
 
 - Approved bounded post-Enter acceptance design (local transition/fence; final validation blocked): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`

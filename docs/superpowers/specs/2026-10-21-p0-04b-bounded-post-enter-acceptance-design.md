@@ -3,6 +3,8 @@
 Date: 2026-10-21
 Status: approved on 2026-10-21; acceptance transition/fence implemented locally;
 complete validation blocked at the preexisting outer-publication lifecycle.
+Amendment status: narrow lifecycle scope authorized; written amendment below
+awaits operator review before implementation-plan revision.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
 Scope: test-only extension; no production policy change or new native execution grant.
 
@@ -20,6 +22,8 @@ The operator selected this direction after investigation and subsequently
 approved this written specification. The [implementation plan](../plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
 was approved for native/inline execution. Tasks 1/2 are implemented; Task 3
 requires design review before changing the separate outer lifecycle.
+The operator subsequently authorized that narrow scope expansion; the
+outer-lifecycle amendment below is proposed, not implemented or verified.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 
@@ -226,6 +230,81 @@ the base failure, while missing required proof cannot be treated as optional.
 Keep cancellation supervision through owned reap/disposal, suppress success
 after cancellation/expiry, and make known cleanup failure dominate every result.
 Delete owned raw evidence/history/roots before aggregation/publication.
+
+## Proposed amendment: outer acceptance publication lifecycle
+
+The operator authorized expanding Task 3 only to correct cancellation, deadline
+and disposal in the ordinary offline acceptance aggregator. Preserve the
+approved correlated-display transition, independent input proof, report schema,
+acceptance predicates and limits. Scope authorization does not approve this
+written amendment or grant any native execution.
+
+### Evidence and alternatives
+
+Six synthetic subcases reproduce the existing gap: SIGTERM/SIGHUP after parsing
+or disposal escape the closed-report path, while simulated late expiry can
+still return success. Parsing-time signals can also leave the owned root until
+the synthetic test parent removes it. These tests use complete fixed case
+envelopes and no native client, provider, credentials or operator configuration.
+
+The recommended correction keeps one acceptance-owned supervisor alive through
+parsing, classification, reap and disposal. Reuse the existing observer's
+supervised-cleanup pattern, not its read-only result schema or capabilities.
+An isolated private helper in `tests/offline-terminal-resume-probe.py` may own
+this lifecycle. Audit, content-debug and observation-only routes stay separate.
+
+Two alternatives are rejected: adding only a final deadline/cancellation check
+cannot supervise signals during parsing or cleanup; generalizing every mode
+behind a new shared lifecycle would unnecessarily change unrelated contracts.
+Do not modify the generic `TerminalCancellation` API or add a new subsystem.
+
+### Lifecycle and result precedence
+
+- Establish one absolute 165-second deadline at ordinary acceptance entry,
+  before namespace preparation; never restart it after spawn, read or disposal.
+  Reserve the final five seconds for existing bounded cleanup, matching the
+  existing observer pattern. Stop child work at the earlier execution cutoff;
+  do not extend the overall or 25-second dialogue limits.
+- Use the same cancellation owner from before child spawn through capture
+  reading, JSON parsing, classification, owned-cohort reap and root disposal.
+  Keep identity-bound ownership and bounded capture; no terminal input is
+  authorized by this outer supervision.
+- Close temporary output handles before root removal and reap the owned
+  cohort before disposing raw storage. Defer cancellation exceptions only
+  within cleanup; retain the signal latch and inspect it afterward. Every
+  entered path, including invalid JSON, nonzero child exit and interruption,
+  must attempt owned cleanup. Do not delete unowned or replaced roots.
+- Select and bound the closed report under supervision, then check the latched
+  cancellation and original deadline again after supervisor teardown before
+  returning it. Known cleanup failure dominates cancellation, expiry, protocol
+  rejection and apparent success, including an already-negative child result.
+  Use only existing closed reasons and validated structural diagnostics.
+- Cancellation yields the existing interrupted result; expiry or a rejected
+  protocol yields the existing blocked result, never a passed acceptance.
+  Unknown reap/disposal cannot assert successful cleanup. Preserve the 16384
+  encoded-byte bound including the final disposal fact and newline.
+
+The result boundary is the aggregator's final checked return, not an atomic
+transaction with a later caller's stdout write. No guarantee is made against
+SIGKILL, host failure, or a new signal after that handoff. Failure to finish
+cleanup within the bound must not become success or obtain a renewed deadline;
+cooperative filesystem cleanup is not a hard real-time termination guarantee.
+
+### Verification and scope gate
+
+Preserve the six RED subcases and turn them GREEN through author-owned TDD.
+Add boundary checks for cancellation/deadline after reading, during parsing,
+during disposal and at teardown; cleanup failure must dominate both positive
+and negative outcomes. Keep invalid/nonzero/oversize report checks, mandatory
+complete-case evidence and first-inconclusive stopping. Demonstrate unchanged
+audit/debug/read-only routing and no observation-to-acceptance conversion.
+
+Tasks 1/2 remain complete locally; do not repeat or discard them. Update Task 3
+in the existing inline plan only after this written amendment is approved.
+Then run its full focused gate, one fresh independent whole-change review and
+the immutable full package gate. All previous native grants remain consumed;
+native acceptance, provider/browser tests and remote gates remain separate.
+No version bump, production policy change, push, PR, merge or TODO completion.
 
 ## Required validation and later execution gates
 

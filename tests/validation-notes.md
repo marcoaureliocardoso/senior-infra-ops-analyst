@@ -1,5 +1,15 @@
 # Validation Notes
 
+## Narrow lifecycle scope authorized - written amendment pending - 2026-10-21
+
+The operator authorized expanding Task 3 to correct only the ordinary offline
+aggregator's cancellation/deadline/disposal lifecycle. The proposed amendment
+is recorded in the existing bounded post-Enter acceptance specification and
+indexed by ADR-010. Written review and plan revision still precede a behavior
+change. The two existing Task 3 test/fixture files remain uncommitted at RED;
+Tasks 1/2, their evidence and consumed native grants are unchanged. No harness
+fix or native/provider/browser execution was performed for this amendment.
+
 ## Bounded acceptance implementation - outer-lifecycle gate blocked - 2026-10-21
 
 The operator approved the bounded-transition spec and selected native/inline
