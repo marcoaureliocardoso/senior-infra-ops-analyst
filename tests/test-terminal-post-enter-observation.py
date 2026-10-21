@@ -254,6 +254,33 @@ class ObservationClassifierTests(unittest.TestCase):
             c.observer.observe(c.snapshot(commit=20),4)
             self.assertEqual(c.observer.summary()['stopCategory'],'NUMERIC_CONFLICT')
 
+    def test_intraframe_numeric_conflicts_survive_later_restoration(self):
+        for extra in (((3,'Free space: 80%'),),((3,'Autocompact buffer: 4%'),),
+                ((1,'Free space: 99%'),),((1,'Free space: 80% 81%'),)):
+            with self.subTest(extra=extra),ObservationCase() as c:
+                menu=((8,'❯ /context  Synthetic completion'),)
+                c.submit(extra=menu)
+                c.observer.observe(c.snapshot(extra=(*menu,*extra)),3)
+                self.assertEqual(c.observer.phase,'FINISHED')
+                first=c.observer.summary()
+                self.assertEqual(first['outcome'],'UNSUPPORTED_TRANSITION')
+                self.assertEqual(first['stopCategory'],'NUMERIC_CONFLICT')
+                self.assertEqual(first['numericRelation'],'CONFLICT')
+                final=c.snapshot(commit=20)
+                c.observer.observe(final,4); c.observer.complete(final,4)
+                self.assertEqual(c.observer.summary(),first)
+
+    def test_absent_partial_and_equivalent_numeric_rows_are_not_conflicts(self):
+        for numeric,extra in ((False,()),(False,((0,'Context Usage'),(2,'Autocompact buffer: 3%'))),
+                (True,((3,'Free space: 81.0%'),))):
+            with self.subTest(numeric=numeric,extra=extra),ObservationCase() as c:
+                c.submit()
+                c.observer.observe(c.snapshot(numeric=numeric,extra=extra),3)
+                self.assertEqual(c.observer.phase,'AWAIT_DISPLAY')
+                final=c.snapshot(commit=20)
+                c.observer.observe(final,4); c.observer.complete(final,4)
+                self.assertEqual(c.observer.summary()['outcome'],'CURRENT_PROFILE_OBSERVED')
+
     def test_menu_change_move_duplicate_and_unowned_layout_reject(self):
         for rows in (((8,'❯ /context  Changed'),),((9,'❯ /context  Synthetic completion'),),
                 ((8,'❯ /context  Synthetic completion'),(9,'❯ /context  Synthetic completion')),
@@ -262,6 +289,31 @@ class ObservationClassifierTests(unittest.TestCase):
                 c.submit(extra=((8,'❯ /context  Synthetic completion'),))
                 c.observer.observe(c.snapshot(extra=rows),3)
                 self.assertEqual(c.observer.summary()['outcome'],'UNSUPPORTED_TRANSITION')
+
+    def test_history_violation_cause_survives_fatal_case_invalidation(self):
+        for kind in ('replace','move','retired-return'):
+            with self.subTest(kind=kind),ObservationCase() as c:
+                c.submit(); frame=3
+                if kind=='retired-return':
+                    c.observer.observe(c.snapshot(extra=((5,''),)),frame)
+                    frame+=1; bad=c.snapshot()
+                else:
+                    bad=c.snapshot(extra=((5,'❯ /exit'),) if kind=='replace' else
+                        ((5,''),(6,'❯ '+history.TEXT_PROMPT)))
+                c.observer.observe(bad,frame)
+                result=c.observer.summary()
+                self.assertEqual(result['outcome'],'UNSUPPORTED_TRANSITION')
+                self.assertEqual(result['stopCategory'],'HISTORY_CONFLICT')
+                self.assertFalse(result['profileObserved'])
+                self.assertNotIn(c.fixture.case,history._CASES)
+                self.assertNotIn(c.request,history._OBS_REQUESTS)
+                final=c.snapshot(commit=20)
+                c.observer.observe(final,frame+1); c.observer.complete(final,frame+1)
+                self.assertEqual(c.observer.summary(),result)
+                # The actual one-shot report consumer can read only the frozen
+                # closed summary, never a reopened case/guard/input capability.
+                self.assertEqual(history.take_post_enter_result(c.request),result)
+                self.assertIsNone(history.take_post_enter_result(c.request))
 
     def test_observer_owner_deadline_auth_geometry_and_frame_guards(self):
         for kind in ('native','helper','deadline','auth','geometry','stale','bool','case'):

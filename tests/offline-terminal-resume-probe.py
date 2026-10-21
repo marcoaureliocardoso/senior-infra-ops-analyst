@@ -98,6 +98,21 @@ def _new_post_enter_report(outcome='SETUP_BLOCKED',category='SETUP'):
         'cleanup':{'nativeReaped':False,'helperReaped':False,'caseRootAbsent':False,'disposableRootAbsent':False}}
 
 
+def _known_post_enter_cleanup_failure(value):
+    if type(value) is not dict: return False
+    template=_new_post_enter_report()
+    for key in ('setup','cleanup'):
+        fields=value.get(key)
+        if (type(fields) is not dict or set(fields)!=set(template[key])
+                or any(type(item) is not bool for item in fields.values())): return False
+    # False in a setup-blocked envelope means unobserved, not an invented
+    # cleanup failure. Once setup or observation occurred, all child cleanup
+    # proofs are required for either a positive or a negative observation.
+    occurred=any(value['setup'].values()) or 'summary' in value
+    return occurred and not all(value['cleanup'][key]
+        for key in ('nativeReaped','helperReaped','caseRootAbsent'))
+
+
 def valid_post_enter_report(value):
     from terminal_post_enter_observation import OUTCOMES,STOP_CATEGORIES,valid_observation_summary
     keys={'schema','mode','acceptance','outcome','stopCategory','setup','cleanup'}
@@ -109,6 +124,8 @@ def valid_post_enter_report(value):
             ('cleanup',{'nativeReaped','helperReaped','caseRootAbsent','disposableRootAbsent'})):
         if (type(value[name]) is not dict or set(value[name])!=fields
                 or any(type(item) is not bool for item in value[name].values())): return False
+    if _known_post_enter_cleanup_failure(value) and not (
+            value['outcome']=='CLEANUP_FAILED' and value['stopCategory']=='CLEANUP' and 'summary' not in value): return False
     if 'summary' in value:
         summary=value['summary']
         if (not valid_observation_summary(summary) or summary['outcome']!=value['outcome']
@@ -117,7 +134,7 @@ def valid_post_enter_report(value):
     if value['outcome']=='CURRENT_PROFILE_OBSERVED':
         return ('summary' in value and value['stopCategory']=='COMPLETE'
             and all(value['cleanup'][key] for key in ('nativeReaped','helperReaped','caseRootAbsent')))
-    return not (value['outcome']=='CLEANUP_FAILED' and 'summary' in value)
+    return not (value['outcome']=='CLEANUP_FAILED' and ('summary' in value or value['stopCategory']!='CLEANUP'))
 
 
 def fit_post_enter_report(value,*,reserve_disposal=False):
@@ -132,6 +149,9 @@ def fit_post_enter_report(value,*,reserve_disposal=False):
         # An invalid optional annotation must not erase an independent negative.
         reduced={key:item for key,item in original.items() if key!='summary'}
         if summary is not None and valid_post_enter_report(reduced): report=reduced
+    if _known_post_enter_cleanup_failure(value):
+        report={**_new_post_enter_report('CLEANUP_FAILED','CLEANUP'),
+            'setup':dict(value['setup']),'cleanup':dict(value['cleanup'])}
     size_report={**report,'cleanup':{**report['cleanup'],
         'disposableRootAbsent':True if reserve_disposal else report['cleanup']['disposableRootAbsent']}}
     if len((json.dumps(size_report,sort_keys=True)+'\n').encode())>16384:
@@ -310,29 +330,51 @@ def _edit_namespace_report(command,root,identity):
 def _post_enter_namespace_report(command,root,identity,*,deadline=None):
     # Reuse only the bounded pipe reader, not the edit-debug capture/export path.
     hard_deadline=time.monotonic()+165 if deadline is None else deadline
-    report=_new_post_enter_report(); reaped=False
+    report=_new_post_enter_report(); reaped=False; cleaned=None
+    cancellation=TerminalCancellation(); entered=False
     try:
-        with TerminalCancellation() as cancellation:
+        with cancellation:
+            entered=True
             try:
                 code,data=_read_edit_namespace(command,cancellation=cancellation,deadline=hard_deadline-5)
                 value=_edit_json(data)
+                cleanup_failure=_known_post_enter_cleanup_failure(value)
+                if cleanup_failure: value=fit_post_enter_report(value)
                 if (not valid_post_enter_report(value) or value['cleanup']['disposableRootAbsent'] is not False
-                        or type(code) is not int or code not in (0,2) or code!=_post_enter_child_code(value)):
+                        or type(code) is not int or code not in (0,2)
+                        or (not cleanup_failure and code!=_post_enter_child_code(value))):
                     raise ValueError
                 report=value
+                cancellation.check()
             except (KeyboardInterrupt,TerminalCancelled):
                 report=_new_post_enter_report('SAFETY_STOP','CANCELLED')
             except (OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError):
                 report=_new_post_enter_report('SAFETY_STOP','CAPTURE_PROTOCOL')
-        reaped=True
+            finally:
+                # Reap the entire owned cohort before removing raw storage.
+                # Keep the signal latch installed, but defer interruption of
+                # disposal itself. No new process or input authority is issued.
+                with cancellation.cleanup():
+                    cancellation._dispose()
+                    reaped=True
+                    cleaned=finalize_owned(root,identity,report)
+            cancellation.check()
+            if time.monotonic()>=hard_deadline: raise TimeoutError
+    except (KeyboardInterrupt,TerminalCancelled):
+        report=_new_post_enter_report('SAFETY_STOP','CANCELLED')
+    except TimeoutError:
+        report=_new_post_enter_report('DEADLINE','DEADLINE')
     except (OSError,ValueError,RuntimeError,KeyboardInterrupt,TerminalCancelled):
         report=_new_post_enter_report('CLEANUP_FAILED','CLEANUP')
-    cleaned=finalize_owned(root,identity,report)
-    disposed=cleaned.get('disposableRootAbsent') is True
+    if not entered:
+        # No namespace child could have been spawned when setup was rejected.
+        cleaned=finalize_owned(root,identity,report)
+    disposed=type(cleaned) is dict and cleaned.get('disposableRootAbsent') is True
     if not disposed or not reaped:
         failed=_new_post_enter_report('CLEANUP_FAILED','CLEANUP')
         failed['cleanup']['disposableRootAbsent']=disposed
         return failed
+    if cancellation.requested: report=_new_post_enter_report('SAFETY_STOP','CANCELLED')
     report['cleanup']={**report['cleanup'],'disposableRootAbsent':True}
     return fit_post_enter_report(report)
 
@@ -476,6 +518,30 @@ def run_cases(run_case):
         if not case_complete(case):
             return {'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':cases}
     return {'reasonCode':'OFFLINE_CONTROLS_PASSED','cases':cases}
+
+
+def _post_enter_case_report(case):
+    report=_new_post_enter_report()
+    stages=case.get('stages',[])
+    initial=(type(case.get('beforeExit')) is int and case['beforeExit']==0 and bool(stages)
+        and all(any(row.get('stage')==point and row.get('outcome')=='passed'
+            for row in stages[0].get('events',[])) for point in ('context_inspected','exit')))
+    report['setup']={'initialCompleted':initial,'sdkValidated':case.get('validSDKSample') is True}
+    for key,point in (('nativeReaped','native_cleanup'),('helperReaped','helper_cleanup')):
+        report['cleanup'][key]=bool(stages) and all(any(row.get('point')==point and
+            row.get('reasonCode')=='CLEANUP_COMPLETED' and row.get('leaderReaped') is True
+            for row in stage['diagnostics']['records']) for stage in stages)
+    report['cleanup']['caseRootAbsent']=case.get('caseRootAbsent') is True
+    summary=case.get('observationSummary')
+    from terminal_post_enter_observation import valid_observation_summary
+    if summary is not None and valid_observation_summary(summary):
+        report.update(summary=summary,outcome=summary['outcome'],stopCategory=summary['stopCategory'])
+    elif all(report['setup'].values()): report.update(outcome='SAFETY_STOP',stopCategory='REPORT')
+    if not all(report['cleanup'][key] for key in ('nativeReaped','helperReaped','caseRootAbsent')):
+        report.update(outcome='CLEANUP_FAILED',stopCategory='CLEANUP'); report.pop('summary',None)
+    if case.get('afterExit')!=0 and report['outcome']=='CURRENT_PROFILE_OBSERVED':
+        report.update(outcome='SAFETY_STOP',stopCategory='REPORT'); report.pop('summary',None)
+    return fit_post_enter_report(report,reserve_disposal=True)
 
 
 def _controls(*,debug_context=False,debug_context_edit=False,post_enter_observation=False):
@@ -658,28 +724,7 @@ def _controls(*,debug_context=False,debug_context_edit=False,post_enter_observat
         cleaned.pop('disposableRootAbsent',None); cleaned['caseRootAbsent']=True
         return cleaned
     if post_enter_observation:
-        case=run_case('text-turn')
-        report=_new_post_enter_report()
-        stages=case.get('stages',[])
-        initial=(type(case.get('beforeExit')) is int and case['beforeExit']==0 and bool(stages)
-            and all(any(row.get('stage')==point and row.get('outcome')=='passed'
-                for row in stages[0].get('events',[])) for point in ('context_inspected','exit')))
-        report['setup']={'initialCompleted':initial,'sdkValidated':case.get('validSDKSample') is True}
-        for key,point in (('nativeReaped','native_cleanup'),('helperReaped','helper_cleanup')):
-            report['cleanup'][key]=bool(stages) and all(any(row.get('point')==point and
-                row.get('reasonCode')=='CLEANUP_COMPLETED' and row.get('leaderReaped') is True
-                for row in stage['diagnostics']['records']) for stage in stages)
-        report['cleanup']['caseRootAbsent']=case.get('caseRootAbsent') is True
-        summary=case.get('observationSummary')
-        from terminal_post_enter_observation import valid_observation_summary
-        if summary is not None and valid_observation_summary(summary):
-            report.update(summary=summary,outcome=summary['outcome'],stopCategory=summary['stopCategory'])
-        elif all(report['setup'].values()): report.update(outcome='SAFETY_STOP',stopCategory='REPORT')
-        if case.get('caseRootAbsent') is not True:
-            report.update(outcome='CLEANUP_FAILED',stopCategory='CLEANUP'); report.pop('summary',None)
-        if case.get('afterExit')!=0 and report['outcome']=='CURRENT_PROFILE_OBSERVED':
-            report.update(outcome='SAFETY_STOP',stopCategory='REPORT'); report.pop('summary',None)
-        return fit_post_enter_report(report,reserve_disposal=True)
+        return _post_enter_case_report(run_case('text-turn'))
     report={'runtime':match[1].decode('ascii'),**run_cases(run_case)}
     if debug_context:
         debug=next((value for value in debug_reports if value['status']!='NO_CAPTURE'),{'status':'NO_CAPTURE'})

@@ -5,7 +5,7 @@ import math
 import time
 import weakref
 import terminal_resume_history as history
-from terminal_context_sample import sample_context
+from terminal_context_sample import sample_context, context_numeric_conflict
 from terminal_state_adapter import TerminalSnapshot
 
 _SEAL=object()
@@ -113,6 +113,9 @@ class PostEnterObservation:
         if any(any(cell.width!=1 for cell in row) for row in snapshot.rows
                 if any(cell.text=='❯' for cell in row)):
             self.stop('UNSUPPORTED_TRANSITION','UNKNOWN_ROW'); return
+        if context_numeric_conflict(snapshot):
+            record['numericRelation']='CONFLICT'
+            self.stop('UNSUPPORTED_TRANSITION','NUMERIC_CONFLICT'); return
         sample=sample_context(snapshot)
         record['numericRelation']=('ABSENT' if sample is None else
             'BASELINE_EQUIVALENT' if sample.numbers==record['baseline'] else 'DISTINCT')
@@ -167,7 +170,12 @@ class PostEnterObservation:
         self.observe(snapshot,frame)
         if self.candidate_ready: self._finish('CURRENT_PROFILE_OBSERVED','COMPLETE')
 
-    def invalidate(self,_reason): self.close()
+    def invalidate(self,reason):
+        record=_OBSERVATIONS.get(self)
+        if (record is not None and record['phase'] in ('AWAIT_DISPLAY','CANDIDATE')
+                and reason=='RESUME_HISTORY_LAYOUT_REJECTED'):
+            self._finish('UNSUPPORTED_TRANSITION','HISTORY_CONFLICT')
+        self.close()
 
     def close(self):
         record=_OBSERVATIONS.get(self)

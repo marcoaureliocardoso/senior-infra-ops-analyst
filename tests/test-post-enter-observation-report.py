@@ -10,6 +10,7 @@ import sys
 import time
 import contextlib
 import io
+import subprocess
 from unittest import mock
 import terminal_post_enter_observation as observation
 from post_enter_observation_fixtures import ObservationCase
@@ -109,6 +110,44 @@ class OfflineObservationReportTests(unittest.TestCase):
         self.assertLessEqual(len((json.dumps(fitted,sort_keys=True)+'\n').encode()),16384)
         self.assertNotIn('Synthetic',json.dumps(fitted))
 
+    def test_failed_reap_dominates_negative_or_positive_child_detail(self):
+        for key in ('nativeReaped','helperReaped','caseRootAbsent'):
+            for positive in (False,True):
+                with self.subTest(key=key,positive=positive),tempfile.TemporaryDirectory() as directory:
+                    value=current_report(); value['cleanup'][key]=False
+                    value['cleanup']['disposableRootAbsent']=False
+                    if not positive:
+                        summary={'outcome':'UNSUPPORTED_TRANSITION','stopCategory':'UNKNOWN_ROW','profileObserved':False}
+                        value.update(summary=summary,outcome=summary['outcome'],stopCategory=summary['stopCategory'])
+                    self.assertFalse(self.module.valid_post_enter_report(value))
+                    fitted=self.module.fit_post_enter_report(value)
+                    self.assertEqual(fitted['outcome'],'CLEANUP_FAILED')
+                    self.assertNotIn('summary',fitted)
+                    self.assertEqual(fitted['cleanup'],value['cleanup'])
+                    root=Path(directory)/'owned'; root.mkdir(mode=0o700)
+                    script='import os,sys; os.write(1,'+repr(json.dumps(value).encode())+'); sys.exit('+str(0 if positive else 2)+')'
+                    report=self.module._post_enter_namespace_report([sys.executable,'-c',script],root,root.stat())
+                    self.assertEqual(report['outcome'],'CLEANUP_FAILED',report)
+                    self.assertEqual(report['stopCategory'],'CLEANUP')
+                    self.assertNotIn('summary',report)
+                    self.assertTrue(report['cleanup']['disposableRootAbsent'])
+                    self.assertFalse(root.exists())
+
+    def test_case_projection_suppresses_detail_when_native_or_helper_cleanup_fails(self):
+        project=getattr(self.module,'_post_enter_case_report',None)
+        self.assertTrue(callable(project),'case cleanup projection is not isolated')
+        for failed in (None,'native_cleanup','helper_cleanup'):
+            with self.subTest(failed=failed):
+                case={'beforeExit':0,'afterExit':2,'validSDKSample':True,'caseRootAbsent':True,
+                    'observationSummary':{'outcome':'UNSUPPORTED_TRANSITION','stopCategory':'UNKNOWN_ROW','profileObserved':False},
+                    'stages':[{'events':[{'stage':point,'outcome':'passed'} for point in ('context_inspected','exit')],
+                        'diagnostics':{'records':[{'point':point,'reasonCode':'CLEANUP_FAILED' if failed==point else 'CLEANUP_COMPLETED',
+                            'leaderReaped':failed!=point} for point in ('native_cleanup','helper_cleanup')]}}]}
+                report=project(case)
+                self.assertTrue(self.module.valid_post_enter_report(report))
+                self.assertEqual(report['outcome'],'CLEANUP_FAILED' if failed else 'UNSUPPORTED_TRANSITION')
+                self.assertEqual('summary' in report,failed is None)
+
     def test_observation_schema_cannot_be_promoted_by_legacy_proof_fields(self):
         # Exercise the real acceptance consumer with otherwise valid fixture proofs.
         spec=importlib.util.spec_from_file_location('offline_safety_fixtures',ROOT/'tests/test-offline-terminal-resume-safety.py')
@@ -202,6 +241,41 @@ class OfflineObservationReportTests(unittest.TestCase):
         self.assertEqual(report['outcome'],'CLEANUP_FAILED')
         self.assertIs(report['cleanup']['disposableRootAbsent'],False)
         self.assertNotIn('summary',report)
+
+    def test_cancellation_after_parse_or_during_disposal_cannot_publish_success(self):
+        value=current_report(); value['cleanup']['disposableRootAbsent']=False
+        child='import os; os.write(1,'+repr(json.dumps(value).encode())+')'
+        for point in ('parse','dispose'):
+            with self.subTest(point=point),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)/'owned'; root.mkdir(mode=0o700)
+                (root/'synthetic-raw').write_bytes(b'Synthetic disposable contents')
+                wrapper='''import importlib.util,json,os,signal,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+spec=importlib.util.spec_from_file_location('probe',Path(sys.argv[1])/'offline-terminal-resume-probe.py')
+probe=importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+root=Path(sys.argv[2]); point=sys.argv[3]
+original=probe._edit_json if point=='parse' else probe.finalize_owned
+def interrupt(*args,**kwargs):
+    if point=='parse':
+        result=original(*args,**kwargs); os.kill(os.getpid(),signal.SIGTERM); return result
+    os.kill(os.getpid(),signal.SIGTERM)
+    return original(*args,**kwargs)
+if point=='parse': probe._edit_json=interrupt
+else: probe.finalize_owned=interrupt
+result=probe._post_enter_namespace_report([sys.executable,'-c',sys.argv[4]],root,root.stat())
+print(json.dumps(result))
+'''
+                result=subprocess.run([sys.executable,'-c',wrapper,str(ROOT/'tests'),str(root),point,child],
+                    capture_output=True,timeout=5)
+                self.assertEqual(result.returncode,0,result.stderr)
+                report=json.loads(result.stdout)
+                self.assertEqual(report['outcome'],'SAFETY_STOP',report)
+                self.assertEqual(report['stopCategory'],'CANCELLED')
+                self.assertEqual(self.module.post_enter_exit_code(report),2)
+                self.assertNotIn('summary',report)
+                self.assertFalse(root.exists())
+                self.assertTrue(report['cleanup']['disposableRootAbsent'])
 
     def test_inner_host_entry_and_mixed_cli_modes_never_reach_controls(self):
         common=['--source',str(ROOT),'--node',os.environ['P004B_TERMINAL_NODE'],

@@ -82,3 +82,21 @@ def sample_context(snapshot: TerminalSnapshot) -> ContextSample | None:
     positions = tuple(index for index, line in enumerate(lines)
         if re.search(r'Context Usage|Free space|(?:Autocompact|Compact) buffer',line,re.IGNORECASE))
     return ContextSample(numbers,(snapshot.active,snapshot.baseY,snapshot.viewportY,positions))
+
+
+def context_numeric_conflict(snapshot: TerminalSnapshot) -> bool:
+    """Observation-only contradiction check, not a sample or freshness proof.
+
+    The legacy parser deliberately collapses incomplete and invalid evidence to
+    None. Passive observation must remember contradictory rendered values even
+    while the display is incomplete; it must not reinterpret them as absence.
+    """
+    lines=tuple(''.join(cell.text or (' ' if cell.width else '') for cell in row)
+        for row in snapshot.rows)
+    groups=[]
+    for label in (r'Free space',r'(?<![A-Za-z])(?:Autocompact|Compact) buffer'):
+        values={Decimal(value) for line in lines if re.search(label,line,re.IGNORECASE)
+            for value in re.findall(r'(?<!\d)(\d{1,3}(?:\.\d+)?)%',line)}
+        if len(values)>1 or any(not 0<=value<=100 for value in values): return True
+        groups.append(values)
+    return bool(all(groups) and next(iter(groups[0]))+next(iter(groups[1]))>100)

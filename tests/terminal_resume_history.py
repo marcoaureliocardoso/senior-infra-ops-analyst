@@ -213,6 +213,7 @@ _OFFERS = weakref.WeakKeyDictionary()
 _VIEWS = weakref.WeakKeyDictionary()
 _OBS_REQUESTS = weakref.WeakKeyDictionary()
 _OBS_GUARDS = weakref.WeakKeyDictionary()
+_OBS_RESULTS = weakref.WeakKeyDictionary()
 
 
 class ResumeHistoryError(RuntimeError):
@@ -247,25 +248,43 @@ def _now():
 
 
 def close_offline_case(case: OfflineCase) -> None:
+    _close_offline_case(case,'INPUT_PROBE_REVOKED')
+
+
+def _close_offline_case(case, reason):
     if type(case) is not OfflineCase:
         return
-    dependents = []
+    dependents = []; observations=[]
     _CASES.pop(case, None)
     for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS, _OBS_REQUESTS, _OBS_GUARDS):
         for value, record in list(registry.items()):
             if record['case'] is case:
                 registry.pop(value, None)
                 dependents.extend(record.get('dependents', ()))
+                if registry is _OBS_REQUESTS and not record.get('result_taken'):
+                    observations.append((value,record.get('observer')))
     # Remove every capability before callbacks, preventing recursive reactivation.
     for dependent in dependents:
         current = dependent()
         if current is not None:
-            current.invalidate('INPUT_PROBE_REVOKED')
+            current.invalidate(reason)
+    # A fatal guard removes all operational authority first. Keep only the
+    # actual observer's closed, sanitized result for its one-shot consumer.
+    # No case/owner/row reference survives in this non-authoritative tombstone.
+    if observations:
+        from terminal_post_enter_observation import PostEnterObservation,_OBSERVATIONS,valid_observation_summary
+        for request,observer in observations:
+            try:
+                evidence=_OBSERVATIONS.get(observer) if type(observer) is PostEnterObservation else None
+                if evidence is not None and evidence.get('closed'):
+                    summary=observer.summary()
+                    if valid_observation_summary(summary): _OBS_RESULTS[request]=summary
+            except Exception: pass  # Optional projection cannot interrupt revocation.
 
 
 def _fail(record, reason='RESUME_HISTORY_SCOPE_REJECTED'):
     if record is not None:
-        close_offline_case(record['case'])
+        _close_offline_case(record['case'],reason)
     raise ResumeHistoryError(reason)
 
 
@@ -640,6 +659,8 @@ def close_post_enter_history(guard):
 
 
 def take_post_enter_result(request):
+    if type(request) is PostEnterObservationRequest and request in _OBS_RESULTS:
+        return _OBS_RESULTS.pop(request)
     record=_OBS_REQUESTS.get(request) if type(request) is PostEnterObservationRequest else None
     if record is None or record.get('result_taken'): return None
     observer=record.get('observer')
