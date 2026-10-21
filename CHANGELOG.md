@@ -11,8 +11,11 @@ tag. Tagged versions correspond to repository tags.
   one synthetic text-turn, an owned submission handoff to private read-only
   guards, zero further input and a separate bounded structural report published
   after parent disposal. It cannot emit acceptance receipts or promote menu-cell
-  history. Focused synthetic verification passed; final review/gate and native
-  feasibility remain pending. Default/installed behavior, durable-content
+  history. Independent review found four failure-path gaps; one author TDD pass
+  fixed cancellation/disposal, numeric-conflict persistence, cleanup dominance
+  and fatal-history cause preservation. The immutable synthetic package gate
+  passed at `59c3869`; native feasibility remains unproven. Default/installed
+  behavior, durable-content
   retention, providers and versions are unchanged. No native grant renews.
 
 - Added optional test-only structural facts for the exact resumed

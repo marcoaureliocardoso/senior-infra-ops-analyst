@@ -1084,14 +1084,23 @@ child status/reap and owned disposal before publishing. It cannot become an
 acceptance report through exit zero or added legacy fields.
 
 Focused synthetic tests, including the real namespace with a Python CLI double,
-passed. Final independent review and the complete immutable gate remain pending.
+passed. Fresh independent review of `90c7e75..6bfe16b` found four Important
+failure-path gaps. One author-owned RED/GREEN pass at `59c3869` corrected
+cancellation supervision through disposal, irreversible intraframe numeric
+conflicts, cleanup-failure dominance and sanitized history-cause preservation
+before fatal case invalidation. Only a closed one-shot summary survives that
+invalidation; no operational capability is retained or reopened.
+No second independent review was dispatched. The complete immutable synthetic
+gate passed at `59c38698f49a4cd00c09946647d36924a214b5d3`, with 552 canonical
+files unchanged in content/type/mode before and after. Exact evidence and
+platform/real-browser exclusions are recorded in `tests/validation-notes.md`.
 Existing immediate rejection, pre-Enter-only menu lifetime and all acceptance
 invariants remain unchanged on the default route. Native feasibility and
 provider/browser acceptance remain unproven; no native execution grant renews.
 
 ## Links
 
-- Approved passive post-Enter observation design (local implementation; final gates pending): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+- Approved passive post-Enter observation design (local synthetic gates passed; native unproven): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 - Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`

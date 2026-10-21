@@ -22,8 +22,10 @@ ADR-010 separately indexes the approved
 The written specification is approved; its
 [implementation plan](../superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md)
 was approved for inline execution. The observation-only mode is implemented
-locally with focused synthetic verification; final independent review and the
-immutable complete gate remain pending. It observes the later display without
+locally. One fresh independent review found four failure-path gaps, corrected
+in one author TDD pass; the immutable full synthetic gate passed at `59c3869`.
+Correction verification is not a second independent review.
+It observes the later display without
 granting input or acceptance. Default enforced behavior remains unchanged;
 native feasibility, provider/browser acceptance and execution grants are separate.
 

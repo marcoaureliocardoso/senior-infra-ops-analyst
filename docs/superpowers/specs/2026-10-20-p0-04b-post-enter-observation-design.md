@@ -3,8 +3,12 @@
 Status: written specification and
 [implementation plan](../plans/2026-10-20-p0-04b-post-enter-observation.md)
 operator-approved on 2026-10-20, inline execution selected. Locally implemented
-with focused synthetic verification; final independent review and immutable
-package gate pending. No native execution is authorized by implementation.
+with synthetic verification. Fresh independent review at `6bfe16b` found four
+Important failure-path issues, corrected in one author RED/GREEN pass at `59c3869`;
+the immutable full package gate passed on that corrected source. Corrections
+were not independently re-reviewed. See `tests/validation-notes.md` for exact
+hashes, evidence and exclusions. Native feasibility remains unproven; no native
+execution is authorized by implementation.
 Source baseline:
 `d3e98160e4921443ad02e564e89b4d8002601de2`.
 

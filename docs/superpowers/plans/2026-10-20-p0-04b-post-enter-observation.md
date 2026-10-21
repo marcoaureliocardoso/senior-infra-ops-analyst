@@ -16,9 +16,13 @@ No new dependencies or runtime/provider/version pins.
 
 **Spec:** [Approved written design](../specs/2026-10-20-p0-04b-post-enter-observation-design.md).
 Design and plan approved by the operator on 2026-10-20; option 2 selected:
-inline implementation with a fresh final independent reviewer. Tasks 1-4 are
-committed locally; Task 5 final review and immutable gate remain pending.
-Exact progress and rulings are in this plan's git-ignored SDD ledger.
+inline implementation with a fresh final independent reviewer. Tasks 1-5 are
+implemented locally. Review at `6bfe16b` found four Important issues; one author
+RED/GREEN pass at `59c3869` fixed them, without a second reviewer dispatch.
+The immutable full package gate passed at `59c3869`. Exact evidence, exclusions
+and residual native gates are recorded in `tests/validation-notes.md`.
+This plan's temporary SDD workspace is removed only after final completion;
+commits and the validation record retain the delivery history.
 Planning baseline: `af14ac1580624c49fcd322c048fe1f25c0de3801`.
 
 ## Global Constraints
@@ -148,7 +152,7 @@ and observation test files; extend `tests/test-terminal-resume-history.py`.
 - `close_post_enter_history(guard) -> None`: idempotent release; case closure
   invalidates requests/guards alongside all existing dependents.
 
-- [ ] **Step 1:** Add `test_detach_withdraws_view_without_closing_case`, asserting
+- [x] **Step 1:** Add `test_detach_withdraws_view_without_closing_case`, asserting
   old view decision REJECTED, valid guard, unchanged root/deadlines and case
   OBSERVING. Add `test_detached_observation_cannot_mint_acceptance` and reject
   missing SDK/audit, skill-turn, copied request, wrong owners, replay and wrong
@@ -160,20 +164,20 @@ and observation test files; extend `tests/test-terminal-resume-history.py`.
   self.assertEqual(history._CASES[case_record]['phase'], 'OBSERVING')
   self.assertEqual(history._CASES[case_record]['deadline'], original_deadline)
   ```
-- [ ] **Step 2:** Run `python3 tests/test-terminal-post-enter-observation.py -k detach`
+- [x] **Step 2:** Run `python3 tests/test-terminal-post-enter-observation.py -k detach`
   in the defined environment; expect a missing-interface/assertion failure.
-- [ ] **Step 3:** Implement the interfaces above. Transfer the original binding
+- [x] **Step 3:** Implement the interfaces above. Transfer the original binding
   once without `revoke_resume_view`, `close_offline_case`, reopening a case or
   extending deadlines. Include the new registries in actual case closure.
   Preserve the default validator; factor only shared pure profile comparison
   if needed, keeping acceptance checks independent.
-- [ ] **Step 4:** Add/run guard tests for retired-history return, moved/replaced
+- [x] **Step 4:** Add/run guard tests for retired-history return, moved/replaced
   old history, close/root loss, clock regression/deadline, native/helper loss,
   foreign controller, geometry and copied bindings. Run the complete new suite
   and `tests/test-terminal-resume-history.py`; expect all tests OK, no native.
   Pin `test_guard_does_not_require_retired_command_registry` while preserving
   rejection for unproved acknowledgement and loss of the original case/scope.
-- [ ] **Step 5:** Commit only this tested lifecycle unit and its tests as
+- [x] **Step 5:** Commit only this tested lifecycle unit and its tests as
   `test: separate post-enter observation case guards`.
 
 ### Task 2: Final pre-Enter seed and irreversible command handoff
@@ -210,7 +214,7 @@ private result association in `tests/terminal_resume_history.py`.
   after close it contains no raw evidence. Never accept a caller-supplied dict
   as the source of an observation result. Pending/missing results return None.
 
-- [ ] **Step 1:** Add `test_handoff_uses_last_writable_wait_frame` with different
+- [x] **Step 1:** Add `test_handoff_uses_last_writable_wait_frame` with different
   numeric baseline/menu inventory in a later valid pre-Enter frame. Assert the
   handed-off private barrier matches that frame, not the preparation frame.
   Add `test_handoff_retires_all_acceptance_paths`:
@@ -224,18 +228,18 @@ private result association in `tests/terminal_resume_history.py`.
 
   Keep the bound observer reference available for cleanup even after command
   retirement; its getter may use a sealed association, not restore `_COMMANDS`.
-- [ ] **Step 2:** Run the new suite with `-k handoff`; expect assertion failures
+- [x] **Step 2:** Run the new suite with `-k handoff`; expect assertion failures
   for absent behavior, then implement the minimal preparation/activation paths.
-- [ ] **Step 3:** Finalize seed inventory, sample, menu and frame at the last
+- [x] **Step 3:** Finalize seed inventory, sample, menu and frame at the last
   consumed valid pre-Enter boundary. Process every writable-wait observation
   before actual Enter; do not freeze preparation early. On partial mutation or
   failure close the case, never roll back to a usable acceptance command.
-- [ ] **Step 4:** Add/run bad counts `0`, `2`, `True`, duplicate ack, stale/copied
+- [x] **Step 4:** Add/run bad counts `0`, `2`, `True`, duplicate ack, stale/copied
   seed, wrong/missing/partial echo, late UI, expired deadline, unrelated request,
   menu change and no-menu controls. Assert ordinary post-Enter lingering-menu
   rejection and inventory-promotion rejection still pass in existing echo,
   display and frozen-history-rejection suites.
-- [ ] **Step 5:** Commit the tested unit as
+- [x] **Step 5:** Commit the tested unit as
   `test: hand off owned submission to read-only observation`.
 
 ### Task 3: Ordered observational classifier and closed summary
@@ -268,7 +272,7 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   optional facts except inputState may explicitly use UNOBSERVED. Require the
   first three keys; no additional keys or arbitrary strings.
 
-- [ ] **Step 1:** Add `test_known_menu_does_not_hide_unknown_row`, with exact
+- [x] **Step 1:** Add `test_known_menu_does_not_hide_unknown_row`, with exact
   menu at cell 8 plus unknown marker at 39; assert terminal
   UNSUPPORTED_TRANSITION / UNKNOWN_ROW, no candidate or receipt. Add a known
   menu plus conflicting numeric sample and later baseline restoration; assert
@@ -281,22 +285,22 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   self.assertFalse(summary['profileObserved'])
   self.assertFalse(observer.candidate_ready)
   ```
-- [ ] **Step 2:** Run new tests to a real RED; implement the ordered assessment:
+- [x] **Step 2:** Run new tests to a real RED; implement the ordered assessment:
   all independent guards first, all rows inspected, only exact original menu
   and exact original owned-input echo can be transient. Preserve history
   retirement, inventory and numeric conflict state throughout waiting.
-- [ ] **Step 3:** Add/run `test_menu_and_input_disappearance_are_monotonic`,
+- [x] **Step 3:** Add/run `test_menu_and_input_disappearance_are_monotonic`,
   `test_same_cell_history_is_classified_not_promoted`,
   `test_candidate_loss_never_returns_to_waiting` and
   `test_full_profile_needs_latest_revalidation`. Assert original cell reuse
   ends INVENTORIED_CELL_REPLACEMENT, while a fully valid new-cell profile can
   freeze CURRENT_PROFILE_OBSERVED without creating a witness/receipt/nonce.
-- [ ] **Step 4:** Cover no-menu path; moved/mutated/duplicated/reappearing menu
+- [x] **Step 4:** Cover no-menu path; moved/mutated/duplicated/reappearing menu
   or command echo; arbitrary draft, malformed/wide/invisible cells; old history
   return/movement; complete/incomplete/conflicting numeric samples; auth elsewhere;
   clock/owner/geometry loss and immutable first terminal result. Run both new
   suites and original history/echo/display/rejection suites; expect OK.
-- [ ] **Step 5:** Pin summary assertions, including `type(profileObserved) is bool`,
+- [x] **Step 5:** Pin summary assertions, including `type(profileObserved) is bool`,
   unknown keys/enums rejected, booleans not accepted as counts, mutation of a
   returned dict not changing internal facts, and no serialized cell text/path
   or content-derived hash. Commit as
@@ -330,7 +334,7 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   emit normal resumed passed context/display/nonce/exit events. On any exit,
   close observer and reap/helper-close using existing supervision.
 
-- [ ] **Step 1:** Add controlled synthetic PTY tests
+- [x] **Step 1:** Add controlled synthetic PTY tests
   `test_observer_seals_every_write_after_one_enter` and
   `test_observation_never_constructs_acceptance_receipts`, with spies for all
   actual writer/os.write paths, display bind, nonce and exit constructors.
@@ -342,18 +346,18 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   nonce_constructor.assert_not_called()
   self.assertNotIn('context_display', passed_resumed_stages)
   ```
-- [ ] **Step 2:** Run targeted tests to RED; implement the private forwarding,
+- [x] **Step 2:** Run targeted tests to RED; implement the private forwarding,
   checked handoff, writer latch and observer pump route. Keep the original
   route selected when no request exists; do not change its rejection timing.
-- [ ] **Step 3:** Test a fragmented/delayed menu-to-profile peer, same-cell
+- [x] **Step 3:** Test a fragmented/delayed menu-to-profile peer, same-cell
   replacement, completion-only peer until deadline, write attempt from an
   alternate callback, attempted parser response, last-frame candidate loss,
   native/helper exit, cancellation and no available output. Use original
   remaining deadline; assert natural exit/nonce absent in resumed observation.
-- [ ] **Step 4:** Run full headless/CLI/signal/cancellation suites plus Tasks 1-3
+- [x] **Step 4:** Run full headless/CLI/signal/cancellation suites plus Tasks 1-3
   suites; expect OK with controlled peers only. Assert initial handshake and
   ordinary resumed acceptance remain byte-for-byte behaviorally unchanged.
-- [ ] **Step 5:** Commit as
+- [x] **Step 5:** Commit as
   `test: isolate passive driver observation after submission`.
 
 ### Task 5: Offline mode, parent disposal and immutable verification
@@ -393,11 +397,11 @@ plan, ADR/index, CHANGELOG and `tests/validation-notes.md` truthfully.
   Exit zero requires CURRENT_PROFILE_OBSERVED plus proved cleanup; legacy
   acceptance aggregation rejects the entire new schema regardless of exit code.
 
-- [ ] **Step 1:** Add tests for outer/inner mixed/duplicate modes, debug combinations,
+- [x] **Step 1:** Add tests for outer/inner mixed/duplicate modes, debug combinations,
   Boolean or forged request, direct host inner entry, one-case/no-skill execution,
   unavailable isolation and no installed native launch during synthetic testing.
   Run to RED, then implement only the exclusive mode and dispatch.
-- [ ] **Step 2:** Add report tests for unknown keys/enums, forged cleanup/success,
+- [x] **Step 2:** Add report tests for unknown keys/enums, forged cleanup/success,
   zero-exit incompatible schema, child process failure with success JSON,
   lost projection, multibyte byte accounting and optional summary pressure.
   Assert 16/3072 and 16384 bounds include disposal/newline and base cleanup
@@ -410,32 +414,33 @@ plan, ADR/index, CHANGELOG and `tests/validation-notes.md` truthfully.
   self.assertLessEqual(len((json.dumps(report, sort_keys=True)+'\n').encode()), 16384)
   self.assertEqual(post_enter_exit_code(cleanup_failed_report), 2)
   ```
-- [ ] **Step 3:** Exercise actual synthetic child/PTY/namespace failures and cleanup
+- [x] **Step 3:** Exercise actual synthetic child/PTY/namespace failures and cleanup
   ordering: malformed/truncated output, SDK/setup failure, write failure,
   timeout/cancellation, root escape/substitution, native/helper/namespace reap
   failure and deletion failure. Assert no raw content/export before cleanup,
   no fallback into `case_complete`, no retry, no second case or real provider.
-- [ ] **Step 4:** Add both new Python suites to the full gate and wiring tests;
+- [x] **Step 4:** Add both new Python suites to the full gate and wiring tests;
   run all affected history/echo/display/observer/driver/CLI/offline/cancellation/
   report/wiring suites in the defined environment. Record real counts/skips;
   commit tested code/docs as `test: add isolated post-enter observation mode`.
-- [ ] **Step 5:** Obtain a fresh independent whole-change review on immutable
+- [x] **Step 5:** Obtain a fresh independent whole-change review on immutable
   committed source, with scope from planning baseline through all Task 1-5
   commits. Reviewer must inspect spec coverage, trust boundaries and actual
   tests without native/provider execution. Fix any findings with TDD, rerun
-  affected suites, commit corrections and repeat review as necessary.
-- [ ] **Step 6:** Export the exact reviewed commit to an owned isolated Linux
+  affected suites and commit corrections. For the selected inline workflow,
+  use one author fix pass and the complete gate, not a second reviewer dispatch.
+- [x] **Step 6:** Export the exact reviewed commit to an owned isolated Linux
   directory using the established archive/content/type/mode verification route.
   Run `bash tests/validate-package.sh` there with both terminal-helper variables
   and the explicit Node PATH. Expect exit zero and `package validation passed`.
   Verify canonical source unchanged before/after; retain sanitized gate evidence
   outside Git and record exclusions honestly. Do not claim remote CI/Security.
-- [ ] **Step 7:** Update validation notes and spec/ADR/index/CHANGELOG status with
+- [x] **Step 7:** Update validation notes and spec/ADR/index/CHANGELOG status with
   exact reviewed/gated hashes, actual tests, skips and residual risks. Do not
   claim native feasibility or bump versions. Commit result-only documentation,
   verify source equivalence to reviewed/gated code, run document/content/release
   checks and `git diff --check`, then confirm clean worktree.
-- [ ] **Step 8:** Stop and present the final immutable commit, evidence and the
+- [x] **Step 8:** Stop and present the final immutable commit, evidence and the
   new exact-scope grant needed for a later native observation. Do not run it,
   push, open PR, merge, release, refresh staging or mark the TODO complete.
 

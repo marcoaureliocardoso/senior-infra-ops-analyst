@@ -1,19 +1,64 @@
 # Validation Notes
 
-## Passive post-Enter observation - local implementation, final gates pending
+## Passive post-Enter observation - local synthetic gates completed
 
 Approved spec/plan: `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 and `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`.
 The operator selected inline execution with one fresh final reviewer.
-Implementation commits so far: e151630 (guard), d4024d5 (handoff), add35df
-(classifier), 8af1266 (driver). All execution in this delivery uses synthetic
+Implementation commits: e151630 (guard), d4024d5 (handoff), add35df
+(classifier), 8af1266 (driver), 6bfe16b (offline mode), 59c3869 (review fixes).
+All execution in this delivery uses synthetic
 fixtures/CLI doubles, never the installed Claude, real provider or operator state.
 
 Observed RED-to-GREEN boundaries include absent factories/handoff/classifier,
 incoherent positive summaries, wide input cells and the missing bounded transport.
-Focused runs passed observer25, summary/mode/transport14, driver80 plus one later
-cancellation control, CLI25, wiring16 and signals5. The complete current-source
-gate and final independent review have not yet run for this change.
+Initial focused runs passed observer25, summary/mode/transport14, driver80 plus
+one later cancellation control, CLI25, wiring16 and signals5. These did not
+cover the four failure paths subsequently found by independent review.
+
+The one fresh independent whole-change review covered
+`90c7e75fc787586456ef3c1c17e7fd27b1d1d973..6bfe16bf7990b388ff206ba1a6ea949dbd504108`.
+It independently passed observer25 and report14, but found four Important issues:
+cancelled success or root leakage after handlers were restored too early;
+intraframe numeric contradictions forgotten as absence; negative observation
+detail surviving failed native/helper reap; and fatal history revocation erasing
+its specific cause. No Critical or Minor findings were reported.
+
+One author-owned correction pass reproduced every finding RED, then GREEN:
+
+- SIGTERM after parsing and during disposal now stops success while preserving
+  active supervision through owned cohort reap and identity-checked deletion.
+- Contradictory free/buffer rows and impossible totals terminate irreversibly;
+  absent, partial and numerically equivalent rows remain distinct controls.
+- Known native/helper/case cleanup failures dominate positive and negative
+  observations, suppress their summary and force CLEANUP_FAILED at projection
+  and the actual parent report seam.
+- History replacement, movement and retired-row return freeze HISTORY_CONFLICT
+  before fatal invalidation. All case capabilities stay removed; a weak one-shot
+  tombstone retains only the actual closed, sanitized summary for the consumer.
+
+Corrected-source focused suites passed observer28, report17, legacy history28,
+echo47, display17, numeric4, driver-observer6, offline65 and cancellation14.
+No second reviewer pass was dispatched under the selected inline workflow;
+the corrections are author-verified, not independently re-approved.
+
+The immutable full package gate then passed at
+`59c38698f49a4cd00c09946647d36924a214b5d3`: exit0 and `package validation passed`,
+2026-10-21T02:08:29Z through 02:23:14Z (885 seconds). Git archive SHA-256:
+`bc55b4d99413c054514a87e1f2f671472ce5cc8ffa40b308c594817339547142`.
+All 552 canonical file contents, types and modes matched before and after the
+gate. This run included the complete current driver81 (317.566s), observer28,
+report17, original offline65, cancellation14 and CLI25 suites.
+The earlier cancellation-suite failure below did not recur in this gate.
+
+Exclusions: the opt-in real-browser test covering all 37 loopback scenarios
+reported CAPABILITY_UNAVAILABLE; three Python platform-dependent tests skipped
+(native-Windows permission-handler rejection and Git Bash context/Nori harness
+checks); .ps1 syntax validation skipped because PowerShell was absent in WSL.
+Local CI-workflow validation is not a remote CI/Security result.
+Canonical gate log and the sanitized independent-review/fix record remain
+outside Git under `.review-runtime/p004b-terminal-state/`:
+`p004b-post-enter-59c3869-gate.log` and `p004b-post-enter-review-6bfe16b.md`.
 
 One concurrent cancellation-suite run failed
 `test_gated_spawn_reaps_fast_orphan_before_returning_success` (exit2 versus0).
@@ -24,7 +69,9 @@ fixing only that synthetic fixture preserved the strict recognizer.
 
 No new native attempt, raw-content export, version bump, push, PR, merge, release,
 staging refresh, remote CI/Security claim or definitive TODO completion occurred.
-Native observation still needs exact-final-commit authorization after local gates.
+Native one-Enter feasibility, provider/browser acceptance and whole-P0-04B
+merge/release readiness remain unproved. Native observation still needs fresh
+exact-final-commit authorization; all historical native grants remain consumed.
 
 ## Frozen history-eligibility observer - 2026-10-20
 
