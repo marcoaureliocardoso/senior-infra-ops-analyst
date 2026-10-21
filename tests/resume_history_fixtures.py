@@ -65,12 +65,13 @@ class NativeFixture:
         return self.returncode
 
 
-def write_context_peer(path, *, mode, seen, barrier_fd=None):
+def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-turn'):
     """Real Python PTY peer, with explicit reads as protocol barriers."""
-    text='P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
+    text=('P0-04B synthetic text control. Reply P004B_SKILL_OK only.' if case_kind=='text-turn' else
+        'P0-04B synthetic. Invoke Skill(context-continuity) once; reply P004B_SKILL_OK. No browser.')
     history=((5,'❯ '+text),(10,'❯ /context'),(12,'❯ /exit')) if mode!='initial' else ()
     initial='\x1b[?1049h'
-    if mode in ('equal-values','changed-values','no-history','cosmetic-only','conflicting-sample','lingering-menu') or mode.startswith('observe-'):
+    if mode in ('equal-values','changed-values','no-history','cosmetic-only','conflicting-sample','lingering-menu') or mode.startswith(('observe-','acceptance-')):
         initial+='\x1b[HContext Usage\r\nFree space: 81%\r\nAutocompact buffer: 3%'
     for row,line in history:
         initial+='\x1b['+str(row+1)+';1H'+line
@@ -86,7 +87,7 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
         if mode=='retire' and row==5: continue
         after+='\x1b['+str(row+1)+';1H'+line
     after+='\x1b[21;1H❯ /context\x1b[38;1H❯\u00a0'
-    if mode=='changed-values': after=after.replace('Free space: 81%','Free space: 80%')
+    if mode in ('changed-values','acceptance-menu-changed'): after=after.replace('Free space: 81%','Free space: 80%')
     if mode in ('no-history','cosmetic-only'):
         after=after.replace('\x1b[21;1H❯ /context','')
     if mode=='cosmetic-only': after=after.replace('Context Usage','Context Usage (local)')
@@ -109,6 +110,18 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
     if mode=='observe-fragmented':
         transition='os.write(1,b"\\x1b[2J")\ntime.sleep(1)\n'
     if mode=='observe-response': after='\x1b[6n'+after
+    acceptance_menu=mode.startswith('acceptance-menu')
+    if mode.startswith('acceptance-'):
+        if type(barrier_fd) is not int: raise ValueError('fixture barrier required')
+        waiting=initial+'\x1b[38;1H❯\u00a0/context'+(menu if acceptance_menu else '')+'\x1b[38;11H'
+        transition='os.write(1,'+repr(waiting.encode())+')\nos.read('+str(barrier_fd)+',1)\n'
+    if mode=='acceptance-response': after='\x1b[6n'+after
+    post_profile=''
+    if mode=='acceptance-drain':
+        post_profile=('os.read('+str(barrier_fd)+',1)\nos.write(1,"\\x1b[16;1H❯ unknown\\x1b[38;3H".encode())\n'
+            'Path('+repr(str(seen)+'.bad-ready')+').touch()\n')
+    if mode=='acceptance-fragmented': after='\x1b[2J'
+    if mode=='acceptance-native-exit': post_profile='raise SystemExit(0)\n'
     path.write_text('import os,tty,time\nfrom pathlib import Path\n'
         'tty.setraw(0)\n'
         'def read(n):\n'
@@ -124,13 +137,14 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None):
         'command=bytearray()\n'
         'for _ in range(8):\n'
         ' command.extend(read(1)); os.write(1,b"\\x1b[38;3H"+command)\n'
-        + ('os.write(1,'+repr(menu.encode())+')\n' if mode=='lingering-menu' or mode in ('observe-delayed','observe-lingering','observe-cell') else '') +
+        + ('os.write(1,'+repr(menu.encode())+')\n' if acceptance_menu or mode=='lingering-menu' or mode in ('observe-delayed','observe-lingering','observe-cell') else '') +
         'if command!=b"/context" or read(1)!=b"\\r": raise SystemExit(4)\n'
-        +transition+'os.write(1,'+repr(after.encode())+')\n'
+        +transition+'os.write(1,'+repr(after.encode())+')\n'+post_profile+
         'marker=read(16)\n'
         'os.write(1,b"\\x1b[38;3H"+marker)\n'
         'if read(1)!=b"\\x15": raise SystemExit(5)\n'
         'os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n'
+        + ('os.write(1,"\\x1b[9;1H❯ /exit  Synthetic completion\\x1b[38;3H".encode())\n' if mode=='acceptance-exit-menu' else '') +
         'if read(6)!=b"/exit\\r": raise SystemExit(6)\n'),encoding='utf-8')
 
 

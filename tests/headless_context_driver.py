@@ -18,6 +18,7 @@ from terminal_state_adapter import TerminalStateError, MAX_CAPTURE
 from terminal_structural_diagnostics import TerminalDiagnostics
 from terminal_input_challenge import NonceInputChallenge, InputProofError, validate_probe_scope
 from terminal_context_echo import begin_context_command, assess_context_input, validate_context_history, _invalidate_context_receipt, _compose_input_assessment
+from terminal_context_echo import _prepare_acceptance_pending, _acknowledge_acceptance_edit
 from terminal_context_diagnostics import _create_context_journal
 from terminal_cancellation import TerminalCancelled
 from terminal_resume_history import (ResumeHistoryError,validate_initial_sink,bind_initial_sink,
@@ -130,6 +131,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     context_journal=None; journal_active=False; controller_owner=object()
     numeric_context_observed=False
     observer=None; input_sealed=False
+    acceptance_owned=(_resume_offer is not None and _post_enter_observation is None
+        and context_debug is None and context_edit_debug is None)
+    acceptance_fenced=False; input_rejected=False
+    protocol_remaining=None; protocol_phase=None; protocol_dispatching=False; active_dispatch=None
+    protocol_phases=set()
     if input_probe_scope is not None:
         deadline=min(deadline,validate_probe_scope(input_probe_scope,state))
 
@@ -189,10 +195,27 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         with events_path.open('a',encoding='utf-8') as stream:
             stream.write(json.dumps(value,sort_keys=True)+'\n')
 
-    def write_terminal(data,*,direct=False):
+    def reject_input():
+        nonlocal input_rejected
+        input_rejected=True
+        if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
+        if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
+        raise _ContextFailure('INPUT_UNPROVEN')
+
+    def write_terminal(data,*,direct=False,_dispatch=None):
+        nonlocal active_dispatch
         if input_sealed:
             if observer is not None: observer.stop('SAFETY_STOP','WRITE_ATTEMPT')
             raise _ContextFailure('INPUT_UNPROVEN')
+        if input_rejected: reject_input()
+        if acceptance_fenced:
+            if (_dispatch is None or _dispatch is not active_dispatch or not protocol_dispatching
+                    or not direct or _dispatch[1:]!=(frame,probe,context_receipt,resume_view,protocol_phase,bytes(data))
+                    or probe is None or probe.phase!=protocol_phase or protocol_remaining!=bytes(data)):
+                reject_input()
+            # Consume before concrete IO; no generic reopening, replay or callback window.
+            active_dispatch=None
+        elif _dispatch is not None: reject_input()
         return os.write(master,data) if direct else writer(master,data)
 
     def seal_terminal_input():
@@ -309,14 +332,40 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         write_terminal(line.encode('utf-8')+b'\r')
 
     def operation_live():
+        if input_rejected: reject_input()
         check_cancelled()
         if time.monotonic()>=deadline: raise command_error('INPUT_PROBE_DEADLINE','DEADLINE')
         if process.poll() is not None: raise command_error('INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
         resume_live()
         if probe is not None: probe._check()
+        if input_rejected: reject_input()
+
+    def write_probe_chunk(payload: bytes,phase: str) -> int:
+        nonlocal active_dispatch,protocol_dispatching
+        if not acceptance_fenced: return write_terminal(payload,direct=True)
+        if (protocol_dispatching or protocol_remaining!=payload or protocol_phase!=phase
+                or probe is None or probe.phase!=phase or context_receipt is None
+                or probe._context_receipt is not context_receipt or probe._resume_view is not resume_view
+                or probe._controller is not controller_owner or probe._native is not process
+                or probe._transition is not transition or probe._scope is not input_probe_scope):
+            reject_input()
+        protocol_dispatching=True
+        try:
+            operation_live(); auth_clear()
+            if phase=='CONSUMED' and not exit_owned(exit_written): reject_input()
+            active_dispatch=(object(),frame,probe,context_receipt,resume_view,phase,payload)
+            return write_terminal(payload,direct=True,_dispatch=active_dispatch)
+        finally:
+            active_dispatch=None; protocol_dispatching=False
 
     def owned_write(payload,phase):
-        nonlocal exit_written
+        nonlocal exit_written,protocol_remaining,protocol_phase
+        if acceptance_fenced:
+            expected=(probe._marker.encode('ascii') if phase=='ECHO_PENDING' and probe._marker is not None else
+                b'\x15' if phase=='CLEAR_PENDING' else b'/exit\r' if phase=='CONSUMED' else None)
+            if (protocol_remaining is not None or phase in protocol_phases or payload!=expected
+                    or probe.phase!=phase): reject_input()
+            protocol_phases.add(phase); protocol_remaining=bytes(payload); protocol_phase=phase
         pending=memoryview(payload)
         written=0
         while pending:
@@ -332,7 +381,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if probe.phase!=phase: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
             if phase=='CONSUMED' and not exit_owned(written):
                 raise InputProofError('INPUT_PROBE_REVOKED')
-            try: count=write_terminal(pending,direct=True)
+            try: count=write_probe_chunk(bytes(pending),phase)
             except BlockingIOError: continue
             except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
             if type(count) is not int or not 0<count<=len(pending):
@@ -340,9 +389,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             written+=count
             if phase=='CONSUMED': exit_written=written
             pending=pending[count:]
+            if acceptance_fenced: protocol_remaining=bytes(pending)
+        protocol_remaining=None; protocol_phase=None
 
     def command_write(payload,*,submission=False):
-        nonlocal observer,resume_view
+        nonlocal observer,resume_view,acceptance_fenced
         pending=memoryview(payload); written=0
         while pending:
             def check():
@@ -359,9 +410,14 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             try: count=write_terminal(pending,direct=True)
             except BlockingIOError: continue
             except OSError: raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE') from None
+            # This is the actual Enter IO acknowledgement. Fence before optional
+            # journal callbacks or command phase notifications can attempt input.
+            if submission and acceptance_owned: acceptance_fenced=True
             if type(count) is not int or not 0<count<=len(pending):
                 journal_call('acknowledge',count,submission=submission,remaining=len(pending))
                 raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE')
+            if acceptance_owned and not submission:
+                _acknowledge_acceptance_edit(context_command,count,remaining=len(pending),controller_owner=controller_owner)
             journal_call('acknowledge',count,submission=submission,remaining=len(pending))
             written+=count; pending=pending[count:]
             if submission:
@@ -431,6 +487,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}),
                 **({'_post_enter_request':_post_enter_observation} if _post_enter_observation is not None else {}),
                 **({'_edit_row_observer':edit_observer} if edit_observer is not None else {}))
+            if acceptance_owned:
+                _prepare_acceptance_pending(context_command,snapshot,frame,controller_owner=controller_owner)
             command_write(context_command.type_bytes(snapshot,frame))
             wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
             while pump(0): pass
@@ -506,6 +564,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         process.wait(timeout=min(8,max(.2,deadline-time.monotonic())))
         if process.returncode!=0: raise RuntimeError('nonzero context exit')
         state.check_cancelled()
+        if input_rejected: reject_input()
         if _initial_completion_sink is not None:
             initial_pending=capture_initial_completion(_initial_completion_sink,controller_owner=controller_owner,
                 state=state,scope=input_probe_scope,native_owner=process,transition_owner=transition,
@@ -543,6 +602,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 context_debug.capture(state,input_probe_scope,snapshot,error,numeric_context=numeric_context_observed)
             except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
+        protocol_remaining=None; protocol_phase=None; active_dispatch=None
         if context_edit_debug is not None:
             try: context_edit_debug.finish()
             except Exception: pass
@@ -570,6 +630,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             record('terminal_cleanup','failed'); result=2
             helper_cleanup=error.reason
         diagnose('helper_cleanup',helper_cleanup,structural=False,reap='helper')
+        if input_rejected: result=2
         try:
             if initial_pending is not None:
                 finish_initial_completion(initial_pending,result=result,native_cleanup=native_cleanup,helper_cleanup=helper_cleanup)

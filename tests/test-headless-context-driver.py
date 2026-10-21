@@ -946,8 +946,9 @@ class ResumedHistoryDriverTests(unittest.TestCase):
         from resume_history_fixtures import write_context_peer
         peer=f.root/'native-peer.py'; seen=f.root/'native-input'
         barrier_fd=changes.pop('_peer_barrier_fd',None)
+        timeout_seconds=changes.pop('_dialogue_timeout',6)
         observation=changes.pop('observation',False)
-        write_context_peer(peer,mode=mode,seen=seen,barrier_fd=barrier_fd)
+        write_context_peer(peer,mode=mode,seen=seen,barrier_fd=barrier_fd,case_kind=f.kind)
         real_launch=subprocess.Popen
         expected=f.initial_command if mode=='initial' else f.resume_command
         children=[]
@@ -980,13 +981,187 @@ class ResumedHistoryDriverTests(unittest.TestCase):
         else: kwargs['_resume_offer']=f.offer()
         kwargs.update(changes)
         with mock.patch.object(selected_controller.subprocess,'Popen',new=replacement):
-            result=self.driver.drive(list(expected),f.root/'native-capture',6,f.root/'native-events',
+            result=self.driver.drive(list(expected),f.root/'native-capture',timeout_seconds,f.root/'native-events',
                 dialogue='context',**kwargs)
         self.assertTrue(all(child.poll() is not None for child in children))
         self.assertTrue(f.state.helper_reaped)
         if observation:
             self.last_observation=history.take_post_enter_result(request)
         return result,seen.read_bytes() if seen.exists() else b''
+
+    def test_acceptance_waits_passively_then_proves_input(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        actual=OwnedContextCommand.observe
+        for kind in ('text-turn','skill-turn'):
+            for mode in ('equal-values','changed-values','acceptance-menu-equal','acceptance-menu-changed','acceptance-echo','acceptance-response'):
+                with self.subTest(kind=kind,mode=mode),CaseFixture(kind) as f:
+                    f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                    read_fd,write_fd=os.pipe(); released=[]
+                    def observed(command,snapshot,frame):
+                        result=actual(command,snapshot,frame)
+                        if mode.startswith('acceptance-') and result=='CONTEXT_PENDING' and not released:
+                            self.assertEqual((f.root/'native-input').read_bytes(),b'/context\r')
+                            released.append(True); os.write(write_fd,b'1')
+                        return result
+                    try:
+                        with mock.patch.object(OwnedContextCommand,'observe',new=observed):
+                            result,data=self.run_owned(f,mode,_peer_barrier_fd=read_fd)
+                    finally: os.close(read_fd); os.close(write_fd)
+                    self.assertEqual(result,0)
+                    self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+                    self.assertEqual(bool(released),mode.startswith('acceptance-'))
+                    events=[json.loads(line) for line in (f.root/'native-events').read_text().splitlines()]
+                    inspected=[row for row in events if row['stage']=='context_inspected']
+                    self.assertEqual(inspected,[{'kind':'pty-driver','stage':'context_inspected','outcome':'passed',
+                        'percent':17 if mode in ('changed-values','acceptance-menu-changed') else 16}])
+
+    def test_acceptance_blocks_raw_and_whole_callbacks_at_every_boundary(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        from terminal_input_challenge import NonceInputChallenge
+        for method in ('acknowledge','observe','submission_written','context_display_percent','bind_history','type_bytes'):
+            target=ContextFailureJournal if method=='acknowledge' else NonceInputChallenge if method=='type_bytes' else OwnedContextCommand
+            actual=getattr(target,method)
+            for direct in (True,False):
+                with self.subTest(method=method,direct=direct),CaseFixture() as f:
+                    f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal(); attempts=[]
+                    read_fd,write_fd=os.pipe()
+                    def attempted(owner,*args,**kwargs):
+                        result=actual(owner,*args,**kwargs)
+                        if attempts or (method=='context_display_percent' and result is None): return result
+                        if method=='acknowledge' and kwargs.get('submission') is not True: return result
+                        if method=='observe' and result!='CONTEXT_PENDING': return result
+                        current=inspect.currentframe()
+                        try:
+                            while current is not None and current.f_code.co_name!='drive_context': current=current.f_back
+                            self.assertIsNotNone(current); attempts.append(True)
+                            for payload in (b'X',b'\r',b'\x1b',b'\t',b'\x15',b'/exit\r'):
+                                with self.assertRaises(RuntimeError):
+                                    current.f_locals['write_terminal'](payload,direct=direct)
+                        finally: del current
+                        return result
+                    try:
+                        with mock.patch.object(target,method,new=attempted):
+                            result,data=self.run_owned(f,'acceptance-menu-equal' if method=='observe' else 'equal-values',
+                                _peer_barrier_fd=read_fd)
+                    finally: os.close(read_fd); os.close(write_fd)
+                    self.assertEqual(attempts,[True]); self.assertEqual((result,data),(2,b'/context\r'))
+
+    def test_acceptance_drain_cannot_skip_fatal_intermediate_frame(self):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        actual=OwnedContextCommand.context_display_percent
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            read_fd,write_fd=os.pipe(); released=[]
+            def display(command,snapshot,frame):
+                result=actual(command,snapshot,frame)
+                if not released:
+                    released.append('pending'); os.write(write_fd,b'1')
+                elif result is not None and len(released)==1:
+                    released.append('candidate'); os.write(write_fd,b'2')
+                    deadline=time.monotonic()+1
+                    while not (f.root/'native-input.bad-ready').exists() and time.monotonic()<deadline: time.sleep(.005)
+                    self.assertTrue((f.root/'native-input.bad-ready').exists())
+                return result
+            try:
+                with mock.patch.object(OwnedContextCommand,'context_display_percent',new=display):
+                    result,data=self.run_owned(f,'acceptance-drain',_peer_barrier_fd=read_fd)
+            finally: os.close(read_fd); os.close(write_fd)
+            self.assertEqual(released,['pending','candidate'])
+            self.assertEqual((result,data),(2,b'/context\r'))
+
+    def test_acceptance_partial_io_and_blocking_retry_keep_exact_bytes(self):
+        from resume_history_fixtures import CaseFixture
+        actual=os.write; blocked=[]
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            diagnostics=TerminalDiagnostics()
+            def partial(fd,data):
+                current=inspect.currentframe().f_back
+                if current.f_code.co_name=='write_terminal':
+                    if current.f_locals.get('_dispatch') is not None and not blocked:
+                        blocked.append(True); raise BlockingIOError(errno.EAGAIN,'synthetic would block')
+                    return actual(fd,bytes(data[:1]))
+                return actual(fd,data)
+            with mock.patch.object(selected_controller.os,'write',new=partial):
+                result,data=self.run_owned(f,'equal-values',diagnostics=diagnostics,_dialogue_timeout=12)
+            self.assertEqual(result,0,diagnostics.report()); self.assertEqual(blocked,[True])
+            self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15/exit\r$')
+
+    def test_acceptance_dispatch_replay_or_mismatch_cannot_write(self):
+        from resume_history_fixtures import CaseFixture
+        actual=os.write
+        for payload in (b'X',None):
+            with self.subTest(payload=payload),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal(); attempts=[]
+                def replay(fd,data):
+                    count=actual(fd,data)
+                    current=inspect.currentframe().f_back
+                    if current.f_code.co_name!='write_terminal' or current.f_locals.get('_dispatch') is None or attempts:
+                        return count
+                    token=current.f_locals['_dispatch']; attempts.append(True)
+                    driver=current.f_back
+                    while driver is not None and driver.f_code.co_name!='drive_context': driver=driver.f_back
+                    self.assertIsNotNone(driver)
+                    try:
+                        with self.assertRaises(RuntimeError): driver.f_locals['write_terminal'](
+                            bytes(data) if payload is None else payload,direct=True,_dispatch=token)
+                    finally: del current,driver
+                    return count
+                with mock.patch.object(selected_controller.os,'write',new=replay):
+                    result,data=self.run_owned(f,'equal-values')
+                self.assertEqual(result,2); self.assertEqual(attempts,[True])
+                self.assertRegex(data,rb'^/context\r[0-9a-f]{16}$')
+
+    def test_exit_menu_does_not_reactivate_pending(self):
+        self.run_acceptance_terminal_peer('acceptance-exit-menu',after_nonce=True)
+
+    def test_acceptance_consumed_fatal_frames_and_native_exit_stop(self):
+        for mode in ('acceptance-fragmented','acceptance-native-exit'):
+            with self.subTest(mode=mode): self.run_acceptance_terminal_peer(mode)
+
+    def test_acceptance_helper_protocol_or_cancellation_loss_while_pending(self):
+        from resume_history_fixtures import CaseFixture
+        for mode in ('helper','protocol','cancel'):
+            with self.subTest(mode=mode),CaseFixture() as f:
+                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal(); failures=[]
+                actual=f.state.feed
+                def feed(data):
+                    result=actual(data); current=inspect.currentframe().f_back
+                    try:
+                        command=current.f_locals.get('context_command')
+                        if command is not None and command.phase=='CONTEXT_PENDING' and not failures:
+                            failures.append(True)
+                            if mode=='helper': f.state.close()
+                            elif mode=='protocol': raise TerminalStateError('TERMINAL_PROTOCOL_REJECTED')
+                            else: raise TerminalCancelled()
+                    finally: del current
+                    return result
+                with mock.patch.object(f.state,'feed',new=feed):
+                    result,data=self.run_owned(f,'equal-values')
+                self.assertEqual(failures,[True]); self.assertEqual((result,data),(2,b'/context\r'))
+
+    def run_acceptance_terminal_peer(self,mode,after_nonce=False):
+        from resume_history_fixtures import CaseFixture
+        from terminal_context_echo import OwnedContextCommand
+        actual=OwnedContextCommand.observe
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            read_fd,write_fd=os.pipe(); released=[]
+            def release(command,snapshot,frame):
+                result=actual(command,snapshot,frame)
+                if result=='CONTEXT_PENDING' and not released:
+                    released.append(True); os.write(write_fd,b'1')
+                return result
+            try:
+                with mock.patch.object(OwnedContextCommand,'observe',new=release):
+                    result,data=self.run_owned(f,mode,_peer_barrier_fd=read_fd)
+            finally: os.close(read_fd); os.close(write_fd)
+            self.assertEqual(result,2); self.assertEqual(released,[True])
+            if after_nonce: self.assertRegex(data,rb'^/context\r[0-9a-f]{16}\x15$')
+            else: self.assertEqual(data,b'/context\r')
 
     def test_observer_seals_every_write_after_one_enter(self):
         self.assertIn('_post_enter_observation',inspect.signature(self.driver.drive).parameters,
@@ -1101,7 +1276,7 @@ class ResumedHistoryDriverTests(unittest.TestCase):
                 events=[json.loads(row) for row in (f.root/'native-events').read_text().splitlines()]
                 self.assertFalse(any(row['stage']=='context_inspected' and row['outcome']=='passed' for row in events))
 
-    def test_resumed_lingering_menu_exports_frozen_failure_without_nonce(self):
+    def test_resumed_menu_does_not_mask_owned_prefix_failure(self):
         from resume_history_fixtures import CaseFixture
         with CaseFixture() as f:
             f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
@@ -1113,10 +1288,23 @@ class ResumedHistoryDriverTests(unittest.TestCase):
             failure=next(row for row in report['records'] if row['point']=='failure')
             self.assertEqual(failure['contextCommandFailure'],{'phase':'CONTEXT_PENDING','check':'HISTORY_ELIGIBILITY',
                 'commandBytesWritten':8,'enterBytesWritten':1})
-            self.assertEqual(failure['historyRejection'],{'rowShape':'CONTEXT_COMPLETION','preEnterMenuCell':True,
+            self.assertEqual(failure['historyRejection'],{'rowShape':'CONTEXT_COMMAND','preEnterMenuCell':False,
                 'historyCell':'NONE','samplePresent':True,'newHistoryCount':0,'displayPhase':'AWAIT_DISPLAY'})
             self.assertNotIn('input_probe_started',[row['point'] for row in report['records']])
             self.assertEqual([row['leaderReaped'] for row in report['records'] if 'leaderReaped' in row],[True,True])
+
+    def test_acceptance_known_transient_never_becomes_timeout_authority(self):
+        from resume_history_fixtures import CaseFixture
+        with CaseFixture() as f:
+            f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+            read_fd,write_fd=os.pipe(); diagnostics=TerminalDiagnostics()
+            try:
+                result,data=self.run_owned(f,'acceptance-menu-equal',_peer_barrier_fd=read_fd,diagnostics=diagnostics)
+            finally: os.close(read_fd); os.close(write_fd)
+            self.assertEqual((result,data),(2,b'/context\r'))
+            rows=diagnostics.report()['records']
+            self.assertEqual(next(row['reasonCode'] for row in rows if row['point']=='failure'),'WAIT_DEADLINE')
+            self.assertFalse(any(row['point'] in ('context_display','input_probe_started','input_probe_cleared') for row in rows))
 
     def test_conflicting_complete_samples_stop_without_nonce(self):
         from resume_history_fixtures import CaseFixture

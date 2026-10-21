@@ -921,5 +921,17 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertIn('"percent": 9', text)
 
 
+class AcceptanceWrapperTests(unittest.TestCase):
+    def test_context_driver_rejects_serialized_acceptance_without_launch(self):
+        driver=load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); marker=root/'launched'; capture=root/'capture'; events=root/'events'
+            command=[sys.executable,'-c',f'from pathlib import Path; Path({str(marker)!r}).touch()']
+            result=driver.drive(command,capture,1,events,dialogue='context',
+                _resume_offer={'profileObserved':True,'acceptance':True},input_probe_scope=object())
+            self.assertEqual(result,2)
+            self.assertFalse(marker.exists()); self.assertFalse(capture.exists()); self.assertFalse(events.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
