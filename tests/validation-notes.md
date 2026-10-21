@@ -1,5 +1,44 @@
 # Validation Notes
 
+## Native passive observation and proposed acceptance extension - 2026-10-21
+
+One separately authorized native offline observation executed exactly once on
+`3c159a15c13a321c2166abde10538292fa732918`, mode `--observe-post-enter`, text-turn
+only. It returned CURRENT_PROFILE_OBSERVED / COMPLETE, exit0, in 11.847 seconds
+overall. The report contained DISAPPEARED / EMPTY / NEW_CELL /
+BASELINE_EQUIVALENT, validated initial completion and synthetic SDK sample, and
+all four cleanup facts true. It retained `acceptance: false`.
+This is a real native-client observation against a synthetic loopback gateway,
+not a real-provider or browser acceptance run. No post-Enter input, content-debug
+export or automatic repeat occurred; raw evidence/history/roots were disposed.
+The one-shot grant is consumed and must not be reused.
+
+The Git archive commit was verified and SHA-256 matched
+`3dfa051969f9e861d9c49ba2c27c551408462140ce2356466ccb8b3c069606f3`.
+All 552 canonical contents/types/modes were verified before and after execution.
+Structural evidence outside Git under `.review-runtime/p004b-terminal-state/`:
+`p004b-offline-3c159a1-attempt.json` and
+`p004b-offline-3c159a1-structural-result.json`. No native runtime version is
+retained in this schema, so no new version attribution is made.
+
+Read-only follow-up investigation passed observer28 (39.579s), report17
+(8.243s) and driver-observer6 (43.610s), with no installed-native repetition.
+Two synthetic comparisons using existing fixtures showed that ordinary resumed
+display assessment recognizes a direct final profile but rejects an intermediate
+post-Enter menu, while direct and transient-menu observational paths produce
+identical closed summaries. Therefore the native summary does not establish
+menu persistence, intermediate-frame timing or that waiting caused success.
+The 11.847-second total is not an observed menu-wait duration.
+
+The operator approved the direction of reusing the existing correlated-display
+and independent input-proof contract. The proposed
+[bounded acceptance extension](../docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
+is written for review, not implemented. Its plan, behavioral verification and
+fresh native nonce/clear/natural-exit authorization remain pending. The original
+observation route remains irreversibly read-only after Enter. Resumed input proof,
+skill-turn, provider/browser, remote CI/Security and whole-P0-04B merge/release
+readiness are not established by this successful observation.
+
 ## Passive post-Enter observation - local synthetic gates completed
 
 Approved spec/plan: `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`

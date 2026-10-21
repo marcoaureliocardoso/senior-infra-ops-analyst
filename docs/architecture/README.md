@@ -17,6 +17,14 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 separately indexes the proposed
+[bounded post-Enter acceptance extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
+The conversational direction is approved; the written specification awaits
+operator review and has no implementation plan or behavioral change yet.
+It would extend only passive pending in audited resumed acceptance, retaining
+the existing correlated-display and independent nonce/clear/exit contract.
+The observation-only mode remains permanently read-only after Enter.
+
 ADR-010 separately indexes the approved
 [passive post-Enter observation specification](../superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md).
 The written specification is approved; its
@@ -26,8 +34,10 @@ locally. One fresh independent review found four failure-path gaps, corrected
 in one author TDD pass; the immutable full synthetic gate passed at `59c3869`.
 Correction verification is not a second independent review.
 It observes the later display without
-granting input or acceptance. Default enforced behavior remains unchanged;
-native feasibility, provider/browser acceptance and execution grants are separate.
+granting input or acceptance. One authorized native run on `3c159a1` reached the
+profile with cleanup proved and `acceptance: false`. The summary cannot establish
+post-Enter menu persistence or its timing. Default enforced behavior remains
+unchanged; full native/provider/browser acceptance and new grants are separate.
 
 ADR-010 records the locally implemented, approved test-only
 [correlated context-display evidence contract](../superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md).

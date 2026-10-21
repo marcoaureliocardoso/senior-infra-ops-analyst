@@ -7,8 +7,12 @@ with synthetic verification. Fresh independent review at `6bfe16b` found four
 Important failure-path issues, corrected in one author RED/GREEN pass at `59c3869`;
 the immutable full package gate passed on that corrected source. Corrections
 were not independently re-reviewed. See `tests/validation-notes.md` for exact
-hashes, evidence and exclusions. Native feasibility remains unproven; no native
-execution is authorized by implementation.
+hashes, evidence and exclusions. A separately authorized native observation on
+`3c159a1` reached CURRENT_PROFILE_OBSERVED with proved cleanup and
+`acceptance: false`; the grant is consumed. Full native acceptance is unproven.
+The proposed [acceptance extension](2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
+does not modify this mode's irreversible read-only contract. No native
+execution is authorized by implementation or by that proposed extension.
 Source baseline:
 `d3e98160e4921443ad02e564e89b4d8002601de2`.
 
@@ -294,8 +298,9 @@ tests together. Keep original submission/menu retirement, HISTORY_COMMIT_V1,
 irreversible acceptance revocation, diagnostics and all safety/cleanup controls.
 No consumed grant is restored by rollback.
 
-This specification is indexed from ADR-010 as proposed, not enforced. The
-design-only commit updates the changelog truthfully without a version bump.
+The original design-only commit indexed this specification from ADR-010 as
+proposed, not enforced; the current implementation/gate state is recorded above.
+The original design-only update did not bump the version.
 Written-spec approval permits producing the implementation plan, not executing
 it. Obtain plan review and the operator's execution-method choice first.
 Implementation must later update ADR/index,

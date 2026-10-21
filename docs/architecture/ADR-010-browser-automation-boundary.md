@@ -1095,12 +1095,41 @@ gate passed at `59c38698f49a4cd00c09946647d36924a214b5d3`, with 552 canonical
 files unchanged in content/type/mode before and after. Exact evidence and
 platform/real-browser exclusions are recorded in `tests/validation-notes.md`.
 Existing immediate rejection, pre-Enter-only menu lifetime and all acceptance
-invariants remain unchanged on the default route. Native feasibility and
-provider/browser acceptance remain unproven; no native execution grant renews.
+invariants remain unchanged on the default route. A separately authorized native
+observation on `3c159a1` later reached CURRENT_PROFILE_OBSERVED in 11.847 seconds
+overall, with cleanup proved and `acceptance: false`. It establishes one native
+profile observation, not resumed nonce/clear/exit, skill-turn or provider/browser
+acceptance. No native execution grant renews.
+
+## Proposed bounded post-Enter acceptance extension - 2026-10-21
+
+The operator approved the direction of reusing the correlated-display contract
+rather than requiring invisible recomputation or designing another acceptance
+property. The [written extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
+awaits review. It is not implemented, does not change the current accepted ADR
+behavior and grants no native execution. A later plan and execution-method choice
+are required after written-spec approval.
+
+The proposed acceptance-owned pending phase would classify only the exact
+pre-Enter correlated menu and owned command echo, with all writes fenced.
+Original owners, deadlines, old-history retirement and numeric-conflict guards
+remain fatal. Only the full HISTORY_COMMIT_V1 candidate, drained/latest-frame
+revalidation and existing witness/receipt can reach strict nonce eligibility.
+All nonce/clear/exit input remains independently guarded; no transient exclusion
+survives into those phases, and no revoked capability can be restored.
+
+The existing observation mode, guard, closed summary and tombstone cannot mint
+an acceptance witness and retain their unconditional zero-post-Enter-input rule.
+Public policy, initial/non-resumed/live/provider routes, operator preferences,
+versions, retention, key sequence and execution limits do not change.
+Direct and post-Enter-menu synthetic trajectories produce the same observational
+summary, so the native result cannot establish that waiting caused success.
+The extension does not require another native run solely to recover that timing.
 
 ## Links
 
-- Approved passive post-Enter observation design (local synthetic gates passed; native unproven): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
+- Proposed bounded post-Enter acceptance extension (written review pending; unimplemented): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
+- Approved passive post-Enter observation design (synthetic gates passed; one native profile observed, not acceptance): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 - Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
 - Approved correlated-display specification (local implementation; native support unproven): `docs/superpowers/specs/2026-10-19-p0-04b-correlated-context-display-design.md`

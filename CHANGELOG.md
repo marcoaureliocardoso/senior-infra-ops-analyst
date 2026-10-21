@@ -7,6 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Documented a proposed bounded post-Enter transition for the existing audited
+  offline resumed acceptance route. It would preserve HISTORY_COMMIT_V1 and
+  independent nonce/clear/exit proof while classifying only exact privately
+  correlated transients during a no-input phase. The written extension awaits
+  review; it is not implemented and does not promote observational results.
+
 - Added development-only `--observe-post-enter` to the isolated offline harness:
   one synthetic text-turn, an owned submission handoff to private read-only
   guards, zero further input and a separate bounded structural report published
@@ -14,8 +20,9 @@ tag. Tagged versions correspond to repository tags.
   history. Independent review found four failure-path gaps; one author TDD pass
   fixed cancellation/disposal, numeric-conflict persistence, cleanup dominance
   and fatal-history cause preservation. The immutable synthetic package gate
-  passed at `59c3869`; native feasibility remains unproven. Default/installed
-  behavior, durable-content
+  passed at `59c3869`. One authorized native observation on `3c159a1` subsequently
+  reached CURRENT_PROFILE_OBSERVED with proved cleanup and `acceptance: false`;
+  full native acceptance remains unproven. Default/installed behavior, durable-content
   retention, providers and versions are unchanged. No native grant renews.
 
 - Added optional test-only structural facts for the exact resumed
