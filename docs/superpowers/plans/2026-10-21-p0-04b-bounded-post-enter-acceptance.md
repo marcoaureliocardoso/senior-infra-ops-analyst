@@ -21,7 +21,8 @@ adapter and Node/xterm helper; Debian WSL package-validation route.
 Plan status: approved for native/inline execution on 2026-10-21; Tasks 1/2 complete,
 Task 3 complete at `5a8fb7e` with 109 committed-source focused tests passed.
 Independent review completed with one Important finding; the author fix passed
-184 regressions. The complete immutable package gate remains pending.
+184 regressions and the complete immutable package gate at `950bd19`.
+Native/provider/browser and remote acceptance gates remain unproved.
 The operator approved the narrow written lifecycle amendment on 2026-10-21;
 this Task 3 plan revision was subsequently approved for the same inline method.
 Written specification approved on 2026-10-21; planning baseline `5bd1dd6`.
@@ -377,19 +378,19 @@ Do not modify `case_complete`, `run_cases` or the generic cancellation API.
   cumulative immutable commit range and this spec/plan; assess authority, all
   writer paths, intermediate observations, witness retirement and cleanup.
   Reviewer suggestions are not permission to expand the approved design.
-- [ ] Resolve validated findings with author-owned RED/GREEN tests. Record
+- [x] Resolve validated findings with author-owned RED/GREEN tests. Record
   review/fix commits and whether corrections were independently re-reviewed;
   do not mislabel author verification as a fresh independent review.
-- [ ] Run the complete immutable package gate on corrected committed source.
+- [x] Run the complete immutable package gate on corrected committed source.
   Use the launcher environment above, replacing its final two arguments with
   `/bin/bash`, `tests/validate-package.sh`. Confirm exit0 and literal
   `package validation passed`; keep original per-test guards and exclusions.
   Verify canonical contents/types/modes unchanged before/after, capture exact
   commit and structural results and distinguish skips from tested behavior.
-- [ ] Record gate outcome truthfully. If that produces a docs-only commit,
+- [x] Record gate outcome truthfully. If that produces a docs-only commit,
   rerun documentation checks and prove executable-source equivalence to the
   gated commit. No behavioral change can inherit the previous gate.
-- [ ] Hand off the final commit and remaining acceptance gates. A native run
+- [x] Hand off the final commit and remaining acceptance gates. A native run
   requires a separate fresh one-shot authorization; no attempt, grant renewal
   or retry occurs automatically. Browser/provider, remote CI/Security and merge
   acceptance remain separate from this offline implementation.
@@ -422,6 +423,6 @@ the separate committed-source completion command also passed. One independent
 whole-change review identified a numeric-token guard defect. The author TDD
 fix preserves legacy parsing and rejects signed/oversized conflicts irreversibly;
 its corrected-source 184-test regression group passed. The immutable package
-gate remains pending. No second
-review or renewed native grant. Native acceptance remains unproved. See
+gate passed at `950bd19` (exit0, 554 canonical files verified before/after).
+No second review or renewed native grant. Native acceptance remains unproved. See
 `tests/validation-notes.md` for exact outcomes and scope.

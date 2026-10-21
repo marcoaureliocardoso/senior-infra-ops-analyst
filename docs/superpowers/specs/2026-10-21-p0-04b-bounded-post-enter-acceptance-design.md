@@ -2,7 +2,8 @@
 
 Date: 2026-10-21
 Status: approved on 2026-10-21; acceptance transition/fence implemented locally;
-outer-publication correction implemented locally; final validation pending.
+outer-publication correction implemented locally; immutable package gate passed
+at `950bd19` after the author TDD review fix. Native acceptance remains unproved.
 Amendment status: narrow written lifecycle amendment approved on 2026-10-21;
 corresponding Task 3 implementation-plan revision approved for inline execution.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
@@ -23,7 +24,9 @@ approved this written specification. The [implementation plan](../plans/2026-10-
 was approved for native/inline execution. Tasks 1/2 are implemented. After the
 Task 3 design-review stop, the operator approved its narrow written lifecycle
 amendment and revised plan. The outer correction is implemented locally;
-focused regressions, independent review and the complete gate are separate.
+focused regressions and the complete corrected-source package gate passed.
+One independent review completed; its finding was corrected by the author, not
+independently re-reviewed. See validation notes for scope and exclusions.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 

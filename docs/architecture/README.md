@@ -28,8 +28,9 @@ The operator approved the narrow written lifecycle amendment and plan revision;
 the acceptance-only outer correction is implemented locally. Its focused gate
 passed 109 tests and task completion was recorded. Independent whole-change
 review found one numeric-token guard defect; its author TDD fix is implemented.
-The author fix passed 184 regressions. Full package validation and native
-acceptance remain pending.
+The author fix passed 184 regressions and the immutable full package gate at
+`950bd19`; it was not independently re-reviewed. Native/provider/browser and
+remote acceptance remain pending; see validation notes for skipped coverage.
 The implementation extends only passive pending in audited resumed acceptance, retaining
 the existing correlated-display and independent nonce/clear/exit contract.
 The observation-only mode remains permanently read-only after Enter.

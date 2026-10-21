@@ -1,5 +1,48 @@
 # Validation Notes
 
+## Bounded acceptance - immutable corrected-source gate passed - 2026-10-21
+
+The complete package gate passed at corrected executable-source commit
+`950bd19e3cedb4f6851dfd2ad358a78c74455c07`: exit0 and literal
+`package validation passed`, from 18:02:44Z through 18:23:23Z (1239 seconds).
+Host Git produced the archive, which ran in an owned native Linux temporary
+export under the existing isolated Debian WSL environment. Archive SHA-256:
+`d69afa6390afb36e22a28acce0cc938f5a6df48702d6c7810948579bea7b788b`.
+All 554 canonical contents, types and modes matched before and after, and the
+archive hash was unchanged. The launcher removed its owned temporary export.
+The source worktree remained unchanged. No native Claude client, real provider,
+operator credentials/configuration or authenticated acceptance was used.
+
+This gate includes all 66 Python suites, Node tests, shell self-tests, package
+and local CI-workflow validation. Current driver90/512.970s, offline73/136.188s
+and CLI26/151.884s passed; the earlier helper-init error did not recur here.
+Its cause is still not established, and no helper defect fix is claimed.
+One independent review found one Important numeric-conflict issue; one author
+TDD pass corrected it, followed by 184 regressions and this complete gate.
+That correction is author-verified, not independently re-approved. No deferred
+minors. The review's scope rulings remain in the sanitized external record.
+
+Coverage exclusions: the opt-in real-browser test reported
+CAPABILITY_UNAVAILABLE; its 37 loopback scenarios were not exercised. Three
+platform-dependent Python cases skipped: native-Windows permission-handler
+rejection and the Git Bash context/Nori harness checks. WSL lacked PowerShell,
+so .ps1 script/syntax checks skipped there. A supplemental Windows script launch
+was blocked by the existing execution policy, which was not changed or bypassed;
+direct native Parser::ParseFile on the same static source passed without
+executing it. This is not a successful .ps1 script run or native-Windows matrix.
+Local workflow validation is not a remote CI/Security result.
+
+Evidence outside Git under `.review-runtime/p004b-terminal-state/`:
+`p004b-bounded-950bd19-source.tar`, `p004b-bounded-950bd19-gate.log` and
+`p004b-bounded-review-5a8fb7e.md`. The final result-only documentation commit
+is limited to CHANGELOG, ADR/index, this spec/plan and validation notes.
+Content validation, architecture13 and release-history42 passed after recording
+the gate, and Git comparison proved all other tracked contents/types/modes
+unchanged from the gated commit. Native offline acceptance needs a
+fresh exact-final-commit one-shot grant covering nonce/clear/exit. Later real
+provider/browser, remote CI/Security and merge remain separate. No push, PR,
+merge, release, staging refresh or definitive TODO completion occurred.
+
 ## Independent bounded-acceptance review and author fix - 2026-10-21
 
 One fresh read-only reviewer (gpt-6-astra/high, clean context) reviewed the whole

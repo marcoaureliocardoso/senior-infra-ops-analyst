@@ -1149,8 +1149,11 @@ One fresh whole-plan reviewer found one Important numeric-token guard defect
 and no Critical/Minor findings. Author TDD reproduced seven pure and fourteen
 acceptance failures, then corrected signed/oversized token extraction without
 changing legacy display parsing. Corrected-source regressions passed 184 tests;
-the immutable package gate remains pending. The author fix is not independently
-re-reviewed. Native acceptance remains unproved. Neither approval renews a grant.
+the immutable full package gate passed at `950bd19`, exit0, with all 554
+canonical contents/types/modes verified before and after. The author fix is
+not independently re-reviewed. Native acceptance remains unproved. Neither
+approval renews a grant. Browser opt-in, platform skips and remote gates are
+separately documented; local workflow validation is not remote CI/Security.
 Exact evidence is in `tests/validation-notes.md`.
 
 ## Links

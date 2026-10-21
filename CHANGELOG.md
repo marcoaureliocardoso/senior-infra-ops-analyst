@@ -19,8 +19,10 @@ tag. Tagged versions correspond to repository tags.
   committed-source focused gate passed 109 tests. Independent review identified
   one numeric-token guard defect; author TDD fixed signed/oversized conflict
   extraction while preserving legacy parsing; 184 corrected-source regressions
-  passed. Full package validation and native acceptance remain pending; the fix
-  was not independently re-reviewed.
+  passed, followed by the immutable full package gate at `950bd19` with 554
+  canonical files verified before/after. Native/provider/browser and remote
+  acceptance remain pending; the fix was not independently re-reviewed and
+  skipped platform/browser coverage is documented.
   Observational results are not promoted.
 
 - Added development-only `--observe-post-enter` to the isolated offline harness:
