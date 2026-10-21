@@ -1,5 +1,64 @@
 # Validation Notes
 
+## Bounded acceptance implementation - outer-lifecycle gate blocked - 2026-10-21
+
+The operator approved the bounded-transition spec and selected native/inline
+execution of its plan. Task 1 is committed as
+`57a8381b79124bd7320cab43f7a128d387f0a988`; Task 2 as
+`d1c891181694014755dfcfc06720ff9715ce90c3`.
+These are test-only changes; versions, installed policy, providers and grants
+are unchanged. No installed native client or real provider was used.
+
+Task 1's final gate passed 182 tests: display29/58.217s, echo49/36.109s,
+history28/16.518s, input28/13.375s, sample4/0.750s, rejection16/8.139s and
+observer28/39.565s. Task 2's final gate passed 315 tests, including shared
+regressions: driver90/440.135s, wrapper26/152.109s, display29/58.746s,
+echo49/35.886s, history28/16.502s, input28/13.485s, sample4/0.721s,
+rejection16/8.153s, observer28/40.116s and observer-report17/8.388s.
+These counts overlap; they are not 497 unique tests. The inline ledger and full
+logs remain under the plan-scoped ignored `.superpowers/sdd/` workspace.
+
+Author RED/GREEN covered initial missing preparation, known transient PTY
+rejection and unfenced callbacks. A numeric-guard mutation produced four
+expected failures before restoration. Extra probes initially inspected a Mock
+wrapper frame instead of the concrete writer; direct function replacement fixed
+that fixture. One-byte IO needed a bounded 12-second fixture instead of its
+artificial 6 seconds (6.543s observed), without changing the 25-second product
+dialogue bound. An initial 89-test driver run failed one superseded diagnostic
+assertion: the exact menu is now classified, so the fixture's invalid input
+prefix is correctly attributed to CONTEXT_COMMAND, not CONTEXT_COMPLETION.
+The corrected negative case, exact-menu timeout case and final 90-test run passed.
+
+Task 3 passed its isolated synthetic text/skill transient workflow (1 test,
+13.945s) and report-pressure contract (1 test, 0.042s). The namespace fixture's
+short output separation does not prove which intermediate frame was consumed;
+Task 2's explicit peer barriers independently exercise the passive transition.
+`test_success_is_suppressed_until_final_disposal` remains RED: six subcases
+reproduced in 1.538s using structurally complete synthetic case envelopes:
+
+- SIGTERM/SIGHUP after parsing terminated the dedicated wrapper with -15/-1
+  while its owned root still existed. The test parent then removed that wholly
+  synthetic temporary directory; no operator data or native history was involved.
+- Signals in the final disposal callback terminated the wrapper without a closed
+  report even after the root had been removed.
+- Simulated monotonic expiry after parsing or disposal still returned
+  OFFLINE_CONTROLS_PASSED instead of withholding success.
+
+Root cause: ordinary `offline-terminal-resume-probe.py::_namespace` exits its
+`TerminalCancellation` context before JSON parsing and `finalize_owned`, and
+does not recheck the deadline afterward. Git comparison against plan baseline
+`67e8eebff4b547dbd0b1fa34a93d183645e5d71d` proved this file and
+`terminal_cancellation.py` unchanged by Tasks 1/2. This is an existing
+outer-publication gap, not a failure of the new private write fence or a native
+renderer/provider observation. The read-only observer has its separate lifecycle.
+
+Task 3 Step 3 requires stopping for design review before expanding that
+production-harness lifecycle beyond Tasks 1/2. No aggregator predicate, report
+schema, timeout or lifecycle fix was changed. The new Task 3 tests/fixture remain
+uncommitted at RED for continuation. Task 3's full gate, independent whole-change
+review, complete immutable package gate and fresh native acceptance are pending.
+No push, PR, merge, release, staging refresh or TODO completion occurred.
+
 ## Native passive observation and proposed acceptance extension - 2026-10-21
 
 One separately authorized native offline observation executed exactly once on
@@ -33,10 +92,11 @@ The 11.847-second total is not an observed menu-wait duration.
 The operator approved the written design reusing the existing correlated-display
 and independent input-proof contract. The
 [bounded acceptance extension](../docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
-is approved, not implemented. Its
+was approved but not yet implemented at this investigation checkpoint. Its
 [implementation plan](../docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
-awaits review and execution-method choice. Behavioral verification and
-fresh native nonce/clear/natural-exit authorization remain pending. The original
+was subsequently approved for inline execution; implementation/gate status is
+recorded above. Fresh native nonce/clear/natural-exit authorization remains
+pending. The original
 observation route remains irreversibly read-only after Enter. Resumed input proof,
 skill-turn, provider/browser, remote CI/Security and whole-P0-04B merge/release
 readiness are not established by this successful observation.

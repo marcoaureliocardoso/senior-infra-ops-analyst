@@ -1,9 +1,10 @@
 # P0-04B bounded post-Enter acceptance transition
 
 Date: 2026-10-21
-Status: written specification approved by the operator on 2026-10-21; not implemented.
+Status: approved on 2026-10-21; acceptance transition/fence implemented locally;
+complete validation blocked at the preexisting outer-publication lifecycle.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
-Scope: proposed test-only extension; no behavior change or new execution grant.
+Scope: test-only extension; no production policy change or new native execution grant.
 
 ## Intent and existing contract
 
@@ -17,7 +18,8 @@ terminal chronology is not a new independent delivery objective.
 
 The operator selected this direction after investigation and subsequently
 approved this written specification. The [implementation plan](../plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
-awaits review and execution-method choice before behavioral code.
+was approved for native/inline execution. Tasks 1/2 are implemented; Task 3
+requires design review before changing the separate outer lifecycle.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 
@@ -73,7 +75,9 @@ facts may justify passive classification, never continued editing or submission.
 All HISTORY_COMMIT_V1 criteria, history inventory and later nonce/exit rules stay.
 The [observational contract](2026-10-20-p0-04b-post-enter-observation-design.md)
 and its prohibition on returning to acceptance are not superseded.
-Until implemented after plan approval, all existing enforced behavior remains intact.
+The audited offline resumed transition is implemented locally; non-resumed,
+production and observation-only contracts remain unchanged. Full validation
+and native acceptance are not established by that implementation.
 
 ## Activation and original boundary
 

@@ -16,9 +16,10 @@ adapter and Node/xterm helper; Debian WSL package-validation route.
 
 **Spec:** [Approved bounded-transition specification](../specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 
-Plan status: awaiting operator review and execution-method choice.
+Plan status: approved for native/inline execution on 2026-10-21; Tasks 1/2 complete,
+Task 3 blocked at a reproduced preexisting outer-publication lifecycle gap.
 Written specification approved on 2026-10-21; planning baseline `5bd1dd6`.
-No behavioral implementation or native execution is authorized by this document.
+No native execution is authorized by this document or the inline method choice.
 
 ## Global Constraints
 
@@ -135,7 +136,7 @@ Use native task tracking if exposed; otherwise maintain this checklist accuratel
   `submit(*, extra=())` simulates acknowledgements only when explicitly opted in.
   Keep the existing strict fixture default to prove unprepared callers unchanged.
 
-- [ ] **Step 1: Write RED tests for pending and full candidate recognition.**
+- [x] **Step 1: Write RED tests for pending and full candidate recognition.**
   Add `test_acceptance_pending_keeps_known_menu_and_echo_non_writable`: for both
   kinds, prepare, acknowledge8, prove full echo and Enter1, consume a snapshot
   retaining exact menu/echo, assert readiness None, no witness/receipt and live
@@ -158,9 +159,9 @@ Use native task tracking if exposed; otherwise maintain this checklist accuratel
       self.assertEqual(c.observe(current, 4), 16)
       self.assertIsNotNone(c.command.bind_history(current, 4))
   ```
-- [ ] **Step 2: Run `tests/test-terminal-context-display.py`; confirm those RED
+- [x] **Step 2: Run `tests/test-terminal-context-display.py`; confirm those RED
   assertions fail because the new transition is absent, not because setup fails.**
-- [ ] **Step 3: Implement the private binding and composed transition.**
+- [x] **Step 3: Implement the private binding and composed transition.**
   Extend the existing tracker/owner registries. Refresh provenance on every
   consumed pre-Enter observation, including SUBMIT_PENDING writable waits;
   finalize at actual Enter acknowledgement with body8/full echo/Enter1 proved.
@@ -174,7 +175,7 @@ Use native task tracking if exposed; otherwise maintain this checklist accuratel
   must not manufacture movement, renewed evidence or duplicate authority.
   Create/validate the existing witness only for the full actual profile; release
   pending raw references permanently on binding, failure, invalidation or closure.
-- [ ] **Step 4: Add RED/GREEN adversarial subtests.**
+- [x] **Step 4: Add RED/GREEN adversarial subtests.**
   Add `test_transient_plus_later_unknown_or_auth_row_rejects`;
   `test_transient_disappearance_is_monotonic` (menu/echo movement, mutation,
   duplication, unsupported width, draft and reappearance);
@@ -189,11 +190,11 @@ Use native task tracking if exposed; otherwise maintain this checklist accuratel
   case; completion-only/input-clear-only/numeric-only output cannot mint one.
   Include forged/replayed witnesses and observation request/summary/tombstone
   substitution: no path may produce acceptance or restore a revoked capability.
-- [ ] **Step 5: Run both modified suites plus `test-terminal-resume-history.py`,
+- [x] **Step 5: Run both modified suites plus `test-terminal-resume-history.py`,
   `test-terminal-input-challenge.py`, `test-terminal-context-sample.py`,
   `test-terminal-history-rejection.py` and `test-terminal-post-enter-observation.py`.
   Confirm GREEN; initial/non-resumed and unprepared strict routes unchanged.**
-- [ ] **Step 6: Commit only Task 1 files as
+- [x] **Step 6: Commit only Task 1 files as
   `test: add owned passive acceptance transition`.**
 
 ### Task 2: Central Write Fence and Guarded Protocol Integration
@@ -223,16 +224,16 @@ to preserve the existing private routing/cancellation contract.
   waits and revalidation after every pump/await. The observer's `input_sealed`
   path remains unconditional and must never enter `write_probe_chunk`.
 
-- [ ] **Step 1: Write `test_acceptance_waits_passively_then_proves_input` using
+- [x] **Step 1: Write `test_acceptance_waits_passively_then_proves_input` using
   `ResumedHistoryDriverTests.run_owned` and deterministic peer barriers.**
   For text/skill, equal/changed numbers, direct-final and exact transient paths,
   assert zero bytes after Enter until current-profile proof; final input matches
   `rb'^/context\r[0-9a-f]{16}\x15/exit\r$'`, result0, one context-display checkpoint
   before nonce, exact echo, newer empty frame, natural exit and reaped helpers.
   Never rely only on sleeps to establish that an intermediate frame was consumed.
-- [ ] **Step 2: Run `tests/test-headless-context-driver.py -k acceptance`; confirm
+- [x] **Step 2: Run `tests/test-headless-context-driver.py -k acceptance`; confirm
   RED from existing strict rejection/missing fence behavior.**
-- [ ] **Step 3: Wire preparation before body IO, acknowledge actual edit writes,
+- [x] **Step 3: Wire preparation before body IO, acknowledge actual edit writes,
   and activate the driver fence at Enter's actual acknowledgement before any
   later callback/pump dispatch.**
   Keep the acceptance fence distinct from irreversible observation sealing;
@@ -242,7 +243,7 @@ to preserve the existing private routing/cancellation contract.
   bind the receipt and construct the existing challenge. Route only guarded
   nonce/clear/exit chunks through `write_probe_chunk`; all startup keys,
   terminal-generated responses and generic callbacks stay forbidden after Enter.
-- [ ] **Step 4: Add RED/GREEN fence and output-order tests.**
+- [x] **Step 4: Add RED/GREEN fence and output-order tests.**
   Add `test_acceptance_blocks_raw_and_whole_callbacks_at_every_boundary` for
   actual Enter acknowledgement, passive pending, candidate, binding and nonce
   phases; call both writer forms with b'X', extra Enter/Escape/Tab/Ctrl+U and
@@ -254,11 +255,11 @@ to preserve the existing private routing/cancellation contract.
   without nonce. Add delayed/fragmented/native-exit/helper/protocol/cancellation
   and terminal-response peers; every consumed fatal frame must remain fatal.
   Add `test_exit_menu_does_not_reactivate_pending` and assert no escape/second key.
-- [ ] **Step 5: Run the full headless/wrapper suites, Task 1 suites and existing
+- [x] **Step 5: Run the full headless/wrapper suites, Task 1 suites and existing
   `test-terminal-post-enter-observation.py`/`test-post-enter-observation-report.py`.
   Confirm the observer still receives exactly `/context\r`, never nonce/clear/exit
   or acceptance checkpoints; initial/default/non-resumed/debug paths unchanged.**
-- [ ] **Step 6: Commit only Task 2 files as
+- [x] **Step 6: Commit only Task 2 files as
   `test: fence resumed acceptance writes through input proof`.**
 
 ### Task 3: Complete-Case Reporting, Disposal and Status Documentation
@@ -274,7 +275,7 @@ Do not relax `offline-terminal-resume-probe.py` acceptance predicates.
 existing acceptance schema/checkpoints, not the observational report schema.
 No new retained chronology, diagnostic enum or authority-bearing JSON.
 
-- [ ] **Step 1: Write `test_transient_acceptance_preserves_complete_case_contract`.**
+- [x] **Step 1: Write `test_transient_acceptance_preserves_complete_case_contract`.**
   Run only controlled synthetic peers through the existing isolated namespace
   fixture. Assert text then conditional skill ordering, all required display,
   nonce/clear/natural-exit and four cleanup facts; incomplete first case prevents
@@ -343,8 +344,13 @@ bounds/disposal to Task 3 plus the immutable gate. Each Review Focus item has
 a named owning test. Private pending results are never input assessments;
 private dispatch records authorize one checked chunk, not a generic writer.
 
-Please review this plan and select an execution method. Native/inline execution
-is recommended because the two behavior tasks share the same command/view/
-driver lifecycle, with one final independent whole-change review. Subagent-driven
-execution remains an option with fresh implementer/reviewer gates per task.
-No implementation begins before plan approval and that method choice.
+The operator selected native/inline execution. Task 1 (`57a8381`, 182 tests) and
+Task 2 (`d1c8911`, 315 tests including shared regressions) are complete locally.
+Task 3's namespace contract and pressure checks passed; its final-publication
+lifetime test reproduced six failures. The ordinary outer `_namespace` ends
+its cancellation supervisor before parsing/disposal and does not recheck expiry
+there. This unchanged preexisting path is outside Tasks 1/2's implementation
+units. Step 3's design-review stop applies: no silent lifecycle expansion.
+The failing test and synthetic fixture remain uncommitted for continuation.
+Independent whole-change review, complete package gate and native acceptance
+remain pending. See `tests/validation-notes.md` for exact outcomes and scope.

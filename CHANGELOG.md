@@ -7,12 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
-- Documented an approved bounded post-Enter transition design for the existing audited
-  offline resumed acceptance route. It would preserve HISTORY_COMMIT_V1 and
+- Implemented the approved test-only bounded post-Enter transition and write
+  fence for audited offline resumed acceptance. It preserves HISTORY_COMMIT_V1 and
   independent nonce/clear/exit proof while classifying only exact privately
-  correlated transients during a no-input phase. Its implementation plan awaits
-  review and execution-method choice; it is not implemented and does not promote
-  observational results.
+  correlated transients during a no-input phase. The Task 2 gate passed 315
+  synthetic tests. Final validation is blocked by a reproduced preexisting
+  outer-publication cancellation/expiry gap; the plan requires design review
+  before expanding that lifecycle. Independent review, full package gate and
+  native acceptance remain pending. Observational results are not promoted.
 
 - Added development-only `--observe-post-enter` to the isolated offline harness:
   one synthetic text-turn, an owned submission handoff to private read-only

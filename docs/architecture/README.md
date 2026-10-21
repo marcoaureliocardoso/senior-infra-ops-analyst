@@ -21,8 +21,12 @@ ADR-010 separately indexes the approved design for the
 [bounded post-Enter acceptance extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 The written specification is approved; its
 [implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
-awaits operator review and execution-method choice. There is no behavioral change yet.
-It would extend only passive pending in audited resumed acceptance, retaining
+was approved for native/inline execution. Tasks 1/2 are implemented locally and
+the Task 2 gate passed 315 synthetic tests. Task 3 is blocked by a reproduced
+preexisting outer-publication cancellation/expiry gap; its design-review stop
+applies before expanding that lifecycle. Final review, full package validation
+and native acceptance remain pending.
+The implementation extends only passive pending in audited resumed acceptance, retaining
 the existing correlated-display and independent nonce/clear/exit contract.
 The observation-only mode remains permanently read-only after Enter.
 

@@ -1106,11 +1106,12 @@ acceptance. No native execution grant renews.
 The operator approved the written design for reusing the correlated-display contract
 rather than requiring invisible recomputation or designing another acceptance
 property. The [written extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
-is approved, but not implemented. It does not change the current enforced ADR
-behavior or grant native execution. The [implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
-awaits review and execution-method choice.
+was approved and its transition/fence are implemented locally in `57a8381` and
+`d1c8911`. The [implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
+was approved for native/inline execution. Its Task 2 gate passed 315 synthetic
+tests, including shared regressions; no native execution is granted.
 
-The proposed acceptance-owned pending phase would classify only the exact
+The acceptance-owned pending phase classifies only the exact
 pre-Enter correlated menu and owned command echo, with all writes fenced.
 Original owners, deadlines, old-history retirement and numeric-conflict guards
 remain fatal. Only the full HISTORY_COMMIT_V1 candidate, drained/latest-frame
@@ -1126,10 +1127,20 @@ Direct and post-Enter-menu synthetic trajectories produce the same observational
 summary, so the native result cannot establish that waiting caused success.
 The extension does not require another native run solely to recover that timing.
 
+Task 3 reproduced a preexisting gap in the ordinary outer `_namespace`: the
+cancellation supervisor ends before JSON parsing and final owned-root disposal,
+and expiry is not checked afterward. Synthetic SIGTERM/SIGHUP at parsing can
+leave the owned root until the test parent cleans it; late signals prevent a
+closed result, while simulated late expiry can still return success. This path
+is unchanged from the plan baseline. The plan requires design review before
+expanding that lifecycle beyond Tasks 1/2; no fix was silently added. Task 3,
+independent whole-change review, complete package gate and native acceptance
+remain pending. Exact evidence is in `tests/validation-notes.md`.
+
 ## Links
 
-- Approved bounded post-Enter acceptance design (unimplemented): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
-- Bounded post-Enter acceptance plan (review and execution-method choice pending): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`
+- Approved bounded post-Enter acceptance design (local transition/fence; final validation blocked): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
+- Approved inline bounded post-Enter acceptance plan (Task 3 lifecycle review pending): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`
 - Approved passive post-Enter observation design (synthetic gates passed; one native profile observed, not acceptance): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 - Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
