@@ -1,7 +1,7 @@
 # P0-04B bounded post-Enter acceptance transition
 
 Date: 2026-10-21
-Status: conversational direction approved; written specification awaiting operator review.
+Status: written specification approved by the operator on 2026-10-21; not implemented.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
 Scope: proposed test-only extension; no behavior change or new execution grant.
 
@@ -15,9 +15,9 @@ Do not redesign that property, force numeric change or turn a diagnostic report
 into acceptance. The operational objective remains P0-04B browser controls;
 terminal chronology is not a new independent delivery objective.
 
-The operator selected this direction after investigation. This approval permits
-writing the specification only. Written-spec review, an implementation plan and
-its execution-method choice remain separate gates before behavioral code.
+The operator selected this direction after investigation and subsequently
+approved this written specification. The [implementation plan](../plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
+awaits review and execution-method choice before behavioral code.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 
@@ -73,7 +73,7 @@ facts may justify passive classification, never continued editing or submission.
 All HISTORY_COMMIT_V1 criteria, history inventory and later nonce/exit rules stay.
 The [observational contract](2026-10-20-p0-04b-post-enter-observation-design.md)
 and its prohibition on returning to acceptance are not superseded.
-Until approved and implemented, all existing enforced behavior remains intact.
+Until implemented after plan approval, all existing enforced behavior remains intact.
 
 ## Activation and original boundary
 

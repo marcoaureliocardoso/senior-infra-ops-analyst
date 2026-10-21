@@ -30,10 +30,12 @@ identical closed summaries. Therefore the native summary does not establish
 menu persistence, intermediate-frame timing or that waiting caused success.
 The 11.847-second total is not an observed menu-wait duration.
 
-The operator approved the direction of reusing the existing correlated-display
-and independent input-proof contract. The proposed
+The operator approved the written design reusing the existing correlated-display
+and independent input-proof contract. The
 [bounded acceptance extension](../docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
-is written for review, not implemented. Its plan, behavioral verification and
+is approved, not implemented. Its
+[implementation plan](../docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
+awaits review and execution-method choice. Behavioral verification and
 fresh native nonce/clear/natural-exit authorization remain pending. The original
 observation route remains irreversibly read-only after Enter. Resumed input proof,
 skill-turn, provider/browser, remote CI/Security and whole-P0-04B merge/release

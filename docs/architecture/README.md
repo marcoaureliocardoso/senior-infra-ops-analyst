@@ -17,10 +17,11 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
-ADR-010 separately indexes the proposed
+ADR-010 separately indexes the approved design for the
 [bounded post-Enter acceptance extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
-The conversational direction is approved; the written specification awaits
-operator review and has no implementation plan or behavioral change yet.
+The written specification is approved; its
+[implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
+awaits operator review and execution-method choice. There is no behavioral change yet.
 It would extend only passive pending in audited resumed acceptance, retaining
 the existing correlated-display and independent nonce/clear/exit contract.
 The observation-only mode remains permanently read-only after Enter.

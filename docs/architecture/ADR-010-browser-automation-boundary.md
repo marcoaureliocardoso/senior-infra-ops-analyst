@@ -1101,14 +1101,14 @@ overall, with cleanup proved and `acceptance: false`. It establishes one native
 profile observation, not resumed nonce/clear/exit, skill-turn or provider/browser
 acceptance. No native execution grant renews.
 
-## Proposed bounded post-Enter acceptance extension - 2026-10-21
+## Approved bounded post-Enter acceptance design - 2026-10-21
 
-The operator approved the direction of reusing the correlated-display contract
+The operator approved the written design for reusing the correlated-display contract
 rather than requiring invisible recomputation or designing another acceptance
 property. The [written extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md)
-awaits review. It is not implemented, does not change the current accepted ADR
-behavior and grants no native execution. A later plan and execution-method choice
-are required after written-spec approval.
+is approved, but not implemented. It does not change the current enforced ADR
+behavior or grant native execution. The [implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
+awaits review and execution-method choice.
 
 The proposed acceptance-owned pending phase would classify only the exact
 pre-Enter correlated menu and owned command echo, with all writes fenced.
@@ -1128,7 +1128,8 @@ The extension does not require another native run solely to recover that timing.
 
 ## Links
 
-- Proposed bounded post-Enter acceptance extension (written review pending; unimplemented): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
+- Approved bounded post-Enter acceptance design (unimplemented): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
+- Bounded post-Enter acceptance plan (review and execution-method choice pending): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`
 - Approved passive post-Enter observation design (synthetic gates passed; one native profile observed, not acceptance): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 - Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 
