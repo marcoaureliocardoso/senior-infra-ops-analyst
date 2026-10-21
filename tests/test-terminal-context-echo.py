@@ -774,4 +774,46 @@ class ContextEchoTests(unittest.TestCase):
         self.assertIsNone(journal.project(caught.exception,**bindings))
 
 
+class AcceptanceSubmissionTests(unittest.TestCase):
+    def test_actual_body_acknowledgements_not_diagnostic_counts_are_required(self):
+        from context_display_fixtures import DisplayCase
+        import terminal_context_echo as echo
+        for counts in ((),(1,),(4,4)):
+            with self.subTest(counts=counts),DisplayCase(acceptance_pending=True) as c:
+                self.assertEqual(c.command.type_bytes(c.baseline,1),b'/context')
+                total=0
+                for count in counts:
+                    echo._acknowledge_acceptance_edit(c.command,count,remaining=8-total,
+                        controller_owner=c.fixture.controller)
+                    total+=count
+                c.command.check_edit(c.baseline,1,8)
+                c.journal.acknowledge(8,submission=False,remaining=8)
+                current=replace(c.snapshot(extra=((37,'❯ /context'),)),cursorX=10)
+                self.assertEqual(c.command.observe(current,2),'COMMAND_ECHO_MATCHED')
+                self.assertEqual(c.command.submit_bytes(current,2),b'\r')
+                if total==8:
+                    c.command.submission_written(1)
+                    self.assertEqual(c.command.phase,'CONTEXT_PENDING')
+                else:
+                    with self.assertRaises(RuntimeError): c.command.submission_written(1)
+                    self.assertEqual(c.command.phase,'REVOKED')
+
+    def test_last_writable_wait_snapshot_defines_original_transients(self):
+        from context_display_fixtures import DisplayCase
+        import terminal_context_echo as echo
+        with DisplayCase(acceptance_pending=True) as c:
+            c.command.type_bytes(c.baseline,1)
+            echo._acknowledge_acceptance_edit(c.command,8,remaining=8,controller_owner=c.fixture.controller)
+            c.command.check_edit(c.baseline,1,8)
+            current=replace(c.snapshot(extra=((37,'❯ /context'),)),cursorX=10)
+            c.command.observe(current,2); c.command.submit_bytes(current,2)
+            menu=(8,'❯ /context  Synthetic completion')
+            latest=replace(c.snapshot(extra=(menu,(37,'❯ /context'))),cursorX=10)
+            self.assertEqual(c.command.observe(latest,3),'SUBMIT_PENDING')
+            c.command.submission_written(1)
+            waiting=c.snapshot(extra=(menu,))
+            self.assertIsNone(c.observe(waiting,4))
+            self.assertEqual(c.observe(c.snapshot(commit=20),5),16)
+
+
 if __name__=='__main__': unittest.main()

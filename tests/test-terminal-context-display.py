@@ -222,4 +222,176 @@ class ContextDisplayTests(unittest.TestCase):
                 self.assertEqual(c.command.phase,'REVOKED')
 
 
+class AcceptancePendingTests(unittest.TestCase):
+    def setUp(self):
+        self.assertTrue(callable(getattr(echo,'_prepare_acceptance_pending',None)),
+            'acceptance-owned passive preparation is absent')
+
+    def test_acceptance_pending_keeps_known_menu_and_echo_non_writable(self):
+        for kind in ('text-turn','skill-turn'):
+            for free,want in (('81',16),('80',17)):
+                with self.subTest(kind=kind,free=free),DisplayCase(case_kind=kind,acceptance_pending=True) as c:
+                    menu=(8,'❯ /context  Synthetic completion')
+                    c.submit(extra=(menu,))
+                    waiting=replace(c.snapshot(free=free,extra=(menu,(37,'❯ /context'))),cursorX=10)
+                    self.assertIsNone(c.observe(waiting,3))
+                    self.assertNotIn('display_witness',echo._COMMANDS[c.command])
+                    self.assertEqual(history.resume_view_decision(c.view),'VALID')
+                    current=c.snapshot(free=free,commit=20)
+                    self.assertEqual(c.observe(current,4),want)
+                    self.assertIsNotNone(c.command.bind_history(current,4))
+                    with self.assertRaises(RuntimeError): c.command.bind_history(current,4)
+
+    def test_direct_final_needs_no_transient_or_delay(self):
+        for kind in ('text-turn','skill-turn'):
+            with self.subTest(kind=kind),DisplayCase(case_kind=kind,acceptance_pending=True) as c:
+                c.submit()
+                current=c.snapshot(commit=20)
+                self.assertEqual(c.observe(current,3),16)
+                self.assertIsNotNone(c.command.bind_history(current,3))
+
+    def test_pending_is_not_empty_input_or_bind_authority(self):
+        for operation in ('bind','compose'):
+            with self.subTest(operation=operation),DisplayCase(acceptance_pending=True) as c:
+                c.submit(extra=((8,'❯ /context  Synthetic completion'),))
+                current=c.snapshot(extra=((8,'❯ /context  Synthetic completion'),))
+                self.assertIsNone(c.observe(current,3))
+                with self.assertRaises(RuntimeError):
+                    if operation=='bind': c.command.bind_history(current,3)
+                    else:
+                        f=c.fixture
+                        echo._compose_input_assessment(f.policy,current,frame=3,state=f.state,scope=f.scope,
+                            native_owner=f.native,controller_owner=f.controller,transition_owner=f.transition,
+                            resume_view=c.view,context_command=c.command)
+                self.assertEqual(c.command.phase,'REVOKED')
+                with self.assertRaises(RuntimeError): c.observe(c.snapshot(commit=20),4)
+
+    def assert_terminal_rejection(self,c,snapshot,frame=3):
+        with self.assertRaises(RuntimeError): c.observe(snapshot,frame)
+        self.assertEqual(c.command.phase,'REVOKED')
+        self.assertEqual(history.resume_view_decision(c.view),'REJECTED')
+        self.assertNotIn(c.command,echo._ACCEPTANCE_BINDINGS)
+        with self.assertRaises(RuntimeError): c.observe(c.snapshot(commit=20),frame+1)
+
+    def test_transient_plus_later_unknown_or_auth_row_rejects(self):
+        for tail in ('❯ unknown','Do you want to use this API key?','Press Esc to close'):
+            with self.subTest(tail=tail),DisplayCase(acceptance_pending=True) as c:
+                menu=(8,'❯ /context  Synthetic completion'); c.submit(extra=(menu,))
+                self.assert_terminal_rejection(c,c.snapshot(extra=(menu,(15,tail))))
+
+    def test_transient_disappearance_is_monotonic(self):
+        menu=(8,'❯ /context  Synthetic completion')
+        for mutation in ('move','mutate','duplicate','unbound','reappear','echo-return','draft','width','cursor'):
+            with self.subTest(mutation=mutation),DisplayCase(acceptance_pending=True) as c:
+                c.submit(extra=() if mutation=='unbound' else (menu,))
+                if mutation in ('reappear','echo-return'):
+                    self.assertIsNone(c.observe(c.snapshot(),3))
+                extra=(menu,)
+                if mutation=='move': extra=((9,menu[1]),)
+                elif mutation=='mutate': extra=((8,menu[1]+' X'),)
+                elif mutation=='duplicate': extra=(menu,(9,menu[1]))
+                elif mutation=='draft': extra=(menu,(37,'❯ draft'))
+                elif mutation=='echo-return': extra=((37,'❯ /context'),)
+                current=c.snapshot(extra=extra)
+                if mutation in ('echo-return','cursor'): current=replace(current,cursorX=10 if mutation=='echo-return' else 3)
+                if mutation=='width':
+                    from terminal_state_adapter import TerminalCell
+                    rows=list(current.rows); row=list(rows[8]); row[0]=TerminalCell('❯',2)
+                    rows[8]=tuple(row); current=replace(current,rows=tuple(rows))
+                self.assert_terminal_rejection(c,current,4 if mutation in ('reappear','echo-return') else 3)
+
+    def test_incomplete_numeric_conflicts_survive_restoration(self):
+        for extra in (((0,'Free space: 81% 80%'),),((0,'Autocompact buffer: 3% 4%'),),
+                ((0,'Free space: 101%'),),((0,'Free space: 99%'),(1,'Autocompact buffer: 3%'))):
+            with self.subTest(extra=extra),DisplayCase(acceptance_pending=True) as c:
+                c.submit()
+                self.assert_terminal_rejection(c,c.snapshot(numeric=False,extra=extra))
+
+    def test_candidate_loss_during_revalidation_is_terminal(self):
+        for change in ('missing','moved','duplicate','numbers','anchor','menu'):
+            with self.subTest(change=change),DisplayCase(acceptance_pending=True) as c:
+                menu=(8,'❯ /context  Synthetic completion'); c.submit(extra=(menu,))
+                self.assertEqual(c.observe(c.snapshot(commit=20),3),16)
+                current=c.snapshot(commit=None if change=='missing' else 21 if change=='moved' else 20,
+                    free='80' if change=='numbers' else None,
+                    extra=(menu,) if change=='menu' else ((21,'❯ /context'),) if change=='duplicate' else ())
+                if change=='anchor': current=replace(current,cursorX=3)
+                self.assert_terminal_rejection(c,current,4)
+
+    def test_inventory_pinned_and_retired_cells_never_become_commit(self):
+        for mutation in ('menu-cell','old-cell','pinned-mutation','retired-return','no-commit','clear-only'):
+            with self.subTest(mutation=mutation),DisplayCase(acceptance_pending=True) as c:
+                c.submit(extra=((8,'❯ /context  Synthetic completion'),))
+                if mutation in ('no-commit','clear-only'):
+                    self.assertIsNone(c.observe(c.snapshot(numeric=mutation!='clear-only'),3))
+                    self.assertNotIn('display_witness',echo._COMMANDS[c.command])
+                    continue
+                if mutation=='retired-return':
+                    original=c.history; c.history=()
+                    self.assertIsNone(c.observe(c.snapshot(),3)); c.history=original
+                if mutation=='pinned-mutation': c.history=((5,'❯ /exit'),)
+                self.assert_terminal_rejection(c,c.snapshot(commit=8 if mutation=='menu-cell' else
+                    5 if mutation=='old-cell' else 20),4 if mutation=='retired-return' else 3)
+
+    def test_pending_exclusions_end_before_nonce_and_exit(self):
+        for phase in ('nonce','exit'):
+            with self.subTest(phase=phase),DisplayCase(acceptance_pending=True) as c:
+                menu=(8,'❯ /context  Synthetic completion'); c.submit(extra=(menu,))
+                current=c.snapshot(commit=20); receipt=c.command.bind_history(current,3); f=c.fixture
+                self.assertNotIn(c.command,echo._ACCEPTANCE_BINDINGS)
+                probe=NonceInputChallenge(f.scope,f.native,f.transition,f.policy,current,3,
+                    context_receipt=receipt,_resume_view=c.view,_controller_owner=f.controller)
+                if phase=='nonce':
+                    with self.assertRaises(RuntimeError): probe.type_bytes(c.snapshot(commit=20,extra=(menu,)),4)
+                else:
+                    marker=probe.type_bytes(current,3).decode()
+                    echoed=replace(c.snapshot(commit=20,extra=((37,'❯ '+marker),)),cursorX=18)
+                    self.assertEqual(probe.observe(echoed,4),'ECHO_MATCHED')
+                    self.assertEqual(probe.clear_bytes(echoed,4),b'\x15')
+                    self.assertEqual(probe.observe(current,5),'PROVEN')
+                    self.assertFalse(probe.consume_exit(probe.ownership_proof(),
+                        c.snapshot(commit=20,extra=(menu,)),6,f.native,f.transition))
+                self.assertEqual(c.command.phase,'REVOKED')
+
+    def test_preparation_and_acknowledgements_are_owned_one_shot(self):
+        for count,remaining,foreign in ((True,8,False),(0,8,False),(9,8,False),(1,True,False),(1,7,False),(8,8,True)):
+            with self.subTest(count=count,remaining=remaining,foreign=foreign),DisplayCase(acceptance_pending=True) as c:
+                c.command.type_bytes(c.baseline,1)
+                with self.assertRaises(RuntimeError):
+                    echo._acknowledge_acceptance_edit(c.command,count,remaining=remaining,
+                        controller_owner=object() if foreign else c.fixture.controller)
+                self.assertEqual(c.command.phase,'REVOKED')
+        with DisplayCase(acceptance_pending=True) as c:
+            with self.assertRaises(RuntimeError):
+                echo._prepare_acceptance_pending(c.command,c.baseline,1,controller_owner=c.fixture.controller)
+            self.assertEqual(c.command.phase,'REVOKED')
+
+    def test_pending_owners_frames_and_numeric_restoration_reject(self):
+        for mutation in ('native','helper','controller','scope','run','state','transition','view','deadline','copy','backwards','numeric'):
+            with self.subTest(mutation=mutation),DisplayCase(acceptance_pending=True) as c:
+                c.submit(); current=c.snapshot()
+                self.assertIsNone(c.observe(current,3))
+                record=echo._COMMANDS[c.command]
+                if mutation=='native': c.fixture.native.returncode=0
+                elif mutation=='helper': c.fixture.state.close()
+                elif mutation=='deadline': record['deadline']=0
+                elif mutation=='view': record['resume_view']=object()
+                elif mutation in ('controller','scope','run','state','transition'): record[mutation]=object()
+                elif mutation=='numeric': self.assertIsNone(c.observe(c.snapshot(free='80'),4))
+                bad=copy.copy(current) if mutation=='copy' else c.snapshot(commit=20)
+                self.assert_terminal_rejection(c,bad,3 if mutation=='copy' else 2 if mutation=='backwards' else 5)
+
+    def test_pending_cancellation_and_foreign_baseline_cannot_recover(self):
+        from terminal_cancellation import TerminalCancelled
+        with DisplayCase(acceptance_pending=True) as c:
+            c.submit()
+            with mock.patch.object(c.fixture.state,'check_cancelled',side_effect=TerminalCancelled()):
+                self.assert_terminal_rejection(c,c.snapshot(commit=20))
+        with DisplayCase() as c:
+            with self.assertRaises(RuntimeError):
+                echo._prepare_acceptance_pending(c.command,copy.copy(c.baseline),1,
+                    controller_owner=c.fixture.controller)
+            self.assertEqual(c.command.phase,'REVOKED')
+
+
 if __name__=='__main__': unittest.main()

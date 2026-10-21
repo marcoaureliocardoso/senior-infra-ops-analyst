@@ -8,7 +8,7 @@ from terminal_input_policy import TerminalInputPolicy, EmptyInputAssessment, Inp
 from terminal_state_adapter import TerminalSnapshot, MAX_CAPTURE
 from terminal_context_diagnostics import ContextFailureJournal, valid_normalized_input_failure
 from terminal_cancellation import TerminalCancelled
-from terminal_context_sample import sample_context
+from terminal_context_sample import sample_context, context_numeric_conflict
 
 _SEAL=object()
 _COMMANDS=weakref.WeakKeyDictionary()
@@ -20,6 +20,7 @@ _EDIT_ROWS=weakref.WeakKeyDictionary()
 _MENU_BINDINGS=weakref.WeakKeyDictionary()
 _DISPLAY_TRACKERS=weakref.WeakKeyDictionary()
 _DISPLAYS=weakref.WeakKeyDictionary()
+_ACCEPTANCE_BINDINGS=weakref.WeakKeyDictionary()
 _BODY='/context'
 
 
@@ -162,7 +163,101 @@ class ContextDisplayWitness(_Sealed):
     __slots__=()
 
 
+class _AcceptancePending(_Sealed):
+    __slots__=()
+
+
+_ACCEPTANCE_WAIT=_AcceptancePending(_SEAL)
+
+
+def _release_acceptance_pending(record):
+    command=next((key for key,value in _COMMANDS.items() if value is record),None)
+    binding=_ACCEPTANCE_BINDINGS.pop(command,None) if command is not None else None
+    if binding is not None: binding.clear()
+
+
+def _prepare_acceptance_pending(command,snapshot,frame,*,controller_owner):
+    record=_COMMANDS.get(command); _live(record,frame,snapshot)
+    tracker=_display_tracker(command,record)
+    if (record['phase']!='ELIGIBLE' or record.get('resume_view') is None
+            or record.get('post_request') is not None or controller_owner is not record['controller']
+            or type(controller_owner) is not object or tracker.get('acceptance_prepared')):
+        _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
+    tracker['acceptance_prepared']=True
+    _ACCEPTANCE_BINDINGS[command]={'owners':_display_owners(record),'deadline':record['deadline'],
+        'anchor':record['anchor'],'row':record['row'],'body':0,'phase':'PRE_ENTER',
+        'snapshot':snapshot,'frame':frame,'menu':None,'menu_gone':False,'echo_gone':False}
+
+
+def _acceptance_binding(command,record):
+    binding=_ACCEPTANCE_BINDINGS.get(command)
+    if (binding is None or any(a is not b for a,b in zip(binding['owners'],_display_owners(record)))
+            or binding['deadline']!=record['deadline'] or binding['anchor'] is not record['anchor']
+            or binding['row'] is not record['row']):
+        _fail(record,'INPUT_PROBE_REVOKED','SCOPE_BINDING')
+    return binding
+
+
+def _acknowledge_acceptance_edit(command,count,*,remaining,controller_owner):
+    record=_COMMANDS.get(command); _live(record)
+    binding=_acceptance_binding(command,record)
+    if (binding['phase']!='PRE_ENTER' or record['phase']!='EDIT_PENDING'
+            or controller_owner is not record['controller'] or type(count) is not int
+            or type(remaining) is not int or remaining!=8-binding['body'] or not 0<count<=remaining):
+        _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
+    binding['body']+=count
+
+
+def _refresh_acceptance_pending(command,record,snapshot,frame):
+    binding=_acceptance_binding(command,record)
+    if binding['phase']!='PRE_ENTER': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+    # _prefix already validated this exact consumed snapshot, not diagnostic text.
+    index=_correlated_menu_row(record,snapshot)
+    binding.update(snapshot=snapshot,frame=frame,
+        menu=None if index is None else (index,snapshot.rows[index]))
+
+
+def _activate_acceptance_pending(command,record):
+    binding=_acceptance_binding(command,record)
+    if (binding['phase']!='PRE_ENTER' or binding['body']!=8
+            or record['written']!=8 or record['progress']!=8
+            or binding['frame']!=record['submit_frame'] or record['frame']!=binding['frame']):
+        _fail(record,'INPUT_PROBE_STATE_REJECTED','WRITE_COUNT')
+    binding['phase']='AWAIT_DISPLAY'
+    binding.pop('snapshot',None)
+
+
+def _acceptance_transients(command,record,snapshot):
+    binding=_acceptance_binding(command,record)
+    if binding['phase']!='AWAIT_DISPLAY': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+    policy=record['policy']; anchor=binding['anchor']
+    if any(any(cell.width!=1 for cell in row) for row in snapshot.rows
+            if any(cell.text=='❯' for cell in row)):
+        _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    menus=[index for index,row in enumerate(snapshot.rows) if policy._context_completion_row(row)]
+    selected=binding['menu']
+    if menus:
+        if (selected is None or menus!=[selected[0]] or binding['menu_gone']
+                or snapshot.rows[selected[0]]!=selected[1]):
+            _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    else: binding['menu_gone']=True
+    cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+    row=snapshot.rows[anchor.row]
+    own=(cursor==anchor.row and snapshot.cursorX==anchor.cursorX+8
+        and row[:anchor.cursorX]==binding['row'][:anchor.cursorX]
+        and all(cell.width==1 and cell.text==char for cell,char in zip(row[anchor.cursorX:anchor.cursorX+8],_BODY))
+        and all(cell.width==1 and cell.text in ('',' ','\t','\u00a0') for cell in row[anchor.cursorX+8:]))
+    if own and binding['echo_gone']: _fail(record,'INPUT_PROBE_REVOKED','NORMALIZED_ELIGIBILITY')
+    if not own: binding['echo_gone']=True
+    observed=snapshot
+    if own:
+        rows=list(snapshot.rows); rows[anchor.row]=binding['row']
+        observed=replace(snapshot,cursorX=anchor.cursorX,rows=tuple(rows))
+    return observed,frozenset(menus),own
+
+
 def _release_display(record):
+    _release_acceptance_pending(record)
     witness=record.pop('display_witness',None)
     if type(witness) is ContextDisplayWitness: _DISPLAYS.pop(witness,None)
     command=next((key for key,value in _COMMANDS.items() if value is record),None)
@@ -228,6 +323,9 @@ def _validate_resumed_display(command,snapshot,frame):
 def _assess_resumed_context(command,snapshot,frame):
     record=_COMMANDS.get(command); _live(record,frame,snapshot)
     if record['phase']!='CONTEXT_PENDING': _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+    pending=command in _ACCEPTANCE_BINDINGS
+    if pending and context_numeric_conflict(snapshot):
+        _fail(record,'INPUT_PROBE_STATE_REJECTED','CONTEXT_SAMPLE_UNSTABLE')
     _observe_resumed_display(command,snapshot,frame)
     if frame<=record['submit_frame']: return None
     tracker=_display_tracker(command,record)
@@ -237,8 +335,9 @@ def _assess_resumed_context(command,snapshot,frame):
     index=matches[0] if matches else None
     if index is not None and index in tracker['inventory']:
         _fail(record,'INPUT_PROBE_REVOKED','DISPLAY_WITNESS_AMBIGUOUS')
-    excluded=frozenset(old | ({index} if index is not None else set()))
-    assessment,rejected=record['policy']._empty_input_assessment(snapshot,_excluded_rows=excluded)
+    observed,menus,own=_acceptance_transients(command,record,snapshot) if pending else (snapshot,frozenset(),False)
+    excluded=frozenset(old | ({index} if index is not None else set())) | menus
+    assessment,rejected=record['policy']._empty_input_assessment(observed,_excluded_rows=excluded)
     observation=_observation(record['policy'],snapshot,assessment,rejected,excluded)
     if assessment.anchor is None:
         # Optional facts are frozen before revocation removes the private view.
@@ -246,6 +345,9 @@ def _assess_resumed_context(command,snapshot,frame):
         except Exception: pass
         _revoke_record_view(record)
         return assessment,rejected,observation
+    if menus or own:
+        if tracker['phase']=='CANDIDATE': _fail(record,'INPUT_PROBE_REVOKED','CONTEXT_SAMPLE_UNSTABLE')
+        return _ACCEPTANCE_WAIT
     sample=sample_context(snapshot)
     if tracker['phase']=='CANDIDATE':
         bound=_DISPLAYS[record['display_witness']]
@@ -524,10 +626,15 @@ class OwnedContextCommand(_Sealed):
         elif record['phase'] not in ('CONTEXT_PENDING','RECEIPT_READY'):
             _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
         if record.get('resume_view') is not None:
-            _observe_resumed_display(self,snapshot,frame)
-            tracker=_DISPLAY_TRACKERS.get(self)
-            if record['phase']=='CONTEXT_PENDING' and tracker['phase']=='CANDIDATE':
+            if record['phase']=='CONTEXT_PENDING' and self in _ACCEPTANCE_BINDINGS:
                 self.context_display_percent(snapshot,frame)
+            else:
+                _observe_resumed_display(self,snapshot,frame)
+                tracker=_DISPLAY_TRACKERS.get(self)
+                if record['phase']=='CONTEXT_PENDING' and tracker['phase']=='CANDIDATE':
+                    self.context_display_percent(snapshot,frame)
+        if self in _ACCEPTANCE_BINDINGS and record['phase'] in ('EDIT_PENDING','COMMAND_ECHO_MATCHED','SUBMIT_PENDING'):
+            _refresh_acceptance_pending(self,record,snapshot,frame)
         if record.get('post_observer') is not None:
             from terminal_post_enter_observation import _refresh
             _refresh(record['post_observer'],self,record,snapshot,frame)
@@ -542,6 +649,7 @@ class OwnedContextCommand(_Sealed):
         record['submit_signature']=_preenter_context_signature(record,snapshot)
         _phase(record,'SUBMIT_PENDING'); record['submit_frame']=frame
         if record.get('resume_view') is not None: _observe_resumed_display(self,snapshot,frame)
+        if self in _ACCEPTANCE_BINDINGS: _refresh_acceptance_pending(self,record,snapshot,frame)
         if record.get('post_observer') is not None:
             from terminal_post_enter_observation import _refresh
             _refresh(record['post_observer'],self,record,snapshot,frame)
@@ -554,6 +662,7 @@ class OwnedContextCommand(_Sealed):
         observer=record.get('post_observer')
         if record.get('post_request') is not None and observer is None:
             _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+        if self in _ACCEPTANCE_BINDINGS: _activate_acceptance_pending(self,record)
         _phase(record,'CONTEXT_PENDING')
         try: _note_diagnostic_menu(self)
         except Exception: pass
@@ -576,7 +685,7 @@ class OwnedContextCommand(_Sealed):
         record=_COMMANDS.get(self); _live(record,frame,snapshot)
         if record.get('resume_view') is None: _fail(record,'INPUT_PROBE_SCOPE_REJECTED','SCOPE_BINDING')
         result=_assess_resumed_context(self,snapshot,frame)
-        if result is None: return None
+        if result is None or result is _ACCEPTANCE_WAIT: return None
         assessment,_,observation=result
         if assessment.anchor is None:
             error=_error('INPUT_PROBE_INELIGIBLE',assessment)
@@ -592,7 +701,8 @@ class OwnedContextCommand(_Sealed):
             _fail(record,'INPUT_PROBE_STATE_REJECTED','FRESH_CONTEXT_FRAME_NOT_ADVANCED')
         if record.get('resume_view') is not None:
             result=_assess_resumed_context(self,snapshot,frame)
-            if result is None: _fail(record,'INPUT_PROBE_STATE_REJECTED','DISPLAY_WITNESS_UNPROVEN')
+            if result is None or result is _ACCEPTANCE_WAIT:
+                _fail(record,'INPUT_PROBE_STATE_REJECTED','DISPLAY_WITNESS_UNPROVEN')
             assessment,rejected,observation=result
             excluded=(_DISPLAYS[record['display_witness']]['index']
                 if assessment.anchor is not None else None)
@@ -615,6 +725,7 @@ class OwnedContextCommand(_Sealed):
         _phase(record,'RECEIPT_READY')
         if record.get('resume_view') is not None:
             _display_tracker(self,record)['phase']='CONSUMED'
+        _release_acceptance_pending(record)
         # Later receipt/nonce lifetime failures are outside this observation window.
         record['journal']=None
         if excluded is None: return None
@@ -786,7 +897,8 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
             if normalized_snapshot is not None:
                 _fail(record,'INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
             result=_assess_resumed_context(context_command,actual_snapshot,frame)
-            if result is None: _fail(record,'INPUT_PROBE_STATE_REJECTED','DISPLAY_WITNESS_UNPROVEN')
+            if result is None or result is _ACCEPTANCE_WAIT:
+                _fail(record,'INPUT_PROBE_STATE_REJECTED','DISPLAY_WITNESS_UNPROVEN')
             return result
     target=actual_snapshot
     if normalized_snapshot is not None:

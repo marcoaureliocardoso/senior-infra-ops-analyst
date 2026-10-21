@@ -85,10 +85,10 @@ def sample_context(snapshot: TerminalSnapshot) -> ContextSample | None:
 
 
 def context_numeric_conflict(snapshot: TerminalSnapshot) -> bool:
-    """Observation-only contradiction check, not a sample or freshness proof.
+    """Pure contradiction check, not a sample, freshness or input authority.
 
     The legacy parser deliberately collapses incomplete and invalid evidence to
-    None. Passive observation must remember contradictory rendered values even
+    None. Passive transitions must remember contradictory rendered values even
     while the display is incomplete; it must not reinterpret them as absence.
     """
     lines=tuple(''.join(cell.text or (' ' if cell.width else '') for cell in row)

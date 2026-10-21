@@ -9,9 +9,13 @@ TEXT = 'P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
 
 
 class DisplayCase:
-    def __init__(self, *, history_rows=None, baseline_free='81', baseline_buffer='3'):
-        self.fixture = CaseFixture()
-        self.history = tuple(history_rows if history_rows is not None else ((5,'❯ '+TEXT),))
+    def __init__(self, *, history_rows=None, baseline_free='81', baseline_buffer='3',
+                 case_kind='text-turn', acceptance_pending=False):
+        self.fixture = CaseFixture(case_kind)
+        prompt = TEXT if case_kind=='text-turn' else (
+            'P0-04B synthetic. Invoke Skill(context-continuity) once; reply P004B_SKILL_OK. No browser.')
+        self.history = tuple(history_rows if history_rows is not None else ((5,'❯ '+prompt),))
+        self.acceptance_pending = acceptance_pending
         self.free = baseline_free
         self.buffer = baseline_buffer
 
@@ -41,12 +45,16 @@ class DisplayCase:
             self.command = echo.begin_context_command(f.scope,f.state,f.native,f.transition,
                 f.policy,self.baseline,1,_resume_view=self.view,_controller_owner=f.controller,
                 _diagnostic_journal=self.journal)
+            if self.acceptance_pending:
+                echo._prepare_acceptance_pending(self.command,self.baseline,1,controller_owner=f.controller)
             return self
         except BaseException:
             self.fixture.__exit__(); raise
 
     def submit(self, *, extra=()):
         assert self.command.type_bytes(self.baseline,1)==b'/context'
+        if self.acceptance_pending:
+            echo._acknowledge_acceptance_edit(self.command,8,remaining=8,controller_owner=self.fixture.controller)
         self.command.check_edit(self.baseline,1,8)
         self.journal.acknowledge(8,submission=False,remaining=8)
         current = replace(self.snapshot(extra=(*extra,(37,'❯ /context'))),cursorX=10)
