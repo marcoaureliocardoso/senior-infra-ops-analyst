@@ -379,12 +379,105 @@ def _post_enter_namespace_report(command,root,identity,*,deadline=None):
     return fit_post_enter_report(report)
 
 
+def _acceptance_namespace_report(command,root,identity,*,deadline):
+    """Own ordinary acceptance until its final checked, disposed result."""
+    cancellation=TerminalCancellation(); entered=False; reaped=False; closed=False
+    report={'reasonCode':'OFFLINE_PROBE_BLOCKED'}; cleaned=None; exit_code=None
+    cleanup_error=None
+    errors=(OSError,ValueError,TypeError,RuntimeError,UnicodeError,subprocess.SubprocessError)
+
+    def live(*,work=False):
+        cancellation.check()
+        if time.monotonic()>=(deadline-5 if work else deadline): raise TimeoutError
+
+    def rejected(error):
+        reason='OFFLINE_PROBE_INTERRUPTED' if isinstance(error,(KeyboardInterrupt,TerminalCancelled)) else 'OFFLINE_PROBE_BLOCKED'
+        return _failed({'reasonCode':reason},'NAMESPACE',enabled=True,error=error,exit_code=exit_code)
+
+    try:
+        with cancellation:
+            entered=True
+            try:
+                live(work=True)
+                with tempfile.TemporaryFile(dir=root) as output:
+                    result=cancellation.spawn(command,env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,
+                        stdout=output,stderr=subprocess.DEVNULL,start_new_session=True)
+                    while result.poll() is None:
+                        live(work=True)
+                        time.sleep(.02)
+                    live(work=True)
+                    exit_code=result.returncode
+                    output.seek(0); data=output.read(16385)
+                    live(work=True)
+                    if exit_code:
+                        report=_failed(report,'NAMESPACE',enabled=True,exit_code=exit_code)
+                        # A failed child cannot make its success claim authoritative.
+                        if len(data)<=16384:
+                            try:
+                                value=_edit_json(data)
+                                detail=value.get('failureDiagnostic') if type(value) is dict else None
+                                if _valid_failure_diagnostic(detail): report['failureDiagnostic']=dict(detail)
+                            except (ValueError,UnicodeError): pass
+                    else:
+                        if len(data)>16384: raise ValueError
+                        value=json.loads(data)
+                        if type(value) is not dict: raise ValueError
+                        report=value
+                    live(work=True)
+            except (KeyboardInterrupt,TerminalCancelled) as error:
+                report=rejected(error)
+            except errors as error:
+                report=rejected(error)
+            finally:
+                data=b''
+                # Cancellation is latched, not acted on between reap and disposal.
+                # The capture handle above is already closed on every path.
+                with cancellation.cleanup():
+                    try:
+                        cancellation._dispose()
+                        reaped=True
+                        cleaned=finalize_owned(root,identity,report)
+                    except (KeyboardInterrupt,*errors) as error:
+                        cleanup_error=error
+            if type(cleaned) is dict:
+                report=_bounded_standard_report(cleaned,exit_code)
+            try: live()
+            except (KeyboardInterrupt,*errors) as error: report=rejected(error)
+        closed=True
+    except (KeyboardInterrupt,TerminalCancelled) as error:
+        report=rejected(error)
+        if entered: cleanup_error=error
+        closed=not cancellation._entered
+    except errors as error:
+        report=rejected(error)
+        if entered: cleanup_error=error
+        closed=not cancellation._entered
+    if not entered:
+        # Entry rejection cannot have spawned a child; still remove owned storage.
+        cleaned=finalize_owned(root,identity,report)
+        reaped=True
+    disposed=type(cleaned) is dict and cleaned.get('disposableRootAbsent') is True
+    if (cleanup_error is not None or not reaped or not closed or not disposed
+            or cleaned.get('reasonCode')=='OFFLINE_CLEANUP_FAILED'):
+        failed=_failed({'reasonCode':'OFFLINE_CLEANUP_FAILED'},'CLEANUP',enabled=True,error=cleanup_error)
+        if disposed: failed['disposableRootAbsent']=True
+        return failed  # Fixed closed fields only; no content-bearing fit after teardown.
+    # Teardown can latch a request after the last in-context check. This is the
+    # checked return boundary, not an atomic transaction with a caller's stdout.
+    if cancellation.requested: report=rejected(TerminalCancelled())
+    elif time.monotonic()>=deadline: report=rejected(TimeoutError())
+    # Ordinary reports were already fitted with disposal under supervision;
+    # replacements contain only fixed closed fields and the bounded diagnostic.
+    return {**report,'disposableRootAbsent':True}
+
+
 def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=False,debug_context_edit=False,post_enter_observation=False):
     outer_deadline=time.monotonic()+165 if post_enter_observation is True else None
     if (type(post_enter_observation) is not bool or (post_enter_observation and
             (audit or debug_context is not False or debug_context_edit is not False))):
         return _new_post_enter_report()
     observe=not audit and debug_context is False and debug_context_edit is False and not post_enter_observation
+    if observe: outer_deadline=time.monotonic()+165
     if (type(debug_context_edit) is not bool or (debug_context_edit and (audit or debug_context))):
         return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
     if type(debug_context) is not bool or (audit and debug_context): return {'reasonCode':'OFFLINE_PROBE_BLOCKED'}
@@ -438,6 +531,8 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
             return _edit_namespace_report(command,root,identity)
         if post_enter_observation:
             return _post_enter_namespace_report(command,root,identity,deadline=outer_deadline)
+        if observe:
+            return _acceptance_namespace_report(command,root,identity,deadline=outer_deadline)
         else:
             phase='NAMESPACE'
             with TerminalCancellation() as cancellation, tempfile.TemporaryFile(dir=root) as output:

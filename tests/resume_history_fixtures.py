@@ -150,12 +150,12 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
 
 def write_fake_cli(path: Path, *, mode: str) -> None:
     """Self-contained hand-authored CLI double for the actual isolated harness."""
-    if mode not in ('success','equal-values','wrong-session','replace-invalid','replace-valid',
+    if mode not in ('success','equal-values','acceptance-transient','wrong-session','replace-invalid','replace-valid',
                     'view-loss','cleanup-failure','interrupt'):
         raise ValueError('fixture mode rejected')
     fixtures={kind:sdk_events('synthetic-placeholder',kind) for kind in ('text-turn','skill-turn')}
     source='''#!/usr/bin/python3 -I
-import json,os,signal,sys,tty,urllib.request
+import json,os,signal,sys,time,tty,urllib.request
 from pathlib import Path
 MODE=__MODE__
 FIXTURES=__FIXTURES__
@@ -197,7 +197,7 @@ kind=Path('fixture-kind').read_text() if resume else 'text-turn'
 history=[(5,'❯ '+(SKILL if kind=='skill-turn' else TEXT)),(10,'❯ /context'),(12,'❯ /exit')] if resume else []
 def screen(numeric=False):
     text='\\x1b[?1049h\\x1b[2J'
-    if numeric or (resume and MODE=='equal-values'):
+    if numeric or (resume and MODE in ('equal-values','acceptance-transient')):
         text+='\\x1b[HContext Usage\\r\\nFree space: 81%\\r\\nAutocompact buffer: 3%'
     for row,line in history: text+='\\x1b['+str(row+1)+';1H'+line
     if numeric: text+='\\x1b[21;1H❯ /context'
@@ -214,10 +214,15 @@ command=bytearray()
 for _ in range(8):
     command.extend(read(1)); os.write(1,b'\\x1b[38;3H'+command)
 if command!=b'/context': raise SystemExit(14)
+if resume and MODE=='acceptance-transient':
+    os.write(1,'\\x1b[9;1H❯ /context  Synthetic completion\\x1b[38;11H'.encode())
 if resume and MODE=='view-loss':
     os.write(1,'\\x1b[6;1H\\x1b[2K\\x1b[38;11H'.encode())
     read(1); raise SystemExit(15)
 if read(1)!=b'\\r': raise SystemExit(16)
+if resume and MODE=='acceptance-transient':
+    waiting=screen(False)+b'/context'+'\\x1b[9;1H❯ /context  Synthetic completion\\x1b[38;11H'.encode()
+    os.write(1,waiting); time.sleep(.1)
 os.write(1,screen(True))
 marker=read(16)
 if len(marker)!=16 or any(c not in b'0123456789abcdef' for c in marker): raise SystemExit(17)

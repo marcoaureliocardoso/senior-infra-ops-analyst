@@ -1,5 +1,40 @@
 # Validation Notes
 
+## Bounded acceptance outer lifecycle - local synthetic implementation - 2026-10-21
+
+The operator approved the narrow written amendment and revised inline plan.
+The ordinary acceptance route now delegates to a private lifecycle helper
+keeping its original supervisor through capture, parse/classification, bounded
+report selection, owned reap and identity-checked disposal. Capture handles
+close before deletion. One absolute 165-second entry deadline reserves its last
+five seconds for cleanup. The final checked return honors cancellation/expiry;
+known cleanup failure dominates positive and negative outcomes, including an
+interrupted teardown. Audit/debug/read-only routes, complete-case predicates,
+report schema/caps, dialogue bounds, package versions and production policy
+are unchanged. There is no observation-to-acceptance conversion or new input.
+
+Author TDD reproduced the original six lifetime failures in 1.630s. New boundary
+tests failed 17 subcases across eight tests (19.685s), then passed. A final
+selection audit caught redundant fitting after signal-handler restoration:
+three RED subcases (0.844s) became GREEN (0.827s) when report fitting remained
+under supervision. Additional cleanup tests exposed six misclassified teardown
+interruptions (6.332s), corrected to cleanup failure (6.476s). Deadline renewal,
+execution cutoff, late read/parse/dispose/teardown signals, root deletion and
+mode separation are covered with fixed synthetic peers. Capture-handle closure
+precedes reap/disposal in the helper's nested context-manager control flow.
+No native CLI, real provider, credentials or operator configuration was used.
+
+The corrected-source focused gate passed 109 tests: offline73/144.539s,
+observer-report17/8.245s, cancellation14/0.401s and signals5/5.535s. Final
+task recording remains pending. The targeted
+acceptance group passed 9 tests/22.093s, including the complete namespace
+text/skill transient contract. These counts overlap, not additive unique tests.
+Content validation passed; architecture13/6.362s and release42/23.272s passed.
+The plan-scoped ledger preserves exact RED/GREEN and gate output. Independent
+whole-change review, immutable full package gate, fresh native acceptance and
+later provider/browser/remote gates remain pending. No push, PR, merge, staging
+refresh or definitive TODO completion is authorized by this implementation.
+
 ## Lifecycle amendment approved - amended plan pending review - 2026-10-21
 
 The operator approved the written narrow lifecycle amendment. Task 3 of the

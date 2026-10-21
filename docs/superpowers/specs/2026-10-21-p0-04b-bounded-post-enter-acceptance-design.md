@@ -2,9 +2,9 @@
 
 Date: 2026-10-21
 Status: approved on 2026-10-21; acceptance transition/fence implemented locally;
-complete validation blocked at the preexisting outer-publication lifecycle.
+outer-publication correction implemented locally; final validation pending.
 Amendment status: narrow written lifecycle amendment approved on 2026-10-21;
-corresponding Task 3 implementation-plan revision awaits operator review.
+corresponding Task 3 implementation-plan revision approved for inline execution.
 Implementation baseline: `3c159a15c13a321c2166abde10538292fa732918`.
 Scope: test-only extension; no production policy change or new native execution grant.
 
@@ -20,10 +20,10 @@ terminal chronology is not a new independent delivery objective.
 
 The operator selected this direction after investigation and subsequently
 approved this written specification. The [implementation plan](../plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
-was approved for native/inline execution. Tasks 1/2 are implemented; Task 3
-requires design review before changing the separate outer lifecycle.
-The operator subsequently authorized that narrow scope expansion; the
-outer-lifecycle amendment below is approved, not implemented or verified.
+was approved for native/inline execution. Tasks 1/2 are implemented. After the
+Task 3 design-review stop, the operator approved its narrow written lifecycle
+amendment and revised plan. The outer correction is implemented locally;
+focused regressions, independent review and the complete gate are separate.
 All previous native grants are consumed. No native/provider/browser execution,
 push, PR, merge, release, staging refresh or definitive TODO completion follows.
 
@@ -237,7 +237,7 @@ The operator authorized expanding Task 3 only to correct cancellation, deadline
 and disposal in the ordinary offline acceptance aggregator. Preserve the
 approved correlated-display transition, independent input proof, report schema,
 acceptance predicates and limits. The operator subsequently approved this
-written amendment; the revised implementation plan still requires review.
+written amendment and the revised implementation plan for inline execution.
 Neither approval grants any native execution.
 
 ### Evidence and alternatives
@@ -300,9 +300,8 @@ and negative outcomes. Keep invalid/nonzero/oversize report checks, mandatory
 complete-case evidence and first-inconclusive stopping. Demonstrate unchanged
 audit/debug/read-only routing and no observation-to-acceptance conversion.
 
-Tasks 1/2 remain complete locally; do not repeat or discard them. Update Task 3
-in the existing inline plan according to this approved written amendment;
-obtain review of that revised plan before implementation.
+Tasks 1/2 remain complete locally; do not repeat or discard them. Task 3 follows
+the reviewed inline plan revision implementing this approved amendment.
 Then run its full focused gate, one fresh independent whole-change review and
 the immutable full package gate. All previous native grants remain consumed;
 native acceptance, provider/browser tests and remote gates remain separate.

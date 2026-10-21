@@ -158,6 +158,234 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
                 self.assertEqual(len(cleanups),2)
                 self.assertTrue(all(row['reasonCode']=='CLEANUP_COMPLETED' and row['leaderReaped'] is True for row in cleanups))
 
+    def test_transient_acceptance_preserves_complete_case_contract(self):
+        import copy
+        report=self.fake_report('acceptance-transient')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertEqual([case['case'] for case in report['cases']],['text-turn','skill-turn'])
+        for case in report['cases']:
+            self.assertTrue(self.module.case_complete(case))
+            self.assertEqual((case['beforeExit'],case['sdkExit'],case['afterExit']),(0,0,0))
+            for kind in ('pending','candidate','observation'):
+                changed=copy.deepcopy(case)
+                if kind=='observation': changed.update(schema='p004b-post-enter-observation-v1',acceptance=False)
+                else:
+                    changed['stages'][1]['diagnostics']['records']=[row for row in
+                        changed['stages'][1]['diagnostics']['records'] if row['point']!='context_display']
+                self.assertFalse(self.module.case_complete(changed))
+        invoked=[]; broken=copy.deepcopy(report['cases'][0]); broken['afterExit']=2
+        def incomplete(kind): invoked.append(kind); return broken
+        self.assertEqual(self.module.run_cases(incomplete)['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertEqual(invoked,['text-turn'])
+
+    def test_report_pressure_does_not_erase_required_proof(self):
+        import copy
+        case={'case':'text-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':0,'validSkillSample':False,'validSDKSample':True,
+            'stages':passed_stages()}
+        self.assertTrue(self.module.case_complete(case))
+        pressure=TerminalDiagnostics()
+        for _ in range(30): pressure.add('context_numeric','CHECKPOINT')
+        diag=pressure.report()
+        self.assertLessEqual(len(diag['records']),16)
+        self.assertLessEqual(len(json.dumps(diag,sort_keys=True).encode()),3072)
+        changed=copy.deepcopy(case); changed['stages'][1]['diagnostics']=diag
+        self.assertFalse(self.module.case_complete(changed))
+        for absent in ('context_display','input_probe_echo','input_probe_cleared','native_cleanup','helper_cleanup'):
+            changed=copy.deepcopy(case)
+            changed['stages'][1]['diagnostics']['records']=[row for row in changed['stages'][1]['diagnostics']['records']
+                if row['point']!=absent]
+            self.assertFalse(self.module.case_complete(changed))
+        envelope=self.module._bounded_standard_report({'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[changed]},2)
+        self.assertLessEqual(len((json.dumps(envelope,sort_keys=True)+'\n').encode()),16384)
+
+    def lifecycle_report(self,point,effect,*,cleanup_failure=None,payload=None,exit_code=0):
+        # Exercise the real cancellation supervisor in a dedicated subprocess;
+        # the bwrap replacement emits only a fixed synthetic result, no native UI.
+        cases=[{'case':kind,'beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,
+            'naturalExit':True,'caseRootAbsent':True,'skillCalls':calls,'validSkillSample':bool(calls),
+            'validSDKSample':True,'stages':passed_stages()}
+            for kind,calls in (('text-turn',0),('skill-turn',1))]
+        self.assertTrue(all(self.module.case_complete(case) for case in cases))
+        report={'reasonCode':'OFFLINE_CONTROLS_PASSED','runtime':'0.0.1','cases':cases} if payload is None else payload
+        data=report if type(report) is bytes else json.dumps(report).encode()
+        child_source='#!/usr/bin/python3\nimport os\nos.write(1,'+repr(data)+'); raise SystemExit('+str(exit_code)+')\n'
+        wrapper='''import importlib.util,json,os,signal,sys,time
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+spec=importlib.util.spec_from_file_location('probe',Path(sys.argv[1])/'offline-terminal-resume-probe.py')
+probe=importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+root=Path(sys.argv[2]); fake=Path(sys.argv[3]); point=sys.argv[4]; effect=sys.argv[5]
+probe.tempfile.mkdtemp=lambda **kwargs: str(root)
+probe.shutil.which=lambda name: str(fake)
+failure=sys.argv[8]
+monotonic=time.monotonic
+triggered=False
+spawned=0
+owner=None
+def trigger():
+    global triggered
+    if not triggered:
+        triggered=True
+        if effect in ('deadline','cutoff'): probe.time.monotonic=lambda: monotonic()+(161 if effect=='cutoff' else 200)
+        else: os.kill(os.getpid(),signal.SIGTERM if effect=='term' else signal.SIGHUP)
+original=probe.json.loads if point=='parse' else probe.finalize_owned
+def interrupt(*args,**kwargs):
+    value=original(*args,**kwargs)
+    trigger()
+    return value
+if point=='parse': probe.json.loads=interrupt
+elif point=='dispose': probe.finalize_owned=interrupt
+elif point=='read':
+    temporary=probe.tempfile.TemporaryFile
+    class Capture:
+        def __init__(self,*args,**kwargs): self.stream=temporary(*args,**kwargs)
+        def __getattr__(self,key): return getattr(self.stream,key)
+        def __enter__(self): return self
+        def __exit__(self,*args): return self.stream.__exit__(*args)
+        def read(self,*args):
+            value=self.stream.read(*args); trigger(); return value
+    probe.tempfile.TemporaryFile=Capture
+elif point=='teardown':
+    restore=probe.TerminalCancellation._restore
+    def teardown(token):
+        if effect!='deadline': trigger()
+        value=restore(token)
+        if effect=='deadline': trigger()
+        return value
+    probe.TerminalCancellation._restore=teardown
+elif point=='prepare':
+    resolve=Path.resolve
+    def prepare(path,*args,**kwargs):
+        value=resolve(path,*args,**kwargs)
+        if path==Path(sys.argv[1]).parent: trigger()
+        return value
+    Path.resolve=prepare
+spawn=probe.TerminalCancellation.spawn
+def launch(token,*args,**kwargs):
+    global spawned,owner
+    owner=token
+    spawned+=1
+    value=spawn(token,*args,**kwargs)
+    if point=='spawn': trigger()
+    return value
+probe.TerminalCancellation.spawn=launch
+if point=='fit':
+    fit=probe._bounded_standard_report
+    def bounded(*args,**kwargs):
+        value=fit(*args,**kwargs)
+        if owner is not None and not owner._entered: trigger()
+        return value
+    probe._bounded_standard_report=bounded
+if failure=='dispose':
+    probe.finalize_owned=lambda *args,**kwargs: {'reasonCode':'OFFLINE_CLEANUP_FAILED'}
+elif failure=='reap':
+    dispose=probe.TerminalCancellation._dispose
+    def fail_reap(token,*args,**kwargs):
+        dispose(token,*args,**kwargs)
+        raise RuntimeError('synthetic unproved reap')
+    probe.TerminalCancellation._dispose=fail_reap
+elif failure in ('teardown-timeout','teardown-interrupt'):
+    dispose=probe.TerminalCancellation._dispose
+    disposals=0
+    def fail_teardown(token,*args,**kwargs):
+        global disposals
+        dispose(token,*args,**kwargs)
+        disposals+=1
+        if disposals==2:
+            if failure=='teardown-timeout': raise TimeoutError
+            raise KeyboardInterrupt
+    probe.TerminalCancellation._dispose=fail_teardown
+value=probe.run_offline_controls(source=Path(sys.argv[1]).parent,claude=fake,
+    node=Path(sys.argv[6]),module_root=Path(sys.argv[7]))
+print(json.dumps({'report':value,'spawned':spawned,'rootAbsent':not root.exists(),'triggered':triggered}))
+'''
+        with tempfile.TemporaryDirectory(prefix='acceptance-lifetime-') as directory:
+            parent=Path(directory); root=parent/'owned'; root.mkdir(mode=0o700)
+            (root/'synthetic-raw').write_text('synthetic disposable evidence')
+            fake=parent/'synthetic-bwrap'; fake.write_text(child_source); fake.chmod(0o700)
+            result=subprocess.run([sys.executable,'-c',wrapper,str(ROOT/'tests'),str(root),str(fake),point,effect,
+                os.environ['P004B_TERMINAL_NODE'],os.environ['P004B_TERMINAL_MODULE_ROOT'],cleanup_failure or 'none'],
+                capture_output=True,timeout=8,env={'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'})
+            self.assertEqual(result.returncode,0,{'exit':result.returncode,'ownedRootAbsent':not root.exists()})
+            value=json.loads(result.stdout)
+            self.assertEqual(value['rootAbsent'],not root.exists())
+            self.assertLessEqual(len((json.dumps(value['report'],sort_keys=True)+'\n').encode()),16384)
+            return value
+
+    def test_success_is_suppressed_until_final_disposal(self):
+        for point in ('parse','dispose'):
+            for effect in ('term','hup','deadline'):
+                with self.subTest(point=point,effect=effect):
+                    value=self.lifecycle_report(point,effect)
+                    self.assertEqual(value['report']['reasonCode'],
+                        'OFFLINE_PROBE_BLOCKED' if effect=='deadline' else 'OFFLINE_PROBE_INTERRUPTED')
+                    self.assertTrue(value['report'].get('disposableRootAbsent'))
+                    self.assertTrue(value['rootAbsent'])
+
+    def test_acceptance_lifecycle_checks_read_and_teardown(self):
+        for point in ('read','teardown'):
+            for effect in ('term','hup','deadline'):
+                with self.subTest(point=point,effect=effect):
+                    value=self.lifecycle_report(point,effect)
+                    self.assertEqual(value['report']['reasonCode'],
+                        'OFFLINE_PROBE_BLOCKED' if effect=='deadline' else 'OFFLINE_PROBE_INTERRUPTED')
+                    self.assertTrue(value['report'].get('disposableRootAbsent'))
+                    self.assertTrue(value['rootAbsent'])
+
+    def test_acceptance_cleanup_failure_dominates_every_outcome(self):
+        for failure in ('reap','dispose','teardown-timeout','teardown-interrupt'):
+            for outcome in ('complete','incomplete','invalid','nonzero','cancel','expire'):
+                with self.subTest(failure=failure,outcome=outcome):
+                    value=self.lifecycle_report('parse' if outcome in ('cancel','expire') else 'none',
+                        'term' if outcome=='cancel' else 'deadline',cleanup_failure=failure,
+                        payload=(b'not-json' if outcome=='invalid' else
+                            {'reasonCode':'OFFLINE_CONTROLS_INCONCLUSIVE','cases':[]} if outcome=='incomplete' else None),
+                        exit_code=7 if outcome=='nonzero' else 0)
+                    self.assertEqual(value['report']['reasonCode'],'OFFLINE_CLEANUP_FAILED')
+                    disposed=failure.startswith('teardown-')
+                    self.assertEqual(value['report'].get('disposableRootAbsent',False),disposed)
+                    self.assertEqual(value['rootAbsent'],disposed)
+
+    def test_acceptance_deadline_is_not_renewed(self):
+        for point,effect,spawns in (('prepare','deadline',0),('spawn','cutoff',1),('dispose','deadline',1)):
+            with self.subTest(point=point):
+                value=self.lifecycle_report(point,effect)
+                self.assertEqual(value['report']['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+                self.assertEqual(value['spawned'],spawns)
+                self.assertTrue(value['report'].get('disposableRootAbsent'))
+                self.assertTrue(value['rootAbsent'])
+
+    def test_acceptance_report_selection_stays_supervised(self):
+        # A signal during final result fitting is before the checked handoff,
+        # not a new signal from a caller after the aggregator has returned.
+        for effect in ('term','hup','deadline'):
+            with self.subTest(effect=effect):
+                value=self.lifecycle_report('fit',effect)
+                self.assertEqual(value['report']['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+                self.assertFalse(value['triggered'])
+                self.assertTrue(value['rootAbsent'])
+
+    def test_acceptance_mode_routing_is_unchanged(self):
+        helper=getattr(self.module,'_acceptance_namespace_report',None)
+        self.assertTrue(callable(helper),'ordinary acceptance lifecycle boundary missing')
+        with tempfile.TemporaryDirectory(prefix='acceptance-mode-') as directory:
+            peer=Path(directory)/'peer'
+            peer.write_text('#!/usr/bin/python3\nprint(\'{"reasonCode":"OFFLINE_PROBE_BLOCKED"}\')\n')
+            peer.chmod(0o700)
+            for flags,expected in (({},1),({'audit':True},0),({'debug_context':True},0),
+                    ({'debug_context_edit':True},0),({'post_enter_observation':True},0)):
+                with self.subTest(flags=flags),mock.patch.object(self.module.shutil,'which',return_value=str(peer)),\
+                        mock.patch.object(self.module,'_acceptance_namespace_report',wraps=helper) as lifecycle:
+                    report=self.module._namespace(source=ROOT,claude=peer,
+                        node=Path(os.environ['P004B_TERMINAL_NODE']),
+                        module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']),**flags)
+                    self.assertEqual(lifecycle.call_count,expected)
+                    if flags.get('post_enter_observation'):
+                        self.assertIs(report['acceptance'],False)
+                        self.assertEqual(report['schema'],'p004b-post-enter-observation-v1')
+                    else: self.assertEqual(report['reasonCode'],'OFFLINE_PROBE_BLOCKED')
+
     def test_isolated_equal_value_resume_completes_both_synthetic_cases(self):
         report=self.fake_report('equal-values')
         self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')

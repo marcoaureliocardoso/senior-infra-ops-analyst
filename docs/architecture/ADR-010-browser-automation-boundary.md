@@ -1128,26 +1128,31 @@ summary, so the native result cannot establish that waiting caused success.
 The extension does not require another native run solely to recover that timing.
 
 Task 3 reproduced a preexisting gap in the ordinary outer `_namespace`: the
-cancellation supervisor ends before JSON parsing and final owned-root disposal,
-and expiry is not checked afterward. Synthetic SIGTERM/SIGHUP at parsing can
-leave the owned root until the test parent cleans it; late signals prevent a
-closed result, while simulated late expiry can still return success. This path
-is unchanged from the plan baseline. The plan requires design review before
-expanding that lifecycle beyond Tasks 1/2; no fix was silently added. Task 3,
-independent whole-change review, complete package gate and native acceptance
-remain pending. Exact evidence is in `tests/validation-notes.md`.
+supervisor ended before parsing/disposal and expiry was not checked afterward.
+Six synthetic signal/expiry cases demonstrated unclosed results, retained
+owned storage or late success. This path was unchanged by Tasks 1/2. The task
+stopped for design review rather than silently changing the outer contract.
 
 The operator subsequently authorized expanding Task 3 only for the ordinary
 offline aggregator's cancellation, deadline and disposal lifecycle. The
 written amendment in the bounded acceptance specification preserves schema,
-predicates and limits and was subsequently approved. The corresponding Task 3
-plan revision awaits review before implementation. Neither approval is an
-implemented fix or a renewed native grant.
+predicates and limits and was subsequently approved along with its inline plan
+revision. The private ordinary-acceptance helper now keeps one supervisor
+through parsing, bounded report selection, owned reap and disposal. One
+absolute 165-second deadline includes a final five-second cleanup reserve;
+the final checked return honors late requests/expiry. Cleanup failure dominates
+positive and negative outcomes, including interruption of teardown. Raw capture
+handles close before root removal. Audit/debug/read-only modes retain their
+separate routes; there is no generic cancellation API or acceptance predicate
+change. The corrected focused task gate passed 109 tests. Task recording,
+independent whole-change review, immutable package gate and native acceptance
+remain pending. Neither approval renews a grant.
+Exact evidence is in `tests/validation-notes.md`.
 
 ## Links
 
-- Approved bounded post-Enter acceptance design (local transition/fence; final validation blocked): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
-- Approved inline bounded post-Enter acceptance plan (Task 3 lifecycle review pending): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`
+- Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
+- Approved inline bounded post-Enter acceptance plan (including Task 3 lifecycle correction): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`
 - Approved passive post-Enter observation design (synthetic gates passed; one native profile observed, not acceptance): `docs/superpowers/specs/2026-10-20-p0-04b-post-enter-observation-design.md`
 - Approved inline passive post-Enter observation plan: `docs/superpowers/plans/2026-10-20-p0-04b-post-enter-observation.md`
 

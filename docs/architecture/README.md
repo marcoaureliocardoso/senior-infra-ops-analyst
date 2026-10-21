@@ -22,13 +22,12 @@ ADR-010 separately indexes the approved design for the
 The written specification is approved; its
 [implementation plan](../superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md)
 was approved for native/inline execution. Tasks 1/2 are implemented locally and
-the Task 2 gate passed 315 synthetic tests. Task 3 is blocked by a reproduced
-preexisting outer-publication cancellation/expiry gap; its design-review stop
-applies before expanding that lifecycle. The operator authorized the narrow
-scope expansion and its written outer-lifecycle amendment. The corresponding
-Task 3 implementation-plan revision awaits review before implementation.
-Final review, full package validation
-and native acceptance remain pending.
+the Task 2 gate passed 315 synthetic tests. Task 3 reproduced a preexisting
+outer-publication cancellation/expiry gap and stopped for design review.
+The operator approved the narrow written lifecycle amendment and plan revision;
+the acceptance-only outer correction is implemented locally. Its focused gate
+passed 109 tests; task completion recording, final review, full package
+validation and native acceptance remain pending.
 The implementation extends only passive pending in audited resumed acceptance, retaining
 the existing correlated-display and independent nonce/clear/exit contract.
 The observation-only mode remains permanently read-only after Enter.

@@ -19,9 +19,9 @@ adapter and Node/xterm helper; Debian WSL package-validation route.
 **Spec:** [Approved bounded-transition specification](../specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 
 Plan status: approved for native/inline execution on 2026-10-21; Tasks 1/2 complete,
-Task 3 paused at RED pending review of this amended implementation plan.
+Task 3 implemented with 109 focused tests passed; task completion recording pending.
 The operator approved the narrow written lifecycle amendment on 2026-10-21;
-this Task 3 plan revision awaits review. Preserve the selected inline method.
+this Task 3 plan revision was subsequently approved for the same inline method.
 Written specification approved on 2026-10-21; planning baseline `5bd1dd6`.
 No native execution is authorized by this document or the inline method choice.
 
@@ -300,20 +300,20 @@ Do not modify `case_complete`, `run_cases` or the generic cancellation API.
   `case_complete` even with child exit0. Record already-GREEN unchanged-contract
   checks as characterization, not invented RED; every necessary behavior fix
   still requires its own reproduced failing assertion before implementation.
-- [ ] **Step 2: Add `test_success_is_suppressed_until_final_disposal`: inject
+- [x] **Step 2: Add `test_success_is_suppressed_until_final_disposal`: inject
   cancellation/expiry after the last checkpoint and cleanup failure for positive
   and negative outcomes; assert no success and cleanup-failure dominance.
   Add `test_report_pressure_does_not_erase_required_proof`: optional diagnostic
   loss cannot bypass failure, missing mandatory proof fails, phase records<=16,
   actual encoded phase bytes<=3072 and outer bytes including newline<=16384;
   no raw content/nonce/history/trace/hash in retained results.**
-- [ ] **Step 3a: Reproduce the preserved lifecycle RED before source changes.**
+- [x] **Step 3a: Reproduce the preserved lifecycle RED before source changes.**
   Run `tests/test-offline-terminal-resume-safety.py -k success_is_suppressed`.
   Expect six failing parse/dispose x SIGTERM/SIGHUP/expiry subcases, not a setup
   error. Keep the valid fixed text/skill envelopes and dedicated subprocess
   supervisor; no native client or provider. Step 1 and report pressure already
   passed as characterization; do not relabel them as failing behavior tests.
-- [ ] **Step 3b: Add boundary regressions before implementing the helper.**
+- [x] **Step 3b: Add boundary regressions before implementing the helper.**
   Add `test_acceptance_lifecycle_checks_read_and_teardown`: inject latched
   cancellation and simulated expiry after capture read and during supervisor
   teardown; expect interrupted/blocked, never passed, and actual owned-root
@@ -331,7 +331,7 @@ Do not modify `case_complete`, `run_cases` or the generic cancellation API.
   the planned helper; audit, debug-context, debug-context-edit and
   observe-post-enter use their original routes. An absent helper is expected
   RED until Step 3c, not evidence of mode coverage.
-- [ ] **Step 3c: Implement `_acceptance_namespace_report` and ordinary routing.**
+- [x] **Step 3c: Implement `_acceptance_namespace_report` and ordinary routing.**
   In `_namespace`, establish the ordinary acceptance deadline before preparation
   and route only its existing standard mode to the helper. Audit, debug and
   read-only observer retain their current routes, schemas and helpers. The
@@ -350,16 +350,16 @@ Do not modify `case_complete`, `run_cases` or the generic cancellation API.
   caller, observation capability reuse, generic cancellation changes or new
   input authority. If this private boundary cannot meet the approved amendment,
   stop for scope review rather than refactor other modes.
-- [ ] **Step 3d: Run the lifecycle regressions and compatibility checks.**
+- [x] **Step 3d: Run the lifecycle regressions and compatibility checks.**
   Run the offline suite with `-k acceptance`, then `-k success_is_suppressed`;
   expect exit0/OK, including the original-budget and mode-routing tests written
   in Step 3b. Retain malformed/oversize/nonzero-child tests,
   missing mandatory proof rejection and first-inconclusive case stopping.
-- [ ] **Step 4: Run `tests/test-offline-terminal-resume-safety.py`,
+- [x] **Step 4: Run `tests/test-offline-terminal-resume-safety.py`,
   `tests/test-post-enter-observation-report.py`, `tests/test-terminal-cancellation.py`
   and `tests/test-headless-driver-signals.py`; confirm GREEN without installed
   Claude, provider, credentials or operator-state access.**
-- [ ] **Step 5: Update ADR/index, CHANGELOG and validation notes with actual
+- [x] **Step 5: Update ADR/index, CHANGELOG and validation notes with actual
   implementation scope and exact fresh results/exclusions. Keep native acceptance
   explicitly unproved; do not reclassify the successful observation. Run content,
   architecture and release-history checks; commit as
@@ -412,9 +412,10 @@ lifetime test reproduced six failures. The ordinary outer `_namespace` ends
 its cancellation supervisor before parsing/disposal and does not recheck expiry
 there. This unchanged preexisting path is outside Tasks 1/2's implementation
 units. The operator approved the narrow lifecycle amendment after the original
-design-review stop; Steps 3a-3d are the proposed plan revision for that scope.
-This written revision awaits review before implementation, retaining inline
-execution and the two uncommitted RED test/fixture files. No native grant is
-renewed, and no source fix is represented by the planning change.
+design-review stop and then approved Steps 3a-3d for inline implementation.
+The acceptance-only outer helper is implemented locally and the preserved RED
+tests now pass. Final report selection stays supervised; cleanup/teardown
+failure dominates every result. The corrected full task gate passed 109 tests;
+the separate completion command/record is pending. No native grant is renewed.
 Independent whole-change review, complete package gate and native acceptance
 remain pending. See `tests/validation-notes.md` for exact outcomes and scope.
