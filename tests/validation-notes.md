@@ -31,7 +31,10 @@ profile equality, renderer causality or successful transaction entry. No broaden
 window, relaxed guard or behavioral fix follows from this result. The proposed
 [coherent diagnostic specification](../docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md)
 records the discriminating evidence contract; written approval and implementation
-remain separate gates.
+remain separate gates. Written approval was subsequently granted; the
+[implementation plan](../docs/superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
+awaits review and execution-method selection. It includes a causal-decision
+stop rule, not a native execution or an approved compatibility fix.
 
 Network isolation, hidden operator state and dropped capabilities were proved.
 Both native/helper leaders were reaped in both dialogues; the text-case and

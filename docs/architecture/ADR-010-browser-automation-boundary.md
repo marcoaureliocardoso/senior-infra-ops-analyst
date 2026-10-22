@@ -1217,18 +1217,23 @@ timeout or retry. See validation notes; no behavioral relaxation is authorized.
 
 The operator approved preparation of a written diagnostic specification after
 twenty synthetic scenarios reproduced phase-boundary limitations and ambiguous
-UNOWNED_NEW_PROFILE sites. The [proposed specification](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md)
-awaits written review; it is not implemented. It adds only a closed optional
+UNOWNED_NEW_PROFILE sites. The [specification](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md)
+was approved on 2026-10-22; its [implementation plan](../superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
+awaits review and execution-method selection. It is not implemented. It plans only a closed optional
 failure annotation, coherently captured before revocation on the same invocation
 and snapshot, without operational validation or I/O during collection. Original
 rejection/cleanup, post-clear eligibility, input counts, deadlines and byte
 budgets remain unchanged. Missing diagnostics never prove absence of an event.
 Its eventual implementation would narrowly amend only the relocation design's
 no-new-diagnostics constraint, not authorization. No native run is included.
+The plan ends with a causal decision, not automatic compatibility repairs or
+repeated native requests; an inconclusive measurement triggers architectural
+reassessment, not another diagnostic layer by default.
 
 ## Links
 
-- Proposed coherent nonce/history diagnostics (written review pending; not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md`
+- Approved coherent nonce/history diagnostic specification (not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md`
+- Coherent nonce/history diagnostic implementation plan (review/method pending): `docs/superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md`
 
 - Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
 - Approved inline correlated SDK-history relocation plan (local review/gate passed; native acceptance open): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`

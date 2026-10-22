@@ -9,10 +9,13 @@ tag. Tagged versions correspond to repository tags.
 
 - Documented a proposed test-only nonce/history diagnostic extension after
   operator approval of its conversational design. The written specification
-  awaits review; no code is implemented. It requires coherent pre-revocation
+  is approved; its implementation plan awaits review and method selection.
+  No code is implemented. It requires coherent pre-revocation
   capture, non-interfering observation and synthetic discrimination/byte-budget
   proof before any separately authorized native attempt. Acceptance, input
   authority, relocation eligibility and existing limits are unchanged.
+  The plan ends with a causal decision and a stop rule against automatic
+  compatibility repairs or repeated native attempts.
 
 - Implemented test-only one-shot exact SDK-history relocation for ordinary
   audited offline resumed acceptance. Sealed nonce/clear provenance and full

@@ -2,10 +2,11 @@
 
 Date: 2026-10-22
 
-Status: conversational design and its three refinements approved for written
-specification. This written specification awaits operator review. No
-implementation plan, product-code change or native execution is authorized by
-that approval. Baseline: `abdf8301e6f3354c88b1df4f7de68bebf1dbb651`.
+Status: written specification approved on 2026-10-22, including the three
+conversational refinements. The separate [implementation plan](../plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
+awaits review and execution-method selection. No product-code implementation
+or native execution is authorized by specification approval alone.
+Original design baseline: `abdf8301e6f3354c88b1df4f7de68bebf1dbb651`.
 
 ## Intent and scope
 
@@ -21,7 +22,7 @@ Both existing fixed case kinds, text-turn/SDK_TEXT and skill-turn/SDK_SKILL,
 are in scope. Initial, live, provider, browser, debug and read-only observation
 routes gain neither this diagnostic route nor new operational authority.
 
-On written approval, this narrowly amends only the no-new-diagnostic-extension
+This approved specification narrowly amends only the no-new-diagnostic-extension
 constraint of the [relocation design](2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 Its post-clear-only window and every other operational constraint remain intact.
 The extension is not implemented merely because this document exists.
@@ -253,7 +254,8 @@ without claiming implementation. No push, PR, merge, release, staging refresh
 or definitive TODO completion is authorized here. The old native grants remain
 consumed; do not access operator settings/credentials or install/update software.
 
-After operator approval of this written specification, prepare a separate
-implementation plan for review and execution-method selection. No product-code
-implementation starts before those gates. Any later native run needs fresh
-authorization tied to its exact final source and explicit limits.
+The operator approved this written specification. The separately prepared plan
+requires review and execution-method selection before product-code implementation.
+Its causal-decision stop rule prevents automatic compatibility repairs or
+repeated native attempts. Any later native run needs fresh authorization tied
+to its exact final source and explicit limits.

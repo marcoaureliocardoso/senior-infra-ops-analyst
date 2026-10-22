@@ -18,10 +18,12 @@ This index is the versioned architectural history for implemented AI-first contr
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
 ADR-010 also references a [written nonce/history diagnostic proposal](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md),
-prepared after operator approval of its conversational design. Written review
-is pending; no diagnostic extension is implemented. The proposed same-call,
-same-snapshot failure annotation changes neither post-clear eligibility nor
+approved by the operator on 2026-10-22. Its [implementation plan](../superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
+awaits review and execution-method selection; no extension is implemented.
+The planned same-call, same-snapshot failure annotation changes neither post-clear eligibility nor
 input authority, retention limits or native execution grants.
+The plan requires a causal decision and stops automatic repair/retry cycles;
+instrumentation does not itself fix or establish the native cause.
 
 ADR-010 also indexes the test-only
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
