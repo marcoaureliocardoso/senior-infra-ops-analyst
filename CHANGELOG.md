@@ -7,12 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
-- Documented a proposed test-only nonce/history diagnostic extension after
-  operator approval of its conversational design. The written specification
-  is approved; its implementation plan awaits review and method selection.
-  No code is implemented. It requires coherent pre-revocation
-  capture, non-interfering observation and synthetic discrimination/byte-budget
-  proof before any separately authorized native attempt. Acceptance, input
+- Added local test-only nonce/history diagnostics after approval of the written
+  specification and direct/inline implementation plan. Private call scopes
+  freeze seven closed scalars before revocation; optional collection preserves
+  legacy failures and cleanup under the unchanged byte budgets. The synthetic
+  20-scenario discrimination matrix passed; final regressions, independent review
+  and the immutable gate remain open. Acceptance, input
   authority, relocation eligibility and existing limits are unchanged.
   The plan ends with a causal decision and a stop rule against automatic
   compatibility repairs or repeated native attempts.

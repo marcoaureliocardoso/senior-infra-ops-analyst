@@ -1,5 +1,38 @@
 # Validation Notes
 
+## Coherent nonce/history diagnostics - local implementation - 2026-10-22
+
+The operator approved the written specification and plan and selected direct/inline
+execution with TDD and one independent final review. No native/provider grant
+was renewed. Tasks 1 and 2 are committed at `a406378` and `fe0878b`.
+Task 1's final group passed 67 tests. Task 2's final group passed 157 tests
+(13 observer, 14 failure diagnostics, 25 structural, 29 debug and 76 offline safety).
+No skip was observed in these groups.
+
+The maintained synthetic matrix passed all twenty scenarios: twelve Python PTY
+cases, two observe-first protocol cases and six mutation-site cases across both
+case kinds. Stable/post-clear movement keeps exit0/32 bytes; echo rejection keeps
+exit2/25 bytes; clear-snapshot rejection keeps exit2/26 bytes. Exact movement and
+full-profile mutation are distinguished without accepting either earlier phase.
+These fixtures substitute the namespace audit and launch Python peers, not Claude;
+they are not native, provider, browser or real-isolation evidence.
+
+Thirty-two controlled normal/absent/capture-loss/collector-loss comparisons passed
+with identical outcomes and concrete byte-prefix checks in memory. Sidecars retain
+only counts/booleans; raw driver captures are disposed with the case root before
+publication. Real cancellation and original expiry checks keep cleanup and release
+observation state. New detail fits both sanitized retained report shapes at
+2,883 and 2,975 bytes per resumed phase, with aggregate newline at 5,920 and 5,999
+bytes, within 16,384. These maximum-label tests include NOT_SENT (one byte longer
+than UNKNOWN in the earlier documentation-only projection).
+Reentry is limited to one classification per error; it cannot exceed forty rows.
+
+Final regressions, one independent review and the immutable-source integral gate
+are still pending. Instrumentation is not a root-cause fix. Missing or inconclusive
+native facts require the plan's explicit stop/reassessment, not another automatic
+compatibility change or repeat. No push, PR, merge, staging refresh, package version
+change or definitive TODO completion is included.
+
 ## One-shot native offline relocation acceptance - inconclusive - 2026-10-22 UTC
 
 The newly authorized single ordinary offline attempt ran against exact source
@@ -33,7 +66,7 @@ window, relaxed guard or behavioral fix follows from this result. The proposed
 records the discriminating evidence contract; written approval and implementation
 remain separate gates. Written approval was subsequently granted; the
 [implementation plan](../docs/superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
-awaits review and execution-method selection. It includes a causal-decision
+was subsequently approved for direct/inline execution. It includes a causal-decision
 stop rule, not a native execution or an approved compatibility fix.
 
 Network isolation, hidden operator state and dropped capabilities were proved.

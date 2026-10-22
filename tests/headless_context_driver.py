@@ -25,6 +25,8 @@ from terminal_resume_history import (ResumeHistoryError,validate_initial_sink,bi
     capture_initial_completion,finish_initial_completion,validate_resume_offer,try_bind_resume_view,
     validate_resume_view,finish_resume_view,revoke_resume_view,resume_view_decision,
     resume_failure_diagnostic,_resume_layout_error,_try_commit_sdk_relocation)
+from terminal_nonce_history_diagnostics import (_create_nonce_history_session,_nonce_history_scope,
+    _note_nonce_clear_attempt,_note_nonce_clear_ack,_close_nonce_history_session,nonce_history_failure_diagnostic)
 
 
 class _ContextFailure(RuntimeError):
@@ -127,6 +129,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
     result=2; snapshot=None
     frame=0; probe=None; transition=object() if input_probe_scope is not None else None
     resume_view=None; initial_pending=None
+    nonce_session=None
     exit_written=0
     context_command=None; context_receipt=None
     context_journal=None; journal_active=False; controller_owner=object()
@@ -160,9 +163,12 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         except TerminalCancelled as error:
             note_failure(error,'CANCELLATION'); raise
 
+    def nonce_scope():
+        return _nonce_history_scope(nonce_session,probe=probe,snapshot=snapshot,frame=frame)
+
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
                  input_row_relation=None,input_row_cause=None,context_command_failure=None,normalized_input_failure=None,
-                 history_rejection=None,resume_history_failure=None):
+                 history_rejection=None,resume_history_failure=None,nonce_history_context=None):
         if _post_enter_observation is not None and point not in ('native_cleanup','helper_cleanup'): return
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
@@ -177,6 +183,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if normalized_input_failure is not None: fields['normalizedInputFailure']=normalized_input_failure
             if history_rejection is not None: fields['historyRejection']=history_rejection
             if resume_history_failure is not None: fields['resumeHistoryFailure']=resume_history_failure
+            if nonce_history_context is not None: fields['nonceHistoryContext']=nonce_history_context
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
@@ -218,6 +225,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             # Consume before concrete IO; no generic reopening, replay or callback window.
             active_dispatch=None
         elif _dispatch is not None: reject_input()
+        if (direct and acceptance_fenced and protocol_phase=='CLEAR_PENDING' and bytes(data)==b'\x15'):
+            _note_nonce_clear_attempt(nonce_session,probe=probe)
         return os.write(master,data) if direct else writer(master,data)
 
     def seal_terminal_input():
@@ -225,31 +234,40 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         input_sealed=True
 
     def exit_owned(written):
-        return exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
-            context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
-            transition_owner=transition,frame=frame,
-            **({'_resume_view':resume_view,'_controller_owner':controller_owner,
-                '_normalization_owner':probe} if resume_view is not None else {}))
+        with nonce_scope():
+            return exit_input_owned(policy,snapshot,probe._anchor,probe._row,written,
+                context_receipt=context_receipt,scope=input_probe_scope,state=state,native_owner=process,
+                transition_owner=transition,frame=frame,
+                **({'_resume_view':resume_view,'_controller_owner':controller_owner,
+                    '_normalization_owner':probe} if resume_view is not None else {}))
 
     def resume_live():
         if resume_view is not None:
             if acceptance_owned and probe is not None and context_receipt is not None:
-                _try_commit_sdk_relocation(resume_view,probe,context_receipt,policy=policy,
-                    snapshot=snapshot,frame=frame,state=state,scope=input_probe_scope,native_owner=process,
-                    controller_owner=controller_owner,transition_owner=transition)
-            validate_resume_view(resume_view,policy=policy,snapshot=snapshot,frame=frame,state=state,
-                scope=input_probe_scope,native_owner=process,controller_owner=controller_owner,transition_owner=transition)
+                with nonce_scope():
+                    _try_commit_sdk_relocation(resume_view,probe,context_receipt,policy=policy,
+                        snapshot=snapshot,frame=frame,state=state,scope=input_probe_scope,native_owner=process,
+                        controller_owner=controller_owner,transition_owner=transition)
+            with nonce_scope():
+                validate_resume_view(resume_view,policy=policy,snapshot=snapshot,frame=frame,state=state,
+                    scope=input_probe_scope,native_owner=process,controller_owner=controller_owner,transition_owner=transition)
 
     def ready():
-        nonlocal resume_view
+        nonlocal resume_view,nonce_session
         if _resume_offer is None: return policy.ready(snapshot)
         if resume_view is None:
             resume_view=try_bind_resume_view(_resume_offer,policy=policy,snapshot=snapshot,frame=frame,
                 native_owner=process,controller_owner=controller_owner,transition_owner=transition)
             if resume_view is None: return False
-        return _compose_input_assessment(policy,snapshot,frame=frame,state=state,scope=input_probe_scope,
-            native_owner=process,controller_owner=controller_owner,transition_owner=transition,
-            resume_view=resume_view)[0].anchor is not None
+            if acceptance_owned:
+                try:
+                    nonce_session=_create_nonce_history_session(resume_view,state=state,scope=input_probe_scope,
+                        native_owner=process,controller_owner=controller_owner,transition_owner=transition)
+                except Exception: nonce_session=None
+        with nonce_scope():
+            return _compose_input_assessment(policy,snapshot,frame=frame,state=state,scope=input_probe_scope,
+                native_owner=process,controller_owner=controller_owner,transition_owner=transition,
+                resume_view=resume_view)[0].anchor is not None
 
     def pump(wait=.2):
         nonlocal total,snapshot,current_stage,frame
@@ -272,7 +290,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             return True
         authentication=policy.authentication(snapshot)
         if _resume_offer is not None and policy.active_input_forbidden(snapshot):
-            error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer)
+            with nonce_scope():
+                error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer,
+                    _nonce_snapshot=snapshot,_nonce_frame=frame)
             if resume_view is not None: revoke_resume_view(resume_view)
             raise error
         resume_live()
@@ -284,9 +304,10 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if probe is not None: probe.invalidate('INPUT_PROBE_REVOKED')
             if context_command is not None: context_command.invalidate('INPUT_PROBE_REVOKED')
             raise error
-        if context_command is not None and probe is None: context_command.observe(snapshot,frame)
+        if context_command is not None and probe is None:
+            with nonce_scope(): context_command.observe(snapshot,frame)
         if probe is not None:
-            probe.observe(snapshot,frame)
+            with nonce_scope(): probe.observe(snapshot,frame)
             if probe.phase=='CONSUMED' and not exit_owned(exit_written):
                 probe.invalidate('INPUT_PROBE_REVOKED')
                 raise InputProofError('INPUT_PROBE_REVOKED')
@@ -314,7 +335,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         authentication=policy.authentication(snapshot)
         if not authentication: return
         if _resume_offer is not None:
-            error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer)
+            with nonce_scope():
+                error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer,
+                    _nonce_snapshot=snapshot,_nonce_frame=frame)
             if resume_view is not None: revoke_resume_view(resume_view)
             raise error
         previous=current_stage; current_stage=authentication
@@ -345,7 +368,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if time.monotonic()>=deadline: raise command_error('INPUT_PROBE_DEADLINE','DEADLINE')
         if process.poll() is not None: raise command_error('INPUT_PROBE_REVOKED','NATIVE_LIFETIME')
         resume_live()
-        if probe is not None: probe._check()
+        if probe is not None:
+            with nonce_scope(): probe._check()
         if input_rejected: reject_input()
 
     def write_probe_chunk(payload: bytes,phase: str) -> int:
@@ -394,6 +418,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             except OSError: raise InputProofError('INPUT_PROBE_IO_FAILED') from None
             if type(count) is not int or not 0<count<=len(pending):
                 raise InputProofError('INPUT_PROBE_IO_FAILED')
+            if phase=='CLEAR_PENDING' and count==1 and len(pending)==1:
+                _note_nonce_clear_ack(nonce_session,probe=probe,count=count)
             written+=count
             if phase=='CONSUMED': exit_written=written
             pending=pending[count:]
@@ -406,10 +432,11 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         while pending:
             def check():
                 operation_live(); auth_clear()
-                if submission:
-                    if context_command.observe(snapshot,frame)!='SUBMIT_PENDING':
-                        raise command_error('INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
-                else: context_command.check_edit(snapshot,frame,written)
+                with nonce_scope():
+                    if submission:
+                        if context_command.observe(snapshot,frame)!='SUBMIT_PENDING':
+                            raise command_error('INPUT_PROBE_STATE_REJECTED','PHASE_STATE')
+                    else: context_command.check_edit(snapshot,frame,written)
             while pump(0): pass
             check()
             if not select.select([], [master], [], min(.1,max(0,deadline-time.monotonic())))[1]: continue
@@ -425,16 +452,18 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 journal_call('acknowledge',count,submission=submission,remaining=len(pending))
                 raise command_error('INPUT_PROBE_IO_FAILED','IO_WRITE')
             if acceptance_owned and not submission:
-                _acknowledge_acceptance_edit(context_command,count,remaining=len(pending),controller_owner=controller_owner)
+                with nonce_scope():
+                    _acknowledge_acceptance_edit(context_command,count,remaining=len(pending),controller_owner=controller_owner)
             journal_call('acknowledge',count,submission=submission,remaining=len(pending))
             written+=count; pending=pending[count:]
             if submission:
-                context_command.submission_written(count)
+                with nonce_scope(): context_command.submission_written(count)
                 if _post_enter_observation is not None:
                     observer=context_command.post_enter_observation()
                     seal_terminal_input()
                     resume_view=None
-            else: context_command.check_edit(snapshot,frame,written)
+            else:
+                with nonce_scope(): context_command.check_edit(snapshot,frame,written)
 
     try:
         capture_path.parent.mkdir(parents=True,exist_ok=True)
@@ -490,14 +519,17 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 try: edit_observer=context_edit_debug.bind(controller_owner=controller_owner,
                     transition_owner=transition,journal=context_journal)
                 except Exception: pass
-            context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame,
-                _diagnostic_journal=context_journal,
-                **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}),
-                **({'_post_enter_request':_post_enter_observation} if _post_enter_observation is not None else {}),
-                **({'_edit_row_observer':edit_observer} if edit_observer is not None else {}))
+            with nonce_scope():
+                context_command=begin_context_command(input_probe_scope,state,process,transition,policy,snapshot,frame,
+                    _diagnostic_journal=context_journal,
+                    **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}),
+                    **({'_post_enter_request':_post_enter_observation} if _post_enter_observation is not None else {}),
+                    **({'_edit_row_observer':edit_observer} if edit_observer is not None else {}))
             if acceptance_owned:
-                _prepare_acceptance_pending(context_command,snapshot,frame,controller_owner=controller_owner)
-            command_write(context_command.type_bytes(snapshot,frame))
+                with nonce_scope():
+                    _prepare_acceptance_pending(context_command,snapshot,frame,controller_owner=controller_owner)
+            with nonce_scope(): payload=context_command.type_bytes(snapshot,frame)
+            command_write(payload)
             wait_for(lambda: context_command.phase=='COMMAND_ECHO_MATCHED')
             while pump(0): pass
             operation_live(); auth_clear()
@@ -505,7 +537,8 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 from terminal_context_echo import _prepare_post_enter_observation
                 observer=_prepare_post_enter_observation(context_command,snapshot,frame,
                     request=_post_enter_observation,controller_owner=controller_owner)
-            command_write(context_command.submit_bytes(snapshot,frame),submission=True)
+            with nonce_scope(): payload=context_command.submit_bytes(snapshot,frame)
+            command_write(payload,submission=True)
         else:
             send('/context'); policy.mark_transition(snapshot)
         diagnose('context_sent')
@@ -521,9 +554,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
                 if not numeric_context_observed and sample_context(snapshot) is not None:
                     numeric_context_observed=True
                     diagnose('context_numeric')
-                return context_command.context_display_percent(snapshot,frame) is not None
+                with nonce_scope(): return context_command.context_display_percent(snapshot,frame) is not None
             wait_for(display_ready)
-            percentage=context_command.context_display_percent(snapshot,frame)
+            with nonce_scope(): percentage=context_command.context_display_percent(snapshot,frame)
         else:
             wait_for(lambda: policy.context_percent(snapshot) is not None)
             percentage=policy.context_percent(snapshot)
@@ -533,24 +566,28 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if input_probe_scope is not None:
             while pump(0): pass
             operation_live(); auth_clear()
-            context_receipt=context_command.bind_history(snapshot,frame)
+            with nonce_scope(): context_receipt=context_command.bind_history(snapshot,frame)
             if resume_view is not None:
-                validate_context_history(context_receipt,policy,snapshot,scope=input_probe_scope,
-                    state=state,native_owner=process,transition_owner=transition,frame=frame,
-                    _resume_view=resume_view,_controller_owner=controller_owner)
+                with nonce_scope():
+                    validate_context_history(context_receipt,policy,snapshot,scope=input_probe_scope,
+                        state=state,native_owner=process,transition_owner=transition,frame=frame,
+                        _resume_view=resume_view,_controller_owner=controller_owner)
                 record(current_stage,'passed',percentage)
                 diagnose('context_display',structural=False)
             journal_active=False
-            probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame,
-                context_receipt=context_receipt,
-                **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}))
-            owned_write(probe.type_bytes(snapshot,frame),'ECHO_PENDING')
+            with nonce_scope():
+                probe=NonceInputChallenge(input_probe_scope,process,transition,policy,snapshot,frame,
+                    context_receipt=context_receipt,
+                    **({'_resume_view':resume_view,'_controller_owner':controller_owner} if resume_view is not None else {}))
+            with nonce_scope(): payload=probe.type_bytes(snapshot,frame)
+            owned_write(payload,'ECHO_PENDING')
             diagnose('input_probe_started',structural=False)
             wait_for(lambda: probe.phase=='ECHO_MATCHED')
             diagnose('input_probe_echo',structural=False)
             while pump(0): pass
             operation_live(); auth_clear()
-            owned_write(probe.clear_bytes(snapshot,frame),'CLEAR_PENDING')
+            with nonce_scope(): payload=probe.clear_bytes(snapshot,frame)
+            owned_write(payload,'CLEAR_PENDING')
             wait_for(lambda: probe.phase=='PROVEN')
             diagnose('input_probe_cleared',structural=False)
         elif not policy.ready(snapshot):
@@ -563,8 +600,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         if probe is not None:
             while pump(0): pass
             operation_live(); auth_clear()
-            proof=probe.ownership_proof()
-            if not probe.consume_exit(proof,snapshot,frame,process,transition):
+            with nonce_scope(): proof=probe.ownership_proof()
+            with nonce_scope(): consumed=probe.consume_exit(proof,snapshot,frame,process,transition)
+            if not consumed:
                 raise InputProofError('INPUT_PROBE_REVOKED')
             owned_write(b'/exit\r','CONSUMED')
         else: send('/exit')
@@ -604,6 +642,10 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             detail=resume_failure_diagnostic(error)
             if detail is not None: metadata['resume_history_failure']=detail
         except Exception: pass
+        try:
+            detail=nonce_history_failure_diagnostic(error)
+            if detail is not None: metadata['nonce_history_context']=detail
+        except Exception: pass
         diagnose('failure',reason,**metadata)
         if context_edit_debug is not None:
             try: context_edit_debug.prepare(error,controller_owner=controller_owner,
@@ -615,6 +657,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             except (OSError,RuntimeError,ValueError,TypeError,AttributeError): pass
     finally:
         protocol_remaining=None; protocol_phase=None; active_dispatch=None
+        try: _close_nonce_history_session(nonce_session)
+        except Exception: pass
+        nonce_session=None
         if context_edit_debug is not None:
             try: context_edit_debug.finish()
             except Exception: pass

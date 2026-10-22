@@ -4,8 +4,9 @@ Date: 2026-10-22
 
 Status: written specification approved on 2026-10-22, including the three
 conversational refinements. The separate [implementation plan](../plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
-awaits review and execution-method selection. No product-code implementation
-or native execution is authorized by specification approval alone.
+was approved for direct/inline execution with TDD and one independent final
+review. Local implementation is in progress; review and the immutable integral
+gate remain open. No native execution is authorized by this approval.
 Original design baseline: `abdf8301e6f3354c88b1df4f7de68bebf1dbb651`.
 
 ## Intent and scope
@@ -25,7 +26,7 @@ routes gain neither this diagnostic route nor new operational authority.
 This approved specification narrowly amends only the no-new-diagnostic-extension
 constraint of the [relocation design](2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 Its post-clear-only window and every other operational constraint remain intact.
-The extension is not implemented merely because this document exists.
+Implementation status and evidence are recorded in the plan and validation notes.
 
 ## Evidence and remaining uncertainty
 
@@ -177,11 +178,14 @@ under pressure. Collection failures remain non-blocking and cannot hide cleanup
 failure, change the reason code, or promote inconclusive results to success.
 
 Documentation-stage JSON sizing against retained sanitized failure reports,
-using the longest permitted field strings as a conservative size projection,
+using a fixed permitted-enum projection,
 gave 2,882 bytes per resumed phase and 5,919 aggregate bytes for `535e55a`;
 `9f68a0f` gave 2,974 and 5,998 bytes respectively. Both fit existing limits.
-This arithmetic is not an implemented collector test or a promise that every
-future report fits; maintained tests and pressure/omission behavior remain required.
+That initial projection used UNKNOWN rather than the one-byte-longer NOT_SENT.
+The maintained maximum-string collector tests use NOT_SENT and yield 2,883 and
+2,975 bytes per resumed phase, and 5,920 and 5,999 aggregate bytes respectively.
+Neither arithmetic nor those fixtures promise every future report fits;
+pressure/omission behavior remains required.
 
 Store no transcript, frame, prompt, nonce value, command text, terminal row,
 profile content/hash, credential, cookie, session ID, stack trace or serialized
@@ -213,7 +217,7 @@ position is restored and no native attempt is repeated.
 
 The later implementation plan must require TDD, focused regressions, independent
 whole-change review and a full immutable-source package gate with explicit skips.
-This specification itself implements no verifier or diagnostic field.
+The specification alone does not establish implementation or native acceptance.
 
 - Promote the twenty investigated scenarios into reproducible maintained tests:
   twelve PTY cases, two observe-first cases, six site-ambiguity cases across both
@@ -248,14 +252,14 @@ provider/browser, platform, remote CI/Security or merge gate.
 
 ## Delivery and next approval
 
-This is a documentation-only specification on the existing isolated branch.
+This specification governs the existing isolated implementation branch.
 Keep package version unchanged; index the proposal in ADR-010 and its index
 without claiming implementation. No push, PR, merge, release, staging refresh
 or definitive TODO completion is authorized here. The old native grants remain
 consumed; do not access operator settings/credentials or install/update software.
 
 The operator approved this written specification. The separately prepared plan
-requires review and execution-method selection before product-code implementation.
+was approved with direct/inline execution and one independent final review.
 Its causal-decision stop rule prevents automatic compatibility repairs or
 repeated native attempts. Any later native run needs fresh authorization tied
 to its exact final source and explicit limits.

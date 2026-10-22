@@ -16,6 +16,7 @@ python3 tests/test-terminal-sdk-relocation.py
 python3 tests/test-terminal-resume-failure-diagnostics.py
 python3 tests/test-terminal-input-challenge.py
 python3 tests/test-terminal-nonce-history-diagnostics.py
+python3 tests/test-nonce-history-driver.py
 python3 tests/test-terminal-context-echo.py
 python3 tests/test-terminal-context-display.py
 python3 tests/test-terminal-history-rejection.py

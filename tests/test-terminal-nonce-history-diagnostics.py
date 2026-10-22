@@ -151,6 +151,17 @@ class NonceHistoryDiagnosticsTests(unittest.TestCase):
             self.assertIsNone(ref())
             self.assertIsNone(d._CURRENT.get())
 
+    def test_missing_binding_metadata_is_not_reported_as_absent_baseline(self):
+        d=self.observer()
+        with CaseFixture() as f:
+            b=f.proven_resume(); session=self.session(d,f,b)
+            record=history._VIEWS[b['view']]
+            for key in ('sdk_identity','sdk_position'):
+                with mock.patch.dict(record):
+                    record.pop(key)
+                    with d._nonce_history_scope(session,probe=b['probe'],snapshot=b['snapshot'],frame=5):
+                        self.assertTrue(d._CURRENT.get() is None,'incomplete binding must omit observation')
+
 
 class NonceHistoryFreezeTests(unittest.TestCase):
     observer=NonceHistoryDiagnosticsTests.observer

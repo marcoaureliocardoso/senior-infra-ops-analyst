@@ -16,9 +16,11 @@ registries, immutable terminal snapshots and provider-free Debian WSL validation
 
 **Spec:** [Approved coherent nonce/history specification](../specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md).
 
-Status: written specification approved on 2026-10-22; this plan awaits review
-and execution-method selection. Planning baseline: `e82a332`. No implementation
-or native attempt is included in preparation of this document.
+Status: specification and plan approved on 2026-10-22; direct/inline execution
+selected, with one independent final review. Tasks 1 and 2 are committed;
+Task 3 local implementation and final verification are in progress.
+Planning baseline: `e82a332`; execution baseline: `79710ff`. No native attempt
+is authorized by this plan.
 
 ## Global Constraints
 
@@ -424,7 +426,5 @@ Remove the new observer session/scope, failure annotation and collector handling
 together, restoring the original bounded diagnostic contract without changing
 original guard/revocation/cleanup logic. No rollback restores a consumed grant.
 
-Review this plan before implementation. For these three tightly coupled tasks,
-direct/inline execution with one fresh independent final reviewer is recommended;
-per-task subagent implementation/review remains an operator-selectable alternative.
-This recommendation is not an execution-method selection or native-run approval.
+The operator reviewed the plan and selected direct/inline execution with one
+fresh independent final reviewer. This selection does not approve a native run.

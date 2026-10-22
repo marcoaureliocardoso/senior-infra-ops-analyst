@@ -56,24 +56,28 @@ class NonceHistoryCollectionTests(unittest.TestCase):
     def test_full_annotation_fits_retained_structural_shapes(self):
         fixtures=json.loads((Path(__file__).parent/'fixtures/nonce-history-structural-reports.json').read_bytes())
         self.assertEqual([f['source'] for f in fixtures],['535e55a','9f68a0f'])
+        longest={**self.detail,'clearWrite':'NOT_SENT'}
         sizes=[]
+        aggregates=[]
         for fixture in fixtures:
             report=fixture['report']
             for stage in report['cases'][0]['stages']:
                 collector=TerminalDiagnostics()
                 for row in stage['diagnostics']['records']:
                     fields={k:v for k,v in row.items() if k not in ('point','reasonCode')}
-                    if row['point']=='failure': fields['nonceHistoryContext']=self.detail
+                    if row['point']=='failure': fields['nonceHistoryContext']=longest
                     collector.add(row['point'],row['reasonCode'],**fields)
                 checked=collector.report()
                 self.assertFalse(checked['rejected']); self.assertFalse(checked['truncated'])
                 if stage['phase']=='after':
                     failures=[r for r in checked['records'] if r['point']=='failure']
-                    self.assertEqual(failures[0].get('nonceHistoryContext'),self.detail)
+                    self.assertEqual(failures[0].get('nonceHistoryContext'),longest)
                     sizes.append(len(json.dumps(checked,sort_keys=True).encode()))
                 stage['diagnostics']=checked
             self.assertLessEqual(len((json.dumps(report,sort_keys=True)+'\n').encode()),16384)
-        self.assertEqual(sizes,[2882,2974])
+            aggregates.append(len((json.dumps(report,sort_keys=True)+'\n').encode()))
+        self.assertEqual(sizes,[2883,2975])
+        self.assertEqual(aggregates,[5920,5999])
 
     def test_replayed_diagnostic_cannot_supply_acceptance(self):
         import importlib.util

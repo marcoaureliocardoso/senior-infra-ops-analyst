@@ -228,5 +228,19 @@ class TerminalWiringTests(unittest.TestCase):
                 'P004B_TERMINAL_MODULE_ROOT':'synthetic'},capture_output=True,text=True,timeout=5)
         self.assertEqual((result.returncode,result.stdout.strip()),(42,'observer-suite'))
 
+    def test_nonce_diagnostic_suites_are_dispatched_by_package_gate(self):
+        for target in ('test-terminal-nonce-history-diagnostics.py','test-nonce-history-driver.py'):
+            with self.subTest(suite=target):
+                commands=self.root/target; commands.mkdir()
+                python=commands/'python3'
+                python.write_text('#!/bin/sh\n'
+                    'if [ "$1" = tests/'+target+' ]; then echo nonce-suite; exit 42; fi\nexit 0\n')
+                node=commands/'node'; node.write_text('#!/bin/sh\nexit 0\n')
+                python.chmod(0o700); node.chmod(0o700)
+                result=subprocess.run(['/bin/bash',str(ROOT/'tests/validate-package.sh')],cwd=ROOT,
+                    env={'PATH':str(commands)+':/usr/bin:/bin','P004B_TERMINAL_NODE':'synthetic',
+                        'P004B_TERMINAL_MODULE_ROOT':'synthetic'},capture_output=True,text=True,timeout=5)
+                self.assertEqual((result.returncode,result.stdout.strip()),(42,'nonce-suite'))
+
 
 if __name__=='__main__': unittest.main()

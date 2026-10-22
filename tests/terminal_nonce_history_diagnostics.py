@@ -89,7 +89,7 @@ def _capture_scope(session,probe,snapshot,frame):
     if view_record is None: return None
     status=_status(record,probe)
     return dict(snapshot=snapshot,frame=frame,view=record['view'],view_record=view_record,
-        identity=view_record.get('sdk_identity'),position=view_record.get('sdk_position'),
+        identity=view_record['sdk_identity'],position=view_record['sdk_position'],
         caseKind=__import__('terminal_resume_history')._CASES[view_record['case']]['kind'],
         noncePhase=status[0] if status is not None else 'UNKNOWN',
         clearEvidence=status[1] if status is not None else 'UNKNOWN',
