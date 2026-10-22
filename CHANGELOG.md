@@ -17,6 +17,8 @@ tag. Tagged versions correspond to repository tags.
   at `4d3d057`. Explicit platform/adapter exclusions and an unexplained earlier
   isolated test failure are retained in validation notes. Native profile
   equality and compatibility are unproved; no native execution grant is renewed.
+  A subsequently authorized native offline attempt at `535e55a` was inconclusive
+  before nonce-clear completion; it proved cleanup and stopped without retry.
 
 - Added optional test-only resumed-history failure subreasons, frozen before
   revocation and projected only as closed phase/check/case/history-kind labels.

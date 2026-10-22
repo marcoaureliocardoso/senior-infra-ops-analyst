@@ -28,6 +28,9 @@ adapter/platform exclusions recorded in validation notes. Exact profile correspo
 complete same-frame context/input/lifetime validation precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
 and no execution grant, timeout or production/browser boundary changes.
+One authorized native offline attempt at `535e55a` remained inconclusive before
+nonce-clear completion; cleanup was proved and the grant is consumed. It does
+not establish native relocation compatibility; see validation notes.
 
 ADR-010 separately indexes the approved design for the
 [bounded post-Enter acceptance extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).

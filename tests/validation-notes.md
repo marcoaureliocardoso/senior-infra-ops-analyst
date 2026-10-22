@@ -1,5 +1,49 @@
 # Validation Notes
 
+## One-shot native offline relocation acceptance - inconclusive - 2026-10-22 UTC
+
+The newly authorized single ordinary offline attempt ran against exact source
+`535e55a9df70a605b8ea532fb56263c48dc5f7a9`. Its grant was reserved at
+17:30:11Z and completed at 17:30:24Z in 13.066s, with harness exit2 and
+OFFLINE_CONTROLS_INCONCLUSIVE. No timeout expired or automatic retry occurred.
+The isolated runtime reported Claude Code `2.1.308`; this attempt did not update
+or install it, and the observed version difference is not a causal finding.
+
+The initial text-turn context inspection and natural exit passed, followed by
+one validated synthetic SDK message (SDK exit0). The resumed context command,
+current display at 9 percent, nonce start and exact echo checkpoints passed.
+The next retained record rejected history with POST_SUBMIT /
+UNOWNED_NEW_PROFILE / text-turn / SDK_TEXT and RESUME_HISTORY_LAYOUT_REJECTED.
+No resumed input_probe_cleared or exit_ready checkpoint was recorded, and resumed
+natural exit was not proved. The first inconclusive case stopped the run;
+skill-turn was not executed.
+
+This differs from the earlier `9f68a0f` retained sequence, which included nonce
+clearing before rejection. The new transaction requires privately sealed clear
+completion and cannot authorize relocation in this earlier unproved phase.
+Source inspection confirms missing completion evidence returns without preparing
+a candidate, leaving the original history guard active. The evidence does not
+establish whether Ctrl+U was written, exact old/new positions, full native profile
+equality, renderer causality or successful entry into the relocation transaction.
+No broadened window, relaxed guard or behavioral fix follows from this result.
+
+Network isolation, hidden operator state and dropped capabilities were proved.
+Both native/helper leaders were reaped in both dialogues; the text-case and
+outer disposable roots were absent before aggregation. Raw capture, streams,
+synthetic prompts and temporary native history were deleted. No content debug,
+excerpt export, real provider or operator credential/configuration access ran.
+The separately exported canonical source root was also removed.
+
+The archive SHA-256 remained
+`174cff585d5a105da15d94b69cf014db787b49e9500b496f0054945f7d97a630`;
+all 558 canonical contents/types/modes matched before and after the attempt.
+Outside-Git evidence under `.review-runtime/p004b-terminal-state/` retains
+`p004b-offline-535e55a-source.tar`, `p004b-offline-535e55a-attempt.json` and
+`p004b-offline-535e55a-structural-result.json`. The one-shot grant is consumed.
+Native acceptance remains open; this result closes no browser/provider,
+platform, remote CI/Security or merge gate. Any later native attempt requires a
+fresh exact-source authorization. This record changes documentation only.
+
 ## One-shot exact SDK-history relocation - local implementation - 2026-10-22
 
 The written specification and inline implementation plan were approved. Task 1

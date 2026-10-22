@@ -1204,6 +1204,15 @@ production, observation-only, retention, timeout, input or execution-grant
 boundary changes follow from these test-only implementation approvals. Native
 acceptance remains a separate gate.
 
+One separately authorized native offline attempt at `535e55a` completed in
+13.066s with OFFLINE_CONTROLS_INCONCLUSIVE on observed runtime `2.1.308`.
+Initial context/natural exit and the synthetic SDK sample passed. Resumed context
+and nonce echo passed, but SDK_TEXT history was rejected as UNOWNED_NEW_PROFILE
+before a clear-completion checkpoint. The approved post-clear window was not
+proved eligible; no native relocation success or full-profile equality follows.
+The run stopped before skill-turn, proved cleanup, and consumed its grant without
+timeout or retry. See validation notes; no behavioral relaxation is authorized.
+
 ## Links
 
 - Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
