@@ -1,5 +1,54 @@
 # Validation Notes
 
+## Instrumented one-shot native offline acceptance - specific failure observed - 2026-10-22 UTC
+
+One newly authorized ordinary offline acceptance ran once against exact commit
+`9f68a0f206f6d6f921fc28eda6854298c6017bde`. Runtime inside the disposable
+namespace reported Claude Code `2.1.307`; this experiment did not install or
+update it. The grant was reserved at 00:47:32Z and completed at 00:47:45Z,
+in 13.387s, with harness exit2 and OFFLINE_CONTROLS_INCONCLUSIVE. No timeout
+expired and no automatic retry occurred.
+
+Initial text-turn context inspection and natural exit passed, followed by one
+validated synthetic SDK message. Resumed owned context submission, current
+display (9 percent), nonce echo and nonce clearing passed. Before exit, the
+instrumented history guard then reported exactly:
+
+| Field | Closed observation |
+|---|---|
+| phase | POST_SUBMIT |
+| check | UNOWNED_NEW_PROFILE |
+| caseKind | text-turn |
+| historyKind | SDK_TEXT |
+
+This identifies the rejecting branch: a recognized SDK text history profile
+appeared at a row outside the pinned baseline inventory. It is not the
+RETIRED_PROFILE_RETURNED branch reproduced by one earlier hypothesis. The
+new-profile guard does not allow SDK history to establish ownership at a new
+position. The retained labels do not distinguish actual row movement from
+later appearance/recognition, nor recover prior row positions or native frames.
+Those causal alternatives remain unproved; no whitelist, relaxed retirement or
+acceptance-predicate change follows from this result. The text case lacked
+natural resumed exit, so skill-turn was not run and native acceptance stays open.
+
+Both native and helper leaders were reaped in both dialogues. The text-case
+root and outer disposable root were confirmed absent before aggregation; raw
+capture, prompts/streams and native history were deleted. Network isolation,
+hidden operator state and dropped capabilities were confirmed. Diagnostics
+were neither rejected nor truncated. Only structural facts were retained;
+no content debug/excerpt, real provider or operator credentials/configuration
+were used. The authorized native attempt is consumed.
+
+Host archive SHA-256 remained
+`ee2bd9ddb6356ebf435148a8479966f718e06796f9d0cdf4c3da070a34efa149`;
+all 555 canonical contents/types/modes matched before and after execution.
+Outside-Git evidence under `.review-runtime/p004b-terminal-state/`:
+`p004b-offline-9f68a0f-attempt.json`,
+`p004b-offline-9f68a0f-structural-result.json` and
+`p004b-offline-9f68a0f-source.tar`.
+This recording is result-only documentation; it changes no behavior and closes
+no provider/browser, native-Windows, remote CI/Security or merge gate.
+
 ## Resumed-history failure subreasons - local implementation - 2026-10-21
 
 The operator approved only closed diagnostics, not history relaxation or a
