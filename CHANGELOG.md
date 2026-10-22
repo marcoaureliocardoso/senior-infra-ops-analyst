@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Documented a proposed test-only nonce/history diagnostic extension after
+  operator approval of its conversational design. The written specification
+  awaits review; no code is implemented. It requires coherent pre-revocation
+  capture, non-interfering observation and synthetic discrimination/byte-budget
+  proof before any separately authorized native attempt. Acceptance, input
+  authority, relocation eligibility and existing limits are unchanged.
+
 - Implemented test-only one-shot exact SDK-history relocation for ordinary
   audited offline resumed acceptance. Sealed nonce/clear provenance and full
   same-frame context/input/lifetime validation precede atomic placement commit;
@@ -18,7 +25,7 @@ tag. Tagged versions correspond to repository tags.
   isolated test failure are retained in validation notes. Native profile
   equality and compatibility are unproved; no native execution grant is renewed.
   A subsequently authorized native offline attempt at `535e55a` was inconclusive
-  before nonce-clear completion; it proved cleanup and stopped without retry.
+  without recorded nonce-clear completion; it proved cleanup and stopped without retry.
 
 - Added optional test-only resumed-history failure subreasons, frozen before
   revocation and projected only as closed phase/check/case/history-kind labels.

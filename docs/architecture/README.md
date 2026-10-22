@@ -17,6 +17,12 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 also references a [written nonce/history diagnostic proposal](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md),
+prepared after operator approval of its conversational design. Written review
+is pending; no diagnostic extension is implemented. The proposed same-call,
+same-snapshot failure annotation changes neither post-clear eligibility nor
+input authority, retention limits or native execution grants.
+
 ADR-010 also indexes the test-only
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 Its written specification was approved on 2026-10-22. The
@@ -28,8 +34,8 @@ adapter/platform exclusions recorded in validation notes. Exact profile correspo
 complete same-frame context/input/lifetime validation precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
 and no execution grant, timeout or production/browser boundary changes.
-One authorized native offline attempt at `535e55a` remained inconclusive before
-nonce-clear completion; cleanup was proved and the grant is consumed. It does
+One authorized native offline attempt at `535e55a` remained inconclusive without
+recorded nonce-clear completion; cleanup was proved and the grant is consumed. It does
 not establish native relocation compatibility; see validation notes.
 
 ADR-010 separately indexes the approved design for the

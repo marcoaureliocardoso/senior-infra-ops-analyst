@@ -20,12 +20,18 @@ skill-turn was not executed.
 
 This differs from the earlier `9f68a0f` retained sequence, which included nonce
 clearing before rejection. The new transaction requires privately sealed clear
-completion and cannot authorize relocation in this earlier unproved phase.
-Source inspection confirms missing completion evidence returns without preparing
-a candidate, leaving the original history guard active. The evidence does not
-establish whether Ctrl+U was written, exact old/new positions, full native profile
-equality, renderer causality or successful entry into the relocation transaction.
-No broadened window, relaxed guard or behavioral fix follows from this result.
+completion; source inspection confirms missing completion evidence returns
+without preparing a candidate, leaving the original history guard active.
+However, the native records do not directly establish that private state or the
+emitting site: the checkpoint collector is best-effort, and candidate preparation
+also labels a same-position profile mutation UNOWNED_NEW_PROFILE. No collector
+failure was observed; its possibility is not a causal finding. The evidence does
+not establish whether Ctrl+U was written, exact old/new positions, full native
+profile equality, renderer causality or successful transaction entry. No broadened
+window, relaxed guard or behavioral fix follows from this result. The proposed
+[coherent diagnostic specification](../docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md)
+records the discriminating evidence contract; written approval and implementation
+remain separate gates.
 
 Network isolation, hidden operator state and dropped capabilities were proved.
 Both native/helper leaders were reaped in both dialogues; the text-case and

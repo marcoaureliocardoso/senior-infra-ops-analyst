@@ -1213,7 +1213,22 @@ proved eligible; no native relocation success or full-profile equality follows.
 The run stopped before skill-turn, proved cleanup, and consumed its grant without
 timeout or retry. See validation notes; no behavioral relaxation is authorized.
 
+## Coherent nonce/history diagnostics (written proposal)
+
+The operator approved preparation of a written diagnostic specification after
+twenty synthetic scenarios reproduced phase-boundary limitations and ambiguous
+UNOWNED_NEW_PROFILE sites. The [proposed specification](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md)
+awaits written review; it is not implemented. It adds only a closed optional
+failure annotation, coherently captured before revocation on the same invocation
+and snapshot, without operational validation or I/O during collection. Original
+rejection/cleanup, post-clear eligibility, input counts, deadlines and byte
+budgets remain unchanged. Missing diagnostics never prove absence of an event.
+Its eventual implementation would narrowly amend only the relocation design's
+no-new-diagnostics constraint, not authorization. No native run is included.
+
 ## Links
+
+- Proposed coherent nonce/history diagnostics (written review pending; not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md`
 
 - Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
 - Approved inline correlated SDK-history relocation plan (local review/gate passed; native acceptance open): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
