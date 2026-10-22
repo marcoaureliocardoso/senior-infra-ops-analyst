@@ -84,7 +84,7 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
     if startup: initial+='\x1b[1;1H'+startup+'\x1b[38;3H'
     after='\x1b[2J\x1b[HContext Usage\r\nFree space: 81%\r\nAutocompact buffer: 3%'
     for row,line in history:
-        if mode=='retire' and row==5: continue
+        if mode in ('retire','retire-return-after-clear') and row==5: continue
         after+='\x1b['+str(row+1)+';1H'+line
     after+='\x1b[21;1H❯ /context\x1b[38;1H❯\u00a0'
     if mode in ('changed-values','acceptance-menu-changed'): after=after.replace('Free space: 81%','Free space: 80%')
@@ -122,6 +122,11 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
             'Path('+repr(str(seen)+'.bad-ready')+').touch()\n')
     if mode=='acceptance-fragmented': after='\x1b[2J'
     if mode=='acceptance-native-exit': post_profile='raise SystemExit(0)\n'
+    restored=''
+    if mode=='retire-return-after-clear':
+        if type(barrier_fd) is not int: raise ValueError('fixture barrier required')
+        restored=('os.read('+str(barrier_fd)+',1)\n'
+            'os.write(1,'+repr(('\x1b[6;1H❯ '+text+'\x1b[38;3H').encode())+')\n')
     path.write_text('import os,tty,time\nfrom pathlib import Path\n'
         'tty.setraw(0)\n'
         'def read(n):\n'
@@ -144,7 +149,8 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
         'os.write(1,b"\\x1b[38;3H"+marker)\n'
         'if read(1)!=b"\\x15": raise SystemExit(5)\n'
         'os.write(1,"\\x1b[38;1H\\x1b[2K❯\\u00a0".encode())\n'
-        + ('os.write(1,"\\x1b[9;1H❯ /exit  Synthetic completion\\x1b[38;3H".encode())\n' if mode=='acceptance-exit-menu' else '') +
+        + restored +
+        ('os.write(1,"\\x1b[9;1H❯ /exit  Synthetic completion\\x1b[38;3H".encode())\n' if mode=='acceptance-exit-menu' else '') +
         'if read(6)!=b"/exit\\r": raise SystemExit(6)\n'),encoding='utf-8')
 
 

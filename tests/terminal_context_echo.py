@@ -870,7 +870,7 @@ def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,tran
 def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_owner,controller_owner,
         transition_owner,resume_view=None,context_receipt=None,context_command=None,normalized_snapshot=None,
         normalization_owner=None):
-    from terminal_resume_history import validate_resume_view, revoke_resume_view, ResumeHistoryError
+    from terminal_resume_history import validate_resume_view, revoke_resume_view, ResumeHistoryError, _resume_layout_error
     excluded=set()
     if resume_view is not None:
         excluded.update(validate_resume_view(resume_view,policy=policy,snapshot=actual_snapshot,frame=frame,
@@ -880,7 +880,8 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
         if index is None: return
         cursor=actual_snapshot.baseY+actual_snapshot.cursorY-actual_snapshot.viewportY
         if type(index) is not int or not 0<=index<len(actual_snapshot.rows) or index in excluded or index==cursor:
-            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+            error=_resume_layout_error(resume_view,'COMPOSE_ROW_CONFLICT')
+            revoke_resume_view(resume_view); raise error
         excluded.add(index)
     if context_receipt is not None:
         add(validate_context_history(context_receipt,policy,actual_snapshot,scope=scope,state=state,
@@ -920,7 +921,8 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
                 or normalized_snapshot.rows[cursor]!=source['row']
                 or normalized_snapshot.cursorX!=source['anchor'].cursorX
                 or any(a!=b for i,(a,b) in enumerate(zip(actual_snapshot.rows,normalized_snapshot.rows)) if i!=cursor)):
-            revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+            error=_resume_layout_error(resume_view,'NORMALIZATION_MISMATCH')
+            revoke_resume_view(resume_view); raise error
         target=normalized_snapshot
     assessment,index=policy._empty_input_assessment(target,_excluded_rows=frozenset(excluded))
     # Frozen debug counterfactual may omit the already-proven normalized cursor;

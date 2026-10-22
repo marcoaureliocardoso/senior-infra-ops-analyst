@@ -989,6 +989,37 @@ class ResumedHistoryDriverTests(unittest.TestCase):
             self.last_observation=history.take_post_enter_result(request)
         return result,seen.read_bytes() if seen.exists() else b''
 
+    def test_post_clear_history_rejection_reaches_structural_report(self):
+        from resume_history_fixtures import CaseFixture
+        for kind in ('text-turn','skill-turn'):
+            with self.subTest(kind=kind),CaseFixture(kind) as f:
+                f.complete_initial(); self.assertTrue(f.validate_sdk(kind).valid); f.fresh_terminal()
+                read_fd,write_fd=os.pipe(); diagnostics=TerminalDiagnostics(); original_add=diagnostics.add
+                released=False
+                def add(point,reason,**fields):
+                    nonlocal released
+                    result=original_add(point,reason,**fields)
+                    if point=='input_probe_cleared' and not released:
+                        released=True; os.write(write_fd,b'1')
+                    return result
+                try:
+                    with mock.patch.object(diagnostics,'add',side_effect=add):
+                        result,data=self.run_owned(f,'retire-return-after-clear',
+                            _peer_barrier_fd=read_fd,diagnostics=diagnostics)
+                finally:
+                    os.close(read_fd); os.close(write_fd)
+                self.assertEqual(result,2)
+                self.assertTrue(released)
+                self.assertNotIn(b'/exit',data)
+                report=diagnostics.report(); self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+                failures=[row for row in report['records'] if row['point']=='failure']
+                self.assertEqual(len(failures),1)
+                self.assertEqual(failures[0]['reasonCode'],'RESUME_HISTORY_LAYOUT_REJECTED')
+                self.assertEqual(failures[0].get('resumeHistoryFailure'),{'phase':'POST_SUBMIT',
+                    'check':'RETIRED_PROFILE_RETURNED','caseKind':kind,
+                    'historyKind':'SDK_TEXT' if kind=='text-turn' else 'SDK_SKILL'})
+                self.assertEqual([r['point'] for r in report['records']][-2:],['native_cleanup','helper_cleanup'])
+
     def test_acceptance_waits_passively_then_proves_input(self):
         from resume_history_fixtures import CaseFixture
         from terminal_context_echo import OwnedContextCommand

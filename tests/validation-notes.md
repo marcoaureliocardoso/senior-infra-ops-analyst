@@ -1,5 +1,26 @@
 # Validation Notes
 
+## Resumed-history failure subreasons - local implementation - 2026-10-21
+
+The operator approved only closed diagnostics, not history relaxation or a
+new native run. Baseline history28 passed in 18.243s. New producer/collector
+tests then failed 25 assertions (8 tests/8.220s), after correcting a fixture
+phase error in the initial RED run. Minimal implementation passed nine tests
+in 8.262s, including optional-annotation size pressure and cleanup priority.
+A real selected-driver/PTy synthetic regression for both case kinds failed
+on the missing subreason (1 test, 2 subcases/5.910s), then passed in 5.803s.
+The fixture uses a pipe barrier to restore retired history only after the
+controller publishes nonce clearing. It confirms exit remains blocked and
+both native/helper cleanup records remain present. It never invokes Claude.
+
+Only closed phase/check/case-kind/history-kind facts survive against the exact
+exception; no operational object or content is added to the observation.
+Invalid/oversized annotations are sacrificed before base records. No timeout,
+input permission, retirement rule, acceptance predicate, provider, version or
+production retention policy changes. Full package regression and independent
+review remain pending at this recording point. No native/provider/browser
+run, push, PR, merge, staging refresh or TODO completion occurred.
+
 ## Bounded acceptance - one-shot native offline result inconclusive - 2026-10-21
 
 One newly authorized ordinary offline acceptance ran against exact commit

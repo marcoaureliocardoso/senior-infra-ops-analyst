@@ -1156,6 +1156,30 @@ approval renews a grant. Browser opt-in, platform skips and remote gates are
 separately documented; local workflow validation is not remote CI/Security.
 Exact evidence is in `tests/validation-notes.md`.
 
+## Optional resumed-history failure subreasons
+
+The operator approved diagnostic-only instrumentation after the `b6fff61`
+native offline result. Synthetic investigation reproduced several distinct
+guards with the same RESUME_HISTORY_LAYOUT_REJECTED outcome. In particular,
+returning retired history after nonce clearing reproduces the driver symptom;
+it is not established as the exact cause of that native run. Raw policy
+SDK_TEXT_PROMPT_SHAPE is not provenance and cannot identify the failed check.
+
+The existing history module now freezes only closed phase/check/case-kind/
+history-kind scalars against the exact exception before revocation removes
+operational registries. Projection requires that exception identity and is
+not a view, receipt or input grant. No frame, row, text, prompt, history, hash,
+owner or scope reference is retained in the observation. The driver may emit
+`resumeHistoryFailure` only on the matching layout failure; invalid or
+oversized optional annotations are omitted, with base failure and cleanup
+records retaining priority within the unchanged 3072-byte phase limit.
+
+Retirement remains irreversible. Input fencing, nonce/clear/exit, per-frame
+revalidation, deadlines, disposal and acceptance predicates are unchanged.
+No native grant is renewed. Rollback removes this optional annotation path
+without changing those operational checks. Exact RED/GREEN and broader gate
+status are recorded in `tests/validation-notes.md`.
+
 ## Links
 
 - Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`

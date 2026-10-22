@@ -23,7 +23,8 @@ from terminal_context_diagnostics import _create_context_journal
 from terminal_cancellation import TerminalCancelled
 from terminal_resume_history import (ResumeHistoryError,validate_initial_sink,bind_initial_sink,
     capture_initial_completion,finish_initial_completion,validate_resume_offer,try_bind_resume_view,
-    validate_resume_view,finish_resume_view,revoke_resume_view,resume_view_decision)
+    validate_resume_view,finish_resume_view,revoke_resume_view,resume_view_decision,
+    resume_failure_diagnostic,_resume_layout_error)
 
 
 class _ContextFailure(RuntimeError):
@@ -161,7 +162,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
 
     def diagnose(point,reason='CHECKPOINT',*,structural=True,reap=None,input_eligibility=None,
                  input_row_relation=None,input_row_cause=None,context_command_failure=None,normalized_input_failure=None,
-                 history_rejection=None):
+                 history_rejection=None,resume_history_failure=None):
         if _post_enter_observation is not None and point not in ('native_cleanup','helper_cleanup'): return
         if type(diagnostics) is not TerminalDiagnostics: return
         try:
@@ -175,6 +176,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             if context_command_failure is not None: fields['contextCommandFailure']=context_command_failure
             if normalized_input_failure is not None: fields['normalizedInputFailure']=normalized_input_failure
             if history_rejection is not None: fields['historyRejection']=history_rejection
+            if resume_history_failure is not None: fields['resumeHistoryFailure']=resume_history_failure
             if structural and snapshot is not None: fields['structure']=policy.diagnostic_state(snapshot)
             if reap=='native': fields['leaderReaped']=process is not None and process.poll() is not None
             elif reap=='helper': fields['leaderReaped']=state.helper_reaped
@@ -266,8 +268,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             return True
         authentication=policy.authentication(snapshot)
         if _resume_offer is not None and policy.active_input_forbidden(snapshot):
+            error=_resume_layout_error(resume_view,'FORBIDDEN_UI')
             if resume_view is not None: revoke_resume_view(resume_view)
-            raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+            raise error
         resume_live()
         if authentication and not startup_open:
             current_stage=authentication
@@ -307,8 +310,9 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         authentication=policy.authentication(snapshot)
         if not authentication: return
         if _resume_offer is not None:
+            error=_resume_layout_error(resume_view,'FORBIDDEN_UI')
             if resume_view is not None: revoke_resume_view(resume_view)
-            raise ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+            raise error
         previous=current_stage; current_stage=authentication
         if authentication=='api_key_approval_required' and startup_open and startup_approval is not None:
             settle(.6)
@@ -592,6 +596,10 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             scope=input_probe_scope,state=state,transition_owner=transition)
         if type(observation) is dict and set(observation)<={'context_command_failure','normalized_input_failure','history_rejection'}:
             metadata.update(observation)
+        try:
+            detail=resume_failure_diagnostic(error)
+            if detail is not None: metadata['resume_history_failure']=detail
+        except Exception: pass
         diagnose('failure',reason,**metadata)
         if context_edit_debug is not None:
             try: context_edit_debug.prepare(error,controller_owner=controller_owner,

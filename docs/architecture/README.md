@@ -128,3 +128,8 @@ Candidate fb60e0d passed the complete local package gate and scoped independent
 review with no findings. Exact hashes, skips and separate reviewer evidence are
 recorded in validation notes; synthetic success neither establishes native compatibility nor renews
 the consumed e76cf95 execution grant.
+
+ADR-010 also records the approved diagnostic-only resumed-history failure
+subreasons: closed labels freeze before revocation, without retaining terminal
+content or changing ownership/acceptance. The native cause and compatibility
+remain unproved; `tests/validation-notes.md` records the local gate status.

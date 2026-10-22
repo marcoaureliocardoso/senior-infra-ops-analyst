@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added optional test-only resumed-history failure subreasons, frozen before
+  revocation and projected only as closed phase/check/case/history-kind labels.
+  They distinguish layout-check failures without retaining terminal content or
+  changing input authority, revocation, acceptance predicates or report limits.
+  Invalid or oversized annotations are omitted before base failure/cleanup facts.
+  Native compatibility and provider/browser acceptance remain unproved.
+
 - Implemented the approved test-only bounded post-Enter transition and write
   fence for audited offline resumed acceptance. It preserves HISTORY_COMMIT_V1 and
   independent nonce/clear/exit proof while classifying only exact privately

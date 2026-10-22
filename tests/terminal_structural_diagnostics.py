@@ -3,7 +3,7 @@ import copy
 import json
 from terminal_input_policy import INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 from terminal_context_diagnostics import valid_context_failure, valid_normalized_input_failure, valid_history_rejection, FAILURE_REASONS
-from terminal_resume_history import RESUME_REASONS
+from terminal_resume_history import RESUME_REASONS, valid_resume_failure
 
 MAX_RECORDS=16
 # Four context phases fit the existing 16 KiB outer offline-report limit.
@@ -50,8 +50,15 @@ class TerminalDiagnostics:
     def __init__(self):
         self._records=[]; self._truncated=False; self._rejected=False
         self._history_annotations={}
+        self._resume_annotations={}
 
     def add(self,point,reasonCode,**fields):
+        resume=fields.pop('resumeHistoryFailure',None)
+        keep_resume=False
+        try:
+            keep_resume=(point=='failure' and reasonCode=='RESUME_HISTORY_LAYOUT_REJECTED'
+                and valid_resume_failure(resume))
+        except Exception: pass
         optional=fields.pop('historyRejection',None)
         base=fields.get('contextCommandFailure')
         keep_history=False
@@ -98,6 +105,9 @@ class TerminalDiagnostics:
                 or len(json.dumps(candidate,sort_keys=True).encode('utf-8'))>MAX_BYTES):
             self._truncated=True; return
         self._records.append(record)
+        if keep_resume:
+            try: self._resume_annotations[len(self._records)-1]=copy.deepcopy(resume)
+            except Exception: pass
         if keep_history:
             try: self._history_annotations[len(self._records)-1]=copy.deepcopy(optional)
             except Exception: pass
@@ -112,4 +122,11 @@ class TerminalDiagnostics:
                     result['records'][index].pop('historyRejection')
             except Exception:
                 result['records'][index].pop('historyRejection',None)
+        for index,detail in self._resume_annotations.items():
+            try:
+                result['records'][index]['resumeHistoryFailure']=copy.deepcopy(detail)
+                if len(json.dumps(result,sort_keys=True).encode('utf-8'))>MAX_BYTES:
+                    result['records'][index].pop('resumeHistoryFailure')
+            except Exception:
+                result['records'][index].pop('resumeHistoryFailure',None)
         return result
