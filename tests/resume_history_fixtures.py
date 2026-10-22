@@ -347,6 +347,36 @@ class CaseFixture:
         import terminal_resume_history as history
         return history.offer_resume(self.case,state=self.state,scope=self.scope,command=self.resume_command)
 
+    def proven_resume(self, *, sdk_history=True):
+        import terminal_context_echo as echo
+        import terminal_input_challenge as challenge
+        import terminal_resume_history as history
+        self.complete_initial(); assert self.validate_sdk(self.kind).valid; self.fresh_terminal()
+        text=history.TEXT_PROMPT if self.kind=='text-turn' else history.SKILL_PROMPT
+        old=((5,'❯ '+text),) if sdk_history else ()
+        baseline=history_snapshot(old)
+        self.policy.mark_transition(history_snapshot(((37,'❯ ready'),)))
+        view=history.try_bind_resume_view(self.offer(),policy=self.policy,snapshot=baseline,frame=1,
+            native_owner=self.native,controller_owner=self.controller,transition_owner=self.transition)
+        assert view is not None
+        command=echo.begin_context_command(self.scope,self.state,self.native,self.transition,self.policy,
+            baseline,1,_resume_view=view,_controller_owner=self.controller)
+        assert command.type_bytes(baseline,1)==b'/context'; command.check_edit(baseline,1,8)
+        current=replace(history_snapshot((*old,(37,'❯ /context'))),cursorX=10)
+        assert command.observe(current,2)=='COMMAND_ECHO_MATCHED'
+        assert command.submit_bytes(current,2)==b'\r'; command.submission_written(1)
+        rows=(*old,(0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),(20,'❯ /context'))
+        numeric=history_snapshot(rows); receipt=command.bind_history(numeric,3)
+        probe=challenge.NonceInputChallenge(self.scope,self.native,self.transition,
+            self.policy,numeric,3,context_receipt=receipt,_resume_view=view,_controller_owner=self.controller)
+        marker=probe.type_bytes(numeric,3).decode('ascii')
+        nonce=replace(history_snapshot((*rows,(37,'❯ '+marker))),cursorX=18)
+        assert probe.observe(nonce,4)=='ECHO_MATCHED'; assert probe.clear_bytes(nonce,4)==b'\x15'
+        assert probe.observe(numeric,5)=='PROVEN'
+        evidence=challenge._nonce_clear_evidence(probe,state=self.state,scope=self.scope,native_owner=self.native,
+            controller_owner=self.controller,transition_owner=self.transition)
+        return dict(view=view,command=command,receipt=receipt,probe=probe,snapshot=numeric,frame=5,evidence=evidence)
+
     def __exit__(self, *_args):
         import terminal_resume_history as history
         history.close_offline_case(self.case)

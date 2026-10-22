@@ -211,6 +211,7 @@ _PENDING = weakref.WeakKeyDictionary()
 _LAUNCHES = weakref.WeakKeyDictionary()
 _OFFERS = weakref.WeakKeyDictionary()
 _VIEWS = weakref.WeakKeyDictionary()
+_SDK_RELOCATIONS = weakref.WeakKeyDictionary()
 _OBS_REQUESTS = weakref.WeakKeyDictionary()
 _OBS_GUARDS = weakref.WeakKeyDictionary()
 _OBS_RESULTS = weakref.WeakKeyDictionary()
@@ -282,6 +283,9 @@ class PendingInitialCompletion(_Branded): __slots__ = ()
 class SDKLaunch(_Branded): __slots__ = ()
 class ResumeOffer(_Branded): __slots__ = ()
 class ResumedHistoryView(_Branded): __slots__ = ()
+class _SDKRelocationCandidate(_Branded):
+    __slots__ = ()
+    def __reduce_ex__(self,_protocol): raise TypeError('private history proposal')
 class PostEnterObservationRequest(_Branded): __slots__ = ()
 class PostEnterHistoryGuard(_Branded): __slots__ = ()
 
@@ -299,7 +303,7 @@ def _close_offline_case(case, reason):
         return
     dependents = []; observations=[]
     _CASES.pop(case, None)
-    for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS, _OBS_REQUESTS, _OBS_GUARDS):
+    for registry in (_SINKS, _PENDING, _LAUNCHES, _OFFERS, _VIEWS, _OBS_REQUESTS, _OBS_GUARDS, _SDK_RELOCATIONS):
         for value, record in list(registry.items()):
             if record['case'] is case:
                 registry.pop(value, None)
@@ -342,7 +346,7 @@ def _identity(path, *, directory):
     return value.st_dev, value.st_ino, value.st_uid, stat.S_IFMT(value.st_mode)
 
 
-def _case(case, phases=None):
+def _case(case, phases=None, *, _read_only=False):
     record = _CASES.get(case) if type(case) is OfflineCase else None
     if record is None:
         _fail(None)
@@ -356,7 +360,7 @@ def _case(case, phases=None):
             _fail(record)
         if phases is not None and record['phase'] not in phases:
             _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
-        record['time'] = now
+        if not _read_only: record['time'] = now
         return record
     except (OSError,ValueError,AttributeError):
         _fail(record)
@@ -421,10 +425,10 @@ def initial_completion_sink(case, *, state, scope, command):
     return value
 
 
-def _registered(value, registry, expected_type):
+def _registered(value, registry, expected_type, *, _read_only=False):
     record = registry.get(value) if type(value) is expected_type else None
     if record is None: _fail(None)
-    _case(record['case'])
+    _case(record['case'],_read_only=_read_only)
     return record
 
 
@@ -549,13 +553,13 @@ def validate_resume_offer(offer, *, state, scope, command):
     _binding(record['case'],state,scope,command,'resume')
 
 
-def _frame(record, snapshot, frame):
+def _frame(record, snapshot, frame, *, _read_only=False):
     from terminal_state_adapter import TerminalSnapshot, MAX_CAPTURE
     if (type(snapshot) is not TerminalSnapshot or type(frame) is not int or not 0 <= frame <= MAX_CAPTURE
             or frame < record.get('frame',0)
             or (frame == record.get('frame') and snapshot is not record['snapshot']())):
         _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
-    record.update(frame=frame,snapshot=weakref.ref(snapshot))
+    if not _read_only: record.update(frame=frame,snapshot=weakref.ref(snapshot))
 
 
 def _current_binding(record, native_owner, controller_owner, transition_owner):
@@ -605,30 +609,99 @@ def try_bind_resume_view(offer, *, policy, snapshot, frame, native_owner, contro
     _VIEWS[view] = {**record,'policy':policy,'native':native_owner,'controller':controller_owner,
         'transition':transition_owner,'geometry':(snapshot.active,snapshot.baseY,snapshot.viewportY),
         'profiles':profiles,'phase':'BOUND','dependents':[],'retired':set()}
+    sdk=next(((index,profile) for index,profile in profiles.items() if profile.kind.startswith('SDK_')),None)
+    _VIEWS[view].update(sdk_identity=sdk,sdk_position=sdk[0] if sdk else None,sdk_relocated=False)
     _OFFERS.pop(offer)
     return view
 
 
-def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_owner, controller_owner, transition_owner):
-    record = _registered(view,_VIEWS,ResumedHistoryView)
+def _view_binding(view, *, policy, snapshot, frame, state, scope, native_owner, controller_owner,
+        transition_owner, _read_only=False):
+    record = _registered(view,_VIEWS,ResumedHistoryView,_read_only=_read_only)
     _current_binding(record,native_owner,controller_owner,transition_owner)
     if (record['phase'] not in ('BOUND','POST_SUBMIT') or any(record[key] is not value for key,value in (
             ('policy',policy),('state',state),('scope',scope),('native',native_owner),
             ('controller',controller_owner),('transition',transition_owner)))):
         _fail(record)
-    _frame(record,snapshot,frame)
+    _frame(record,snapshot,frame,_read_only=_read_only)
     if record['geometry'] != (snapshot.active,snapshot.baseY,snapshot.viewportY):
         _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='GEOMETRY_CHANGED')
     if policy.active_input_forbidden(snapshot):
         _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='FORBIDDEN_UI')
+    return record
+
+
+def _view_fingerprint(record):
+    return (record['frame'],record['snapshot'],record['phase'],tuple(record['profiles'].items()),
+        frozenset(record['retired']),record['sdk_position'],record['sdk_relocated'])
+
+
+def _prepare_sdk_relocation(view,probe,evidence,receipt,*,policy,snapshot,frame,state,scope,
+        native_owner,controller_owner,transition_owner):
+    from terminal_input_challenge import _validate_nonce_clear_evidence
+    record=_view_binding(view,policy=policy,snapshot=snapshot,frame=frame,state=state,scope=scope,
+        native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner,_read_only=True)
+    _validate_nonce_clear_evidence(evidence,probe=probe,state=state,scope=scope,native_owner=native_owner,
+        controller_owner=controller_owner,transition_owner=transition_owner)
+    if (record['phase']!='POST_SUBMIT' or probe._resume_view is not view
+            or receipt is None or probe._context_receipt is not receipt or record.get('observation_request') is not None):
+        _fail(record)
+    cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+    if 0<=cursor<len(snapshot.rows) and any(match_history_row(snapshot.rows[cursor],kind) is not None
+            for kind in ('SDK_TEXT','SDK_SKILL')):
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED')
+    profiles=_profiles(_case(record['case'],_read_only=True),policy,snapshot,binding=True,
+        allow_context_repeats=True,failure_record=record)
+    sdk=[(index,profile) for index,profile in profiles.items() if profile.kind.startswith('SDK_')]
+    if not sdk: return None
+    identity=record['sdk_identity']; destination,actual=sdk[0]
+    if identity is None or actual!=identity[1]:
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
+    if destination==record['sdk_position'] and destination not in record['retired']: return None
+    if (record['sdk_relocated'] or destination in record['profiles'] or destination in record['retired']
+            or destination==snapshot.baseY+snapshot.cursorY-snapshot.viewportY):
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
+    projected={**record,'retired':set(record['retired'])|{identity[0]},
+        'sdk_position':destination,'sdk_relocated':True,'_read_only':True}
+    candidate=_SDKRelocationCandidate(_SEAL)
+    _SDK_RELOCATIONS[candidate]={'case':record['case'],'view':weakref.ref(view),
+        'snapshot':weakref.ref(snapshot),'frame':frame,'fingerprint':_view_fingerprint(record),
+        'projected':projected,'probe':weakref.ref(probe),'evidence':evidence,'receipt':receipt}
+    return candidate
+
+
+def _sdk_candidate_read(candidate,view,record,snapshot,frame):
+    bound=_SDK_RELOCATIONS.get(candidate) if type(candidate) is _SDKRelocationCandidate else None
+    if (bound is None or bound['view']() is not view or bound['snapshot']() is not snapshot
+            or bound['frame']!=frame or bound['fingerprint']!=_view_fingerprint(record)):
+        _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+    from terminal_input_challenge import _validate_nonce_clear_evidence
+    _validate_nonce_clear_evidence(bound['evidence'],probe=bound['probe'](),state=record['state'],
+        scope=record['scope'],native_owner=record['native'],controller_owner=record['controller'],
+        transition_owner=record['transition'])
+    return bound['projected']
+
+
+def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_owner, controller_owner,
+        transition_owner, _history_read=None):
+    record=_view_binding(view,policy=policy,snapshot=snapshot,frame=frame,state=state,scope=scope,
+        native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner,
+        _read_only=_history_read is not None)
+    if _history_read is not None: record=_sdk_candidate_read(_history_read,view,record,snapshot,frame)
     post = record['phase'] == 'POST_SUBMIT'
     return _history_indices(record,policy,snapshot,post=post,
         current_acked=lambda: _current_command_acked(view,record))
 
 
 def _history_indices(record,policy,snapshot,*,post,current_acked):
-    profiles = _profiles(_case(record['case']),policy,snapshot,binding=False,allow_context_repeats=post,failure_record=record)
+    profiles = _profiles(_case(record['case'],_read_only=record.get('_read_only',False)),policy,snapshot,
+        binding=False,allow_context_repeats=post,failure_record=record)
     pinned = record['profiles']
+    if record.get('sdk_relocated'):
+        position=record['sdk_position']; expected=record['sdk_identity'][1]
+        if profiles.get(position)!=expected:
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='PINNED_PROFILE_CHANGED',history_kind=expected.kind)
+        pinned={**pinned,position:expected}
     for index, expected in pinned.items():
         actual = profiles.get(index)
         if index in record['retired']:

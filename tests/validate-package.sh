@@ -12,6 +12,7 @@ python3 tests/test-terminal-state-adapter.py
 python3 tests/test-terminal-input-policy.py
 python3 tests/test-terminal-context-sample.py
 python3 tests/test-terminal-resume-history.py
+python3 tests/test-terminal-sdk-relocation.py
 python3 tests/test-terminal-resume-failure-diagnostics.py
 python3 tests/test-terminal-input-challenge.py
 python3 tests/test-terminal-context-echo.py
