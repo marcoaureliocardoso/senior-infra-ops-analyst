@@ -24,7 +24,9 @@ The local same-call, same-snapshot failure annotation changes neither post-clear
 input authority, retention limits or native execution grants.
 The plan requires a causal decision and stops automatic repair/retry cycles;
 instrumentation does not itself fix or establish the native cause.
-Final regressions, independent review and the immutable package gate remain open.
+Local regressions, independent review and the immutable package gate passed at
+`94e68ab`; validation notes retain exact evidence and platform exclusions.
+Native/browser/provider and remote gates remain open.
 
 ADR-010 also indexes the test-only
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).

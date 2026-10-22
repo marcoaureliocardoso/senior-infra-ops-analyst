@@ -5,8 +5,10 @@ Date: 2026-10-22
 Status: written specification approved on 2026-10-22, including the three
 conversational refinements. The separate [implementation plan](../plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
 was approved for direct/inline execution with TDD and one independent final
-review. Local implementation is in progress; review and the immutable integral
-gate remain open. No native execution is authorized by this approval.
+review. Local implementation and independent review are complete at `94e68ab`;
+the immutable integral gate passed there in 1,457.406s. Validation notes retain
+exact evidence and platform exclusions. No native execution is authorized by
+this approval, review or synthetic gate.
 Original design baseline: `abdf8301e6f3354c88b1df4f7de68bebf1dbb651`.
 
 ## Intent and scope
@@ -215,7 +217,7 @@ position is restored and no native attempt is repeated.
 
 ## Verification and acceptance criteria
 
-The later implementation plan must require TDD, focused regressions, independent
+The implementation plan requires TDD, focused regressions, independent
 whole-change review and a full immutable-source package gate with explicit skips.
 The specification alone does not establish implementation or native acceptance.
 
@@ -253,8 +255,8 @@ provider/browser, platform, remote CI/Security or merge gate.
 ## Delivery and next approval
 
 This specification governs the existing isolated implementation branch.
-Keep package version unchanged; index the proposal in ADR-010 and its index
-without claiming implementation. No push, PR, merge, release, staging refresh
+Keep package version unchanged; index local implementation and verification in
+ADR-010 and its index without claiming native acceptance. No push, PR, merge, release, staging refresh
 or definitive TODO completion is authorized here. The old native grants remain
 consumed; do not access operator settings/credentials or install/update software.
 

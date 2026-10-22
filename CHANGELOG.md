@@ -11,8 +11,10 @@ tag. Tagged versions correspond to repository tags.
   specification and direct/inline implementation plan. Private call scopes
   freeze seven closed scalars before revocation; optional collection preserves
   legacy failures and cleanup under the unchanged byte budgets. The synthetic
-  20-scenario discrimination matrix passed; final regressions, independent review
-  and the immutable gate remain open. Acceptance, input
+  20-scenario discrimination matrix and final regressions passed. Independent
+  review approved `94e68ab` without findings, and its immutable package gate passed
+  in 1,457.406s with canonical/archive identity and cleanup proved. Explicit platform
+  skips remain documented. Acceptance, input
   authority, relocation eligibility and existing limits are unchanged.
   The plan ends with a causal decision and a stop rule against automatic
   compatibility repairs or repeated native attempts.

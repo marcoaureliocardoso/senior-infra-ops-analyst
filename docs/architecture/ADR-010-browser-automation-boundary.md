@@ -1230,11 +1230,16 @@ no-new-diagnostics constraint, not authorization. No native run is included.
 The plan ends with a causal decision, not automatic compatibility repairs or
 repeated native requests; an inconclusive measurement triggers architectural
 reassessment, not another diagnostic layer by default.
+The implementation at `94e68ab` passed its named local regressions and independent
+review with no findings. The immutable-source package gate passed in 1,457.406s;
+565 canonical files and the source archive were unchanged and the owned temporary
+root was removed. Explicit platform exclusions are in validation notes. Native,
+browser/provider and remote gates remain separate.
 
 ## Links
 
 - Approved coherent nonce/history diagnostic specification: `docs/superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md`
-- Coherent nonce/history diagnostic implementation plan (inline; final verification pending): `docs/superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md`
+- Coherent nonce/history diagnostic implementation plan (inline; local review/integral gate passed, native open): `docs/superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md`
 
 - Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
 - Approved inline correlated SDK-history relocation plan (local review/gate passed; native acceptance open): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`

@@ -17,8 +17,13 @@ registries, immutable terminal snapshots and provider-free Debian WSL validation
 **Spec:** [Approved coherent nonce/history specification](../specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md).
 
 Status: specification and plan approved on 2026-10-22; direct/inline execution
-selected, with one independent final review. Tasks 1 and 2 are committed;
-Task 3 local implementation and final verification are in progress.
+selected, with one independent final review. Tasks 1 through 3 are committed
+at `a406378`, `fe0878b` and `94e68ab`. Independent review approved the exact
+`e82a332..94e68ab` range with no Critical/Important/Minor findings. The integral
+immutable-source package gate passed on `94e68ab` in 1,457.406s, with unchanged
+canonical files/archive and proved temporary-root disposal. See validation notes
+for three explicit platform skips and unavailable PowerShell syntax/help checks.
+Native acceptance remains open; instrumentation is not a root-cause fix.
 Planning baseline: `e82a332`; execution baseline: `79710ff`. No native attempt
 is authorized by this plan.
 
@@ -178,7 +183,7 @@ key. Allow ELIGIBLE, ECHO_PENDING, ECHO_MATCHED, CLEAR_PENDING and PROVEN, stopp
 the actual fixture protocol at that phase. Return the corresponding actual
 snapshot/frame and evidence (None before real proof), without registry injection.
 
-- [ ] **Step 1: Write** tests in new class NonceHistoryDiagnosticsTests:
+- [x] **Step 1: Write** tests in new class NonceHistoryDiagnosticsTests:
   test_scope_binds_actual_snapshot_and_restores_on_all_paths (exact snapshot/frame
   affinity; foreign view/controller cannot borrow context); test_scope_exit_preserves_primary_exception
   (the identical raised exception escapes and context clears);
@@ -189,23 +194,23 @@ snapshot/frame and evidence (None before real proof), without registry injection
   test_closed_schema_rejects_extra_keys_and_non_strings (all spec enums; reject
   bool/int/coercible objects/free text); test_scope_and_session_release_owned_references
   (close/GC/reentrancy release, no row or owner survives in exported metadata).
-- [ ] **Step 2: Run** the new suite through the launcher. Expected: assertions
+- [x] **Step 2: Run** the new suite through the launcher. Expected: assertions
   fail on missing observation behavior; no setup/import/runtime failures.
-- [ ] **Step 3: Implement** the interfaces above with one private ContextVar for
+- [x] **Step 3: Implement** the interfaces above with one private ContextVar for
   current scope and weak identity registries. Use exact local identity reads;
   no operational validation or callback invocation. Catch only capture failures
   outside the yielded protected body; cleanup must not replace its exception.
   Unit tests may inspect private context/registry identities for lifetime and
   writer-state assertions, never inject provenance. Projection and cross-frame
   freeze assertions belong to Task 2, which adds that projection interface.
-- [ ] **Step 4: Integrate** the new module into the existing namespace read-only
+- [x] **Step 4: Integrate** the new module into the existing namespace read-only
   mount list and register its unit suite in validate-package.sh. Add
   test_namespace_mounts_only_observer_runtime_not_diagnostic_fixtures to the
   offline safety suite: module mounted, fixture/test/JSON files not mounted.
-- [ ] **Step 5: Run** new unit suite, test-terminal-input-challenge.py,
+- [x] **Step 5: Run** new unit suite, test-terminal-input-challenge.py,
   test-terminal-resume-history.py and the named mount test under
   OfflineTerminalResumeSafetyTests. Expected: all pass with unchanged defaults.
-- [ ] **Step 6: Commit** as `test: model coherent nonce history observation scopes`.
+- [x] **Step 6: Commit** as `test: model coherent nonce history observation scopes`.
 
 ## Task 2: Literal Failure Sites, Pre-Revocation Freeze and Bounded Transport
 
@@ -243,7 +248,7 @@ frame. Other layout failures use OTHER. Never infer site from the check label.
 Pass the actual frame to _profiles/_history_indices even for read-only candidate
 validation, where the live record's older stored frame is not the current frame.
 
-- [ ] **Step 1: Write** tests in new class NonceHistoryFreezeTests:
+- [x] **Step 1: Write** tests in new class NonceHistoryFreezeTests:
   test_actual_sites_freeze_before_revocation (both kinds; baseline/placement/
   profile and original phase survive invalidation); test_same_label_distinguishes_identity_and_destination_sites
   (same-position padding mutation and an already-pinned destination/used allowance,
@@ -254,30 +259,30 @@ validation, where the live record's older stored frame is not the current frame.
   stale frame, projected map, reentry and copied exception attributes);
   test_sampler_performs_no_io_validation_or_metadata_refresh (forbidden methods
   raise if called; original guard behavior unchanged when sampler fails).
-- [ ] **Step 2: Run** the new tests. Expected: missing annotation assertions fail;
+- [x] **Step 2: Run** the new tests. Expected: missing annotation assertions fail;
   exact guarded rejection and real fixture setup still occur.
-- [ ] **Step 3: Implement** freeze/projection and literal tags as specified.
+- [x] **Step 3: Implement** freeze/projection and literal tags as specified.
   Preserve _FAILURE_OBSERVATIONS and original revocation/return ordering.
   Each call scope describes one guard invocation; a committed move cannot leave
   a stale position snapshot for a later guard, even on the same terminal frame.
-- [ ] **Step 4: Write** collector/replay tests: test_new_detail_is_sacrificed_before_legacy_and_cleanup;
+- [x] **Step 4: Write** collector/replay tests: test_new_detail_is_sacrificed_before_legacy_and_cleanup;
   test_old_reports_and_invalid_optional_detail_preserve_base (exact-key/enum,
   malformed, oversized, missing data and wrong point/reason);
   test_full_annotation_fits_retained_structural_shapes (both retained reports,
   all seven longest labels, phase <=3072, aggregate with newline <=16384);
   test_replayed_diagnostic_cannot_supply_acceptance (all enums are only report
   data; success predicates do not read them). Expected: RED on transport/detail.
-- [ ] **Step 5: Implement** optional nonceHistoryContext handling in
+- [x] **Step 5: Implement** optional nonceHistoryContext handling in
   TerminalDiagnostics.add/report, separately from resumeHistoryFailure. Decorate
   last after legacy annotations; omit invalid/new overflow without changing base
   rejected/truncated facts. Keep the 16-record limit and both cleanup records.
   Audit context_stage_report, _bounded_standard_report and _valid_edit_base replay
   consumers; retain their existing operational contract and excluded-route behavior.
-- [ ] **Step 6: Run** new unit suite, test-terminal-resume-failure-diagnostics.py,
+- [x] **Step 6: Run** new unit suite, test-terminal-resume-failure-diagnostics.py,
   test-terminal-structural-diagnostics.py, test-terminal-context-debug.py and
   test-offline-terminal-resume-safety.py. Expected: all pass; no raw content,
   serialized capability, new authority or increased budget in fixtures/reports.
-- [ ] **Step 7: Commit** as `test: freeze and transport nonce history failure facts`.
+- [x] **Step 7: Commit** as `test: freeze and transport nonce history failure facts`.
 
 ## Task 3: Real Driver Lifecycle and Maintained Causal Discrimination Matrix
 
@@ -327,7 +332,7 @@ Add optional nonce_history_context to diagnose's private metadata mapping, and
 project it from the actual caught exception; never recover phase from revoked
 objects in the outer catch. No new checkpoint, stream or file.
 
-- [ ] **Step 1: Write** real-driver tests in NonceHistoryDriverTests:
+- [x] **Step 1: Write** real-driver tests in NonceHistoryDriverTests:
   test_phase_matrix_preserves_exact_input_and_outcomes (twelve cases: each kind
   across all six variants; stable/post-clear-move => exit0/32 bytes, echo variants
   => exit2/25 bytes/no clear, clear variants => exit2/26 bytes/clear ACK/no proof;
@@ -338,14 +343,14 @@ objects in the outer catch. No new checkpoint, stream or file.
   test_mutation_site_matrix_is_discriminated_without_reclassification (six cases:
   each kind, transaction/same slot, transaction/moved, ordinary/same slot; preserve
   UNOWNED_NEW_PROFILE versus PINNED_PROFILE_CHANGED exactly).
-- [ ] **Step 2: Run** the new driver suite. Expected: new diagnostic assertions
+- [x] **Step 2: Run** the new driver suite. Expected: new diagnostic assertions
   fail while existing outcome/byte-count assertions remain correct. Product
   compatibility failures are expected outcomes, not reasons to loosen guards.
-- [ ] **Step 3: Implement** only the integration above. Add the new driver suite
+- [x] **Step 3: Implement** only the integration above. Add the new driver suite
   to validate-package.sh. Port hand-authored scratch peer logic into the maintained
   fixture, not native frames/transcripts; keep fixture-only audit substitutions
   explicitly labelled as synthetic, never real isolation evidence.
-- [ ] **Step 4: Write** tests test_clear_ack_is_dialogue_bound_and_never_inferred_from_phase
+- [x] **Step 4: Write** tests test_clear_ack_is_dialogue_bound_and_never_inferred_from_phase
   (both kinds; EAGAIN then success, I/O error, invalid count, foreign probe/dialogue);
   test_capture_loss_preserves_bytes_errors_and_cleanup (normal/absent/capture and
   collector loss under the same handshakes); test_annotation_excluded_routes_never_activate_session
@@ -355,7 +360,7 @@ objects in the outer catch. No new checkpoint, stream or file.
   survives. Expected: operational equivalence. If an observation requirement
   fails, record that RED before its minimal observer-only correction; tests
   already passing are coverage, not a claimed RED/GREEN fix.
-- [ ] **Step 5: Run** new unit/driver suites, test-terminal-input-challenge.py,
+- [x] **Step 5: Run** new unit/driver suites, test-terminal-input-challenge.py,
   test-terminal-sdk-relocation.py, test-offline-terminal-resume-safety.py,
   test-terminal-wiring.py, test-terminal-cancellation.py and
   test-headless-driver-signals.py. Expected: all pass; record counts/skips and
@@ -365,33 +370,34 @@ objects in the outer catch. No new checkpoint, stream or file.
   perf_counter wrappers; report call counts and elapsed values, not a new runtime
   hook or pass/fail time threshold. Assert pure profile classification scans at
   most the existing 40 rows per failure and performs no external reads.
-- [ ] **Step 6: Update** spec/plan status, ADR-010/index, CHANGELOG and validation
+- [x] **Step 6: Update** spec/plan status, ADR-010/index, CHANGELOG and validation
   notes with local implementation/results only. Preserve package version and
   native/browser/provider/remote gates. Run content, architecture-doc and
   release-history checks plus git diff --check. Expected: all pass.
-- [ ] **Step 7: Commit** as `test: integrate coherent nonce history diagnostics`.
+- [x] **Step 7: Commit** as `test: integrate coherent nonce history diagnostics`.
 
 ## Whole-Change Review and Immutable Gate
 
-- [ ] Self-review every spec requirement and all five Review Focus tests; prove
+- [x] Self-review every spec requirement and all five Review Focus tests; prove
   no annotation value enters an acceptance/input/relocation predicate.
-- [ ] Request one fresh independent review of the immutable range from the
+- [x] Request one fresh independent review of the immutable range from the
   planning baseline through final code, including spec/plan and execution rulings.
   Review literal sites, same-call affinity, yielded-body exceptions, optional
   budgets, clear acknowledgement and absence of behavioral expansion.
-- [ ] Fix validated blocking findings by author RED/GREEN and green regressions,
+- [x] Fix validated blocking findings by author RED/GREEN and green regressions,
   following the selected workflow's single fix-pass rule; report reviewer/fix
   commits and whether fixes were independently re-reviewed. Do not claim a
   synthetic/native acceptance merely because a review is clean.
-- [ ] Run the full package gate on an immutable export of final committed source,
+  Review returned no Critical/Important/Minor findings; no fix pass was needed.
+- [x] Run the full package gate on an immutable export of final committed source,
   through the same clean WSL environment with /bin/bash tests/validate-package.sh
   instead of the Python suite. Require exit0 and package validation passed.
   Verify archive hash plus canonical contents/types/modes before and after,
   disposable-root removal, explicit skips and absence of provider/operator state.
-- [ ] Record exact source/evidence/elapsed/result, rerun document checks and
+- [x] Record exact source/evidence/elapsed/result, rerun document checks and
   git diff --check, and commit the result-only documentation. Prove executable
   equivalence for any docs-only successor; no behavior inherits an earlier gate.
-- [ ] Hand off the local branch/worktree and the causal decision below. Do not
+- [x] Hand off the local branch/worktree and the causal decision below. Do not
   publish, refresh staging, complete the definitive TODO or request repeated
   native attempts as part of local implementation.
 

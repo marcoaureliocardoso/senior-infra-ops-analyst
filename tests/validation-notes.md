@@ -27,8 +27,55 @@ bytes, within 16,384. These maximum-label tests include NOT_SENT (one byte longe
 than UNKNOWN in the earlier documentation-only projection).
 Reentry is limited to one classification per error; it cannot exceed forty rows.
 
-Final regressions, one independent review and the immutable-source integral gate
-are still pending. Instrumentation is not a root-cause fix. Missing or inconclusive
+All named final regressions passed and produced `94e68ab`. One independent
+fresh-context review of `e82a332..94e68ab` approved the patch with no Critical,
+Important or Minor findings; no post-review fix pass or re-review was needed. The reviewer
+ran 14 observer tests (27.013s), 14 failure-diagnostic tests (7.689s) and one
+dialogue-bound ACK test (21.722s), all OK with no skips, and verified the immutable
+diff plus unchanged HEAD/clean status. All five review-focus boundaries passed.
+The author's later missing-metadata fault case was independently included in
+that 14-test suite; maximum-label budget coverage passed 14 failure-diagnostic
+tests before the commit. The earlier combined Windows stdout/stderr task log
+interleaved some summaries, so it is not used to invent an aggregate count.
+
+The immutable-source integral gate passed against exact source
+`94e68abfa1dbc4e3ba303ffca7c7801560176ef9`: exit0, no timeout, 1,457.406s and
+the literal `package validation passed`. All 565 canonical file contents,
+types and Git modes matched the archive before testing and were unchanged
+afterward; the owned exported root was absent after disposal. Archive SHA-256
+before and after was
+`ca5ec73bb043b4dec39106f49cf63e9ab28765577bdaccdb21ec10afc446679b`.
+The clean merged log records every suite; focused evidence includes 14 observer,
+14 failure-diagnostic and nine driver tests (207.077s), plus 94 existing selected
+driver tests (491.241s). These counts are unittest methods, not scenario totals.
+
+The test-side twenty-call microbenchmark measured total entry 0.439ms, exit
+0.127ms, freezer 32.530ms and projector 0.337ms. It establishes bounded local
+work, not zero scheduling impact or total native-session overhead. Classification
+stays within forty existing rows per failure and does not add I/O/validation.
+Deadlines, input bytes and acceptance were not changed to accommodate sampling.
+
+Explicit exclusions: one native-Windows-only rejection test in
+test-browser-permission-mcp.py; the Git-Bash-specific confirmed-window argument
+test in test-live-context-continuity-safety.py; the Git-Bash-specific argument
+test in test-live-nori-package-safety.py. The latter two skipped because the
+Windows Git Bash path is unavailable inside this clean WSL process. The final
+.ps1 syntax/help block also skipped because PowerShell is unavailable there.
+These are not passing Windows/Git-Bash/PowerShell certifications. A separate
+host Windows PowerShell check then passed validate-powershell-syntax.ps1 and
+windows-baseline-readonly.ps1 -Help, against the unchanged script in `94e68ab`.
+Only parsing and early help exit ran; no infrastructure inventory was collected.
+This does not reclassify the WSL skips as in-gate passes. No additional
+unittest skip appeared in the completed gate.
+
+Outside-Git evidence lives in
+`C:/projects/senior-infra-ops-analyst/.review-runtime/p004b-terminal-state/`, with
+prefix `p004b-nonce-history-diagnostics-94e68abfa1dbc4e3ba303ffca7c7801560176ef9`:
+the `-source.tar`, `-preserved-modes-gate.log` and `-preserved-modes-result.json`.
+The result-only documentation successor is restricted to Markdown; executable
+equivalence to reviewed/tested `94e68ab` is checked from the Git file range.
+
+Instrumentation is not a root-cause fix. Missing or inconclusive
 native facts require the plan's explicit stop/reassessment, not another automatic
 compatibility change or repeat. No push, PR, merge, staging refresh, package version
 change or definitive TODO completion is included.
