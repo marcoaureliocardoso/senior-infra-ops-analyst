@@ -12,6 +12,8 @@ tag. Tagged versions correspond to repository tags.
   They distinguish layout-check failures without retaining terminal content or
   changing input authority, revocation, acceptance predicates or report limits.
   Invalid or oversized annotations are omitted before base failure/cleanup facts.
+  One independent-review diagnostic gap was author-fixed with TDD; the corrected
+  immutable package gate passed at `6cbbd41`. The author fix was not re-reviewed.
   Native compatibility and provider/browser acceptance remain unproved.
 
 - Implemented the approved test-only bounded post-Enter transition and write

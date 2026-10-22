@@ -7,7 +7,7 @@ new native run. Baseline history28 passed in 18.243s. New producer/collector
 tests then failed 25 assertions (8 tests/8.220s), after correcting a fixture
 phase error in the initial RED run. Minimal implementation passed nine tests
 in 8.262s, including optional-annotation size pressure and cleanup priority.
-A real selected-driver/PTy synthetic regression for both case kinds failed
+A real selected-driver/PTY synthetic regression for both case kinds failed
 on the missing subreason (1 test, 2 subcases/5.910s), then passed in 5.803s.
 The fixture uses a pipe barrier to restore retired history only after the
 controller publishes nonce clearing. It confirms exit remains blocked and
@@ -20,12 +20,42 @@ input permission, retirement rule, acceptance predicate, provider, version or
 production retention policy changes. One independent read-only review found
 no Critical/Minor findings and one Important: an early forbidden resumed UI
 had no bound view, losing its diagnostic. Author RED reproduced six cases
-(text/skill times API-key/theme/trust) in 2.441s. The fixed path freezes only
+(both case kinds across API-key/theme/trust) in 2.441s. The fixed path freezes only
 closed labels from the existing offer without binding a view or sending input.
 The targeted binding and post-clear tests passed (2 tests/7.935s), including
 zero input and cleanup. This author fix is not independently re-reviewed.
-Full package regression remains pending at this recording point. No native/provider/browser
-run, push, PR, merge, staging refresh or TODO completion occurred.
+The corrected immutable package gate passed at
+`6cbbd41ff8d5ab955df6b02ab0fd4ec8261426ce`, exit0 with literal
+`package validation passed`, from 2026-10-22T00:17:26Z to 00:35:32Z (1086s).
+The owned native-Linux export matched all 555 canonical contents/types/modes
+before and after. Host archive SHA-256 remained
+`59107f7a473343f5266b750a0c05c4c02900eb37d0ed1f106ba40f0b13a63b59`.
+The full gate includes diagnostics9/6.373s, driver91/434.748s,
+offline73/139.148s and CLI26/151.920s; these are suite counts, not additive
+unique test totals. No errors or ResourceWarnings were reported. The earlier
+pre-review candidate also passed its gate; it is not the corrected-source proof.
+
+Coverage exclusions remain: opt-in real browser CAPABILITY_UNAVAILABLE
+(37 loopback scenarios not exercised), three Python platform skips (native
+Windows permission-handler rejection, Git Bash context and Nori harness), and
+PowerShell script/syntax checks unavailable within WSL. Supplemental native
+PowerShell Parser::ParseFile validated both .ps1 files with zero errors and
+zero script execution. This is not a native-Windows matrix or script run.
+Local CI-workflow validation is not remote CI/Security completion.
+
+Evidence outside Git under `.review-runtime/p004b-terminal-state/`:
+`p004b-diagnostic-6cbbd41-source.tar`, `p004b-diagnostic-6cbbd41-gate.log`,
+`p004b-diagnostic-ce2d67e-review.md` and the implementation ledger.
+A size-only check of the prior structural report was 2619 bytes without and
+2758 bytes with a hypothetical closed annotation, below the unchanged 3072
+limit; it identifies no native cause and changed no retained report.
+The final recording changes only CHANGELOG and these notes. Post-recording
+content validation, architecture13/6.250s and release-history42/23.345s passed;
+Git comparison confirms all other tracked contents/types/modes unchanged from
+the corrected gated source.
+No native/provider/browser run, push, PR, merge, staging refresh or TODO
+completion occurred. The exact native cause and native acceptance remain open;
+any further native attempt requires a fresh final-commit-bound one-shot grant.
 
 ## Bounded acceptance - one-shot native offline result inconclusive - 2026-10-21
 
