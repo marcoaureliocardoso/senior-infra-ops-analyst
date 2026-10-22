@@ -19,6 +19,7 @@ _ISSUERS=weakref.WeakSet()
 _TERMINALS=weakref.WeakSet()
 _SCOPES=weakref.WeakKeyDictionary()
 _CHALLENGES=weakref.WeakKeyDictionary()
+_CLEAR_EVIDENCE=weakref.WeakKeyDictionary()
 
 
 class InputProofError(RuntimeError):
@@ -116,6 +117,42 @@ class InputOwnershipProof:
     def __repr__(self): return '<InputOwnershipProof>'
 
 
+class _NonceClearEvidence:
+    __slots__=('__weakref__',)
+    def __new__(cls,seal=None):
+        if seal is not _SEAL: raise InputProofError('INPUT_PROBE_STATE_REJECTED')
+        return super().__new__(cls)
+    def __repr__(self): return '<NonceClearEvidence>'
+    def __reduce_ex__(self,_protocol): raise TypeError('private completion evidence')
+
+
+def _nonce_clear_evidence(probe,*,state,scope,native_owner,controller_owner,transition_owner):
+    record=_CHALLENGES.get(probe) if type(probe) is NonceInputChallenge else None
+    evidence=record.get('clear_evidence') if record is not None else None
+    if evidence is None: return None
+    _validate_nonce_clear_evidence(evidence,probe=probe,state=state,scope=scope,
+        native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner)
+    return evidence
+
+
+def _validate_nonce_clear_evidence(evidence,*,probe,state,scope,native_owner,controller_owner,transition_owner):
+    record=_CHALLENGES.get(probe) if type(probe) is NonceInputChallenge else None
+    bound=_CLEAR_EVIDENCE.get(evidence) if type(evidence) is _NonceClearEvidence else None
+    scope_record=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
+    if (bound is None or record is None or scope_record is None or bound['probe']() is not probe
+            or bound['stamp'] is not record.get('clear_stamp') or record.get('clear_evidence') is not evidence
+            or record['record'] is not scope_record or record['scope'] is not scope
+            or scope_record['terminal'] is not state or record['native'] is not native_owner
+            or record['controller'] is not controller_owner or record['transition'] is not transition_owner
+            or bound['run'] is not scope_record['run'] or bound['deadline']!=scope_record['deadline']
+            or record['consumed'] or probe.phase!='PROVEN' or probe._proof is not bound['proof']
+            or probe._marker is not None or probe._anchor!=bound['anchor']
+            or probe._last_frame<bound['frame']):
+        if type(probe) is NonceInputChallenge: probe.invalidate('INPUT_PROBE_REVOKED')
+        raise InputProofError('INPUT_PROBE_REVOKED')
+    probe._check_lifetime(_read_only=True)
+
+
 class NonceInputChallenge:
     def __init__(self,scope,native_owner,transition_owner,policy,initial,frame,*,context_receipt=None,
                  _resume_view=None,_controller_owner=None):
@@ -150,7 +187,10 @@ class NonceInputChallenge:
     def invalidate(self,reason):
         self.phase='REVOKED'; self._marker=None; self._proof=None
         registered=_CHALLENGES.get(self)
-        if registered is not None: registered['consumed']=False
+        if registered is not None:
+            registered['consumed']=False
+            evidence=registered.pop('clear_evidence',None)
+            if evidence is not None: _CLEAR_EVIDENCE.pop(evidence,None)
         if getattr(self,'_context_receipt',None) is not None:
             from terminal_context_echo import _invalidate_context_receipt
             _invalidate_context_receipt(self._context_receipt)
@@ -194,12 +234,12 @@ class NonceInputChallenge:
             self._fail('INPUT_PROBE_INELIGIBLE',assessment.reason if assessment.anchor is None else 'ANCHOR_CHANGED',
                 input_row_relation=assessment.rowRelation,input_row_cause=assessment.rowCause,observation=observation)
 
-    def _check(self,frame=None):
+    def _check_lifetime(self,frame=None,*,_read_only=False):
         if self.phase=='REVOKED': raise InputProofError('INPUT_PROBE_REVOKED')
         now=_now()
         if not math.isfinite(now) or now<self._last_time or now>=self._record['deadline']:
             self._fail('INPUT_PROBE_DEADLINE')
-        self._last_time=now
+        if not _read_only: self._last_time=now
         try: self._record['terminal'].check_cancelled()
         except BaseException:
             self.invalidate('INPUT_PROBE_REVOKED'); raise
@@ -208,6 +248,9 @@ class NonceInputChallenge:
             if type(frame) is not int or not self._last_frame<=frame<=MAX_CAPTURE:
                 self._fail('INPUT_PROBE_STATE_REJECTED')
             self._last_frame=frame
+
+    def _check(self,frame=None):
+        self._check_lifetime(frame)
         if self._context_receipt is not None:
             from terminal_context_echo import validate_context_history
             try:
@@ -291,6 +334,11 @@ class NonceInputChallenge:
             count=self._echo_length(snapshot,'INPUT_PROBE_CLEAR_REJECTED')
             if count==0:
                 self.phase='PROVEN'; self._marker=None; self._proof=InputOwnershipProof(_SEAL)
+                evidence=_NonceClearEvidence(_SEAL); registered=_CHALLENGES[self]
+                registered['clear_evidence']=evidence; registered['clear_stamp']=object()
+                _CLEAR_EVIDENCE[evidence]={'probe':weakref.ref(self),'stamp':registered['clear_stamp'],
+                    'proof':self._proof,'anchor':self._anchor,'frame':frame,
+                    'run':self._record['run'],'deadline':self._record['deadline']}
             elif count!=16: self._fail('INPUT_PROBE_CLEAR_REJECTED')
         elif self.phase=='PROVEN':
             if self._assessment(snapshot)[0].anchor!=self._anchor: self._fail('INPUT_PROBE_REVOKED')
@@ -320,6 +368,8 @@ class NonceInputChallenge:
                 self._fail('INPUT_PROBE_REVOKED')
             self.phase='CONSUMED'; self._proof=None
             _CHALLENGES[self]['consumed']=True
+            evidence=_CHALLENGES[self].pop('clear_evidence',None)
+            if evidence is not None: _CLEAR_EVIDENCE.pop(evidence,None)
             return True
         except InputProofError: return False
 

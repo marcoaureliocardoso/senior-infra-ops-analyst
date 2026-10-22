@@ -1,5 +1,6 @@
 """Isolated-scope and pinned echo/clear proof tests; no Claude or provider."""
 import copy
+import gc
 from dataclasses import replace
 import importlib.util
 import os
@@ -7,6 +8,7 @@ from pathlib import Path
 import sys
 import time
 import unittest
+import weakref
 from unittest import mock
 
 from terminal_input_policy import TerminalInputPolicy
@@ -79,6 +81,72 @@ class InputChallengeTests(unittest.TestCase):
         self.assertTrue(c.consume_exit(proof,empty,3,owner,transition))
         self.assertFalse(c.consume_exit(proof,empty,3,owner,transition))
         self.assertNotIn(marker.decode(),repr(c)+repr(proof))
+
+    def clear_evidence(self,c,**changes):
+        args=dict(state=self.terminal,scope=c._scope,native_owner=c._native,
+            controller_owner=c._controller,transition_owner=c._transition)
+        args.update(changes)
+        return getattr(self.m,'_nonce_clear_evidence',lambda *_a,**_k:None)(c,**args)
+
+    def test_public_proven_does_not_issue_clear_evidence(self):
+        c,_,_,_=self.fixture_challenge()
+        for phase in ('ELIGIBLE','ECHO_MATCHED','CLEAR_PENDING','PROVEN'):
+            c.phase=phase
+            self.assertIsNone(self.clear_evidence(c))
+        c,proof,_,_,_=self.proven()
+        self.assertIsNotNone(self.clear_evidence(c),'real clear must produce sealed completion evidence')
+        c.invalidate('INPUT_PROBE_REVOKED'); c.phase='PROVEN'; c._proof=proof
+        self.assertIsNone(self.clear_evidence(c))
+
+    def test_clear_evidence_requires_real_echo_clear_and_new_empty_frame(self):
+        c,_,_,empty=self.fixture_challenge()
+        self.assertIsNone(self.clear_evidence(c))
+        marker=c.type_bytes(empty,1); echoed=self.echo_frame(marker)
+        c.observe(echoed,2); self.assertIsNone(self.clear_evidence(c))
+        self.assertEqual(c.clear_bytes(echoed,2),b'\x15')
+        self.assertIsNone(self.clear_evidence(c))
+        c.observe(empty,3); proof=c._proof
+        evidence=self.clear_evidence(c)
+        self.assertIsNotNone(evidence,'new empty frame must establish private completion')
+        self.assertIs(evidence,self.clear_evidence(c))
+        self.assertIs(c._proof,proof)
+        self.assertFalse(self.m._CHALLENGES[c]['consumed'])
+
+    def test_clear_evidence_does_not_extend_dialogue_or_mutate_read_time(self):
+        c,_,_,_,_=self.proven(); evidence=self.clear_evidence(c)
+        self.assertIsNotNone(evidence)
+        before=c._last_time
+        with mock.patch.object(self.m,'_now',return_value=before+1):
+            self.assertIs(self.clear_evidence(c),evidence)
+        self.assertEqual(c._last_time,before)
+        reference=weakref.ref(evidence); del evidence,c
+        gc.collect()
+        self.assertIsNone(reference())
+
+    def test_clear_evidence_is_bound_revocable_and_not_exit_authority(self):
+        for failure in ('owner','scope','expired','cancelled','copy','serialized','consumed','revoked'):
+            with self.subTest(failure=failure):
+                c,proof,owner,transition,empty=self.proven(); evidence=self.clear_evidence(c)
+                self.assertIsNotNone(evidence,'real completed proof must be attestable')
+                args=dict(probe=c,state=self.terminal,scope=c._scope,native_owner=owner,
+                    controller_owner=None,transition_owner=transition)
+                validate=self.m._validate_nonce_clear_evidence
+                with mock.patch.object(c,'_check',side_effect=AssertionError('history recursion')):
+                    validate(evidence,**args)
+                self.assertIs(c._proof,proof)
+                if failure=='owner': args['native_owner']=object()
+                if failure=='scope': args['scope']=object()
+                if failure=='consumed': self.assertTrue(c.consume_exit(proof,empty,3,owner,transition))
+                if failure=='revoked': c.invalidate('INPUT_PROBE_REVOKED')
+                if failure=='copy':
+                    try: evidence=copy.copy(evidence)
+                    except (TypeError,self.m.InputProofError): continue
+                if failure=='serialized': evidence={'phase':'PROVEN'}
+                when=(mock.patch.object(self.m,'_now',return_value=c._record['deadline'])
+                    if failure=='expired' else mock.patch.object(self.terminal,'check_cancelled',
+                        side_effect=RuntimeError('cancelled')) if failure=='cancelled' else mock.patch.dict({},{}))
+                with when, self.assertRaises(RuntimeError): validate(evidence,**args)
+                self.assertFalse(c.consume_exit(evidence,empty,3,owner,transition))
 
     def test_partial_echo_is_pending_but_no_clear_or_proof(self):
         c,_owner,_transition,empty=self.fixture_challenge(); marker=c.type_bytes(empty,1)
