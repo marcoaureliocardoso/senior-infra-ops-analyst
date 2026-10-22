@@ -347,13 +347,14 @@ class CaseFixture:
         import terminal_resume_history as history
         return history.offer_resume(self.case,state=self.state,scope=self.scope,command=self.resume_command)
 
-    def proven_resume(self, *, sdk_history=True):
+    def proven_resume(self, *, sdk_history=True, pinned_exit=False, pre_enter_menu=False):
         import terminal_context_echo as echo
         import terminal_input_challenge as challenge
         import terminal_resume_history as history
         self.complete_initial(); assert self.validate_sdk(self.kind).valid; self.fresh_terminal()
         text=history.TEXT_PROMPT if self.kind=='text-turn' else history.SKILL_PROMPT
         old=((5,'❯ '+text),) if sdk_history else ()
+        if pinned_exit: old=(*old,(12,'❯ /exit'))
         baseline=history_snapshot(old)
         self.policy.mark_transition(history_snapshot(((37,'❯ ready'),)))
         view=history.try_bind_resume_view(self.offer(),policy=self.policy,snapshot=baseline,frame=1,
@@ -362,7 +363,8 @@ class CaseFixture:
         command=echo.begin_context_command(self.scope,self.state,self.native,self.transition,self.policy,
             baseline,1,_resume_view=view,_controller_owner=self.controller)
         assert command.type_bytes(baseline,1)==b'/context'; command.check_edit(baseline,1,8)
-        current=replace(history_snapshot((*old,(37,'❯ /context'))),cursorX=10)
+        menu=((16,'❯ /context  Synthetic completion'),) if pre_enter_menu else ()
+        current=replace(history_snapshot((*old,*menu,(37,'❯ /context'))),cursorX=10)
         assert command.observe(current,2)=='COMMAND_ECHO_MATCHED'
         assert command.submit_bytes(current,2)==b'\r'; command.submission_written(1)
         rows=(*old,(0,'Context Usage'),(1,'Free space: 81%'),(2,'Autocompact buffer: 3%'),(20,'❯ /context'))

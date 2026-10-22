@@ -303,8 +303,8 @@ def _observe_resumed_display(command,snapshot,frame):
         _validate_resumed_display(command,snapshot,frame)
 
 
-def _validate_resumed_display(command,snapshot,frame):
-    record=_COMMANDS.get(command); _live(record,frame,snapshot)
+def _validate_resumed_display(command,snapshot,frame,*,_history_read=None):
+    record=_COMMANDS.get(command); _live(record,frame,snapshot,_history_read=_history_read)
     tracker=_display_tracker(command,record)
     witness=record.get('display_witness')
     bound=_DISPLAYS.get(witness) if type(witness) is ContextDisplayWitness else None
@@ -313,7 +313,7 @@ def _validate_resumed_display(command,snapshot,frame):
             or record.get('submit_frame')!=bound['submit_frame']
             or frame<bound['frame']):
         _fail(record,'INPUT_PROBE_REVOKED','DISPLAY_WITNESS_UNPROVEN')
-    old=_resume_indices(record,snapshot,frame)
+    old=_resume_indices(record,snapshot,frame,_history_read=_history_read)
     if (sample_context(snapshot)!=bound['sample'] or snapshot.rows[bound['index']]!=bound['row']
             or _history_rows(record['policy'],snapshot,_excluded_rows=old)!=[bound['index']]
             or bound['index'] in old):
@@ -435,7 +435,7 @@ def _create_edit_row_observer(*,controller_owner,scope,state,transition_owner,jo
     return value
 
 
-def _live(record,frame=None,snapshot=None):
+def _live(record,frame=None,snapshot=None,*,_history_read=None):
     from terminal_input_challenge import _context_scope_binding
     if record is None or record['phase']=='REVOKED': _fail(record,'INPUT_PROBE_REVOKED')
     command=next((key for key,value in _COMMANDS.items() if value is record),None)
@@ -444,7 +444,7 @@ def _live(record,frame=None,snapshot=None):
     if (type(now) not in (int,float) or not math.isfinite(now)
             or type(record['time']) not in (int,float) or not math.isfinite(record['time'])
             or now<record['time'] or now>=record['deadline']): _fail(record,'INPUT_PROBE_DEADLINE','DEADLINE')
-    record['time']=now
+    if _history_read is None: record['time']=now
     try:
         run,deadline=_context_scope_binding(record['scope'],record['state'],allow_claimed=True)
         if run is not record['run'] or deadline!=record['deadline']:
@@ -456,15 +456,16 @@ def _live(record,frame=None,snapshot=None):
     if frame is not None:
         if type(frame) is not int or not record['frame']<=frame<=MAX_CAPTURE:
             _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
-        record['frame']=frame
+        if _history_read is None: record['frame']=frame
     if snapshot is not None:
         if type(snapshot) is not TerminalSnapshot: _fail(record,'INPUT_PROBE_STATE_REJECTED','FRAME_STATE')
         if record['policy'].active_input_forbidden(snapshot): _fail(record,'INPUT_PROBE_REVOKED','FORBIDDEN_UI')
         if record.get('resume_view') is not None:
             from terminal_resume_history import validate_resume_view
             validate_resume_view(record['resume_view'],policy=record['policy'],snapshot=snapshot,
-                frame=record['frame'],state=record['state'],scope=record['scope'],native_owner=record['native'],
-                controller_owner=record['controller'],transition_owner=record['transition'])
+                frame=frame if frame is not None else record['frame'],state=record['state'],scope=record['scope'],
+                native_owner=record['native'],controller_owner=record['controller'],transition_owner=record['transition'],
+                _history_read=_history_read)
 
 
 def _normalized_failure_detail(assessment,expected_anchor):
@@ -806,12 +807,12 @@ def _prepare_post_enter_observation(command,snapshot,frame,*,request,controller_
     return observer
 
 
-def _resume_indices(record,snapshot,frame):
+def _resume_indices(record,snapshot,frame,*,_history_read=None):
     if record.get('resume_view') is None: return frozenset()
     from terminal_resume_history import validate_resume_view
     return validate_resume_view(record['resume_view'],policy=record['policy'],snapshot=snapshot,
         frame=frame,state=record['state'],scope=record['scope'],native_owner=record['native'],
-        controller_owner=record['controller'],transition_owner=record['transition'])
+        controller_owner=record['controller'],transition_owner=record['transition'],_history_read=_history_read)
 
 
 def _resume_submission_acked(command,view):
@@ -822,16 +823,17 @@ def _resume_submission_acked(command,view):
 
 
 def validate_context_history(receipt,policy,snapshot,*,scope,state,native_owner,transition_owner,frame,
-                             _resume_view=None,_controller_owner=None):
+                             _resume_view=None,_controller_owner=None,_history_read=None):
     registered=_RECEIPTS.get(receipt) if type(receipt) is ContextEchoReceipt else None
     if registered is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
     command,index,row,anchor=registered; record=_COMMANDS.get(command)
     if (record is not None and (record.get('resume_view') is not _resume_view
             or (record.get('resume_view') is not None and record.get('controller') is not _controller_owner))):
         _fail(record,'INPUT_PROBE_REVOKED')
-    _live(record,frame,snapshot)
-    if record.get('resume_view') is not None: _validate_resumed_display(command,snapshot,frame)
-    old=_resume_indices(record,snapshot,frame)
+    _live(record,frame,snapshot,_history_read=_history_read)
+    if record.get('resume_view') is not None:
+        _validate_resumed_display(command,snapshot,frame,_history_read=_history_read)
+    old=_resume_indices(record,snapshot,frame,_history_read=_history_read)
     if (record['phase']!='RECEIPT_READY' or policy is not record['policy'] or scope is not record['scope']
             or state is not record['state'] or native_owner is not record['native']
             or transition_owner is not record['transition'] or snapshot.active!=anchor.buffer
@@ -844,7 +846,8 @@ def validate_context_history(receipt,policy,snapshot,*,scope,state,native_owner,
 
 
 def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,transition_owner,frame,
-                         _resume_view=None,_controller_owner=None,_actual_snapshot=None,_normalization_owner=None):
+                         _resume_view=None,_controller_owner=None,_actual_snapshot=None,_normalization_owner=None,
+                         _history_read=None):
     if _resume_view is not None:
         if receipt is None:
             from terminal_resume_history import revoke_resume_view
@@ -854,8 +857,9 @@ def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,tran
             state=state,scope=scope,native_owner=native_owner,controller_owner=_controller_owner,
             transition_owner=transition_owner,resume_view=_resume_view,context_receipt=receipt,
             normalized_snapshot=snapshot if _actual_snapshot is not None else None,
-            normalization_owner=_normalization_owner)
+            normalization_owner=_normalization_owner,_history_read=_history_read)
         return assessment,observation
+    if _history_read is not None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
     excluded=None
     if receipt is not None:
         excluded=validate_context_history(receipt,policy,snapshot,scope=scope,state=state,
@@ -869,13 +873,16 @@ def assess_context_input(policy,snapshot,*,receipt,scope,state,native_owner,tran
 
 def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_owner,controller_owner,
         transition_owner,resume_view=None,context_receipt=None,context_command=None,normalized_snapshot=None,
-        normalization_owner=None):
+        normalization_owner=None,_history_read=None):
     from terminal_resume_history import validate_resume_view, revoke_resume_view, ResumeHistoryError, _resume_layout_error
     excluded=set()
+    if _history_read is not None and (resume_view is None or context_receipt is None
+            or context_command is not None or normalized_snapshot is not None):
+        revoke_resume_view(resume_view); raise ResumeHistoryError('RESUME_HISTORY_SCOPE_REJECTED')
     if resume_view is not None:
         excluded.update(validate_resume_view(resume_view,policy=policy,snapshot=actual_snapshot,frame=frame,
             state=state,scope=scope,native_owner=native_owner,controller_owner=controller_owner,
-            transition_owner=transition_owner))
+            transition_owner=transition_owner,_history_read=_history_read))
     def add(index):
         if index is None: return
         cursor=actual_snapshot.baseY+actual_snapshot.cursorY-actual_snapshot.viewportY
@@ -886,7 +893,7 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
     if context_receipt is not None:
         add(validate_context_history(context_receipt,policy,actual_snapshot,scope=scope,state=state,
             native_owner=native_owner,transition_owner=transition_owner,frame=frame,
-            _resume_view=resume_view,_controller_owner=controller_owner))
+            _resume_view=resume_view,_controller_owner=controller_owner,_history_read=_history_read))
     if context_command is not None:
         record=_COMMANDS.get(context_command) if type(context_command) is OwnedContextCommand else None
         if record is None or record.get('resume_view') is not resume_view or record.get('controller') is not controller_owner:
@@ -931,6 +938,26 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
     observation=_observation(policy,actual_snapshot,assessment,index,debug_excluded)
     if assessment.anchor is None and resume_view is not None: revoke_resume_view(resume_view)
     return assessment,index,observation
+
+
+def _sdk_relocation_protected_rows(receipt,*,view,snapshot,frame,state,scope,native_owner,
+        controller_owner,transition_owner):
+    registered=_RECEIPTS.get(receipt) if type(receipt) is ContextEchoReceipt else None
+    if registered is None: raise _error('INPUT_PROBE_SCOPE_REJECTED')
+    command,index,_row,anchor=registered; record=_COMMANDS.get(command)
+    if (record is None or record['phase']!='RECEIPT_READY' or any(record.get(key) is not value
+            for key,value in (('resume_view',view),('state',state),('scope',scope),('native',native_owner),
+                ('controller',controller_owner),('transition',transition_owner)))):
+        _fail(record,'INPUT_PROBE_REVOKED')
+    tracker=_display_tracker(command,record)
+    witness=record.get('display_witness')
+    bound=_DISPLAYS.get(witness) if type(witness) is ContextDisplayWitness else None
+    sample=sample_context(snapshot)
+    if (bound is None or bound['command']() is not command or bound['tracker'] is not tracker
+            or tracker['phase']!='CONSUMED' or sample is None or frame<bound['frame']):
+        _fail(record,'INPUT_PROBE_REVOKED','DISPLAY_WITNESS_UNPROVEN')
+    return frozenset(tracker['inventory'])|frozenset((index,anchor.row))|frozenset(
+        bound['sample'].geometry[3])|frozenset(sample.geometry[3])
 
 
 def attach_context_rejection(error,observation):

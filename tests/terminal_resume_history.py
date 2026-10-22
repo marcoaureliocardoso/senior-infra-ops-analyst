@@ -682,6 +682,51 @@ def _sdk_candidate_read(candidate,view,record,snapshot,frame):
     return bound['projected']
 
 
+def _try_commit_sdk_relocation(view,probe,receipt,*,policy,snapshot,frame,state,scope,
+        native_owner,controller_owner,transition_owner):
+    from terminal_input_challenge import _nonce_clear_evidence
+    from terminal_context_echo import _compose_input_assessment, _sdk_relocation_protected_rows
+    record=_VIEWS.get(view) if type(view) is ResumedHistoryView else None
+    if record is None: _fail(None)
+    if record.get('relocation_busy'): _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+    candidate=None; record['relocation_busy']=True
+    args=dict(policy=policy,snapshot=snapshot,frame=frame,state=state,scope=scope,
+        native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner)
+    try:
+        evidence=_nonce_clear_evidence(probe,state=state,scope=scope,native_owner=native_owner,
+            controller_owner=controller_owner,transition_owner=transition_owner)
+        if evidence is None: return False
+        candidate=_prepare_sdk_relocation(view,probe,evidence,receipt,**args)
+        if candidate is None: return False
+        projected=_sdk_candidate_read(candidate,view,record,snapshot,frame)
+        protected=_sdk_relocation_protected_rows(receipt,view=view,snapshot=snapshot,frame=frame,
+            state=state,scope=scope,native_owner=native_owner,controller_owner=controller_owner,
+            transition_owner=transition_owner)
+        if projected['sdk_position'] in protected:
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='COMPOSE_ROW_CONFLICT')
+        assessment,_,_=_compose_input_assessment(policy,snapshot,frame=frame,state=state,scope=scope,
+            native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner,
+            resume_view=view,context_receipt=receipt,_history_read=candidate)
+        if assessment.anchor is None or assessment.anchor!=probe._anchor:
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED')
+        _view_binding(view,**args,_read_only=True)
+        _sdk_candidate_read(candidate,view,record,snapshot,frame)
+        # All potentially reentrant lifetime checks have finished. The final
+        # registry/fingerprint reads and one update perform no IO or callbacks.
+        bound=_SDK_RELOCATIONS.get(candidate)
+        if (_VIEWS.get(view) is not record or bound is None
+                or bound['fingerprint']!=_view_fingerprint(record)):
+            _fail(record,'RESUME_HISTORY_REPLAY_REJECTED')
+        record.update(sdk_position=projected['sdk_position'],sdk_relocated=True,
+            retired=set(projected['retired']),frame=frame,snapshot=weakref.ref(snapshot))
+        return True
+    except BaseException:
+        revoke_resume_view(view); raise
+    finally:
+        record.pop('relocation_busy',None)
+        if candidate is not None: _SDK_RELOCATIONS.pop(candidate,None)
+
+
 def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_owner, controller_owner,
         transition_owner, _history_read=None):
     record=_view_binding(view,policy=policy,snapshot=snapshot,frame=frame,state=state,scope=scope,
