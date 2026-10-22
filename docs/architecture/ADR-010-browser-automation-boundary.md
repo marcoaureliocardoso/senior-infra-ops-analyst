@@ -1184,7 +1184,8 @@ status are recorded in `tests/validation-notes.md`.
 
 The operator approved the architectural direction for one exact, transactional
 SDK-history relocation in ordinary audited offline resumed acceptance. The
-written specification is awaiting review; this is not implemented behavior.
+written specification was approved on 2026-10-22; its implementation plan awaits
+review and execution-method selection. This is not implemented behavior.
 Only an already proven SDK_TEXT/SDK_SKILL identity may propose a new placement,
 after sealed nonce/clear completion and before exit-proof consumption. Full
 profile equality, unique correspondence, collision exclusion and all composed
@@ -1200,7 +1201,8 @@ acceptance and implementation-plan approval remain separate gates.
 
 ## Links
 
-- Proposed correlated SDK-history relocation (direction approved; written review pending; not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
+- Approved correlated SDK-history relocation specification (not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
+- Proposed correlated SDK-history relocation implementation plan (review and method selection pending): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
 
 - Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
 - Approved inline bounded post-Enter acceptance plan (including Task 3 lifecycle correction): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`

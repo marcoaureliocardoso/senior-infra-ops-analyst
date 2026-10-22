@@ -2,9 +2,10 @@
 
 Date: 2026-10-22
 
-Status: conversational architectural direction approved; written specification
-awaiting operator review. This document does not implement behavior, approve an
-implementation plan or authorize a native execution.
+Status: written specification approved on 2026-10-22. The separate
+[implementation plan](../plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
+awaits review and execution-method selection. This document does not implement
+behavior or authorize a native execution.
 
 ## Intent and boundary
 
@@ -220,11 +221,11 @@ CI/Security gates remain separate and are not established by synthetic tests.
 ## Delivery and next approval
 
 This specification and ADR/index references are documentation only; package
-version and release claims remain unchanged. No implementation plan, product
-change, new native run, push, PR, merge, staging refresh or TODO completion is
-included in this approval stage.
+version and release claims remain unchanged. Written-specification approval
+permits preparation of the separate plan, not product changes, a new native
+run, push, PR, merge, staging refresh or TODO completion.
 
-After operator review and approval of this written specification, create a
-separate implementation plan for review and execution-method selection. Any
-later native attempt needs a fresh authorization tied to its final source and
-explicit limits; previous one-shot grants remain consumed.
+The written specification is approved; the separate implementation plan awaits
+review and execution-method selection. Any later native attempt needs a fresh
+authorization tied to its final source and explicit limits; previous one-shot
+grants remain consumed.

@@ -19,7 +19,9 @@ New implemented solutions must add an ADR or explicitly supersede an existing on
 
 ADR-010 also indexes the proposed
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
-Its architectural direction is approved; written specification review is pending.
+Its written specification was approved on 2026-10-22. The
+[implementation plan](../superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
+awaits review and execution-method selection.
 No relocation is implemented. Exact SDK-profile correspondence and complete
 same-frame context/input/lifetime validation would precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
