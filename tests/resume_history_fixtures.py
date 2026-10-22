@@ -367,7 +367,8 @@ class CaseFixture:
         import terminal_resume_history as history
         return history.offer_resume(self.case,state=self.state,scope=self.scope,command=self.resume_command)
 
-    def proven_resume(self, *, sdk_history=True, pinned_exit=False, pre_enter_menu=False, ordinary_acceptance=True):
+    def proven_resume(self, *, sdk_history=True, pinned_exit=False, pre_enter_menu=False, ordinary_acceptance=True,
+            nonce_phase='PROVEN'):
         import terminal_context_echo as echo
         import terminal_input_challenge as challenge
         import terminal_resume_history as history
@@ -396,13 +397,22 @@ class CaseFixture:
         numeric=history_snapshot(rows); receipt=command.bind_history(numeric,3)
         probe=challenge.NonceInputChallenge(self.scope,self.native,self.transition,
             self.policy,numeric,3,context_receipt=receipt,_resume_view=view,_controller_owner=self.controller)
+        def result(snapshot,frame,evidence=None):
+            return dict(view=view,command=command,receipt=receipt,probe=probe,
+                snapshot=snapshot,frame=frame,evidence=evidence)
+        if nonce_phase=='ELIGIBLE': return result(numeric,3)
         marker=probe.type_bytes(numeric,3).decode('ascii')
+        if nonce_phase=='ECHO_PENDING': return result(numeric,3)
         nonce=replace(history_snapshot((*rows,(37,'❯ '+marker))),cursorX=18)
-        assert probe.observe(nonce,4)=='ECHO_MATCHED'; assert probe.clear_bytes(nonce,4)==b'\x15'
+        assert probe.observe(nonce,4)=='ECHO_MATCHED'
+        if nonce_phase=='ECHO_MATCHED': return result(nonce,4)
+        assert probe.clear_bytes(nonce,4)==b'\x15'
+        if nonce_phase=='CLEAR_PENDING': return result(nonce,4)
+        assert nonce_phase=='PROVEN'
         assert probe.observe(numeric,5)=='PROVEN'
         evidence=challenge._nonce_clear_evidence(probe,state=self.state,scope=self.scope,native_owner=self.native,
             controller_owner=self.controller,transition_owner=self.transition)
-        return dict(view=view,command=command,receipt=receipt,probe=probe,snapshot=numeric,frame=5,evidence=evidence)
+        return result(numeric,5,evidence)
 
     def __exit__(self, *_args):
         import terminal_resume_history as history

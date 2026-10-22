@@ -135,6 +135,25 @@ def _nonce_clear_evidence(probe,*,state,scope,native_owner,controller_owner,tran
     return evidence
 
 
+def _read_nonce_history_status(probe,*,view,state,scope,native_owner,controller_owner,transition_owner):
+    """Pure private identity reads; presence is not lifetime validation or proof."""
+    record=_CHALLENGES.get(probe) if type(probe) is NonceInputChallenge else None
+    scoped=_SCOPES.get(scope) if type(scope) is OfflineProbeScope else None
+    if (record is None or scoped is None or record['record'] is not scoped
+            or record['scope'] is not scope or record['resume_view'] is not view
+            or scoped['terminal'] is not state or record['native'] is not native_owner
+            or record['controller'] is not controller_owner or record['transition'] is not transition_owner): return None
+    evidence=record.get('clear_evidence')
+    bound=_CLEAR_EVIDENCE.get(evidence) if type(evidence) is _NonceClearEvidence else None
+    present=(bound is not None and bound['probe']() is probe
+        and bound['stamp'] is record.get('clear_stamp') and bound['run'] is scoped['run']
+        and bound['deadline']==scoped['deadline'] and bound['proof'] is probe._proof)
+    phase=probe.phase
+    if type(phase) is not str or phase not in ('ELIGIBLE','ECHO_PENDING','ECHO_MATCHED',
+            'CLEAR_PENDING','PROVEN','CONSUMED','REVOKED'): phase='UNKNOWN'
+    return phase,'PRESENT' if present else 'ABSENT'
+
+
 def _validate_nonce_clear_evidence(evidence,*,probe,state,scope,native_owner,controller_owner,transition_owner):
     record=_CHALLENGES.get(probe) if type(probe) is NonceInputChallenge else None
     bound=_CLEAR_EVIDENCE.get(evidence) if type(evidence) is _NonceClearEvidence else None

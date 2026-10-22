@@ -510,6 +510,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
                      'terminal_context_sample.py',
                      'terminal_input_challenge.py',
                      'terminal_resume_history.py',
+                     'terminal_nonce_history_diagnostics.py',
                      'terminal_context_debug.py',
                      'terminal_context_echo.py',
                      'terminal_context_diagnostics.py',

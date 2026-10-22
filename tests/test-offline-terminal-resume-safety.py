@@ -829,6 +829,27 @@ print(json.dumps({'report':value,'spawned':spawned,'rootAbsent':not root.exists(
         self.assertEqual(command[index-2:index+1],['--ro-bind',str(ROOT/'tests/terminal_context_echo.py'),target])
         self.assertNotIn('/opt/probe/claude',command)
 
+    def test_namespace_mounts_only_observer_runtime_not_diagnostic_fixtures(self):
+        commands=[]
+        def spawn(command,**kwargs):
+            commands.append(command)
+            kwargs['stdout'].write(json.dumps({'networkIsolated':True,'operatorStateHidden':True,
+                'capabilitiesDropped':True}).encode())
+            value=mock.Mock(); value.poll.return_value=0; value.returncode=0
+            return value
+        with mock.patch.object(self.module.shutil,'which',return_value='/usr/bin/bwrap'),\
+                mock.patch.object(self.module.TerminalCancellation,'spawn',side_effect=spawn):
+            result=self.module.run_isolation_audit(source=ROOT,node=Path(os.environ['P004B_TERMINAL_NODE']),
+                module_root=Path(os.environ['P004B_TERMINAL_MODULE_ROOT']))
+        self.assertTrue(result['disposableRootAbsent'])
+        command=commands[0]; target='/opt/probe/terminal_nonce_history_diagnostics.py'
+        self.assertIn(target,command,'private observer runtime missing from isolated module mount')
+        i=command.index(target)
+        self.assertEqual(command[i-2:i+1],['--ro-bind',str(ROOT/'tests/terminal_nonce_history_diagnostics.py'),target])
+        for name in ('nonce_history_fixtures.py','test-terminal-nonce-history-diagnostics.py',
+                'test-nonce-history-driver.py','nonce-history-structural-reports.json'):
+            self.assertFalse(any(name in part for part in command))
+
     def test_numeric_module_is_read_only_mounted_and_importable(self):
         commands=[]
         original=self.module.TerminalCancellation.spawn
