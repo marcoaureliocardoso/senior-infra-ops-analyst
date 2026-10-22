@@ -23,7 +23,8 @@ Its written specification was approved on 2026-10-22. The
 [implementation plan](../superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
 was approved for inline execution. All four tasks are implemented and passed
 their focused gates, including the final 256-test group. Final independent
-review and immutable gate are pending. Exact profile correspondence and
+review requested no fix; the immutable gate passed at `4d3d057`, with explicit
+adapter/platform exclusions recorded in validation notes. Exact profile correspondence and
 complete same-frame context/input/lifetime validation precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
 and no execution grant, timeout or production/browser boundary changes.

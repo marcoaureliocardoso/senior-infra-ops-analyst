@@ -1186,8 +1186,11 @@ The operator approved the architectural direction for one exact, transactional
 SDK-history relocation in ordinary audited offline resumed acceptance. The
 written specification and native/inline implementation plan were approved on
 2026-10-22. The test-only implementation is local; its final task's 256-test
-focused group passed. Final independent review and immutable package gate are
-pending; native compatibility remains unproved.
+focused group passed. Final independent review of `c78997d..bbb6dde` requested
+no code fix; the immutable package gate passed at `4d3d057` in 1212.706s with
+558 canonical files unchanged and disposal proved. Validation notes retain
+platform/adapter exclusions and an unexplained earlier isolated test failure;
+native compatibility remains unproved.
 Only an already proven SDK_TEXT/SDK_SKILL identity may propose a new placement,
 after sealed nonce/clear completion and before exit-proof consumption. Full
 profile equality, unique correspondence, collision exclusion and all composed
@@ -1204,7 +1207,7 @@ acceptance remains a separate gate.
 ## Links
 
 - Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
-- Approved inline correlated SDK-history relocation plan (final validation pending): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
+- Approved inline correlated SDK-history relocation plan (local review/gate passed; native acceptance open): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
 
 - Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
 - Approved inline bounded post-Enter acceptance plan (including Task 3 lifecycle correction): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`

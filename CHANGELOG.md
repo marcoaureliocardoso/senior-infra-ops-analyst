@@ -13,7 +13,9 @@ tag. Tagged versions correspond to repository tags.
   old positions stay retired and later movement or profile changes fail closed.
   Debug/observation/live routes, production policy, input sequence, retention and
   time limits are unchanged. The final task's 256-test synthetic group passed;
-  independent review and immutable package gate remain pending. Native profile
+  independent review requested no fix and the immutable package gate passed
+  at `4d3d057`. Explicit platform/adapter exclusions and an unexplained earlier
+  isolated test failure are retained in validation notes. Native profile
   equality and compatibility are unproved; no native execution grant is renewed.
 
 - Added optional test-only resumed-history failure subreasons, frozen before

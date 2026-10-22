@@ -19,8 +19,9 @@ Status: written specification and this plan approved on 2026-10-22; operator
 selected native/inline execution (option 2). Tasks 1-3 completed locally at
 `d3bcc1a`, `61f222b` and `722bbe6`, with 109/72/191 focused tests respectively.
 Task 4 completed at `bbb6dde` with 256 committed-source focused tests passed;
-the final independent review is in progress and immutable package gate remains
-pending. Planning baseline: `c78997d`. No native execution
+the final independent review of `c78997d..bbb6dde` found no issue requiring a fix.
+The immutable package gate passed at `4d3d057` in 1212.706s with canonical source
+unchanged and disposal proved. Planning baseline: `c78997d`. No native execution
 is authorized by this document or the execution-method selection.
 
 ## Global Constraints
@@ -345,23 +346,24 @@ installed Claude; retain existing driver and report interfaces.
 
 ## Whole-Change Review and Immutable Gate
 
-- [ ] Self-review every spec requirement against Tasks 1-4 and every Review Focus
+- [x] Self-review every spec requirement against Tasks 1-4 and every Review Focus
   test. Recheck all nested history readers, atomicity, fixed input and rollback.
-- [ ] Request one fresh independent whole-change review of the immutable range
+- [x] Request one fresh independent whole-change review of the immutable range
   from `c78997d` to the final implementation, using the selected workflow's review
   skill. Review the spec/plan, input authority, replay/collision and disposal.
-- [ ] Reproduce validated findings with author RED/GREEN tests and correct them.
+- [x] Reproduce validated findings with author RED/GREEN tests and correct them.
   Record reviewer and fix commits and whether corrections were independently
   re-reviewed; author verification is not independent review.
-- [ ] Run the complete gate on immutable corrected committed source: use the
+  Review found no Critical, Important or deferred Minor issue; no fix was needed.
+- [x] Run the complete gate on immutable corrected committed source: use the
   launcher above with its final two arguments replaced by `/bin/bash` and
   `tests/validate-package.sh`. Require exit0 and `package validation passed`.
   Record exact commit, tests/skips and canonical contents/types/modes before and
   after; store transient gate artifacts outside Git without operator state.
-- [ ] Rerun documentation checks after recording the gate. For docs-only commits,
+- [x] Rerun documentation checks after recording the gate. For docs-only commits,
   prove executable-source equivalence to the gated commit; no behavior inherits
   an earlier gate. Report remote CI/Security and platform exclusions separately.
-- [ ] Hand off final source and remaining native/browser/provider gates. No new
+- [x] Hand off final source and remaining native/browser/provider gates. No new
   native run occurs until fresh final-commit authorization; strict native profile
   equality can still fail. Do not retry automatically or mark P0-04B completed.
 
@@ -380,4 +382,6 @@ a separate experiment, not a promised consequence of this plan.
 
 The operator reviewed the plan and selected native/inline execution. This
 preserves the tightly coupled private interfaces under one implementer, with a
-fresh independent final review still required. No native attempt is included.
+fresh independent final review completed without a requested fix. The immutable
+gate and result-document checks passed; no native attempt is included. Keep the
+local branch/worktree, with delivery and native acceptance explicitly separate.

@@ -4,8 +4,8 @@ Date: 2026-10-22
 
 Status: written specification approved on 2026-10-22. The separate
 [implementation plan](../plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
-was approved for inline execution. Local implementation is under verification;
-independent final review, immutable gate and native compatibility remain separate.
+was approved for inline execution. Local implementation passed independent final
+review and the immutable gate at `4d3d057`; native compatibility remains separate.
 No native execution is authorized by these approvals.
 
 ## Intent and boundary

@@ -11,8 +11,8 @@ exact proposals, full composed commit and same-frame negative matrices.
 Task 4 at `bbb6dde` passed 256 committed-source tests: 94 headless driver,
 75 offline safety, 26 CLI driver, 14 cancellation, 5 headless signals,
 25 structural diagnostics and 17 observation-report tests. The nine-test
-relocation suite also passed, including its both-kind subcases. Final immutable
-gate and independent whole-change review are pending. New deterministic PTY tests
+relocation suite also passed, including its both-kind subcases. The final immutable
+gate passed as recorded below. New deterministic PTY tests
 passed both fixed case kinds for exact relocation/natural exit, post-commit bad
 frame draining, profile/duplicate/pre-proof rejection, partial writes and a
 failed partial exit. A nonordinary-route test failed before an author fix bound
@@ -41,6 +41,64 @@ their API impact is test-only. Ordinary acceptance requires both driver routing
 and original private tracker provenance; an unsupported route fails closed.
 The namespace double's 0.2-second redraw is not a phase proof and can be
 inconclusive under scheduling variation; it cannot grant input or trigger retry.
+
+One fresh-context independent review of immutable `c78997d..bbb6dde` found no
+Critical, Important or deferred Minor issue and requested no code fix. It checked
+the complete specification/plan, private authority, nested read-only composition,
+atomic publication, driver drains, guarded writes and disposal. The reviewer did
+not independently execute runtime tests. It confirmed that `bbb6dde..4d3d057`
+changes only five documentation files; this is not an extra review of those docs.
+The author also rechecked the specification and all five Review Focus cases.
+
+Final review rulings retain these limits: native full-profile equality and
+compatibility are unknown (a later native trial can remain inconclusive); real
+provider/browser and production behavior remain unexercised (separate integration
+defects remain possible); remote CI/Security and other platforms have no fresh
+result (their failures are not excluded); earlier branch lineage outside reviewed
+dependencies is not re-certified (pre-existing defects remain outside assurance).
+The unexplained isolated regression remains recorded above and could recur.
+
+The first immutable-wrapper attempt stopped before tests: default tar extraction
+applied umask, changing all 558 recorded file modes while their contents matched.
+A minimal diagnostic reproduced 558 mode-only differences and zero differences
+with `--same-permissions`. The corrected wrapper preserves archive modes, does
+not weaken equality, and retains original and corrected evidence separately.
+This is a gate-setup correction, not a product change or native/provider retry.
+If the correction is wrong, snapshot preparation must fail again, not bypass it.
+
+Supplemental Windows PowerShell static parsing of both versioned `.ps1` files
+reported two files and zero parser errors. This is syntax-only evidence, not
+native Windows functional execution or permission-handler coverage.
+
+The complete provider-free Debian WSL package gate passed on exact immutable
+source `4d3d057386d33d707f62a459a9065e337e44a122`: exit0,
+`package validation passed`, elapsed 1212.706s, no timeout. Its archive SHA-256
+before and after was
+`c073e6203528b3e14d1c770128988563d1bf9f2a5ded6d4d899feaf825506c02`.
+All 558 canonical regular-file contents, types and modes matched the archive
+before the run and remained unchanged afterward. The disposable extracted root
+was absent before structural result publication. The full gate passed the
+94-test driver group and 75-test offline safety group; the unexplained earlier
+initial-helper failure did not recur, without establishing its cause.
+
+Coverage exclusions were explicit: the opt-in production browser adapter was
+CAPABILITY_UNAVAILABLE (37 loopback scenarios not exercised); three Python tests
+were skipped: native Windows permission-MCP rejection, the WSL Windows Git bridge,
+and the Git-Bash Nori argument-validation route. PowerShell syntax/help execution
+was unavailable inside Debian; only the supplemental host parser check above
+ran. No native Claude, real provider/browser, remote CI/Security or live Nori
+installation was run by this local gate.
+
+Outside-Git evidence under `.review-runtime/p004b-terminal-state/` retains
+`p004b-sdk-relocation-4d3d057386d33d707f62a459a9065e337e44a122-source.tar`,
+the original pre-test `-result.json`, and the corrected `-preserved-modes-gate.log`
+and `-preserved-modes-result.json` sharing that same commit prefix. Exclusive
+attempt markers keep the two wrapper attempts distinct. Result-only documentation
+passed content validation, 13 architecture-doc tests and 42 release-history tests.
+The changed-path inventory against the gated commit contains only six Markdown
+documents; executable source is equivalent. No behavior change inherits this
+result. Package version is unchanged; no push, PR, merge, release, staging refresh
+or definitive TODO completion occurred. The local branch/worktree are retained.
 
 The private transaction has no live mapping authority before composition;
 candidate reads do not retire rows or advance frame/time metadata. Exact full
