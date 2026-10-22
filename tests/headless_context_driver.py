@@ -268,7 +268,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
             return True
         authentication=policy.authentication(snapshot)
         if _resume_offer is not None and policy.active_input_forbidden(snapshot):
-            error=_resume_layout_error(resume_view,'FORBIDDEN_UI')
+            error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer)
             if resume_view is not None: revoke_resume_view(resume_view)
             raise error
         resume_live()
@@ -310,7 +310,7 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
         authentication=policy.authentication(snapshot)
         if not authentication: return
         if _resume_offer is not None:
-            error=_resume_layout_error(resume_view,'FORBIDDEN_UI')
+            error=_resume_layout_error(resume_view,'FORBIDDEN_UI',offer=_resume_offer)
             if resume_view is not None: revoke_resume_view(resume_view)
             raise error
         previous=current_stage; current_stage=authentication

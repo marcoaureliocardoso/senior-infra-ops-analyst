@@ -256,9 +256,11 @@ def resume_failure_diagnostic(error):
     return value if valid_resume_failure(value) else None
 
 
-def _resume_layout_error(view,check):
+def _resume_layout_error(view,check,*,offer=None):
     error=ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
-    try: _capture_resume_failure(error,_VIEWS.get(view),check)
+    try:
+        record=_OFFERS.get(offer) if view is None else _VIEWS.get(view)
+        _capture_resume_failure(error,record,check)
     except Exception: pass  # Optional observation must not interfere with revocation.
     return error
 

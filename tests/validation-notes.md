@@ -17,8 +17,14 @@ Only closed phase/check/case-kind/history-kind facts survive against the exact
 exception; no operational object or content is added to the observation.
 Invalid/oversized annotations are sacrificed before base records. No timeout,
 input permission, retirement rule, acceptance predicate, provider, version or
-production retention policy changes. Full package regression and independent
-review remain pending at this recording point. No native/provider/browser
+production retention policy changes. One independent read-only review found
+no Critical/Minor findings and one Important: an early forbidden resumed UI
+had no bound view, losing its diagnostic. Author RED reproduced six cases
+(text/skill times API-key/theme/trust) in 2.441s. The fixed path freezes only
+closed labels from the existing offer without binding a view or sending input.
+The targeted binding and post-clear tests passed (2 tests/7.935s), including
+zero input and cleanup. This author fix is not independently re-reviewed.
+Full package regression remains pending at this recording point. No native/provider/browser
 run, push, PR, merge, staging refresh or TODO completion occurred.
 
 ## Bounded acceptance - one-shot native offline result inconclusive - 2026-10-21

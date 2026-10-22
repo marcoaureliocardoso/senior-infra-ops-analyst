@@ -1464,11 +1464,21 @@ class ResumedHistoryDriverTests(unittest.TestCase):
     def test_resume_auth_theme_trust_never_inherits_startup_keys(self):
         from resume_history_fixtures import CaseFixture
         from browser_startup_approval import StartupApproval
-        for mode in ('api_key','theme','trust'):
-            with self.subTest(mode=mode), CaseFixture() as f:
-                f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
-                result,data=self.run_owned(f,mode,startup_approval=StartupApproval(time.time()+25,time.time))
-                self.assertEqual((result,len(data)),(2,0))
+        for kind in ('text-turn','skill-turn'):
+            for mode in ('api_key','theme','trust'):
+                with self.subTest(kind=kind,mode=mode), CaseFixture(kind) as f:
+                    f.complete_initial(); f.validate_sdk(f.kind); f.fresh_terminal()
+                    diagnostics=TerminalDiagnostics()
+                    result,data=self.run_owned(f,mode,diagnostics=diagnostics,
+                        startup_approval=StartupApproval(time.time()+25,time.time))
+                    self.assertEqual((result,len(data)),(2,0))
+                    report=diagnostics.report(); self.assertFalse(report['rejected'])
+                    failures=[row for row in report['records'] if row['point']=='failure']
+                    self.assertEqual(len(failures),1)
+                    self.assertEqual(failures[0].get('resumeHistoryFailure'),{'phase':'BINDING',
+                        'check':'FORBIDDEN_UI','caseKind':kind,'historyKind':'NONE'})
+                    self.assertEqual([row['point'] for row in report['records']][-2:],
+                        ['native_cleanup','helper_cleanup'])
 
     def test_real_peer_resume_pinned_history_and_post_enter_retirement(self):
         from resume_history_fixtures import CaseFixture
