@@ -937,6 +937,73 @@ class HeadlessContextDriverTests(unittest.TestCase):
 
 
 class ResumedHistoryDriverTests(unittest.TestCase):
+    def run_relocation(self,kind,mode,*,partial=False,fault=False):
+        from resume_history_fixtures import CaseFixture
+        import terminal_resume_history as history
+        with CaseFixture(kind) as f:
+            f.complete_initial(); f.validate_sdk(kind); f.fresh_terminal()
+            read_fd,write_fd=os.pipe(); diagnostics=TerminalDiagnostics(); original_add=diagnostics.add
+            original_commit=history._try_commit_sdk_relocation; actual_write=os.write
+            released=[]; commits=[]; blocked=[]; exit_started=[]
+            def add(point,reason,**fields):
+                result=original_add(point,reason,**fields)
+                if point=='input_probe_cleared' and not released:
+                    released.append(True); actual_write(write_fd,b'1')
+                return result
+            def commit(*args,**kwargs):
+                result=original_commit(*args,**kwargs)
+                if result:
+                    commits.append(True)
+                    if mode=='relocation-drain': actual_write(write_fd,b'1')
+                return result
+            def write(fd,data):
+                current=inspect.currentframe().f_back
+                if partial and current.f_code.co_name=='write_terminal':
+                    if not blocked: blocked.append(True); raise BlockingIOError(errno.EAGAIN,'fixture would block')
+                    if fault and exit_started: raise OSError('fixture exit transport failure')
+                    if bytes(data).startswith(b'/exit'): exit_started.append(True)
+                    return actual_write(fd,bytes(data[:1]))
+                return actual_write(fd,data)
+            try:
+                with mock.patch.object(diagnostics,'add',side_effect=add), \
+                        mock.patch.object(selected_controller,'_try_commit_sdk_relocation',new=commit,create=True), \
+                        mock.patch.object(selected_controller.os,'write',new=write):
+                    result,data=self.run_owned(f,mode,_peer_barrier_fd=read_fd,diagnostics=diagnostics,
+                        _dialogue_timeout=12)
+            finally: os.close(read_fd); os.close(write_fd)
+            self.assertTrue(f.state.helper_reaped)
+            self.assertFalse(diagnostics.report()['rejected'] or diagnostics.report()['truncated'])
+            return result,data,released,commits,blocked
+
+    def test_relocation_reaches_natural_exit_with_exact_protocol_bytes(self):
+        for kind in ('text-turn','skill-turn'):
+            with self.subTest(kind=kind):
+                result,data,released,commits,_=self.run_relocation(kind,'relocation-move')
+                self.assertEqual(result,0); self.assertEqual(commits,[True]); self.assertEqual(released,[True])
+                self.assertEqual(data[:9],b'/context\r'); self.assertEqual(len(data[9:25]),16)
+                self.assertEqual(data[25:],b'\x15/exit\r')
+
+    def test_relocation_drain_checks_every_frame_before_exit(self):
+        for kind in ('text-turn','skill-turn'):
+            for mode in ('relocation-drain','relocation-padding','relocation-duplicate','relocation-preproof'):
+                with self.subTest(kind=kind,mode=mode):
+                    result,data,released,commits,_=self.run_relocation(kind,mode)
+                    self.assertEqual(result,2); self.assertNotIn(b'/exit',data)
+                    if mode=='relocation-drain': self.assertEqual(commits,[True])
+                    else: self.assertEqual(commits,[])
+                    if mode=='relocation-preproof': self.assertEqual(data,b'/context\r'); self.assertEqual(released,[])
+                    else: self.assertEqual(len(data),26); self.assertEqual(data[-1:],b'\x15')
+
+    def test_relocation_partial_writes_do_not_reopen_input(self):
+        for kind in ('text-turn','skill-turn'):
+            for fault in (False,True):
+                with self.subTest(kind=kind,fault=fault):
+                    result,data,released,commits,blocked=self.run_relocation(kind,'relocation-move',partial=True,fault=fault)
+                    self.assertEqual(result,2 if fault else 0)
+                    self.assertEqual(released,[True]); self.assertEqual(commits,[True]); self.assertEqual(blocked,[True])
+                    self.assertEqual(data[:9],b'/context\r'); self.assertEqual(len(data[9:25]),16)
+                    self.assertEqual(data[25:],b'\x15/' if fault else b'\x15/exit\r')
+
     def setUp(self):
         spec=importlib.util.spec_from_file_location('resume_selected_driver',Path(__file__).with_name('claude-pty-driver.py'))
         self.driver=importlib.util.module_from_spec(spec); spec.loader.exec_module(self.driver)

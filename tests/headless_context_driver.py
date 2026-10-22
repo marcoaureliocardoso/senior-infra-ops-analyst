@@ -24,7 +24,7 @@ from terminal_cancellation import TerminalCancelled
 from terminal_resume_history import (ResumeHistoryError,validate_initial_sink,bind_initial_sink,
     capture_initial_completion,finish_initial_completion,validate_resume_offer,try_bind_resume_view,
     validate_resume_view,finish_resume_view,revoke_resume_view,resume_view_decision,
-    resume_failure_diagnostic,_resume_layout_error)
+    resume_failure_diagnostic,_resume_layout_error,_try_commit_sdk_relocation)
 
 
 class _ContextFailure(RuntimeError):
@@ -233,6 +233,10 @@ def drive_context(command,capture_path,timeout_seconds,events_path,startup_appro
 
     def resume_live():
         if resume_view is not None:
+            if acceptance_owned and probe is not None and context_receipt is not None:
+                _try_commit_sdk_relocation(resume_view,probe,context_receipt,policy=policy,
+                    snapshot=snapshot,frame=frame,state=state,scope=input_probe_scope,native_owner=process,
+                    controller_owner=controller_owner,transition_owner=transition)
             validate_resume_view(resume_view,policy=policy,snapshot=snapshot,frame=frame,state=state,
                 scope=input_probe_scope,native_owner=process,controller_owner=controller_owner,transition_owner=transition)
 

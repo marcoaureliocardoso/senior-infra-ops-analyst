@@ -52,6 +52,13 @@ class SDKRelocationTests(unittest.TestCase):
                 self.assertTrue(b['probe'].consume_exit(original,moved,6,f.native,f.transition))
                 self.assertFalse(b['probe'].consume_exit(original,moved,6,f.native,f.transition))
 
+    def test_nonacceptance_proven_nonce_cannot_activate_relocation(self):
+        for kind in ('text-turn','skill-turn'):
+            with self.subTest(kind=kind),CaseFixture(kind) as f:
+                b=f.proven_resume(ordinary_acceptance=False)
+                with self.assertRaises(RuntimeError): self.commit(f,b,snapshot=self.moved(b))
+                self.assertEqual(history.resume_view_decision(b['view']),'REJECTED')
+
     def test_same_percentage_changed_sample_rejects_transaction(self):
         for kind in ('text-turn','skill-turn'):
             for change in ('decimal','metric-row','context-row','witness','anchor'):

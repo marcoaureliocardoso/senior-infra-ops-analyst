@@ -178,6 +178,27 @@ class OfflineTerminalResumeSafetyTests(unittest.TestCase):
         self.assertEqual(self.module.run_cases(incomplete)['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
         self.assertEqual(invoked,['text-turn'])
 
+    def test_relocation_cases_require_full_proofs_and_disposal(self):
+        report=self.fake_report('relocation')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_PASSED')
+        self.assertEqual([case['case'] for case in report['cases']],['text-turn','skill-turn'])
+        for case in report['cases']:
+            self.assertTrue(self.module.case_complete(case))
+            self.assertTrue(case['caseRootAbsent'] and case['naturalExit'] and case['contextInspected'])
+            self.assertEqual((case['beforeExit'],case['sdkExit'],case['afterExit']),(0,0,0))
+            for stage in case['stages']:
+                cleanup=[r for r in stage['diagnostics']['records'] if r['point'].endswith('_cleanup')]
+                self.assertEqual(len(cleanup),2)
+                self.assertTrue(all(r['leaderReaped'] and r['reasonCode']=='CLEANUP_COMPLETED' for r in cleanup))
+
+    def test_relocation_inconclusive_stops_before_skill_case(self):
+        report=self.fake_report('relocation-padding')
+        self.assertEqual(report['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertEqual([case['case'] for case in report['cases']],['text-turn'])
+        self.assertEqual(report['cases'][0]['afterExit'],2)
+        self.assertTrue(report['cases'][0]['caseRootAbsent'])
+        self.assertFalse(self.module.case_complete(report['cases'][0]))
+
     def test_report_pressure_does_not_erase_required_proof(self):
         import copy
         case={'case':'text-turn','beforeExit':0,'sdkExit':0,'afterExit':0,'contextInspected':True,

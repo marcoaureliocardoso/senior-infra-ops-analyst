@@ -954,7 +954,8 @@ def _sdk_relocation_protected_rows(receipt,*,view,snapshot,frame,state,scope,nat
     bound=_DISPLAYS.get(witness) if type(witness) is ContextDisplayWitness else None
     sample=sample_context(snapshot)
     if (bound is None or bound['command']() is not command or bound['tracker'] is not tracker
-            or tracker['phase']!='CONSUMED' or sample is None or frame<bound['frame']):
+            or tracker['phase']!='CONSUMED' or tracker.get('acceptance_prepared') is not True
+            or sample is None or frame<bound['frame']):
         _fail(record,'INPUT_PROBE_REVOKED','DISPLAY_WITNESS_UNPROVEN')
     return frozenset(tracker['inventory'])|frozenset((index,anchor.row))|frozenset(
         bound['sample'].geometry[3])|frozenset(sample.geometry[3])

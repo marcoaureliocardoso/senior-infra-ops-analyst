@@ -4,8 +4,9 @@ Date: 2026-10-22
 
 Status: written specification approved on 2026-10-22. The separate
 [implementation plan](../plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
-awaits review and execution-method selection. This document does not implement
-behavior or authorize a native execution.
+was approved for inline execution. Local implementation is under verification;
+independent final review, immutable gate and native compatibility remain separate.
+No native execution is authorized by these approvals.
 
 ## Intent and boundary
 
@@ -225,7 +226,7 @@ version and release claims remain unchanged. Written-specification approval
 permits preparation of the separate plan, not product changes, a new native
 run, push, PR, merge, staging refresh or TODO completion.
 
-The written specification is approved; the separate implementation plan awaits
-review and execution-method selection. Any later native attempt needs a fresh
+The written specification and separate inline implementation plan are approved.
+Local implementation does not complete native acceptance. Any later attempt needs a fresh
 authorization tied to its final source and explicit limits; previous one-shot
 grants remain consumed.

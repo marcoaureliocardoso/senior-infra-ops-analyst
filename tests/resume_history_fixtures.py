@@ -123,6 +123,17 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
     if mode=='acceptance-fragmented': after='\x1b[2J'
     if mode=='acceptance-native-exit': post_profile='raise SystemExit(0)\n'
     restored=''
+    if mode.startswith('relocation-'):
+        if type(barrier_fd) is not int: raise ValueError('fixture barrier required')
+        moved='\x1b[6;1H\x1b[2K\x1b[7;1H❯ '+text+'\x1b[38;3H'
+        if mode=='relocation-padding': moved=moved.replace('❯ '+text,'❯\u00a0'+text)
+        if mode=='relocation-duplicate': moved=moved.replace('\x1b[6;1H\x1b[2K','')
+        if mode=='relocation-preproof':
+            after=after.replace('\x1b[6;1H❯ '+text,'\x1b[7;1H❯ '+text)
+        else:
+            restored='os.read('+str(barrier_fd)+',1)\nos.write(1,'+repr(moved.encode())+')\n'
+            if mode=='relocation-drain':
+                restored+='os.read('+str(barrier_fd)+',1)\nos.write(1,"\\x1b[31;1H❯ unknown\\x1b[38;3H".encode())\n'
     if mode=='retire-return-after-clear':
         if type(barrier_fd) is not int: raise ValueError('fixture barrier required')
         restored=('os.read('+str(barrier_fd)+',1)\n'
@@ -156,12 +167,13 @@ def write_context_peer(path, *, mode, seen, barrier_fd=None, case_kind='text-tur
 
 def write_fake_cli(path: Path, *, mode: str) -> None:
     """Self-contained hand-authored CLI double for the actual isolated harness."""
-    if mode not in ('success','equal-values','acceptance-transient','wrong-session','replace-invalid','replace-valid',
+    if mode not in ('success','equal-values','acceptance-transient','relocation','relocation-padding',
+                    'wrong-session','replace-invalid','replace-valid',
                     'view-loss','cleanup-failure','interrupt'):
         raise ValueError('fixture mode rejected')
     fixtures={kind:sdk_events('synthetic-placeholder',kind) for kind in ('text-turn','skill-turn')}
     source='''#!/usr/bin/python3 -I
-import json,os,signal,sys,time,tty,urllib.request
+import json,os,select,signal,sys,time,tty,urllib.request
 from pathlib import Path
 MODE=__MODE__
 FIXTURES=__FIXTURES__
@@ -235,6 +247,14 @@ if len(marker)!=16 or any(c not in b'0123456789abcdef' for c in marker): raise S
 os.write(1,b'\\x1b[38;3H'+marker)
 if read(1)!=b'\\x15': raise SystemExit(18)
 os.write(1,'\\x1b[38;1H\\x1b[2K❯\\u00a0'.encode())
+if resume and MODE in ('relocation','relocation-padding'):
+    # A bounded deferred redraw models an asynchronous client, not controller
+    # acknowledgement. Real-driver tests provide the deterministic phase barrier.
+    time.sleep(.2)
+    if select.select([0],[],[],0)[0]: raise SystemExit(20)
+    gap='\\u00a0' if MODE=='relocation-padding' else ' '
+    moved='\\x1b[6;1H\\x1b[2K\\x1b[7;1H❯'+gap+(SKILL if kind=='skill-turn' else TEXT)+'\\x1b[38;3H'
+    os.write(1,moved.encode())
 if read(6)!=b'/exit\\r': raise SystemExit(19)
 '''
     path.write_text(source.replace('__MODE__',repr(mode)).replace('__FIXTURES__',repr(fixtures)),encoding='utf-8')
@@ -347,7 +367,7 @@ class CaseFixture:
         import terminal_resume_history as history
         return history.offer_resume(self.case,state=self.state,scope=self.scope,command=self.resume_command)
 
-    def proven_resume(self, *, sdk_history=True, pinned_exit=False, pre_enter_menu=False):
+    def proven_resume(self, *, sdk_history=True, pinned_exit=False, pre_enter_menu=False, ordinary_acceptance=True):
         import terminal_context_echo as echo
         import terminal_input_challenge as challenge
         import terminal_resume_history as history
@@ -362,7 +382,12 @@ class CaseFixture:
         assert view is not None
         command=echo.begin_context_command(self.scope,self.state,self.native,self.transition,self.policy,
             baseline,1,_resume_view=view,_controller_owner=self.controller)
-        assert command.type_bytes(baseline,1)==b'/context'; command.check_edit(baseline,1,8)
+        if ordinary_acceptance:
+            echo._prepare_acceptance_pending(command,baseline,1,controller_owner=self.controller)
+        assert command.type_bytes(baseline,1)==b'/context'
+        if ordinary_acceptance:
+            echo._acknowledge_acceptance_edit(command,8,remaining=8,controller_owner=self.controller)
+        command.check_edit(baseline,1,8)
         menu=((16,'❯ /context  Synthetic completion'),) if pre_enter_menu else ()
         current=replace(history_snapshot((*old,*menu,(37,'❯ /context'))),cursorX=10)
         assert command.observe(current,2)=='COMMAND_ECHO_MATCHED'

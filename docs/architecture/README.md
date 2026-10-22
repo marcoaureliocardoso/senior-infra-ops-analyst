@@ -17,13 +17,14 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
-ADR-010 also indexes the proposed
+ADR-010 also indexes the test-only
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 Its written specification was approved on 2026-10-22. The
 [implementation plan](../superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
-awaits review and execution-method selection.
-No relocation is implemented. Exact SDK-profile correspondence and complete
-same-frame context/input/lifetime validation would precede atomic publication;
+was approved for inline execution. Tasks 1-3 are implemented and passed their
+focused gates; driver integration is under regression validation, with final
+independent review and immutable gate pending. Exact profile correspondence and
+complete same-frame context/input/lifetime validation precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
 and no execution grant, timeout or production/browser boundary changes.
 

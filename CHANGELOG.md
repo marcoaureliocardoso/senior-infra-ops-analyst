@@ -7,6 +7,15 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Implemented test-only one-shot exact SDK-history relocation for ordinary
+  audited offline resumed acceptance. Sealed nonce/clear provenance and full
+  same-frame context/input/lifetime validation precede atomic placement commit;
+  old positions stay retired and later movement or profile changes fail closed.
+  Debug/observation/live routes, production policy, input sequence, retention and
+  time limits are unchanged. Focused synthetic validation is in progress; final
+  independent review and immutable package gate remain pending. Native profile
+  equality and compatibility are unproved; no native execution grant is renewed.
+
 - Added optional test-only resumed-history failure subreasons, frozen before
   revocation and projected only as closed phase/check/case/history-kind labels.
   They distinguish layout-check failures without retaining terminal content or

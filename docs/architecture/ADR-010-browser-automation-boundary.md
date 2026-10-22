@@ -1180,12 +1180,13 @@ No native grant is renewed. Rollback removes this optional annotation path
 without changing those operational checks. Exact RED/GREEN and broader gate
 status are recorded in `tests/validation-notes.md`.
 
-## Proposed one-shot SDK-history relocation
+## One-shot SDK-history relocation (local implementation)
 
 The operator approved the architectural direction for one exact, transactional
 SDK-history relocation in ordinary audited offline resumed acceptance. The
-written specification was approved on 2026-10-22; its implementation plan awaits
-review and execution-method selection. This is not implemented behavior.
+written specification and native/inline implementation plan were approved on
+2026-10-22. The test-only implementation is local; driver regressions, final
+independent review and the immutable package gate are not yet all complete.
 Only an already proven SDK_TEXT/SDK_SKILL identity may propose a new placement,
 after sealed nonce/clear completion and before exit-proof consumption. Full
 profile equality, unique correspondence, collision exclusion and all composed
@@ -1196,13 +1197,13 @@ The `9f68a0f` native failure and source-level investigation establish a changed
 recognized SDK-class placement, not complete profile equality or current-frame
 ownership at failure. Strict support may therefore remain inconclusive. No
 production, observation-only, retention, timeout, input or execution-grant
-boundary changes follow from approval to write this specification. Native
-acceptance and implementation-plan approval remain separate gates.
+boundary changes follow from these test-only implementation approvals. Native
+acceptance remains a separate gate.
 
 ## Links
 
-- Approved correlated SDK-history relocation specification (not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
-- Proposed correlated SDK-history relocation implementation plan (review and method selection pending): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
+- Approved correlated SDK-history relocation specification (local implementation; native support unproved): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
+- Approved inline correlated SDK-history relocation plan (final validation pending): `docs/superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md`
 
 - Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
 - Approved inline bounded post-Enter acceptance plan (including Task 3 lifecycle correction): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`

@@ -1,5 +1,38 @@
 # Validation Notes
 
+## One-shot exact SDK-history relocation - local implementation - 2026-10-22
+
+The written specification and inline implementation plan were approved. Task 1
+at `d3bcc1a` passed 109 focused tests; Task 2 at `61f222b` passed 72; Task 3 at
+`722bbe6` passed 191. Each group was repeated by the task-completion helper on
+committed source. RED cases preceded implementation: genuine clear evidence,
+exact proposals, full composed commit and same-frame negative matrices.
+
+The driver integration is under focused regression validation; no final gate
+or independent whole-change review is claimed yet. New deterministic PTY tests
+passed both fixed case kinds for exact relocation/natural exit, post-commit bad
+frame draining, profile/duplicate/pre-proof rejection, partial writes and a
+failed partial exit. A nonordinary-route test failed before an author fix bound
+relocation to existing private acceptance provenance; both kinds now reject it.
+
+Two namespace CLI-double tests passed: complete text/skill proof and disposal,
+and changed padding stopping before skill-turn with an inconclusive result.
+Those doubles use a bounded deferred redraw, not a controller acknowledgement;
+deterministic post-clear ordering is established separately by the PTY barrier.
+No native Claude or real provider was invoked. Scope audit, existing mandatory
+proofs, report budgets and owned root/process cleanup remain required.
+
+The private transaction has no live mapping authority before composition;
+candidate reads do not retire rows or advance frame/time metadata. Exact full
+profiles retain ASCII/NBSP distinction. Old positions cannot return; committed
+placement must remain stable through independently guarded exit. Existing
+production, debug and read-only observation contracts and versions are unchanged.
+The old native `9f68a0f` attempt remains consumed and inconclusive. Its retained
+labels plus source analysis establish changed SDK-class placement, not native
+full-profile equality or renewed current-frame ownership. A fresh final-source
+authorization and successful native run would still be needed for compatibility;
+provider/browser, platform and remote CI/Security gates remain separate.
+
 ## Instrumented one-shot native offline acceptance - specific failure observed - 2026-10-22 UTC
 
 One newly authorized ordinary offline acceptance ran once against exact commit

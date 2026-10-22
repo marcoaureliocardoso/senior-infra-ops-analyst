@@ -655,6 +655,8 @@ def _prepare_sdk_relocation(view,probe,evidence,receipt,*,policy,snapshot,frame,
     sdk=[(index,profile) for index,profile in profiles.items() if profile.kind.startswith('SDK_')]
     if not sdk: return None
     identity=record['sdk_identity']; destination,actual=sdk[0]
+    if destination in record['retired']:
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='RETIRED_PROFILE_RETURNED',history_kind=actual.kind)
     if identity is None or actual!=identity[1]:
         _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
     if destination==record['sdk_position'] and destination not in record['retired']: return None

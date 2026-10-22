@@ -15,9 +15,12 @@ terminal snapshots, Node/xterm helper, Python PTY peers and Debian WSL gates.
 
 **Spec:** [Approved relocation specification](../specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 
-Status: written specification approved on 2026-10-22; this plan awaits operator
-review and execution-method selection. Planning baseline: `c78997d`. No task is
-implemented or native execution authorized by this document.
+Status: written specification and this plan approved on 2026-10-22; operator
+selected native/inline execution (option 2). Tasks 1-3 completed locally at
+`d3bcc1a`, `61f222b` and `722bbe6`, with 109/72/191 focused tests respectively.
+Task 4 is under regression validation; final independent review and immutable
+package gate remain pending. Planning baseline: `c78997d`. No native execution
+is authorized by this document or the execution-method selection.
 
 ## Global Constraints
 
@@ -374,7 +377,6 @@ to Task 3; concrete I/O, cleanup, routing and aggregation to Task 4. Final revie
 and immutable gate cover the cumulative behavior. Native compatibility remains
 a separate experiment, not a promised consequence of this plan.
 
-The operator must review this plan and select an execution method before Task 1.
-Recommended: native/inline execution, because the four tasks share tightly bound
-private interfaces and one driver coordinator; retain fresh independent final
-review. Subagent-driven per-task implementation/review remains an alternative.
+The operator reviewed the plan and selected native/inline execution. This
+preserves the tightly coupled private interfaces under one implementer, with a
+fresh independent final review still required. No native attempt is included.
