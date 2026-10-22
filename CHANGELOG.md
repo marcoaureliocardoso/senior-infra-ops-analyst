@@ -12,7 +12,7 @@ tag. Tagged versions correspond to repository tags.
   same-frame context/input/lifetime validation precede atomic placement commit;
   old positions stay retired and later movement or profile changes fail closed.
   Debug/observation/live routes, production policy, input sequence, retention and
-  time limits are unchanged. Focused synthetic validation is in progress; final
+  time limits are unchanged. The final task's 256-test synthetic group passed;
   independent review and immutable package gate remain pending. Native profile
   equality and compatibility are unproved; no native execution grant is renewed.
 

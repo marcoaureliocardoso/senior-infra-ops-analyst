@@ -21,9 +21,9 @@ ADR-010 also indexes the test-only
 [one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
 Its written specification was approved on 2026-10-22. The
 [implementation plan](../superpowers/plans/2026-10-22-p0-04b-correlated-sdk-history-relocation.md)
-was approved for inline execution. Tasks 1-3 are implemented and passed their
-focused gates; driver integration is under regression validation, with final
-independent review and immutable gate pending. Exact profile correspondence and
+was approved for inline execution. All four tasks are implemented and passed
+their focused gates, including the final 256-test group. Final independent
+review and immutable gate are pending. Exact profile correspondence and
 complete same-frame context/input/lifetime validation precede atomic publication;
 old positions stay retired. Native equality and compatibility remain unknown,
 and no execution grant, timeout or production/browser boundary changes.

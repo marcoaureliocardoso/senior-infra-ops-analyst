@@ -8,8 +8,11 @@ at `d3bcc1a` passed 109 focused tests; Task 2 at `61f222b` passed 72; Task 3 at
 committed source. RED cases preceded implementation: genuine clear evidence,
 exact proposals, full composed commit and same-frame negative matrices.
 
-The driver integration is under focused regression validation; no final gate
-or independent whole-change review is claimed yet. New deterministic PTY tests
+Task 4 at `bbb6dde` passed 256 committed-source tests: 94 headless driver,
+75 offline safety, 26 CLI driver, 14 cancellation, 5 headless signals,
+25 structural diagnostics and 17 observation-report tests. The nine-test
+relocation suite also passed, including its both-kind subcases. Final immutable
+gate and independent whole-change review are pending. New deterministic PTY tests
 passed both fixed case kinds for exact relocation/natural exit, post-commit bad
 frame draining, profile/duplicate/pre-proof rejection, partial writes and a
 failed partial exit. A nonordinary-route test failed before an author fix bound
@@ -21,6 +24,23 @@ Those doubles use a bounded deferred redraw, not a controller acknowledgement;
 deterministic post-clear ordering is established separately by the PTY barrier.
 No native Claude or real provider was invoked. Scope audit, existing mandatory
 proofs, report budgets and owned root/process cleanup remain required.
+
+An additional overlapping focused run passed all 94 driver tests, then failed
+one of 75 offline tests:
+`test_initial_context_failure_retains_original_inconclusive_decision` returned
+OFFLINE_PROBE_BLOCKED instead of OFFLINE_CONTROLS_INCONCLUSIVE. Its isolated
+rerun passed, as did the full committed-source group above. The original failure
+retained no more specific cause; neither environment causation nor a product
+fix is claimed. Keep this observation separate from native compatibility.
+
+Execution rulings: skill bookkeeping uses authorized Git Bash with command-local
+safe.directory because WSL Git cannot interpret the Windows-format linked `.git`;
+failure would affect bookkeeping only. Optional missing-SDK and pinned/pre-Enter
+fixture inputs exercise real protocol provenance rather than registry injection;
+their API impact is test-only. Ordinary acceptance requires both driver routing
+and original private tracker provenance; an unsupported route fails closed.
+The namespace double's 0.2-second redraw is not a phase proof and can be
+inconclusive under scheduling variation; it cannot grant input or trigger retry.
 
 The private transaction has no live mapping authority before composition;
 candidate reads do not retire rows or advance frame/time metadata. Exact full

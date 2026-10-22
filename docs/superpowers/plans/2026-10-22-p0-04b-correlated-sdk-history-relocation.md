@@ -1,6 +1,6 @@
 # P0-04B Correlated SDK-History Relocation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Support one exact SDK-history relocation after proven nonce clearing,
 without weakening independent input, context, lifetime or exit authorization.
@@ -18,8 +18,9 @@ terminal snapshots, Node/xterm helper, Python PTY peers and Debian WSL gates.
 Status: written specification and this plan approved on 2026-10-22; operator
 selected native/inline execution (option 2). Tasks 1-3 completed locally at
 `d3bcc1a`, `61f222b` and `722bbe6`, with 109/72/191 focused tests respectively.
-Task 4 is under regression validation; final independent review and immutable
-package gate remain pending. Planning baseline: `c78997d`. No native execution
+Task 4 completed at `bbb6dde` with 256 committed-source focused tests passed;
+the final independent review is in progress and immutable package gate remains
+pending. Planning baseline: `c78997d`. No native execution
 is authorized by this document or the execution-method selection.
 
 ## Global Constraints
@@ -131,7 +132,7 @@ native_owner, controller_owner, transition_owner) -> None`; invalid evidence
 raises the existing `InputProofError`. Neither function evaluates history or
 returns an input grant. Preserve all public nonce method signatures.
 
-- [ ] **Step 1: Add failing tests** named
+- [x] **Step 1: Add failing tests** named
   `test_public_proven_does_not_issue_clear_evidence`,
   `test_clear_evidence_requires_real_echo_clear_and_new_empty_frame` and
   `test_clear_evidence_is_bound_revocable_and_not_exit_authority`.
@@ -148,17 +149,17 @@ returns an input grant. Preserve all public nonce method signatures.
   self.assertIs(probe._proof, original_exit_proof)
   self.assertFalse(challenge_module._CHALLENGES[probe]['consumed'])
   ```
-- [ ] **Step 2: Run** `tests/test-terminal-input-challenge.py`; demonstrate the
+- [x] **Step 2: Run** `tests/test-terminal-input-challenge.py`; demonstrate the
   new behavioral assertions fail for missing genuine completion provenance.
-- [ ] **Step 3: Implement** the interfaces above. Mint evidence only in the
+- [x] **Step 3: Implement** the interfaces above. Mint evidence only in the
   actual CLEAR_PENDING-to-PROVEN branch; privately bind the real proof identity,
   completion frame, original anchor/owners/run/deadline and challenge record.
   Split non-history lifetime checks from `_check` for reuse, preserving `_check`
   behavior. Check private issuance/consumption, not public phase alone. Remove
   evidence on invalidation, consumption and case teardown; expose no raw nonce.
-- [ ] **Step 4: Run** input-challenge, resume-history and context-echo suites;
+- [x] **Step 4: Run** input-challenge, resume-history and context-echo suites;
   verify GREEN and unchanged ordinary proof/exit behavior.
-- [ ] **Step 5: Commit** only Task 1 files as
+- [x] **Step 5: Commit** only Task 1 files as
   `test: seal resumed nonce clear completion evidence`.
 
 ### Task 2: Exact Non-Authoritative History Projection
@@ -175,12 +176,12 @@ frame, state, scope, native_owner, controller_owner, transition_owner)
 private `_history_read=None`, accepting an exact live candidate, never a map or
 row list. No publication API is activated in the driver in this task.
 
-- [ ] **Step 1: Extend `CaseFixture`** with `proven_resume() -> dict`, exercising
+- [x] **Step 1: Extend `CaseFixture`** with `proven_resume() -> dict`, exercising
   real initial completion, validated SDK, owned resumed context, nonce echo and
   clear using existing public protocol methods. Return named bindings `view`,
   `command`, `receipt`, `probe`, `snapshot`, `frame`, `evidence`; do not mint
   capabilities by registry injection. Support both fixed case kinds.
-- [ ] **Step 2: Add failing `SDKRelocationTests`** with
+- [x] **Step 2: Add failing `SDKRelocationTests`** with
   `test_exact_candidate_is_read_only_and_not_an_exclusion_grant` and
   `test_retired_source_is_identity_not_authority`. Assert stable SDK gives None;
   exact one-row move prepares a candidate with no live map/retirement/used-state
@@ -198,8 +199,8 @@ row list. No publication API is activated in the driver in this task.
   self.assertEqual(record['retired'], original_retired)
   self.assertFalse(record['sdk_relocated'])
   ```
-- [ ] **Step 3: Run** the new suite and reproduce failing behavioral assertions.
-- [ ] **Step 4: Implement** candidate preparation as a private pure proposal:
+- [x] **Step 3: Run** the new suite and reproduce failing behavioral assertions.
+- [x] **Step 4: Implement** candidate preparation as a private pure proposal:
   preserve immutable original SDK identity, separate placement and monotonic
   retired inventory. Name the new private view fields `sdk_identity`
   (original index/profile pair or None), `sdk_position` (current index or None)
@@ -211,9 +212,9 @@ row list. No publication API is activated in the driver in this task.
   coherent projected indices to internal readers. Missing/invalid eligibility
   must never convert ordinary rejection into None. None means no SDK placement
   change to propose. Preserve legacy diagnostics and observation guard behavior.
-- [ ] **Step 5: Run** new relocation, resume-history, failure-diagnostic and
+- [x] **Step 5: Run** new relocation, resume-history, failure-diagnostic and
   input-challenge suites; verify GREEN and cleanup of private candidates.
-- [ ] **Step 6: Commit** Task 2 files as
+- [x] **Step 6: Commit** Task 2 files as
   `test: model exact one-shot SDK history relocation candidates`.
 
 ### Task 3: Composed Same-Frame Commit
@@ -233,7 +234,7 @@ state, scope, native_owner, controller_owner, transition_owner) -> bool` in
 history. False means no eligible placement change; rejection raises existing
 closed errors after revocation. True means one atomic commit, not an exit grant.
 
-- [ ] **Step 1: Add failing tests**
+- [x] **Step 1: Add failing tests**
   `test_exact_relocation_commits_only_after_complete_same_frame_assessment`,
   `test_same_percentage_changed_sample_rejects_transaction` and
   `test_rejected_composition_never_publishes_candidate_state`.
@@ -251,7 +252,7 @@ closed errors after revocation. True means one atomic commit, not an exit grant.
   self.assertIs(probe._proof, original_exit_proof)
   self.assertEqual(history.resume_view_decision(rejected_view), 'REJECTED')
   ```
-- [ ] **Step 2: Add failing** `test_transaction_lifetime_replay_and_collision_matrix`
+- [x] **Step 2: Add failing** `test_transaction_lifetime_replay_and_collision_matrix`
   and `test_committed_placement_is_unique_stable_and_monotonic`.
   Exercise every protected destination: cursor/input, owned context, heading/
   metrics, other pinned/retired/pre-Enter inventory. Deterministically inject
@@ -260,8 +261,8 @@ closed errors after revocation. True means one atomic commit, not an exit grant.
   exit. Assert no published partial map/tombstone/used flag on rejection, then
   revoked case/proofs. After success reject disappearance, mutation, second move
   and source return; no candidate can be reused or consume exit twice.
-- [ ] **Step 3: Run** the relocation suite to confirm behavioral RED.
-- [ ] **Step 4: Implement** the interfaces above. The protected inventory is
+- [x] **Step 3: Run** the relocation suite to confirm behavioral RED.
+- [x] **Step 4: Implement** the interfaces above. The protected inventory is
   derived from the registered receipt, original display tracker/pre-Enter
   inventory, current and bound full sample, cursor, pinned rows and tombstones;
   an invalid receipt never supplies trusted inventory. This inventory helper
@@ -274,10 +275,10 @@ closed errors after revocation. True means one atomic commit, not an exit grant.
   composed empty-input anchor against that single actual snapshot. Recheck live
   owner/frame/deadline and commit placement+tombstone+used state synchronously
   with no callback, I/O or asynchronous gap. Failed proposals revoke terminally.
-- [ ] **Step 5: Run** relocation, resume-history, input-challenge, context-echo,
+- [x] **Step 5: Run** relocation, resume-history, input-challenge, context-echo,
   context-display, history-rejection and post-Enter-observation suites; verify
   GREEN, defaults unchanged and no new structural output.
-- [ ] **Step 6: Commit** Task 3 files as
+- [x] **Step 6: Commit** Task 3 files as
   `test: compose exact SDK relocation transactions`.
 
 ### Task 4: Real-Driver Synthetic Lifecycle and Delivery Gates
@@ -293,7 +294,7 @@ barrier after `input_probe_cleared`. Extend `write_fake_cli(path, *, mode)` for
 namespace positive/negative trajectories. All are fixed Python peers, not
 installed Claude; retain existing driver and report interfaces.
 
-- [ ] **Step 1: Extend the fixed peer fixtures, then add failing driver tests**
+- [x] **Step 1: Extend the fixed peer fixtures, then add failing driver tests**
   `test_relocation_reaches_natural_exit_with_exact_protocol_bytes`,
   `test_relocation_drain_checks_every_frame_before_exit` and
   `test_relocation_partial_writes_do_not_reopen_input`.
@@ -313,7 +314,7 @@ installed Claude; retain existing driver and report interfaces.
   self.assertTrue(all(child.poll() is not None for child in children))
   self.assertTrue(f.state.helper_reaped)
   ```
-- [ ] **Step 2: Add failing namespace tests**
+- [x] **Step 2: Add failing namespace tests**
   `test_relocation_cases_require_full_proofs_and_disposal` and
   `test_relocation_inconclusive_stops_before_skill_case`.
   Assert both positive cases require every existing proof and natural exit;
@@ -322,7 +323,7 @@ installed Claude; retain existing driver and report interfaces.
   Assert original 165-second budget, bounded structural schema, no raw files,
   and roots absent before aggregation. Regression-test observation zero-input,
   initial/live/debug routing and diagnostics loss without acceptance changes.
-- [ ] **Step 3: Run** the driver and offline suites, reproducing behavioral RED:
+- [x] **Step 3: Run** the driver and offline suites, reproducing behavioral RED:
   the exact moved SDK still fails ordinary fixed-position validation before exit.
   Then integrate `_try_commit_sdk_relocation` in driver `resume_live()` before
   its ordinary `validate_resume_view` call, only with the actual resumed probe
@@ -332,14 +333,14 @@ installed Claude; retain existing driver and report interfaces.
   the committed view. Do not add candidate parameters to public nonce methods
   or exit writers. Pre-proof/observation-only paths retain strict validation.
   Stop for design review if broader production/outer lifecycle changes are needed.
-- [ ] **Step 4: Run** driver, offline-safety, claude-PTY-driver, cancellation,
+- [x] **Step 4: Run** driver, offline-safety, claude-PTY-driver, cancellation,
   headless-signals, structural-diagnostics and observation-report suites; require
   GREEN and truthful platform/capability skips. This is synthetic execution only.
-- [ ] **Step 5: Update** ADR/index, CHANGELOG and validation notes with actual
+- [x] **Step 5: Update** ADR/index, CHANGELOG and validation notes with actual
   local implementation/results, not native acceptance. Keep version unchanged;
   the existing Unreleased section is the only changelog target. Mark task steps
   only when evidenced; retain consumed grants and unknown native equality.
-- [ ] **Step 6: Run** content, architecture-docs and release-history checks plus
+- [x] **Step 6: Run** content, architecture-docs and release-history checks plus
   `git diff --check`; commit as `test: integrate SDK relocation with guarded driver lifecycle`.
 
 ## Whole-Change Review and Immutable Gate

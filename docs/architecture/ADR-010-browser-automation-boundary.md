@@ -1185,8 +1185,9 @@ status are recorded in `tests/validation-notes.md`.
 The operator approved the architectural direction for one exact, transactional
 SDK-history relocation in ordinary audited offline resumed acceptance. The
 written specification and native/inline implementation plan were approved on
-2026-10-22. The test-only implementation is local; driver regressions, final
-independent review and the immutable package gate are not yet all complete.
+2026-10-22. The test-only implementation is local; its final task's 256-test
+focused group passed. Final independent review and immutable package gate are
+pending; native compatibility remains unproved.
 Only an already proven SDK_TEXT/SDK_SKILL identity may propose a new placement,
 after sealed nonce/clear completion and before exit-proof consumption. Full
 profile equality, unique correspondence, collision exclusion and all composed
