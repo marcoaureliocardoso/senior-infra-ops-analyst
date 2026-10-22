@@ -66,6 +66,15 @@ def _bounded_standard_report(report,exit_code,*,reserve_disposal=False):
         envelope={**report,'disposableRootAbsent':True} if reserve_disposal else report
         return len((json.dumps(envelope,sort_keys=True)+'\n').encode())
     if size()>16384:
+        # New, lowest-priority detail cannot displace legacy failures or cleanup.
+        for record in records:
+            stages=record.get('stages',[])
+            for stage in stages if type(stages) is list else ():
+                diagnostics=stage.get('diagnostics') if type(stage) is dict else None
+                rows=diagnostics.get('records',[]) if type(diagnostics) is dict else ()
+                for row in rows if type(rows) is list else ():
+                    if type(row) is dict: row.pop('nonceHistoryContext',None)
+    if size()>16384:
         # Optional observation must be sacrificed before the existing result.
         for record in records: record.pop('failureDiagnostic',None)
     if size()>16384:

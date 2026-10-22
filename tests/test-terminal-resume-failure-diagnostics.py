@@ -2,6 +2,7 @@
 from dataclasses import replace
 import json
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from context_display_fixtures import DisplayCase
@@ -9,6 +10,105 @@ import terminal_context_echo as echo
 import terminal_resume_history as history
 import terminal_structural_diagnostics as structural
 from terminal_structural_diagnostics import TerminalDiagnostics
+import terminal_nonce_history_diagnostics as nonce_diagnostics
+
+
+class NonceHistoryCollectionTests(unittest.TestCase):
+    detail=dict(site='CANDIDATE_DESTINATION',noncePhase='CLEAR_PENDING',clearWrite='UNKNOWN',
+        clearEvidence='UNKNOWN',sdkBaseline='UNKNOWN',placement='OTHER_SLOT',profile='UNAVAILABLE')
+    legacy=dict(phase='POST_SUBMIT',check='UNOWNED_NEW_PROFILE',caseKind='text-turn',historyKind='SDK_TEXT')
+
+    def collect(self,detail=None,*,include=True):
+        collector=TerminalDiagnostics()
+        fields=dict(resumeViewDecision='REJECTED',resumeHistoryFailure=self.legacy)
+        if include: fields['nonceHistoryContext']=self.detail if detail is None else detail
+        collector.add('failure','RESUME_HISTORY_LAYOUT_REJECTED',**fields)
+        for point in ('native_cleanup','helper_cleanup'):
+            collector.add(point,'CLEANUP_COMPLETED',leaderReaped=True)
+        return collector
+
+    def test_new_detail_is_sacrificed_before_legacy_and_cleanup(self):
+        original=self.collect(include=False).report()
+        budget=len(json.dumps(original,sort_keys=True).encode())+5
+        with mock.patch.object(structural,'MAX_BYTES',budget):
+            report=self.collect().report()
+        self.assertEqual(report,original)
+        self.assertEqual([row['point'] for row in report['records']],['failure','native_cleanup','helper_cleanup'])
+        self.assertFalse(report['rejected']); self.assertFalse(report['truncated'])
+        self.assertEqual(self.collect().report()['records'][0].get('nonceHistoryContext'),self.detail)
+
+    def test_old_reports_and_invalid_optional_detail_preserve_base(self):
+        baseline=self.collect(include=False).report()
+        invalid=[True,[],{},'x'*4000,{**self.detail,'private':'no'},
+            {**self.detail,'noncePhase':1},{**self.detail,'profile':'x'*4000}]
+        for detail in invalid:
+            self.assertEqual(self.collect(detail).report(),baseline)
+        for point,reason in (('prompt_ready','CHECKPOINT'),('failure','WAIT_DEADLINE'),
+                ('native_cleanup','CLEANUP_COMPLETED')):
+            collector=TerminalDiagnostics(); clean=TerminalDiagnostics()
+            collector.add(point,reason,nonceHistoryContext=self.detail); clean.add(point,reason)
+            self.assertEqual(collector.report(),clean.report())
+        replay=TerminalDiagnostics()
+        for row in self.collect().report()['records']:
+            replay.add(row['point'],row['reasonCode'],**{k:v for k,v in row.items() if k not in ('point','reasonCode')})
+        self.assertEqual(replay.report(),self.collect().report())
+
+    def test_full_annotation_fits_retained_structural_shapes(self):
+        fixtures=json.loads((Path(__file__).parent/'fixtures/nonce-history-structural-reports.json').read_bytes())
+        self.assertEqual([f['source'] for f in fixtures],['535e55a','9f68a0f'])
+        sizes=[]
+        for fixture in fixtures:
+            report=fixture['report']
+            for stage in report['cases'][0]['stages']:
+                collector=TerminalDiagnostics()
+                for row in stage['diagnostics']['records']:
+                    fields={k:v for k,v in row.items() if k not in ('point','reasonCode')}
+                    if row['point']=='failure': fields['nonceHistoryContext']=self.detail
+                    collector.add(row['point'],row['reasonCode'],**fields)
+                checked=collector.report()
+                self.assertFalse(checked['rejected']); self.assertFalse(checked['truncated'])
+                if stage['phase']=='after':
+                    failures=[r for r in checked['records'] if r['point']=='failure']
+                    self.assertEqual(failures[0].get('nonceHistoryContext'),self.detail)
+                    sizes.append(len(json.dumps(checked,sort_keys=True).encode()))
+                stage['diagnostics']=checked
+            self.assertLessEqual(len((json.dumps(report,sort_keys=True)+'\n').encode()),16384)
+        self.assertEqual(sizes,[2882,2974])
+
+    def test_replayed_diagnostic_cannot_supply_acceptance(self):
+        import importlib.util
+        path=Path(__file__).with_name('offline-terminal-resume-probe.py')
+        spec=importlib.util.spec_from_file_location('nonce_report_replay',path)
+        probe=importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+        report=json.loads((path.parent/'fixtures/nonce-history-structural-reports.json').read_bytes())[0]['report']
+        case=report['cases'][0]
+        self.assertFalse(probe.case_complete(case))
+        for stage in case['stages']:
+            for row in stage['diagnostics']['records']:
+                if row['point']=='failure': row['nonceHistoryContext']=self.detail
+        self.assertFalse(probe.case_complete(case))
+        self.assertEqual(probe._bounded_standard_report(report,2),report)
+        # Serialized data cannot mint the private exception producer observation.
+        error=history.ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
+        error.nonceHistoryContext=dict(self.detail)
+        self.assertIsNone(nonce_diagnostics.nonce_history_failure_diagnostic(error))
+
+    def test_aggregate_pressure_drops_new_detail_before_existing_failure_diagnostic(self):
+        import importlib.util
+        path=Path(__file__).with_name('offline-terminal-resume-probe.py')
+        spec=importlib.util.spec_from_file_location('nonce_pressure_replay',path)
+        probe=importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+        report=json.loads((path.parent/'fixtures/nonce-history-structural-reports.json').read_bytes())[0]['report']
+        # Controlled envelope pressure; no raw native data is introduced.
+        report['padding']=''
+        size=len((json.dumps(report,sort_keys=True)+'\n').encode())
+        report['padding']='x'*(16384-size-5)
+        row=next(r for r in report['cases'][0]['stages'][1]['diagnostics']['records'] if r['point']=='failure')
+        row['nonceHistoryContext']=self.detail
+        result=probe._bounded_standard_report(report,2)
+        self.assertEqual(result['reasonCode'],'OFFLINE_CONTROLS_INCONCLUSIVE')
+        self.assertNotIn('nonceHistoryContext',row)
+        self.assertIn('failureDiagnostic',result['cases'][0])
 
 
 class ResumeFailureDiagnosticsTests(unittest.TestCase):

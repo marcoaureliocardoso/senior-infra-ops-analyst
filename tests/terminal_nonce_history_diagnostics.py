@@ -6,6 +6,8 @@ import weakref
 _SEAL=object()
 _SESSIONS=weakref.WeakKeyDictionary()
 _CURRENT=ContextVar('nonce_history_observation',default=None)
+_FAILURES=weakref.WeakKeyDictionary()
+_CAPTURING=weakref.WeakSet()
 _ENUMS={
     'site':frozenset(('HISTORY','CANDIDATE_IDENTITY','CANDIDATE_DESTINATION','COMPOSITION','OTHER')),
     'noncePhase':frozenset(('NONE','ELIGIBLE','ECHO_PENDING','ECHO_MATCHED','CLEAR_PENDING','PROVEN','CONSUMED','REVOKED','UNKNOWN')),
@@ -86,7 +88,7 @@ def _capture_scope(session,probe,snapshot,frame):
     view_record=_bound_view(record['view'],record['bindings'])
     if view_record is None: return None
     status=_status(record,probe)
-    return dict(snapshot=snapshot,frame=frame,view_record=view_record,
+    return dict(snapshot=snapshot,frame=frame,view=record['view'],view_record=view_record,
         identity=view_record.get('sdk_identity'),position=view_record.get('sdk_position'),
         caseKind=__import__('terminal_resume_history')._CASES[view_record['case']]['kind'],
         noncePhase=status[0] if status is not None else 'UNKNOWN',
@@ -129,3 +131,52 @@ def _close_nonce_history_session(session):
         record=_SESSIONS.pop(session,None) if type(session) is _NonceHistorySession else None
         if record is not None: record.clear()
     except Exception: pass
+
+
+def _freeze_nonce_history_failure(error,*,record,snapshot,frame,site):
+    capturing=False
+    try:
+        from terminal_resume_history import resume_failure_diagnostic,match_history_row,_SDK_RELOCATIONS
+        captured=_CURRENT.get()
+        base=resume_failure_diagnostic(error)
+        if (captured is None or base is None or error in _FAILURES or error in _CAPTURING
+                or captured['snapshot'] is not snapshot or type(frame) is not int
+                or captured['frame']!=frame or base['caseKind']!=captured['caseKind']
+                or type(site) is not str or site not in _ENUMS['site']): return
+        if record is not captured['view_record']:
+            # Only the actual private candidate can supply a projected record.
+            if not any(bound['projected'] is record and bound['view']() is captured['view']
+                    and bound['snapshot']() is snapshot and bound['frame']==frame
+                    for bound in _SDK_RELOCATIONS.values()): return
+        if len(snapshot.rows)>40: return
+        _CAPTURING.add(error); capturing=True
+        kind='SDK_TEXT' if captured['caseKind']=='text-turn' else 'SDK_SKILL'
+        cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
+        profiles=[(index,profile) for index,row in enumerate(snapshot.rows) if index!=cursor
+            and (profile:=match_history_row(row,kind)) is not None]
+        baseline=captured['identity']; position=captured['position']
+        placement='UNKNOWN'; profile='UNAVAILABLE'
+        if type(position) is int:
+            if not profiles: placement='NO_MATCH'
+            elif len(profiles)>1: placement='MULTIPLE'
+            else: placement='SAME_SLOT' if profiles[0][0]==position else 'OTHER_SLOT'
+        if baseline is not None and len(profiles)==1:
+            profile='EXACT' if profiles[0][1]==baseline[1] else 'DIFFERENT'
+        value=dict(site=site,noncePhase=captured['noncePhase'],clearWrite=captured['clearWrite'],
+            clearEvidence=captured['clearEvidence'],sdkBaseline='PRESENT' if baseline is not None else 'ABSENT',
+            placement=placement,profile=profile)
+        if (_CURRENT.get() is captured and error not in _FAILURES and valid_nonce_history_context(value)):
+            _FAILURES[error]=tuple(value.items())
+    except Exception: pass
+    finally:
+        if capturing: _CAPTURING.discard(error)
+
+
+def nonce_history_failure_diagnostic(error):
+    try:
+        from terminal_resume_history import resume_failure_diagnostic
+        if resume_failure_diagnostic(error) is None: return None
+        frozen=_FAILURES.get(error)
+        value=dict(frozen) if frozen is not None else None
+        return value if valid_nonce_history_context(value) else None
+    except Exception: return None

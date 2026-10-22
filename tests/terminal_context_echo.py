@@ -887,7 +887,8 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
         if index is None: return
         cursor=actual_snapshot.baseY+actual_snapshot.cursorY-actual_snapshot.viewportY
         if type(index) is not int or not 0<=index<len(actual_snapshot.rows) or index in excluded or index==cursor:
-            error=_resume_layout_error(resume_view,'COMPOSE_ROW_CONFLICT')
+            error=_resume_layout_error(resume_view,'COMPOSE_ROW_CONFLICT',
+                _nonce_site='COMPOSITION',_nonce_snapshot=actual_snapshot,_nonce_frame=frame)
             revoke_resume_view(resume_view); raise error
         excluded.add(index)
     if context_receipt is not None:
@@ -928,7 +929,8 @@ def _compose_input_assessment(policy,actual_snapshot,*,frame,state,scope,native_
                 or normalized_snapshot.rows[cursor]!=source['row']
                 or normalized_snapshot.cursorX!=source['anchor'].cursorX
                 or any(a!=b for i,(a,b) in enumerate(zip(actual_snapshot.rows,normalized_snapshot.rows)) if i!=cursor)):
-            error=_resume_layout_error(resume_view,'NORMALIZATION_MISMATCH')
+            error=_resume_layout_error(resume_view,'NORMALIZATION_MISMATCH',
+                _nonce_site='COMPOSITION',_nonce_snapshot=actual_snapshot,_nonce_frame=frame)
             revoke_resume_view(resume_view); raise error
         target=normalized_snapshot
     assessment,index=policy._empty_input_assessment(target,_excluded_rows=frozenset(excluded))

@@ -257,11 +257,13 @@ def resume_failure_diagnostic(error):
     return value if valid_resume_failure(value) else None
 
 
-def _resume_layout_error(view,check,*,offer=None):
+def _resume_layout_error(view,check,*,offer=None,_nonce_site='OTHER',_nonce_snapshot=None,_nonce_frame=None):
     error=ResumeHistoryError('RESUME_HISTORY_LAYOUT_REJECTED')
     try:
         record=_OFFERS.get(offer) if view is None else _VIEWS.get(view)
         _capture_resume_failure(error,record,check)
+        from terminal_nonce_history_diagnostics import _freeze_nonce_history_failure
+        _freeze_nonce_history_failure(error,record=record,snapshot=_nonce_snapshot,frame=_nonce_frame,site=_nonce_site)
     except Exception: pass  # Optional observation must not interfere with revocation.
     return error
 
@@ -329,9 +331,14 @@ def _close_offline_case(case, reason):
             except Exception: pass  # Optional projection cannot interrupt revocation.
 
 
-def _fail(record, reason='RESUME_HISTORY_SCOPE_REJECTED', *, check=None, history_kind='NONE'):
+def _fail(record, reason='RESUME_HISTORY_SCOPE_REJECTED', *, check=None, history_kind='NONE',
+        _nonce_site='OTHER',_nonce_snapshot=None,_nonce_frame=None):
     error=ResumeHistoryError(reason)
     try: _capture_resume_failure(error,record,check,history_kind)
+    except Exception: pass
+    try:
+        from terminal_nonce_history_diagnostics import _freeze_nonce_history_failure
+        _freeze_nonce_history_failure(error,record=record,snapshot=_nonce_snapshot,frame=_nonce_frame,site=_nonce_site)
     except Exception: pass
     if record is not None:
         _close_offline_case(record['case'],reason)
@@ -572,7 +579,7 @@ def _current_binding(record, native_owner, controller_owner, transition_owner):
         _fail(record)
 
 
-def _profiles(case, policy, snapshot, *, binding, allow_context_repeats=False, failure_record=None):
+def _profiles(case, policy, snapshot, *, binding, allow_context_repeats=False, failure_record=None,_nonce_frame=None):
     cursor = snapshot.baseY+snapshot.cursorY-snapshot.viewportY
     profiles = {}
     kinds = ('CONTEXT','EXIT','SDK_SKILL' if case['kind']=='skill-turn' else 'SDK_TEXT')
@@ -584,11 +591,13 @@ def _profiles(case, policy, snapshot, *, binding, allow_context_repeats=False, f
             if (profile.kind in (p.kind for p in profiles.values())
                     and not (allow_context_repeats and profile.kind == 'CONTEXT')):
                 _fail(failure_record if failure_record is not None else case,
-                    'RESUME_HISTORY_LAYOUT_REJECTED',check='DUPLICATE_PROFILE',history_kind=profile.kind)
+                    'RESUME_HISTORY_LAYOUT_REJECTED',check='DUPLICATE_PROFILE',history_kind=profile.kind,
+                    _nonce_snapshot=snapshot,_nonce_frame=_nonce_frame)
             profiles[index] = profile
         elif binding and re.match(r'^\s*❯',policy._row_text(row)):
             _fail(failure_record if failure_record is not None else case,
-                'RESUME_HISTORY_LAYOUT_REJECTED',check='UNRECOGNIZED_HISTORY_ROW')
+                'RESUME_HISTORY_LAYOUT_REJECTED',check='UNRECOGNIZED_HISTORY_ROW',
+                _nonce_snapshot=snapshot,_nonce_frame=_nonce_frame)
     return profiles
 
 
@@ -599,7 +608,7 @@ def try_bind_resume_view(offer, *, policy, snapshot, frame, native_owner, contro
     _frame(record,snapshot,frame)
     if policy.active_input_forbidden(snapshot): _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='FORBIDDEN_UI')
     case = _case(record['case'])
-    profiles = _profiles(case,policy,snapshot,binding=True,failure_record=record)
+    profiles = _profiles(case,policy,snapshot,binding=True,failure_record=record,_nonce_frame=frame)
     assessment,_ = policy._empty_input_assessment(snapshot,_excluded_rows=frozenset(profiles))
     if assessment.reason == 'NO_MARKER': return None
     if assessment.anchor is None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED')
@@ -625,9 +634,9 @@ def _view_binding(view, *, policy, snapshot, frame, state, scope, native_owner, 
         _fail(record)
     _frame(record,snapshot,frame,_read_only=_read_only)
     if record['geometry'] != (snapshot.active,snapshot.baseY,snapshot.viewportY):
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='GEOMETRY_CHANGED')
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='GEOMETRY_CHANGED',_nonce_snapshot=snapshot,_nonce_frame=frame)
     if policy.active_input_forbidden(snapshot):
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='FORBIDDEN_UI')
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='FORBIDDEN_UI',_nonce_snapshot=snapshot,_nonce_frame=frame)
     return record
 
 
@@ -649,20 +658,23 @@ def _prepare_sdk_relocation(view,probe,evidence,receipt,*,policy,snapshot,frame,
     cursor=snapshot.baseY+snapshot.cursorY-snapshot.viewportY
     if 0<=cursor<len(snapshot.rows) and any(match_history_row(snapshot.rows[cursor],kind) is not None
             for kind in ('SDK_TEXT','SDK_SKILL')):
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED')
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED',_nonce_snapshot=snapshot,_nonce_frame=frame)
     profiles=_profiles(_case(record['case'],_read_only=True),policy,snapshot,binding=True,
-        allow_context_repeats=True,failure_record=record)
+        allow_context_repeats=True,failure_record=record,_nonce_frame=frame)
     sdk=[(index,profile) for index,profile in profiles.items() if profile.kind.startswith('SDK_')]
     if not sdk: return None
     identity=record['sdk_identity']; destination,actual=sdk[0]
     if destination in record['retired']:
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='RETIRED_PROFILE_RETURNED',history_kind=actual.kind)
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='RETIRED_PROFILE_RETURNED',history_kind=actual.kind,
+            _nonce_snapshot=snapshot,_nonce_frame=frame)
     if identity is None or actual!=identity[1]:
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind,
+            _nonce_site='CANDIDATE_IDENTITY',_nonce_snapshot=snapshot,_nonce_frame=frame)
     if destination==record['sdk_position'] and destination not in record['retired']: return None
     if (record['sdk_relocated'] or destination in record['profiles'] or destination in record['retired']
             or destination==snapshot.baseY+snapshot.cursorY-snapshot.viewportY):
-        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
+        _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind,
+            _nonce_site='CANDIDATE_DESTINATION',_nonce_snapshot=snapshot,_nonce_frame=frame)
     projected={**record,'retired':set(record['retired'])|{identity[0]},
         'sdk_position':destination,'sdk_relocated':True,'_read_only':True}
     candidate=_SDKRelocationCandidate(_SEAL)
@@ -705,12 +717,14 @@ def _try_commit_sdk_relocation(view,probe,receipt,*,policy,snapshot,frame,state,
             state=state,scope=scope,native_owner=native_owner,controller_owner=controller_owner,
             transition_owner=transition_owner)
         if projected['sdk_position'] in protected:
-            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='COMPOSE_ROW_CONFLICT')
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='COMPOSE_ROW_CONFLICT',
+                _nonce_site='COMPOSITION',_nonce_snapshot=snapshot,_nonce_frame=frame)
         assessment,_,_=_compose_input_assessment(policy,snapshot,frame=frame,state=state,scope=scope,
             native_owner=native_owner,controller_owner=controller_owner,transition_owner=transition_owner,
             resume_view=view,context_receipt=receipt,_history_read=candidate)
         if assessment.anchor is None or assessment.anchor!=probe._anchor:
-            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED')
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='INPUT_ANCHOR_REJECTED',
+                _nonce_site='COMPOSITION',_nonce_snapshot=snapshot,_nonce_frame=frame)
         _view_binding(view,**args,_read_only=True)
         _sdk_candidate_read(candidate,view,record,snapshot,frame)
         # All potentially reentrant lifetime checks have finished. The final
@@ -737,26 +751,27 @@ def validate_resume_view(view, *, policy, snapshot, frame, state, scope, native_
     if _history_read is not None: record=_sdk_candidate_read(_history_read,view,record,snapshot,frame)
     post = record['phase'] == 'POST_SUBMIT'
     return _history_indices(record,policy,snapshot,post=post,
-        current_acked=lambda: _current_command_acked(view,record))
+        current_acked=lambda: _current_command_acked(view,record),_nonce_frame=frame)
 
 
-def _history_indices(record,policy,snapshot,*,post,current_acked):
+def _history_indices(record,policy,snapshot,*,post,current_acked,_nonce_frame=None):
     profiles = _profiles(_case(record['case'],_read_only=record.get('_read_only',False)),policy,snapshot,
-        binding=False,allow_context_repeats=post,failure_record=record)
+        binding=False,allow_context_repeats=post,failure_record=record,_nonce_frame=_nonce_frame)
+    nonce=dict(_nonce_site='HISTORY',_nonce_snapshot=snapshot,_nonce_frame=_nonce_frame)
     pinned = record['profiles']
     if record.get('sdk_relocated'):
         position=record['sdk_position']; expected=record['sdk_identity'][1]
         if profiles.get(position)!=expected:
-            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='PINNED_PROFILE_CHANGED',history_kind=expected.kind)
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='PINNED_PROFILE_CHANGED',history_kind=expected.kind,**nonce)
         pinned={**pinned,position:expected}
     for index, expected in pinned.items():
         actual = profiles.get(index)
         if index in record['retired']:
             if actual is not None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',
-                check='RETIRED_PROFILE_RETURNED',history_kind=actual.kind)
+                check='RETIRED_PROFILE_RETURNED',history_kind=actual.kind,**nonce)
         elif actual != expected:
             if not post or actual is not None: _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',
-                check='PINNED_PROFILE_CHANGED',history_kind=expected.kind)
+                check='PINNED_PROFILE_CHANGED',history_kind=expected.kind,**nonce)
             record['retired'].add(index)
     for index, actual in profiles.items():
         if index in pinned: continue
@@ -766,7 +781,7 @@ def _history_indices(record,policy,snapshot,*,post,current_acked):
         context_retired = any(pinned[i].kind == 'CONTEXT' for i in record['retired'])
         if (not post or actual.kind != 'CONTEXT' or context_retired
                 or not current_acked()):
-            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind)
+            _fail(record,'RESUME_HISTORY_LAYOUT_REJECTED',check='UNOWNED_NEW_PROFILE',history_kind=actual.kind,**nonce)
     return frozenset(index for index in pinned if index not in record['retired'])
 
 

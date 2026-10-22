@@ -1,0 +1,689 @@
+[
+  {
+    "source": "535e55a",
+    "report": {
+      "capabilitiesDropped": true,
+      "cases": [
+        {
+          "afterExit": 2,
+          "beforeExit": 0,
+          "case": "text-turn",
+          "caseRootAbsent": true,
+          "contextInspected": true,
+          "failureDiagnostic": {
+            "errno": null,
+            "exceptionClass": null,
+            "exitCode": null,
+            "phase": "RESUMED_CONTEXT",
+            "signal": null
+          },
+          "messages": 1,
+          "naturalExit": false,
+          "sdkExit": 0,
+          "skillCalls": 0,
+          "stages": [
+            {
+              "diagnostics": {
+                "records": [
+                  {
+                    "point": "initial",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "normal",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 1,
+                      "cursorY": 13,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "prompt_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": false,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_sent",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_numeric",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "input_probe_started",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "input_probe_echo",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "input_probe_cleared",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "exit_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "native_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "helper_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  }
+                ],
+                "rejected": false,
+                "truncated": false
+              },
+              "events": [
+                {
+                  "outcome": "passed",
+                  "stage": "initial_screen"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "api_key_approval"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "trust_selection"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "prompt_ready"
+                },
+                {
+                  "outcome": "passed",
+                  "percent": 9,
+                  "stage": "context_inspected"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "exit"
+                }
+              ],
+              "phase": "before"
+            },
+            {
+              "diagnostics": {
+                "records": [
+                  {
+                    "point": "initial",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": true,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "prompt_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": true,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_sent",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_numeric",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_display",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "input_probe_started",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "input_probe_echo",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "failure",
+                    "reasonCode": "RESUME_HISTORY_LAYOUT_REJECTED",
+                    "resumeHistoryFailure": {
+                      "caseKind": "text-turn",
+                      "check": "UNOWNED_NEW_PROFILE",
+                      "historyKind": "SDK_TEXT",
+                      "phase": "POST_SUBMIT"
+                    },
+                    "resumeViewDecision": "REJECTED",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": true,
+                      "cursorX": 18,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "native_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "helper_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  }
+                ],
+                "rejected": false,
+                "truncated": false
+              },
+              "events": [
+                {
+                  "outcome": "passed",
+                  "stage": "initial_screen"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "prompt_ready"
+                },
+                {
+                  "outcome": "passed",
+                  "percent": 9,
+                  "stage": "context_inspected"
+                },
+                {
+                  "outcome": "failed",
+                  "stage": "context_inspected"
+                }
+              ],
+              "phase": "after"
+            }
+          ],
+          "validSDKSample": true,
+          "validSkillSample": false
+        }
+      ],
+      "disposableRootAbsent": true,
+      "networkIsolated": true,
+      "operatorStateHidden": true,
+      "reasonCode": "OFFLINE_CONTROLS_INCONCLUSIVE",
+      "runtime": "2.1.308"
+    }
+  },
+  {
+    "source": "9f68a0f",
+    "report": {
+      "capabilitiesDropped": true,
+      "cases": [
+        {
+          "afterExit": 2,
+          "beforeExit": 0,
+          "case": "text-turn",
+          "caseRootAbsent": true,
+          "contextInspected": true,
+          "failureDiagnostic": {
+            "errno": null,
+            "exceptionClass": null,
+            "exitCode": null,
+            "phase": "RESUMED_CONTEXT",
+            "signal": null
+          },
+          "messages": 1,
+          "naturalExit": false,
+          "sdkExit": 0,
+          "skillCalls": 0,
+          "stages": [
+            {
+              "diagnostics": {
+                "records": [
+                  {
+                    "point": "initial",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "normal",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 1,
+                      "cursorY": 13,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "prompt_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": false,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_sent",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_numeric",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "input_probe_started",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "input_probe_echo",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "input_probe_cleared",
+                    "reasonCode": "CHECKPOINT"
+                  },
+                  {
+                    "point": "exit_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "READY",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "native_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "helper_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  }
+                ],
+                "rejected": false,
+                "truncated": false
+              },
+              "events": [
+                {
+                  "outcome": "passed",
+                  "stage": "initial_screen"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "api_key_approval"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "trust_selection"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "prompt_ready"
+                },
+                {
+                  "outcome": "passed",
+                  "percent": 9,
+                  "stage": "context_inspected"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "exit"
+                }
+              ],
+              "phase": "before"
+            },
+            {
+              "diagnostics": {
+                "records": [
+                  {
+                    "point": "initial",
+                    "reasonCode": "CHECKPOINT",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": true,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "prompt_ready",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": true,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_sent",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_numeric",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 0,
+                      "contextFresh": false,
+                      "cursorX": 10,
+                      "cursorY": 37,
+                      "inputFresh": false,
+                      "locationFresh": false,
+                      "readiness": "FRESHNESS_UNPROVEN",
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "point": "context_display",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "input_probe_started",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "input_probe_echo",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "input_probe_cleared",
+                    "reasonCode": "CHECKPOINT",
+                    "resumeViewDecision": "VALID"
+                  },
+                  {
+                    "point": "failure",
+                    "reasonCode": "RESUME_HISTORY_LAYOUT_REJECTED",
+                    "resumeHistoryFailure": {
+                      "caseKind": "text-turn",
+                      "check": "UNOWNED_NEW_PROFILE",
+                      "historyKind": "SDK_TEXT",
+                      "phase": "POST_SUBMIT"
+                    },
+                    "resumeViewDecision": "REJECTED",
+                    "structure": {
+                      "authentication": "NONE",
+                      "baseY": 0,
+                      "buffer": "alternate",
+                      "candidateCount": 1,
+                      "contextFresh": true,
+                      "cursorX": 2,
+                      "cursorY": 37,
+                      "inputFresh": true,
+                      "locationFresh": false,
+                      "readiness": "UNSUPPORTED_MARKER",
+                      "readinessRejection": {
+                        "rowCause": "UNRECOGNIZED_SHAPE",
+                        "rowRelation": "OTHER_CAPTURED_ROW",
+                        "rowShape": "SDK_TEXT_PROMPT_SHAPE"
+                      },
+                      "viewportY": 0
+                    }
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "native_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  },
+                  {
+                    "leaderReaped": true,
+                    "point": "helper_cleanup",
+                    "reasonCode": "CLEANUP_COMPLETED"
+                  }
+                ],
+                "rejected": false,
+                "truncated": false
+              },
+              "events": [
+                {
+                  "outcome": "passed",
+                  "stage": "initial_screen"
+                },
+                {
+                  "outcome": "passed",
+                  "stage": "prompt_ready"
+                },
+                {
+                  "outcome": "passed",
+                  "percent": 9,
+                  "stage": "context_inspected"
+                },
+                {
+                  "outcome": "failed",
+                  "stage": "exit"
+                }
+              ],
+              "phase": "after"
+            }
+          ],
+          "validSDKSample": true,
+          "validSkillSample": false
+        }
+      ],
+      "disposableRootAbsent": true,
+      "networkIsolated": true,
+      "operatorStateHidden": true,
+      "reasonCode": "OFFLINE_CONTROLS_INCONCLUSIVE",
+      "runtime": "2.1.307"
+    }
+  }
+]
