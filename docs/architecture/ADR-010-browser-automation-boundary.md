@@ -1180,7 +1180,27 @@ No native grant is renewed. Rollback removes this optional annotation path
 without changing those operational checks. Exact RED/GREEN and broader gate
 status are recorded in `tests/validation-notes.md`.
 
+## Proposed one-shot SDK-history relocation
+
+The operator approved the architectural direction for one exact, transactional
+SDK-history relocation in ordinary audited offline resumed acceptance. The
+written specification is awaiting review; this is not implemented behavior.
+Only an already proven SDK_TEXT/SDK_SKILL identity may propose a new placement,
+after sealed nonce/clear completion and before exit-proof consumption. Full
+profile equality, unique correspondence, collision exclusion and all composed
+current-frame context/input/lifetime proofs must succeed before atomic commit.
+The old position remains retired and a second movement is rejected.
+
+The `9f68a0f` native failure and source-level investigation establish a changed
+recognized SDK-class placement, not complete profile equality or current-frame
+ownership at failure. Strict support may therefore remain inconclusive. No
+production, observation-only, retention, timeout, input or execution-grant
+boundary changes follow from approval to write this specification. Native
+acceptance and implementation-plan approval remain separate gates.
+
 ## Links
+
+- Proposed correlated SDK-history relocation (direction approved; written review pending; not implemented): `docs/superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md`
 
 - Approved bounded post-Enter acceptance design (local transition/fence/lifecycle; final validation pending): `docs/superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md`
 - Approved inline bounded post-Enter acceptance plan (including Task 3 lifecycle correction): `docs/superpowers/plans/2026-10-21-p0-04b-bounded-post-enter-acceptance.md`

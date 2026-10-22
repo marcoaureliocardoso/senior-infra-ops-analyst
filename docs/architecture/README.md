@@ -17,6 +17,14 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 also indexes the proposed
+[one-shot correlated SDK-history relocation](../superpowers/specs/2026-10-22-p0-04b-correlated-sdk-history-relocation-design.md).
+Its architectural direction is approved; written specification review is pending.
+No relocation is implemented. Exact SDK-profile correspondence and complete
+same-frame context/input/lifetime validation would precede atomic publication;
+old positions stay retired. Native equality and compatibility remain unknown,
+and no execution grant, timeout or production/browser boundary changes.
+
 ADR-010 separately indexes the approved design for the
 [bounded post-Enter acceptance extension](../superpowers/specs/2026-10-21-p0-04b-bounded-post-enter-acceptance-design.md).
 The written specification is approved; its
