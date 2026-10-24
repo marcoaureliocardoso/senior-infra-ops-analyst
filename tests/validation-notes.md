@@ -37,6 +37,29 @@ shared network or test skip is part of this remediation. Native/provider/browser
 acceptance, formal full-PR security qualification, merge, release and definitive
 TODO completion are not claimed.
 
+Subsequent independent review of 91cd941..70381a5 found no Critical or Important
+issue. One malformed-subtype diagnostic issue remains Minor and deferred; its
+failure is closed and raw evidence/history cleanup remains protected by the
+shell EXIT trap. The [review and exhaustive rulings](../docs/reviews/2026-10-24-pr58-runtime-remediation-review.md)
+record the considered boundaries and residual costs. The full immutable package
+run was still in progress during that review, not independently qualified by it.
+
+The immutable 70381a5 run subsequently failed after 1,263.586 seconds in
+test_release_component_versions_are_aligned: a second test expectation still
+required browser 1.0.1 after the approved 1.0.2 patch bump. This is not a package
+pass. All 583 canonical files/modes and the archive stayed unchanged, no timeout
+occurred, and disposable-root removal was verified. Archive SHA-256:
+0f8141a0924513a53e09177bce479d6b1bcbf51d689e3fb46e2dbe56147f24e5.
+The expectation is aligned without changing runtime code; searches found no
+other active browser 1.0.1 assertion. Historical version/evidence records and
+the separate context-continuity 1.0.1 manifest remain unchanged. A fresh full
+immutable gate is required for the corrected candidate, not an inferred pass.
+All 25 package-contract tests passed after the alignment.
+
+Hosted CI run 40134580558 on 70381a5 reproduced the known namespace failure at
+the no-content probe before package execution. Every other check, including
+CodeQL, links, schemas and lint, passed. This does not certify a later head.
+
 ## PR 58 check repairs - 2026-10-24
 
 Scope: CI/lint/link correctness only. Native readiness remains
