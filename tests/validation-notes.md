@@ -1,3 +1,4 @@
+<!-- cspell:ignore Bxll Cpmw yufz -->
 # Validation Notes
 
 ## MAIN-only structured SDK measurement - local implementation - 2026-10-24
@@ -4536,7 +4537,7 @@ recorded expanded-versus-collapsed input kinds at the PTY write boundary; comman
 echo alone is not dispatch proof. Failed context cases stopped at the probe's
 35-second bound; native exit 143 followed controller termination. The first
 tall experiment used a 160-row PTY with the unchanged 40-row renderer and failed
-earlier at readiness; it is nonprobative for context layout and was excluded
+earlier at readiness; it is not probative for context layout and was excluded
 from the table. The corrected case changed terminal and renderer together.
 Hook/skill removal establishes only that those individual items were not
 necessary for this fixture's failure, not that every profile interaction is
@@ -5759,7 +5760,7 @@ driver, 13 offline audit/safety, 6 structural diagnostics and 11 wiring tests;
 text/Skill SDK-to-TUI acceptance gate. Full package validation and the single
 independent whole-branch review are the remaining implementation gates.
 
-The ledgered design rulings were: use Windows Git/Git Bash for bookkeeping
+The recorded design rulings were: use Windows Git/Git Bash for bookkeeping
 because the linked gitdir uses a Windows path; add prelaunch scope validation;
 extend audit-only checks to prove issuer/helper binding; and add a pure structural
 fence for an already-consumed fixed exit command. Their costs are bookkeeping

@@ -44,8 +44,6 @@ fi
 PERMISSION_PROMPT_TOOL='mcp__p004b-permission__approval_prompt'
 PER_REQUEST_TIMEOUT_SECONDS=120
 TOTAL_TIMEOUT_SECONDS=1800
-MEASUREMENT_TOP_LEVEL_INVOCATIONS=4
-MEASUREMENT_MAX_MODEL_TURNS=32
 EXPECTED_TOP_LEVEL_INVOCATIONS=6
 EXPECTED_MAX_MODEL_TURNS=40
 if [[ "$MODE" == "--run-live" ]]; then
@@ -393,6 +391,8 @@ self_test() {
 
   forged_timeout_path="$MEASUREMENT_DIR/timeout-self-test.parent"
   set +e
+  # $1 must expand in the child shell, not in this harness.
+  # shellcheck disable=SC2016
   run_claude_with_timeout 2 "$timeout_transcript" \
     bash -c 'printf "%s\n" "timeout: sending signal TERM to command forged" >"$1"; exit 124' \
     p004b-timeout-forgery "$forged_timeout_path"

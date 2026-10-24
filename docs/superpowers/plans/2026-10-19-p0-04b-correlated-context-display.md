@@ -263,7 +263,7 @@ is revoked after failed profiles and all owned processes/descriptors are closed.
   remaining input, original reason/frozen first failure and unconditional cleanup.
   Cover cancellation, owner/helper loss, late authentication/modal and optional
   collector failure without changing authority. Equivalent valid numeric byte
-  chunkings produce the same interpretation; intermediate history-loss profiles
+  chunk layouts produce the same interpretation; intermediate history-loss profiles
   remain rejected rather than coalesced into success.
 - [x] **3.3 Add reducer/collector regressions.** Missing, duplicate or late
   context_display, numeric-only evidence, forged new fields/labels, bool counters,

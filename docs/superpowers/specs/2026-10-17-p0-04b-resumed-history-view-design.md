@@ -210,7 +210,7 @@ indices. Keep raw snapshots intact; never blank rows or alter the terminal model
 
 Use this composed path at resumed readiness and baseline construction, every
 partial command write/writable wait, command echo/Enter, fresh-context/history
-binding, nonce construction and normalization, pretype/echo/clear checks, final
+binding, nonce construction and normalization, pre-type/echo/clear checks, final
 proof consumption and every partial `/exit` write. Initial-dialogue/default/live
 paths without a view keep their prior behavior.
 

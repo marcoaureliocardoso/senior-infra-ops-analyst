@@ -116,7 +116,7 @@ and `package validation passed`. Inspect and record every capability/platform sk
 - Only when enabled, `_prefix` uses the existing `_empty_input_assessment(normalized)` tuple directly once to preserve its rejected index; disabled path
   keeps empty_input_assessment(). Both share the identical anchor comparison. Update call-count tests to count the underlying ordered evaluator, not only
   its public wrapper.
-- Add `debug_context_edit=False` to run_offline_controls(), _namespace() and _controls(); exact bool validation and mutual exclusion. Inner new mode is `--inner-controls-edit-debug`; outer is `--run-offline --debug-context-edit`.
+- Add `debug_context_edit=False` to run_offline_controls(), `_namespace()` and `_controls()`; exact bool validation and mutual exclusion. Inner new mode is `--inner-controls-edit-debug`; outer is `--run-offline --debug-context-edit`.
 - _controls() creates the new capture per dialogue, forwards only that object, and puts its detached private candidate under `_pendingContextEdit` after case disposal. Do not expose public debugContextEdit here.
 - Until Task 3 supplies the memory-only transport, _namespace() must block the new mode before child spawn. Never temporarily fall back to the existing content-bearing TemporaryFile route. Task 2 tests inner/driver wiring with controlled peers or mocks only.
 

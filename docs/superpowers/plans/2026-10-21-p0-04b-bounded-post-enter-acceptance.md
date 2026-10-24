@@ -170,6 +170,7 @@ Use native task tracking if exposed; otherwise maintain this checklist accuratel
       self.assertEqual(c.observe(current, 4), 16)
       self.assertIsNotNone(c.command.bind_history(current, 4))
   ```
+
 - [x] **Step 2: Run `tests/test-terminal-context-display.py`; confirm those RED
   assertions fail because the new transition is absent, not because setup fails.**
 - [x] **Step 3: Implement the private binding and composed transition.**

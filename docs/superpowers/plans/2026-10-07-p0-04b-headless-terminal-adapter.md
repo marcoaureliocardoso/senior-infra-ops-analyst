@@ -46,6 +46,7 @@ Validate exact fields, unique keys and canonical requests before parsing operati
   - `protocol_limits`: duplicate/unknown keys, invalid IDs/base64, feed >65536 bytes, frame >131072 bytes, capture >8388608 bytes and cell text >16 UTF-16 units return a closed failure, not truncated state.
   - `passive_replies`: DA/DSR/unknown reply counts are bounded; no reply bytes or other terminal effects escape the private protocol.
   Representative real-engine assertion sequence:
+
   ```js
   await engine.feed(Buffer.from('MAIN\x1b[?1049hALT'));
   assert.equal(engine.snapshot().active, 'alternate');
@@ -53,6 +54,7 @@ Validate exact fields, unique keys and canonical requests before parsing operati
   assert.equal(engine.snapshot().active, 'normal');
   assert.equal(engine.snapshot().cursorX, 4);
   ```
+
 - [ ] **Step 2: Run red tests:** `node --test tests/terminal-state-adapter.test.mjs`; require failures for the missing interface, not missing host dependencies.
 - [ ] **Step 3: Implement the exported interface and executable protocol** using public headless APIs, awaited write callbacks, fixed geometry/scrollback and logging disabled.
   Load only the explicit module root. No DOM, title/clipboard/window handler, networking or npm. Close is idempotent.
@@ -75,12 +77,14 @@ Validate exact fields, unique keys and canonical requests before parsing operati
   - `test_clean_environment_and_invalid_paths`: helper never inherits keys, `NODE_OPTIONS`/`NODE_PATH` or operator config; invalid/missing/symlinked modules fail before native effects.
   - `test_close_on_every_path`: success, exception, interruption and repeated close release pipes and process ownership; cleanup failure cannot become success.
   Assertions after a real engine wide-cell fixture:
+
   ```python
   self.assertEqual(snapshot.rows[0][0].width, 2)
   self.assertEqual(snapshot.rows[0][1].width, 0)
   self.assertEqual(snapshot.cursorX, 3)
   self.assertEqual(snapshot.active, "normal")
   ```
+
 - [ ] **Step 2: Run red:** `python3 tests/test-terminal-state-adapter.py`; verify the new interface is missing.
 - [ ] **Step 3: Implement the signatures** with clean environment, private pipes, bounded framing/schema, monotonic deadlines and supervised termination/reaping.
   Use selectors/nonblocking I/O so deadlocks and stalled writes share the deadline. Child stderr is bounded and discarded, never forwarded.
@@ -103,12 +107,14 @@ Legacy behavior remains the default. Headless selection is invalid outside `cont
   - `test_context_exact_numeric_labels`: post-command complete labels parse unique 0..100 percentages; conflicting/partial/history-only values fail.
   - `test_legacy_defaults_unchanged`: existing P0-04A/shared-driver fixtures pass without installing or selecting the engine.
   Stale-input fixture assertions (the second snapshot changes only a status row):
+
   ```python
   policy.mark_transition(stale_input)
   self.assertFalse(policy.ready(status_redraw))
   self.assertTrue(policy.ready(fresh_supported_input))
   self.assertFalse(policy.ready(menu_after_settle))
   ```
+
 - [ ] **Step 2: Run red:** `python3 tests/test-terminal-input-policy.py` and selected-driver additions in `tests/test-claude-pty-driver.py`.
 - [ ] **Step 3: Implement the policy and driver integration**; use only active cell state for every selected auth/approval/menu/readiness/context observation.
   Feed one ordered stream into one persistent adapter. Preserve full state at barriers; do not replay an arbitrary suffix as a fresh blank terminal.
@@ -136,12 +142,14 @@ Provisioner returns a closed status and selected module root; it copies the Task
   - `test_gate_requires_preprovisioned_runtime`: package tests fail closed if missing; gate itself never installs/downloads. Every CI full-package job has explicit credential-free provisioning first.
   - `test_diagnostics_and_staging`: only closed stages/reasons survive; raw helper stderr/snapshots are suppressed; neither adapters nor npm artifacts enter Nori staging.
   Missing-runtime fixture assertions:
+
   ```python
   native.assert_not_called()
   approval_loader.assert_not_called()
   credential_consumer.assert_not_called()
   self.assertTrue(claim.exists())
   ```
+
 - [ ] **Step 2: Run red** on the new provisioning suite and affected existing suites before wiring changes.
 - [ ] **Step 3: Implement wiring/provisioning** using Task 2 APIs. Initialize adapter before claim consumption; preserve idempotent cleanup if scope validation subsequently fails.
   Add a credential-free runtime capability preflight before the external authorized caller transports any live credential. No public live CLI or new approval grant.
@@ -164,6 +172,7 @@ Modify `tests/validate-package.sh`, `tests/validation-notes.md`, `tests/browser-
   - `test_no_paid_repeat_or_protocol_forwarding`: no provider URL/real credential reader/live mode; one text and one real-Skill control, no retry on failure and no terminal reply forwarded.
   - `test_acceptance_requires_operational_context`: snapshot/SDK exit zero alone fails; both resumed native context inspections and natural exits are required, plus correlated Skill success for the Skill case.
   Successful aggregate assertions for each case:
+
   ```python
   self.assertEqual(case["beforeExit"], 0)
   self.assertEqual(case["afterExit"], 0)
@@ -171,6 +180,7 @@ Modify `tests/validate-package.sh`, `tests/validation-notes.md`, `tests/browser-
   self.assertTrue(case["naturalExit"])
   self.assertTrue(case["caseRootAbsent"])
   ```
+
 - [ ] **Step 2: Run red:** `python3 tests/test-offline-terminal-resume-safety.py`.
 - [ ] **Step 3: Implement the offline control** using the established namespace/mock route and Tasks 1..4 adapters.
   Run fixed synthetic text and Skill Messages responses on loopback, maximum four Messages requests per case, bounded 1 MiB bodies, no content/header logging.

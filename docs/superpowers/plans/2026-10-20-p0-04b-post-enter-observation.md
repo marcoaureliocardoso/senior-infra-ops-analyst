@@ -164,6 +164,7 @@ and observation test files; extend `tests/test-terminal-resume-history.py`.
   self.assertEqual(history._CASES[case_record]['phase'], 'OBSERVING')
   self.assertEqual(history._CASES[case_record]['deadline'], original_deadline)
   ```
+
 - [x] **Step 2:** Run `python3 tests/test-terminal-post-enter-observation.py -k detach`
   in the defined environment; expect a missing-interface/assertion failure.
 - [x] **Step 3:** Implement the interfaces above. Transfer the original binding
@@ -285,6 +286,7 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   self.assertFalse(summary['profileObserved'])
   self.assertFalse(observer.candidate_ready)
   ```
+
 - [x] **Step 2:** Run new tests to a real RED; implement the ordered assessment:
   all independent guards first, all rows inspected, only exact original menu
   and exact original owned-input echo can be transient. Preserve history
@@ -346,6 +348,7 @@ fixtures and `tests/test-terminal-post-enter-observation.py`; create
   nonce_constructor.assert_not_called()
   self.assertNotIn('context_display', passed_resumed_stages)
   ```
+
 - [x] **Step 2:** Run targeted tests to RED; implement the private forwarding,
   checked handoff, writer latch and observer pump route. Keep the original
   route selected when no request exists; do not change its rejection timing.
@@ -414,6 +417,7 @@ plan, ADR/index, CHANGELOG and `tests/validation-notes.md` truthfully.
   self.assertLessEqual(len((json.dumps(report, sort_keys=True)+'\n').encode()), 16384)
   self.assertEqual(post_enter_exit_code(cleanup_failed_report), 2)
   ```
+
 - [x] **Step 3:** Exercise actual synthetic child/PTY/namespace failures and cleanup
   ordering: malformed/truncated output, SDK/setup failure, write failure,
   timeout/cancellation, root escape/substitution, native/helper/namespace reap

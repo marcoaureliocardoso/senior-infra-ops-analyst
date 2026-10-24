@@ -117,7 +117,7 @@ Extend `tests/test-nori-package-contract.py`, `tests/test-subagent-frontmatter.p
 
 - [ ] **Step 1: Update metadata coherently.** Browser Nori component `1.0.0 -> 1.0.1`, skill metadata `0.1.0 -> 0.1.1`, and `last_updated` to implementation date. Root `0.15.0` remains unreleased. Keep canonical browser instructions consistent with the
   original-deadline/late-result contract; use `writing-skills` if changing skill instructions, without inventing authority for model-backed tests.
-- [ ] **Step 2: Document enforced behavior**, installed lifetime capability, cleanup-only allowance, unknown after possible persistence, original binding consumption and inability to unsend in-flight calls. Link the approved spec and both plans from ADR-010/index. Preserve
+- [ ] **Step 2: Document enforced behavior**, installed lifetime capability, cleanup-only allowance, unknown after possible persistence, original binding consumption and inability to recall in-flight calls. Link the approved spec and both plans from ADR-010/index. Preserve
   historical evidence and record three review findings addressed only after their actual regression proofs.
 - [ ] **Step 3: Run focused/documentation GREEN.** Run lifetime/runner/binding/adapters suites, `python3 tests/validate-content.py`, `python3 tests/test-nori-package-contract.py`, `python3 tests/test-architecture-docs.py`, `python3 tests/test-release-history.py`.
   Run `git diff --check` separately. Expected zero failures and coherent root/component metadata; test-only terminal modules remain excluded from staging.

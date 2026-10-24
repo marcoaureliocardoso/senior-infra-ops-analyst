@@ -131,7 +131,7 @@ not an import/dependency error. GREEN requires unittest OK/exit 0 without warnin
   baseline/selection fields, without affecting journal/debug evidence or another owner's binding. Resolve ownership by
   `_COMMANDS` record identity, including malformed-origin cleanup. Call after existing first-failure freezing in
   `_fail`, on invalidate, on propagated scope/lifetime/cancellation loss and after successful actual Enter
-  acknowledgement. No subsequent phase may remint the fields.
+  acknowledgement. No subsequent phase may reissue the fields.
 - Keep history/nonce/clear/proof/exit strict. No new receipt type, public exclusion argument, diagnostic schema or input key; existing phase guards prevent post-Enter use.
 - Extract the existing signature comprehension unchanged into a private static helper
   `TerminalInputPolicy._context_signature_rows(rows:
@@ -159,6 +159,7 @@ not an import/dependency error. GREEN requires unittest OK/exit 0 without warnin
   self.assertEqual(command.submit_bytes(current, 2), b'\r')
   self.assertIsNone(self.policy.empty_input_anchor(current))
   ```
+
 - [x] Add `test_correlated_completion_origin_and_baseline` covering pre-existing/resume marker, wrong/missing scope or
   origin, copied record, swapped terminal/native/run/transition/deadline/anchor, equal replacement baseline/selection
   and foreign dialogue. Assert terminal rejection/no Enter, no receipt/proof creation and no copied diagnostic
@@ -254,7 +255,7 @@ defined once above; no later task relies on an unspecified public capability.
 The selected grammar is deliberately narrower than a general menu parser. A
 shape match cannot exempt a row without the original owned command; default/live
 and all post-Enter phases still reject. Ordinary newer snapshots revalidate
-unchanged evidence but cannot remint a lost binding. No raw native excerpt is
+unchanged evidence but cannot reissue a lost binding. No raw native excerpt is
 used as a fixture or persisted in a planning artifact.
 
 The operator selected inline execution with one final fresh independent reviewer.

@@ -127,7 +127,7 @@ re-binding, receipt substitution or receipt-dropping fallback is permitted.
 The controller's structural view may classify an owned row specially but must
 not overwrite the actual terminal snapshot or falsify native observations.
 
-Use the same receipt-aware criterion for initial nonce eligibility, pretype
+Use the same receipt-aware criterion for initial nonce eligibility, pre-type
 checks, echo normalization, clear verification, completed-proof rechecks,
 one-shot proof consumption and every partial `/exit` write. The receipt itself
 never creates `InputOwnershipProof`: exactly 16 random ASCII hexadecimal

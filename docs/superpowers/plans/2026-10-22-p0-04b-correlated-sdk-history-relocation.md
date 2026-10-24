@@ -150,6 +150,7 @@ returns an input grant. Preserve all public nonce method signatures.
   self.assertIs(probe._proof, original_exit_proof)
   self.assertFalse(challenge_module._CHALLENGES[probe]['consumed'])
   ```
+
 - [x] **Step 2: Run** `tests/test-terminal-input-challenge.py`; demonstrate the
   new behavioral assertions fail for missing genuine completion provenance.
 - [x] **Step 3: Implement** the interfaces above. Mint evidence only in the
@@ -200,6 +201,7 @@ row list. No publication API is activated in the driver in this task.
   self.assertEqual(record['retired'], original_retired)
   self.assertFalse(record['sdk_relocated'])
   ```
+
 - [x] **Step 3: Run** the new suite and reproduce failing behavioral assertions.
 - [x] **Step 4: Implement** candidate preparation as a private pure proposal:
   preserve immutable original SDK identity, separate placement and monotonic
@@ -253,6 +255,7 @@ closed errors after revocation. True means one atomic commit, not an exit grant.
   self.assertIs(probe._proof, original_exit_proof)
   self.assertEqual(history.resume_view_decision(rejected_view), 'REJECTED')
   ```
+
 - [x] **Step 2: Add failing** `test_transaction_lifetime_replay_and_collision_matrix`
   and `test_committed_placement_is_unique_stable_and_monotonic`.
   Exercise every protected destination: cursor/input, owned context, heading/
@@ -315,6 +318,7 @@ installed Claude; retain existing driver and report interfaces.
   self.assertTrue(all(child.poll() is not None for child in children))
   self.assertTrue(f.state.helper_reaped)
   ```
+
 - [x] **Step 2: Add failing namespace tests**
   `test_relocation_cases_require_full_proofs_and_disposal` and
   `test_relocation_inconclusive_stops_before_skill_case`.

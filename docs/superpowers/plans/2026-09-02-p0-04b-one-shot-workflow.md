@@ -4,7 +4,11 @@
 
 **Goal:** Add a guarded, single-process browser workflow that can authenticate and perform an approved mutation without losing browser state between steps, then validates the result through a separate browser context.
 
-**Architecture:** `browser-runner.mjs --step workflow` carries the existing operation envelope plus bounded base64url-encoded step records. `PreToolUse` validates the complete non-secret invocation and stores only its SHA-256 fingerprint; execution can promote that exact pending record because the Bash process starts only after native approval. One ephemeral adapter executes the operation, closes, and a newly resolved adapter executes a read-only validation sequence before the workflow returns a structural result.
+**Architecture:** `browser-runner.mjs --step workflow` carries the existing operation envelope plus bounded
+base64url-encoded step records. `PreToolUse` validates the complete non-secret invocation and stores only its SHA-256
+fingerprint; execution can promote that exact pending record because the Bash process starts only after native approval.
+One ephemeral adapter executes the operation, closes, and a newly resolved adapter executes a read-only validation
+sequence before the workflow returns a structural result.
 
 **Tech Stack:** Node.js ES modules, native `node:test`, SHA-256 from `node:crypto`, existing command guard, Playwright/Puppeteer runtime detection, Python package-policy tests, Debian WSL gates.
 
@@ -49,7 +53,10 @@
   {"step":"inspect","origin":"http://127.0.0.1:43111","locatorRole":"status","locatorName":"Saved state","predicate":"text-equals","expectedRef":"env:OPS_BROWSER_VALUE_EXPECTED","expectRef":"interface-state"}
   ```
 
-  Require 1-16 execution steps and 1-12 validation steps; exact keys only; maximum decoded record size 1536 bytes; maximum token size 2048 characters; canonical base64url without padding; UTF-8 decoding with fatal errors; and frozen results. Validation permits `navigate`, `fill`, `select`, `click` only with `INTERACTIVE_STATE`, and exactly one final `inspect`. Execution permits the existing executable actions but cannot contain `validate` or `close`.
+  Require 1-16 execution steps and 1-12 validation steps; exact keys only; maximum decoded record size 1536 bytes;
+  maximum token size 2048 characters; canonical base64url without padding; UTF-8 decoding with fatal errors; and frozen
+  results. Validation permits `navigate`, `fill`, `select`, `click` only with `INTERACTIVE_STATE`, and exactly one final
+  `inspect`. Execution permits the existing executable actions but cannot contain `validate` or `close`.
 
 - [ ] **Step 2: Verify RED**
 
@@ -110,7 +117,12 @@
 
 - [ ] **Step 3: Implement exact staging and activation**
 
-  Extend the closed catalogue grammar with repeatable workflow flags, decode through Task 1 rather than duplicating semantic validation, classify by the highest declared step effect, and add `ALWAYS_ASK`. `stageBrowserOpenApproval()` becomes the staging function for both `open` and `workflow`; it records the fingerprint in the proof. `activatePendingWorkflow()` atomically compares the exact pending record and replaces its approval-time capability with the supplied runtime-observed effective capability before promotion. Existing `open` plus PostToolUse behavior remains backward compatible and read-only.
+  Extend the closed catalogue grammar with repeatable workflow flags, decode through Task 1 rather than duplicating
+  semantic validation, classify by the highest declared step effect, and add `ALWAYS_ASK`. `stageBrowserOpenApproval()`
+  becomes the staging function for both `open` and `workflow`; it records the fingerprint in the proof.
+  `activatePendingWorkflow()` atomically compares the exact pending record and replaces its approval-time capability
+  with the supplied runtime-observed effective capability before promotion. Existing `open` plus PostToolUse behavior
+  remains backward compatible and read-only.
 
 - [ ] **Step 4: Verify GREEN and fail-closed process behavior**
 
@@ -143,7 +155,12 @@
 
 - [ ] **Step 1: Write failing execution tests**
 
-  Use real runner state and narrowly fake only adapter resolution. Assert one adapter instance opens once for the execution sequence and closes before a second newly resolved adapter opens for validation. Assert credential values reach only `fill`/`select`, never results, state, errors, or audit. Assert Puppeteer or any adapter with `popups:false` is rejected before a mutable step. Assert execution stops on the first failure, never retries, still runs the separate validation sequence after an ambiguous mutation, and distinguishes applied, not-applied, and unknown.
+  Use real runner state and narrowly fake only adapter resolution. Assert one adapter instance opens once for the
+  execution sequence and closes before a second newly resolved adapter opens for validation. Assert credential values
+  reach only `fill`/`select`, never results, state, errors, or audit. Assert Puppeteer or any adapter with
+  `popups:false` is rejected before a mutable step. Assert execution stops on the first failure, never retries, still
+  runs the separate validation sequence after an ambiguous mutation, and distinguishes applied, not-applied, and
+  unknown.
 
 - [ ] **Step 2: Verify RED**
 
@@ -157,11 +174,20 @@
 
 - [ ] **Step 3: Implement one-shot execution**
 
-  At process entry, resolve a recognized inert adapter descriptor without opening a browser, derive and validate its effective capability, and atomically activate the exact pending workflow with that capability. Activation must complete before `adapter.open()`, navigation, reference resolution, or any browser effect. Then open once and execute the ordered operation steps. Resolve built-in environment references only when their names match `OPS_BROWSER_VALUE_[A-Z0-9_]+`; blank and missing values deny. Clear local references after each call. Always close the execution adapter before creating the validation adapter.
+  At process entry, resolve a recognized inert adapter descriptor without opening a browser, derive and validate its
+  effective capability, and atomically activate the exact pending workflow with that capability. Activation must
+  complete before `adapter.open()`, navigation, reference resolution, or any browser effect. Then open once and execute
+  the ordered operation steps. Resolve built-in environment references only when their names match
+  `OPS_BROWSER_VALUE_[A-Z0-9_]+`; blank and missing values deny. Clear local references after each call. Always close
+  the execution adapter before creating the validation adapter.
 
 - [ ] **Step 4: Implement structural independent validation**
 
-  Add adapter `verify()` predicates `present`, `text-equals`, `value-equals`, `checked`, and `selected-value-equals`. Resolve the expected reference inside the runner, compare inside the adapter, and return no observed value. Validation navigation, login fill/select, and `INTERACTIVE_STATE` click execute only in the fresh validation context; its final inspect must match the envelope `validationRef`. If operation execution was ambiguous, validation may classify `applied` or `not-applied`, but the runner never repeats the mutation.
+  Add adapter `verify()` predicates `present`, `text-equals`, `value-equals`, `checked`, and `selected-value-equals`.
+  Resolve the expected reference inside the runner, compare inside the adapter, and return no observed value. Validation
+  navigation, login fill/select, and `INTERACTIVE_STATE` click execute only in the fresh validation context; its final
+  inspect must match the envelope `validationRef`. If operation execution was ambiguous, validation may classify
+  `applied` or `not-applied`, but the runner never repeats the mutation.
 
 - [ ] **Step 5: Extend the opt-in real-browser fixture**
 
@@ -199,9 +225,21 @@
 
 - [ ] **Step 1: Write failing policy and harness tests**
 
-  Require the installed documentation to distinguish the legacy read-only multi-command route from the mutable one-shot route. The live aggregate may name `persistent-one-shot` only after the exact runner command, same-session and same-parent SDK tool envelopes, actual ordered Claude Code `hook_started`/`hook_response` lifecycle for the configured `PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask` response produced by the installed command guard, coherent tool completion, successful post hook, same-session SDK success terminal, and structural validated outcome are observed. Later tool activity or failure lifecycle invalidates the sample. Forbid `ACTIVE` until role and context evidence comes from a separately trusted runtime channel; arbitrary stream records cannot supply it.
+  Require the installed documentation to distinguish the legacy read-only multi-command route from the mutable one-shot
+  route. The live aggregate may name `persistent-one-shot` only after the exact runner command, same-session and
+  same-parent SDK tool envelopes, actual ordered Claude Code `hook_started`/`hook_response` lifecycle for the configured
+  `PreToolUse:Bash` and `PostToolUse:Bash` matchers, the exact native `ask` response produced by the installed command
+  guard, coherent tool completion, successful post hook, same-session SDK success terminal, and structural validated
+  outcome are observed. Later tool activity or failure lifecycle invalidates the sample. Forbid `ACTIVE` until role and
+  context evidence comes from a separately trusted runtime channel; arbitrary stream records cannot supply it.
 
-  The active-runtime permission paragraphs in this older plan are superseded by the approved [disposable permission-handler design](../specs/2026-09-17-p0-04b-disposable-permission-handler-design.md) and its [implementation plan](2026-09-17-p0-04b-disposable-permission-handler.md). The non-interactive acceptance harness now uses two fresh sessions and two test-only phase-bound MCP configurations: one exact synthetic ALLOW followed by one exact synthetic DENY. It requires distinct operation IDs and invocation fingerprints, unchanged external fixture state after denial, a fixed six-invocation/40-turn budget, and no retry. These disposable components never enter Nori staging, archives, installed skill roots, or production; production continues to use Claude Code's native interactive permission prompt.
+  The active-runtime permission paragraphs in this older plan are superseded by the approved [disposable
+  permission-handler design](../specs/2026-09-17-p0-04b-disposable-permission-handler-design.md) and its [implementation
+  plan](2026-09-17-p0-04b-disposable-permission-handler.md). The non-interactive acceptance harness now uses two fresh
+  sessions and two test-only phase-bound MCP configurations: one exact synthetic ALLOW followed by one exact synthetic
+  DENY. It requires distinct operation IDs and invocation fingerprints, unchanged external fixture state after denial, a
+  fixed six-invocation/40-turn budget, and no retry. These disposable components never enter Nori staging, archives,
+  installed skill roots, or production; production continues to use Claude Code's native interactive permission prompt.
 
 - [ ] **Step 2: Verify RED**
 

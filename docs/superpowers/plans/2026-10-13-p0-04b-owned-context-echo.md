@@ -76,7 +76,7 @@ files run directly, not through unittest discovery.
 
 - Policy private `_empty_input_assessment(snapshot: TerminalSnapshot, excluded_row: int | None = None) -> tuple[EmptyInputAssessment, int | None]`. Second item is the actual unsupported-row index, otherwise None. Public APIs continue returning their existing types/fields and call
   this with no exclusion.
-- Scope private `_context_scope_binding(scope: OfflineProbeScope, terminal: TerminalState, *, allow_claimed: bool = False) -> tuple[object, float]`: run owner and original deadline. Audit/identity/lifetime checks; never resets or unclaims a scope.
+- Scope private `_context_scope_binding(scope: OfflineProbeScope, terminal: TerminalState, *, allow_claimed: bool = False) -> tuple[object, float]`: run owner and original deadline. Audit/identity/lifetime checks; never resets a scope or releases its claim.
 - `begin_context_command(scope, state, native_owner, transition_owner, policy, baseline, frame) -> OwnedContextCommand`. Exact object bindings, private seal/registry and at most one beginning per scope. Local imports avoid a challenge/echo import cycle.
 - `OwnedContextCommand.type_bytes(snapshot, frame) -> bytes`: once-only fixed `b'/context'`; `check_edit(snapshot, frame, written: int) -> None`: validates owned prefix with 0 <= written <= 8.
 - `OwnedContextCommand.observe(snapshot, frame) -> str`: closed phases `ELIGIBLE`, `EDIT_PENDING`, `COMMAND_ECHO_MATCHED`, `SUBMIT_PENDING`, `CONTEXT_PENDING`, `RECEIPT_READY`, `REVOKED`.
@@ -142,7 +142,7 @@ Add assertions in named tests:
 
 **Interfaces produced:**
 
-- `NonceInputChallenge.__init__(scope, native_owner, transition_owner, policy, initial, frame, *, context_receipt=None)`: backward-compatible None; validated receipt path applies `assess_context_input` consistently in construction, pretype, normalized echo, clear, PROVEN and consume checks.
+- `NonceInputChallenge.__init__(scope, native_owner, transition_owner, policy, initial, frame, *, context_receipt=None)`: backward-compatible None; validated receipt path applies `assess_context_input` consistently in construction, pre-type, normalized echo, clear, PROVEN and consume checks.
 - `exit_input_owned(policy, snapshot, anchor, original_row, written, *, context_receipt=None, scope=None, state=None, native_owner=None, transition_owner=None, frame=None) -> bool`: legacy default unchanged; receipt path validates bindings on every partial exit write before shared assessment.
 - Existing `drive_context` signature unchanged. Audited active scope selects the new command protocol; passive/default branches retain their original command send and barriers. Observer capture/report signatures remain unchanged.
 - Rejected assessments construct the existing InputProofError and attach the exact sealed observation. Normalized working snapshots cannot be substituted for the actual source snapshot: if identity/provenance is unavailable, debug omits content rather than reconstructing it.

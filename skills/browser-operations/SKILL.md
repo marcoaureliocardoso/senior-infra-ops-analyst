@@ -90,7 +90,11 @@ Use semantic operations only: inspect, navigate, fill, select, click, submit, up
 
 Prefer existing authenticated sessions, then protected vault/keychain/helper references, then direct protected reference-to-consumer transport. A literal credential supplied by the operator is last resort, already model/provider/transcript-visible, and must never be repeated or persisted.
 
-Intercept redirects, popups, and new tabs before an origin escape. Treat form fill as `INTERACTIVE_STATE` because a UI may autosave. A mutable persistent one-shot closes its execution adapter, resolves a second adapter, and performs its read-only postcondition in a fresh validation context. If an interaction fails ambiguously, or if any later step fails after a successful fill, select, click, submit, or declared mutation, validation may classify applied or not applied, but the interaction is never retried automatically. Any unresolved result returns `OUTCOME_UNKNOWN`.
+Intercept redirects, popups, and new tabs before an origin escape. Treat form fill as `INTERACTIVE_STATE` because a UI
+may autosave. A mutable persistent one-shot closes its execution adapter, resolves a second adapter, and performs its
+read-only postcondition in a fresh validation context. If an interaction fails ambiguously, or if any later step fails
+after a successful fill, select, click, submit, or declared mutation, validation may classify applied or not applied,
+but the interaction is never retried automatically. Any unresolved result returns `OUTCOME_UNKNOWN`.
 
 ## Close and clean up
 
@@ -98,7 +102,11 @@ Close the browser context, invalidate the operation binding, clear ephemeral aut
 
 ## Role boundary
 
-The seven operational specialists may use only the protected runner through guarded Bash. Separate legacy calls remain read-only; only the exact persistent one-shot route may authenticate or mutate after native approval and runtime capability intersection. `audit-evidence-collector` is browser read-only. `incident-commander`, `change-manager`, `rca-facilitator`, and `security-operations-reviewer` request, coordinate, or review browser work but do not execute it. Packaged subagents never receive generic `mcp__*` grants.
+The seven operational specialists may use only the protected runner through guarded Bash. Separate legacy calls remain
+read-only; only the exact persistent one-shot route may authenticate or mutate after native approval and runtime
+capability intersection. `audit-evidence-collector` is browser read-only. `incident-commander`, `change-manager`,
+`rca-facilitator`, and `security-operations-reviewer` request, coordinate, or review browser work but do not execute it.
+Packaged subagents never receive generic `mcp__*` grants.
 
 ## Limitations
 

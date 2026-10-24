@@ -240,12 +240,12 @@ Default/no active scope means no new annotation and original behavior. Existing
 public guard signatures and exception reasons remain unchanged.
 
 The freezer runs after the existing base failure capture and before original
-revocation. Tag _history_indices with HISTORY; the identity inequality branch
+revocation. Tag `_history_indices` with HISTORY; the identity inequality branch
 of _prepare_sdk_relocation with CANDIDATE_IDENTITY; its destination/allowance
 branch with CANDIDATE_DESTINATION. Tag composition guards in history and the
-two _resume_layout_error sites in echo with COMPOSITION and their actual snapshot/
+two `_resume_layout_error` sites in echo with COMPOSITION and their actual snapshot/
 frame. Other layout failures use OTHER. Never infer site from the check label.
-Pass the actual frame to _profiles/_history_indices even for read-only candidate
+Pass the actual frame to `_profiles`/`_history_indices` even for read-only candidate
 validation, where the live record's older stored frame is not the current frame.
 
 - [x] **Step 1: Write** tests in new class NonceHistoryFreezeTests:
@@ -262,7 +262,7 @@ validation, where the live record's older stored frame is not the current frame.
 - [x] **Step 2: Run** the new tests. Expected: missing annotation assertions fail;
   exact guarded rejection and real fixture setup still occur.
 - [x] **Step 3: Implement** freeze/projection and literal tags as specified.
-  Preserve _FAILURE_OBSERVATIONS and original revocation/return ordering.
+  Preserve `_FAILURE_OBSERVATIONS` and original revocation/return ordering.
   Each call scope describes one guard invocation; a committed move cannot leave
   a stale position snapshot for a later guard, even on the same terminal frame.
 - [x] **Step 4: Write** collector/replay tests: test_new_detail_is_sacrificed_before_legacy_and_cleanup;
@@ -276,7 +276,7 @@ validation, where the live record's older stored frame is not the current frame.
   TerminalDiagnostics.add/report, separately from resumeHistoryFailure. Decorate
   last after legacy annotations; omit invalid/new overflow without changing base
   rejected/truncated facts. Keep the 16-record limit and both cleanup records.
-  Audit context_stage_report, _bounded_standard_report and _valid_edit_base replay
+  Audit context_stage_report, `_bounded_standard_report` and `_valid_edit_base` replay
   consumers; retain their existing operational contract and excluded-route behavior.
 - [x] **Step 6: Run** new unit suite, test-terminal-resume-failure-diagnostics.py,
   test-terminal-structural-diagnostics.py, test-terminal-context-debug.py and

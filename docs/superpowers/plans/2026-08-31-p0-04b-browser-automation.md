@@ -4,7 +4,12 @@
 
 **Goal:** Add a fail-closed, capability-detected browser operations boundary that can inspect and operate authenticated infrastructure UIs without allowing browser content, credentials, redirects, artifacts, or unknown tool capabilities to bypass the project's existing authorization model.
 
-**Architecture:** A short global contract and an on-demand first-class Nori skill define browser authority and role limits. A transactional project-local settings configurator activates recognized browser MCP hooks for the main session, while seven operational subagents use the existing guarded Bash sink to invoke a bounded browser runner. Shared envelope, capability, origin, policy, binding, artifact, and adapter modules keep both routes on one semantic contract; a dependency-free local UI fixture and opt-in active-runtime harness provide deterministic and real-browser evidence without installing or pinning a browser dependency in the distributed package.
+**Architecture:** A short global contract and an on-demand first-class Nori skill define browser authority and role
+limits. A transactional project-local settings configurator activates recognized browser MCP hooks for the main session,
+while seven operational subagents use the existing guarded Bash sink to invoke a bounded browser runner. Shared
+envelope, capability, origin, policy, binding, artifact, and adapter modules keep both routes on one semantic contract;
+a dependency-free local UI fixture and opt-in active-runtime harness provide deterministic and real-browser evidence
+without installing or pinning a browser dependency in the distributed package.
 
 **Tech Stack:** Markdown and Nori component manifests, Node.js 24 ESM modules and native test runner, Python 3.12/3.14 policy validators, Bash safety and live harnesses, Claude Code native hooks and structured stream JSON, optional runtime-detected Playwright or Puppeteer adapters, Debian WSL, GitHub Actions.
 
@@ -96,14 +101,18 @@ Expected: failure because the first-class skill, canonical reference, and role m
 
 - [ ] **Step 3: Add the canonical contract and first-class skill**
 
-Create `references/browser-operations.md` with normative sections matching the test markers and the approved spec. Include the six capability states and the exact no-execution outcomes, route precedence, effect classes, role matrix, envelope fields, credential precedence, human-only challenges, origin normalization, redirect/popup/new-tab interception, artifact controls, outcome-unknown handling, context measurement, and rollback.
+Create `references/browser-operations.md` with normative sections matching the test markers and the approved spec.
+Include the six capability states and the exact no-execution outcomes, route precedence, effect classes, role matrix,
+envelope fields, credential precedence, human-only challenges, origin normalization, redirect/popup/new-tab
+interception, artifact controls, outcome-unknown handling, context measurement, and rollback.
 
 Create `skills/browser-operations/SKILL.md` with frontmatter:
 
 ```yaml
 ---
 name: browser-operations
-description: Operate recognized browser routes for infrastructure diagnosis and approved UI changes under a bound operation envelope and active fail-closed guard.
+description: Operate recognized browser routes for infrastructure diagnosis and approved UI changes under a bound
+operation envelope and active fail-closed guard.
 version: 0.1.0
 last_updated: 2026-08-31
 ---
@@ -111,7 +120,10 @@ last_updated: 2026-08-31
 
 Its workflow must require capability detection, route selection, operation binding, per-call evaluation, postcondition validation, and explicit close/cleanup. It must direct users to the canonical reference and never imply browser availability.
 
-Create `skills/browser-operations/nori.json` as a Nori skill component at version `1.0.0` using the same `name`, `version`, `type`, and `description` schema as neighboring first-class skills. Do not add a manifest `scripts` array: the `.mjs` modules are internal skill assets copied with the component, and the `.sh` launcher is invoked through package-owned configuration rather than published as an independent Nori script component.
+Create `skills/browser-operations/nori.json` as a Nori skill component at version `1.0.0` using the same `name`,
+`version`, `type`, and `description` schema as neighboring first-class skills. Do not add a manifest `scripts` array:
+the `.mjs` modules are internal skill assets copied with the component, and the `.sh` launcher is invoked through
+package-owned configuration rather than published as an independent Nori script component.
 
 - [ ] **Step 4: Add concise global and role-local rules**
 
@@ -251,9 +263,17 @@ Use injected adapter descriptors shaped as:
 }
 ```
 
-Cover unavailable, unrecognized, conflict, recognized-but-inactive, and active states. Verify that recognition comes only from package-owned registry data, never MCP annotations. Verify route precedence, read-only downgrade, executor/read-only/reviewer role limits, and no mutation when redirects or guard proof cannot be enforced. Tool search may reduce context only when the current runtime exposes it and must never be assumed. Verify that context summaries retain only numeric fields such as `usedBefore`, `usedAfter`, `delta`, `skillCount`, `subagentCount`, `schemaCount`, `toolCount`, and a bounded `toolSearchMode` label.
+Cover unavailable, unrecognized, conflict, recognized-but-inactive, and active states. Verify that recognition comes
+only from package-owned registry data, never MCP annotations. Verify route precedence, read-only downgrade,
+executor/read-only/reviewer role limits, and no mutation when redirects or guard proof cannot be enforced. Tool search
+may reduce context only when the current runtime exposes it and must never be assumed. Verify that context summaries
+retain only numeric fields such as `usedBefore`, `usedAfter`, `delta`, `skillCount`, `subagentCount`, `schemaCount`,
+`toolCount`, and a bounded `toolSearchMode` label.
 
-Test `browser-mcp-registry.mjs` separately with exact, package-owned descriptors derived from official or directly observed validated interfaces. Each descriptor must match runtime identity plus exact tool/schema structure and map a call into semantic action, effect, origins, navigation behavior, and artifact intent. Reject lookalike servers, fuzzy names, annotations-only matches, missing required fields, schema drift, and ambiguous descriptor matches.
+Test `browser-mcp-registry.mjs` separately with exact, package-owned descriptors derived from official or directly
+observed validated interfaces. Each descriptor must match runtime identity plus exact tool/schema structure and map a
+call into semantic action, effect, origins, navigation behavior, and artifact intent. Reject lookalike servers, fuzzy
+names, annotations-only matches, missing required fields, schema drift, and ambiguous descriptor matches.
 
 - [ ] **Step 2: Run and verify the missing-module failure**
 
@@ -316,7 +336,12 @@ Assert `evaluateBrowserCall(event, envelope, capability, binding, now)` returns 
 }
 ```
 
-Cover public and sensitive reads, fill-without-submit, autosaving form controls, submit, state-changing click, low-risk/disruptive/destructive changes, sensitive artifacts, unknown effects, reviewer and evidence-collector limits, expired/mismatched operations, changed origin/identity/environment/action, stale guard proof, forbidden auth destination, and `OUTCOME_UNKNOWN`. Run each applicable effect case in both normal and `bypassPermissions` modes and require identical effect-based risk and exact approval bindings. Require `ask` for interactive state and approved change boundaries, `deny` for unknown/unbound calls, and independent postcondition validation after allowed mutations.
+Cover public and sensitive reads, fill-without-submit, autosaving form controls, submit, state-changing click,
+low-risk/disruptive/destructive changes, sensitive artifacts, unknown effects, reviewer and evidence-collector limits,
+expired/mismatched operations, changed origin/identity/environment/action, stale guard proof, forbidden auth
+destination, and `OUTCOME_UNKNOWN`. Run each applicable effect case in both normal and `bypassPermissions` modes and
+require identical effect-based risk and exact approval bindings. Require `ask` for interactive state and approved change
+boundaries, `deny` for unknown/unbound calls, and independent postcondition validation after allowed mutations.
 
 - [ ] **Step 2: Write failing binding-store tests**
 
@@ -334,7 +359,10 @@ Assert mode `0700` for the directory and `0600` for files on POSIX, maximum 16 b
 
 - [ ] **Step 3: Write failing hook tests**
 
-Spawn `browser-hook.mjs` with bounded synthetic hook payloads. Cover `PreToolUse`, `PostToolUse`, and `PostToolUseFailure`; malformed JSON; input over 1 MiB; absent operation; MCP tools outside the recognized route; exact redirect/popup/origin claims; timeout/failure becoming `OUTCOME_UNKNOWN`; and secret canaries absent from stdout, stderr, state, and audit output. Test the launcher with a restricted `PATH` and spaces in the installed path.
+Spawn `browser-hook.mjs` with bounded synthetic hook payloads. Cover `PreToolUse`, `PostToolUse`, and
+`PostToolUseFailure`; malformed JSON; input over 1 MiB; absent operation; MCP tools outside the recognized route; exact
+redirect/popup/origin claims; timeout/failure becoming `OUTCOME_UNKNOWN`; and secret canaries absent from stdout,
+stderr, state, and audit output. Test the launcher with a restricted `PATH` and spaces in the installed path.
 
 - [ ] **Step 4: Run and verify the missing modules fail**
 
@@ -458,7 +486,6 @@ git commit -m "feat: configure browser guard transactionally"
 - Modify: `tests/command-guard/mutations.mjs`
 - Modify: `tests/command-guard/mutation-witnesses.mjs`
 - Modify: `tests/validate-package.sh`
-
 **Interfaces:**
 - Consumes: exact Node invocation of the package-owned runner, bounded operation-open fields or an existing operation ID, semantic step, normalized origin, locator kind/value, non-secret value reference, expected postcondition reference, and operation store.
 - Produces: command-guard classification and risk; activation only after the native Bash approval succeeds; runner request validated against the active envelope; bounded structured result; no arbitrary JavaScript, shell, CDP, or browser installation capability.
@@ -485,7 +512,13 @@ node <installed-root>/skills/browser-operations/scripts/browser-runner.mjs \
   --locator-role status --expect-ref status-readable
 ```
 
-Cover the bounded steps `open`, `inspect`, `navigate`, `fill`, `select`, `click`, `submit`, `upload`, `download`, `screenshot`, `trace`, `validate`, and `close`. Reject alternate script paths, symlinks, `node -e`, `--eval`, unknown or duplicate flags, shell metacharacters, URL credentials, unknown effects, literal secret/value flags, arbitrary file paths, JavaScript URLs, `data:` URLs, CDP endpoints, package/browser installation flags, persistent profile paths, and missing operation bindings. Classify `open` by its declared maximum effect, inspect/validate as read-only, fill/select as interactive state, submit/click by bound effect, and artifacts by `SENSITIVE_ARTIFACT`. Add the family to the installed corpus, exhaustive review fixtures, structural coverage witnesses, and security regressions.
+Cover the bounded steps `open`, `inspect`, `navigate`, `fill`, `select`, `click`, `submit`, `upload`, `download`,
+`screenshot`, `trace`, `validate`, and `close`. Reject alternate script paths, symlinks, `node -e`, `--eval`, unknown or
+duplicate flags, shell metacharacters, URL credentials, unknown effects, literal secret/value flags, arbitrary file
+paths, JavaScript URLs, `data:` URLs, CDP endpoints, package/browser installation flags, persistent profile paths, and
+missing operation bindings. Classify `open` by its declared maximum effect, inspect/validate as read-only, fill/select
+as interactive state, submit/click by bound effect, and artifacts by `SENSITIVE_ARTIFACT`. Add the family to the
+installed corpus, exhaustive review fixtures, structural coverage witnesses, and security regressions.
 
 Verify normal and `bypassPermissions` behavior explicitly. An unbound `open` in `bypassPermissions` must not auto-authorize: it fails closed until the operator grants the exact native approval. A binding approved in normal mode may be honored in `bypassPermissions` only under the existing P0-05 exact session/domain/identity/transport semantics and only while every browser-envelope field still matches.
 
@@ -514,7 +547,11 @@ wsl.exe -d Debian -- bash -lc "cd /mnt/c/projects/senior-infra-ops-analyst/senio
 
 Add the exact runner to the package-owned executable catalog. Parse arguments structurally rather than searching substrings. Require an active binding and independently compare role, operation, effect, step, origin, locator, artifact declaration, and expiry in both the Bash guard and runner.
 
-For `open`, the command guard writes the existing short-lived pending approval binding and the runner writes only a pending browser envelope. Extend `record-command-approval.mjs` so a successful correlated Bash `PostToolUse` atomically activates both bindings. Denial, failure, mismatch, expiry, or compaction uncertainty removes the pending browser envelope. `validate` is the only step allowed against a quarantined `OUTCOME_UNKNOWN` operation and may clear quarantine only after the declared independent postcondition succeeds; `close` invalidates the operation and cleans state.
+For `open`, the command guard writes the existing short-lived pending approval binding and the runner writes only a
+pending browser envelope. Extend `record-command-approval.mjs` so a successful correlated Bash `PostToolUse` atomically
+activates both bindings. Denial, failure, mismatch, expiry, or compaction uncertainty removes the pending browser
+envelope. `validate` is the only step allowed against a quarantined `OUTCOME_UNKNOWN` operation and may clear quarantine
+only after the declared independent postcondition succeeds; `close` invalidates the operation and cleans state.
 
 Expose runner functions for testability:
 
@@ -569,7 +606,11 @@ Define a common adapter interface:
 }
 ```
 
-Test Playwright-like and Puppeteer-like fake modules for detection without importing an unavailable dependency at module load. Verify pre-navigation origin checks, redirect interception, popup/new-tab rejection before use, request destination filtering, no arbitrary evaluate/script method, ephemeral context/profile, download disabled by default, and browser closure in `finally`. If both runtimes are present, require deterministic configured preference or `CONFLICT`, never silent selection.
+Test Playwright-like and Puppeteer-like fake modules for detection without importing an unavailable dependency at module
+load. Verify pre-navigation origin checks, redirect interception, popup/new-tab rejection before use, request
+destination filtering, no arbitrary evaluate/script method, ephemeral context/profile, download disabled by default, and
+browser closure in `finally`. If both runtimes are present, require deterministic configured preference or `CONFLICT`,
+never silent selection.
 
 - [ ] **Step 2: Write failing artifact tests**
 

@@ -572,7 +572,7 @@ including cell geometry and escaped terminal/control-format characters. It
 is labeled untrusted synthetic debug data, never instructions. The capture
 object withholds its excerpt while the case root exists; failed case cleanup
 omits it, and failed outer disposal discards the entire report. The unchanged
-16-KiB outer limit includes debug data: oversized recuts are omitted with a
+16-KiB outer limit includes debug data: oversized excerpts are omitted with a
 closed status, and an unfit metadata-only report is a closed failure. Context
 25-second and run 165-second deadlines are not extended for inspection.
 
@@ -618,7 +618,7 @@ The runner and both adapters fence concrete dispatch before and after awaits,
 including protected-value reads, startup, link metadata, upload materialization,
 screenshots and delayed interception. Resource ownership is captured before
 post-await expiry checks so disposal remains possible. Supported timeouts are
-narrowed, but no guard can unsend an already-dispatched browser API. Late
+narrowed, but no guard can recall an already-dispatched browser API. Late
 results are inconclusive; expired authority cannot validate or retry.
 
 Owned one-shot consumption uses bounded raw-state validation and the existing

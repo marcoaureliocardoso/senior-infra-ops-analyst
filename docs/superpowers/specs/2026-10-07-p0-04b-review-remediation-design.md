@@ -139,7 +139,7 @@ existing native/workflow deadline or introduce automatic retries.
 
 Expiry is a dispatch boundary, not an atomic transaction at a remote device.
 An API dispatched while live may auto-wait, complete or produce a remote effect
-after expiry. This design does not promise to unsend or roll back such a call.
+after expiry. This design does not promise to recall or roll back such a call.
 Do not claim that an assertion alone cancels a runtime's internal work.
 
 Recheck after asynchronous completion. A result received at or after expiry is

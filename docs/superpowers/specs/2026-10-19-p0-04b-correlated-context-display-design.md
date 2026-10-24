@@ -255,7 +255,7 @@ immutable complete package gate on corrected source. The later plan must cover:
   transition, revocation without restoration, and no input after rejection.
 - Unchanged nonce protocol: 16 non-submitted characters, exact echo before one
   Ctrl+U, a newer empty frame and one consumed exit proof.
-- Equivalent chunkings of recognized displays, including identical-byte
+- Equivalent chunk layouts of recognized displays, including identical-byte
   clear/repaint batches, plus conservative rejection of invalid intermediate
   owned-history states. No raw parser event is accepted as a computation receipt.
 - Primary guard/composer/driver/nonce/exit agreement, required aggregation

@@ -2087,8 +2087,6 @@ raise SystemExit(1)
             "P004B_AUTHORIZED_TOP_LEVEL_INVOCATIONS",
             "P004B_AUTHORIZED_MAX_MODEL_TURNS",
             "P004B_AUTHORIZED_PROVIDER_ENDPOINT",
-            "MEASUREMENT_TOP_LEVEL_INVOCATIONS=4",
-            "MEASUREMENT_MAX_MODEL_TURNS=32",
             "EXPECTED_TOP_LEVEL_INVOCATIONS=6", "EXPECTED_MAX_MODEL_TURNS=40",
             "browser-mcp-config.py", "ALLOW_MCP_CONFIG", "DENY_MCP_CONFIG",
             '--strict-mcp-config --mcp-config "$EMPTY_MCP_CONFIG"',

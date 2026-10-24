@@ -1,10 +1,14 @@
+<!-- cspell:ignore Bxll Cpmw -->
 # P0-04B Disposable Permission Handler Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a test-only permission MCP that deterministically allows one exact synthetic browser mutation, denies a second different mutation, and proves the deny caused no additional effect without changing production approval behavior.
 
-**Architecture:** A Node.js verifier reuses the production Bash and browser workflow parsers. A minimal Python stdio MCP server applies one phase-bound decision and writes only content-free one-use evidence. The POSIX/WSL harness creates separate strict MCP configurations for measurement, allow, and deny sessions, then reduces the two ordered workflow streams and fixture state into the existing bounded aggregate.
+**Architecture:** A Node.js verifier reuses the production Bash and browser workflow parsers. A minimal Python stdio MCP
+server applies one phase-bound decision and writes only content-free one-use evidence. The POSIX/WSL harness creates
+separate strict MCP configurations for measurement, allow, and deny sessions, then reduces the two ordered workflow
+streams and fixture state into the existing bounded aggregate.
 
 **Tech Stack:** Node.js 24 ESM and `node:test`, Python 3.12+ standard library and `unittest`, Bash, Claude Code CLI, stdio MCP JSON-RPC, Playwright detected at runtime.
 
@@ -108,7 +112,11 @@ test('allow phase accepts only the exact synthetic change workflow', () => {
 });
 ```
 
-Add separate cases for the exact rollback-shaped deny phase and for wrong tool, unknown input key, multiline command, pipeline, redirect, assignment, nonliteral `node`, changed runner, nonce, session, origin, role, target, environment, identity reference, transport, effect, action, value reference, expected reference, expiry, step order, and phase. Each rejection must equal the same content-free record with `verified:false`, `reasonCode:'P004B_PERMISSION_MISMATCH'`, null identity fields, and zero counts.
+Add separate cases for the exact rollback-shaped deny phase and for wrong tool, unknown input key, multiline command,
+pipeline, redirect, assignment, nonliteral `node`, changed runner, nonce, session, origin, role, target, environment,
+identity reference, transport, effect, action, value reference, expected reference, expiry, step order, and phase. Each
+rejection must equal the same content-free record with `verified:false`, `reasonCode:'P004B_PERMISSION_MISMATCH'`, null
+identity fields, and zero counts.
 
 - [ ] **Step 2: Run the verifier test and observe RED**
 
@@ -271,7 +279,10 @@ self.assertEqual(deny_server["args"][4:6], ["deny", "deny"])
 self.assertNotEqual(allow_server["args"][6], deny_server["args"][6])
 ```
 
-Assert all four files are `0600`; handler/verifier/runner/fixture paths are canonical regular non-symlinks; output directory is canonical, private, and absolute; allow and deny sessions differ; claims and signals differ; no environment map, external MCP server, token, or secret field is emitted. Reject links, relative paths, duplicate sessions, invalid origins, unbounded labels, unsafe output directories, and pre-existing output targets.
+Assert all four files are `0600`; handler/verifier/runner/fixture paths are canonical regular non-symlinks; output
+directory is canonical, private, and absolute; allow and deny sessions differ; claims and signals differ; no environment
+map, external MCP server, token, or secret field is emitted. Reject links, relative paths, duplicate sessions, invalid
+origins, unbounded labels, unsafe output directories, and pre-existing output targets.
 
 - [ ] **Step 2: Run config tests and observe RED**
 
@@ -324,7 +335,10 @@ git commit -m "test: generate phase-bound browser permission configs"
 
 - [ ] **Step 1: Add failing evidence tests with complete real stream envelopes**
 
-Extend the existing stream fixture builders rather than asserting parser internals. Add one valid allow stream and one valid deny stream. The deny stream must contain one Bash tool use, the exact ordered PreToolUse `ask` hook lifecycle, the correlated permission-denied tool result, no PostToolUse or PostToolUseFailure for the runner, no runner JSON result, and one same-session SDK success terminal after the model stops.
+Extend the existing stream fixture builders rather than asserting parser internals. Add one valid allow stream and one
+valid deny stream. The deny stream must contain one Bash tool use, the exact ordered PreToolUse `ask` hook lifecycle,
+the correlated permission-denied tool result, no PostToolUse or PostToolUseFailure for the runner, no runner JSON
+result, and one same-session SDK success terminal after the model stops.
 
 Assert the aggregate literal:
 
@@ -339,7 +353,10 @@ self.assertEqual(result["capabilityState"], "ACTIVE")
 self.assertEqual(result["workflow"]["outcome"], "WORKFLOW_VALIDATED")
 ```
 
-Add named rejection tests for swapped phases, same session, same operation, same fingerprint, allow signal reporting deny, deny signal reporting allow, unmatched fingerprint, duplicate permission call, deny followed by PostToolUse, deny followed by runner output, later Bash/MCP activity, changed fixture state after deny, missing state observation, malformed signal, signal link, and any raw command/canary in retained output.
+Add named rejection tests for swapped phases, same session, same operation, same fingerprint, allow signal reporting
+deny, deny signal reporting allow, unmatched fingerprint, duplicate permission call, deny followed by PostToolUse, deny
+followed by runner output, later Bash/MCP activity, changed fixture state after deny, missing state observation,
+malformed signal, signal link, and any raw command/canary in retained output.
 
 - [ ] **Step 2: Run the evidence tests and observe RED**
 
@@ -398,7 +415,10 @@ git commit -m "test: require ordered allow and deny browser evidence"
 
 - [ ] **Step 1: Write failing harness and fixture behavior tests**
 
-Change safety tests to execute preflight/self-test behavior and inspect generated configs through Task 3 tests, not merely grep new source. Retain static assertions only for destructive cleanup boundaries that cannot safely be executed on Windows. Extend the staging and archive tests to build the real artifacts and assert that neither `browser-permission-mcp.py` nor `browser-permission-verifier.mjs` is present anywhere in their file inventories.
+Change safety tests to execute preflight/self-test behavior and inspect generated configs through Task 3 tests, not
+merely grep new source. Retain static assertions only for destructive cleanup boundaries that cannot safely be executed
+on Windows. Extend the staging and archive tests to build the real artifacts and assert that neither
+`browser-permission-mcp.py` nor `browser-permission-verifier.mjs` is present anywhere in their file inventories.
 
 Extend the fixture with a content-free `/api/summary` response containing exactly:
 
