@@ -54,6 +54,38 @@ The final CI head must independently pass the complete suite, including this
 prerequisite check and the new local regression. A failed platform audit remains
 blocking; it does not authorize a host-security workaround.
 
+### Final local result and hosted blocker
+
+The immutable complete gate for 7f3031172e135ef2783500ae1c5f3621a1b50e18
+passed in 1,459.556 seconds with exit 0 and package validation passed. All 582
+canonical file contents/modes and the archive stayed unchanged; disposable-root
+removal was verified. Archive SHA-256:
+cba3b5d8ed6b64e7d30bcf21972627d4e6f7ba08017fe6d075dc55298b7f7d17.
+This is not a complete local qualification of the later CI-prerequisite delta.
+The final live-link run checked 185 URLs with zero broken in 222.022 seconds.
+Existing platform/capability skips remain visible in the package log; native
+acceptance was not run.
+
+Hosted run 40113764823 confirmed that Bubblewrap 0.9.0 was previously absent,
+installed the Ubuntu package, then correctly blocked at the early isolation audit.
+The fixed no-content probe in run 40113937848, job 120931209689, reproduced:
+
+<!-- cspell:ignore NEWADDR -->
+    bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
+
+The failure precedes checkout mounting, terminal helper execution, and all Claude
+or provider activity. Local WSL uses Bubblewrap 0.12.0. The failing operation is
+now identified; attributing the runner denial specifically to an AppArmor
+profile still requires host-policy evidence, not just matching an error message.
+[Ubuntu documents capability restrictions in unprivileged user namespaces](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/#apparmor-unprivileged-user-namespace-restrictions).
+
+Status: check-input and dependency corrections are delivered, but the final
+hosted package gate remains blocked. Do not merge or mark P0-04B accepted.
+Next decision: authorize a narrowly scoped security-policy investigation and
+adaptation for the disposable CI runner, or select a compatible isolated runner.
+Do not disable AppArmor globally, share the host network, elevate the entire
+test suite, skip the failing audit, or reinterpret a blocked result as success.
+
 Execution rulings:
 
 - Use explicit Git Bash with process-local `safe.directory` for skill helpers;
