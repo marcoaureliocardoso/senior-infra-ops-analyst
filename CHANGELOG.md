@@ -7,6 +7,16 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Repaired PR 58 check inputs without changing native acceptance: aligned all
+  three full-package validation job budgets to 40 minutes, removed unused test
+  metadata, preserved child-shell timeout-forgery evaluation, and corrected
+  Markdown/spelling inputs without disabling lint rules. External-link selection
+  now excludes loopback fixtures and JSON suffixes, handles an empty corpus,
+  preserves internal apostrophes, and safely escapes JSON reports. Nine offline
+  link regressions are included in the package gate. Full-gate and remote check
+  results are recorded separately in the validation notes; no native execution,
+  release, or merge is implied.
+
 - Added a test-only stage-owned public SDK measurement profile with four fixed
   main stages, eight structured context reads and closed MAIN_STAGE_CONTEXT_V2
   evidence. The loopback emulator counts actual HTTP attempts, verifies fresh

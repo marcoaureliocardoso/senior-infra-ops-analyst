@@ -1,6 +1,57 @@
 <!-- cspell:ignore Bxll Cpmw yufz -->
 # Validation Notes
 
+## PR 58 check repairs - 2026-10-24
+
+Scope: CI/lint/link correctness only. Native readiness remains
+CAPABILITY_UNAVAILABLE; no Claude/provider execution, operator configuration or
+credential access, release, or merge is authorized by these repairs.
+
+The correction range starts at `06ddf5753925b9561f01d866e927af93a9def4c0`.
+Commits `1adadf5` and `0ba4859` repair full-package budgets, ShellCheck diagnostics,
+Markdown, spelling, and link extraction/reporting. Independent review found one
+Important URL-identity regression: internal apostrophes were truncated. A new
+test failed for both Markdown and single-quoted URLs, then all nine link tests
+passed after `7f30311`. That commit also restores indentation in the copyable
+YAML frontmatter example introduced by prose wrapping; parsing proves the
+description value is preserved. No second independent review was requested.
+
+Focused results: 25 workflow tests, 139 provider-free harness tests, the harness
+self-test, content/history/architecture/browser-policy/schema checks, and
+Windows PowerShell syntax validation passed. All shell scripts passed
+ShellCheck 0.11.0; 268 Markdown files passed markdownlint 0.41.1; cSpell reported
+zero issues across its 267-file checked corpus. No global lint rule was disabled.
+
+The original link correction checked 185 live public URLs with zero broken links
+in 239.327 seconds. A fresh live-link run and immutable complete gate for
+`7f3031172e135ef2783500ae1c5f3621a1b50e18` are pending at this checkpoint.
+The superseded `0ba4859` gate was intentionally interrupted, not passed: its
+commit-bound wrapper recorded exit -2 after 324.728 seconds, unchanged canonical
+files/archive, and verified disposable-root removal. Final results must identify
+the candidate actually tested, not infer success from focused tests.
+
+Execution rulings:
+
+- Use explicit Git Bash with process-local `safe.directory` for skill helpers;
+  keep the existing isolated worktree and all persistent Git settings unchanged.
+  Cost if wrong: helper portability, not repository policy.
+- Remove dead measurement metadata and its text-only test markers; retain actual
+  six-invocation/40-turn authorization enforcement. Cost if wrong: obsolete
+  metadata expectations, not runtime budget expansion.
+- Prepare independent link regressions while first-task verification runs.
+  Cost if wrong: bookkeeping order only; commits remain separated by concern.
+- Treat the introduced invalid YAML example as a correctness repair rather than
+  optional polish. Cost if wrong: one documentation indentation change.
+- Keep prior native/SDK qualification and the unavailable formal security scan
+  outside this correction verdict; preserve existing HTTP reachability/report
+  policies. Cost if wrong: those separate gates still require completion.
+- Push the reviewed, focused-tested candidate while the complete local gate
+  runs so GitHub checks can run in parallel; this is not a passing-gate claim.
+  Cost if wrong: additional runner consumption or a corrective follow-up commit.
+
+No deferred Minor findings remain from this correction review. Full-PR security,
+native/provider/browser acceptance, and integration are not certified by it.
+
 ## MAIN-only structured SDK measurement - local implementation - 2026-10-24
 
 **Current qualification boundary:** the independent review of 7c65f29 reproduced

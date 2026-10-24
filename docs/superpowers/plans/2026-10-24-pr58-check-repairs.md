@@ -81,4 +81,6 @@ Revert only the repair commits if necessary. No operator settings, Git metadata,
 
 ## Planning Status
 
-Planning only: no repair, validation rerun, commit, or push has occurred under this plan. Await operator confirmation before implementation.
+Operator confirmed direct execution. Repair commits and the single independent
+review/fix pass are complete; final full-gate, live-link, and remote check results
+are tracked in `tests/validation-notes.md`. No merge is authorized by this plan.
