@@ -5,7 +5,7 @@
 **Goal:** Correct the three reproduced review findings without weakening authorization,
 independent validation, runtime evidence, or CI isolation.
 
-**Architecture:** Narrow the existing validation grammar and keep negative postconditions
+**Architecture:** Narrow the existing validation grammar and keep negative state predicates
 inconclusive unless non-application is independently proven. Latch reset and failed-hook
 events in the existing legacy stream reducer. Preserve the current envelope/fingerprint,
 original lifetime, protected references, cleanup, and separate native acceptance gates.
@@ -130,5 +130,7 @@ or persistent external state should require restoration.
 
 ## Status
 
-Plan prepared for confirmation. No runtime/test implementation, commit, push,
-CI policy change, or native/provider execution has occurred under this plan.
+Implementation approved and in progress. Focused RED/GREEN checks cover all three
+findings; final immutable package, independent review and exact-head hosted gates
+are recorded in tests/validation-notes.md. No CI policy change or native/provider
+execution is authorized by this plan.

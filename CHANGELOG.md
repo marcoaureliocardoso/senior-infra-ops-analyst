@@ -7,6 +7,15 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected three reproduced PR 58 runtime review findings. Independent browser
+  validation rejects configuration inputs and restricts interactive preparation
+  to explicit authentication origins. A negative desired-state predicate after
+  possible effects remains OUTCOME_UNKNOWN, not proof of non-application. Legacy
+  context measurement rejects reset/error/failed-hook records even after terminal
+  success. Browser component metadata advances to 1.0.2; root 0.15.0 remains
+  unreleased. Focused and final-gate evidence are recorded separately in validation
+  notes; these repairs do not certify native acceptance or unblock hosted isolation.
+
 - Repaired PR 58 check inputs without changing native acceptance: aligned all
   three full-package validation job budgets to 40 minutes, removed unused test
   metadata, preserved child-shell timeout-forgery evaluation, and corrected

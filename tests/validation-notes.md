@@ -1,6 +1,42 @@
 <!-- cspell:ignore Bxll Cpmw yufz -->
 # Validation Notes
 
+## PR 58 runtime review remediation - 2026-10-24
+
+The approved correction range starts at 91cd9416adf5ce0d92deda312be817dc97169048.
+It repairs three reproduced findings without changing hosted security policy,
+renewing a consumed native grant or qualifying the blocked SDK shutdown boundary.
+
+Independent validation now rejects configuration-class fill/select before guard
+authority staging or value resolution; interactive validation preparation requires
+an explicit authentication origin. Navigation and inspection remain available.
+Desired-state not-met after possible effects retains OUTCOME_UNKNOWN with
+POSTCONDITION_NOT_MET and validationRequired=true. Separate paths proven to stop
+before any possible state-changing dispatch retain WORKFLOW_NOT_APPLIED.
+
+Six focused regressions failed against the original code. After correction, the
+complete browser-operation suites passed with 222 passes and one explicit
+capability skip; command guard mutation coverage passed 86/86. Browser policy4,
+installation policy3, architecture13 and content checks passed. Browser component
+Nori metadata is 1.0.2; the unreleased root stays 0.15.0. Skill prose is aligned
+with these enforced contracts, not newly certified model compliance.
+
+The legacy measurement reducer latches reset, error and unsuccessful/malformed
+hook records throughout the stream. Twenty-four fault subcases failed against
+the original reducer. All 28 lifecycle/control cases now pass, including the
+real trusted-builder boundary; the whole provider-free harness suite passed
+140 tests. Valid passive hooks keep existing absent/success outcome and
+absent/integer-zero exit forms with bounded identity and exact session. These
+records do not independently qualify native command-guard coverage.
+
+The immutable full-package result, final independent review and exact-head
+hosted checks remain pending at this checkpoint. The previous immutable pass at
+7f30311 does not qualify these changes. The known hosted namespace failure is
+still a separate blocked gate; no AppArmor/sysctl change, privileged suite,
+shared network or test skip is part of this remediation. Native/provider/browser
+acceptance, formal full-PR security qualification, merge, release and definitive
+TODO completion are not claimed.
+
 ## PR 58 check repairs - 2026-10-24
 
 Scope: CI/lint/link correctness only. Native readiness remains
