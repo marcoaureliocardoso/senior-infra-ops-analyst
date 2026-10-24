@@ -63,8 +63,13 @@ Execution uses one ephemeral adapter and stops at the first failure. The runner
 then closes it before resolving and opening a second adapter for the read-only
 validation sequence in a fresh validation context. A possible mutation followed
 by timeout, crash, interruption, close failure, or ambiguous response is never
-retried. Fresh validation may return `WORKFLOW_VALIDATED` or
-`WORKFLOW_NOT_APPLIED`; otherwise the result remains `OUTCOME_UNKNOWN`. Every
+retried. Validation preparation accepts only credential-class fill/select and
+interactive clicks on explicitly bound authentication origins; configuration
+inputs are rejected. Navigation and the final inspection may use service origins.
+Fresh validation may return `WORKFLOW_VALIDATED`. A negative desired-state predicate
+returns `OUTCOME_UNKNOWN` with `POSTCONDITION_NOT_MET`, not proof that no earlier
+effect occurred. `WORKFLOW_NOT_APPLIED` is reserved for paths proven to stop before
+any potentially state-changing dispatch. Every
 exit invalidates the one-shot binding and attempts complete adapter, context,
 profile, artifact, and reference cleanup. If interruption leaves a one-shot
 fingerprint active, a later legacy step quarantines and invalidates it before

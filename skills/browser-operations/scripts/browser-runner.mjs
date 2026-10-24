@@ -235,6 +235,12 @@ function parseWorkflow(values, now) {
     }
     if (!opening.envelope.actions.includes(step.step)) fail('WORKFLOW_ACTION_NOT_BOUND');
   }
+  for (const step of workflow.validationSteps) {
+    if (['fill', 'select', 'click'].includes(step.step)
+        && !opening.envelope.authOrigins.includes(step.origin)) {
+      fail('WORKFLOW_VALIDATION_AUTH_ORIGIN_NOT_BOUND');
+    }
+  }
   if (workflow.validationSteps.at(-1).expectRef !== opening.envelope.validationRef) {
     fail('WORKFLOW_VALIDATION_REFERENCE');
   }
@@ -659,7 +665,8 @@ async function runWorkflowValidation(adapter, request, dependencies, env) {
     }
     if (result?.expectRef !== inspect.expectRef) throw new Error('VALIDATION_REFERENCE_MISMATCH');
     if (result?.status === 'met') return { outcome: 'WORKFLOW_VALIDATED' };
-    if (result?.status === 'not-met') return { outcome: 'WORKFLOW_NOT_APPLIED' };
+    // A missing desired state does not prove that preceding effects were absent.
+    if (result?.status === 'not-met') return { outcome: 'OUTCOME_UNKNOWN', reasonCode: 'POSTCONDITION_NOT_MET' };
   } catch (error) {
     return { outcome: 'OUTCOME_UNKNOWN', reasonCode: runnerErrorReason(error, 'OUTCOME_UNKNOWN') };
   }
@@ -789,13 +796,6 @@ async function executeBrowserWorkflowCore(request, dependencies, scope) {
     if (!completed) return workflowOutput('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request);
     lifetime.assertLive();
     return workflowOutput('ok', 'WORKFLOW_VALIDATED', request);
-  }
-  if (validation.outcome === 'WORKFLOW_NOT_APPLIED') {
-    if (executionAmbiguous && !reconcileOutcomeUnknown(
-      sessionId, request.operationId, pending.envelope.validationRef, 'not-applied', env, lifetime.assertLive(), scope.owned,
-    )) return workflowOutput('outcome-unknown', 'WORKFLOW_COMPLETION_FAILED', request);
-    lifetime.assertLive();
-    return workflowOutput('ok', 'WORKFLOW_NOT_APPLIED', request);
   }
   return workflowOutput('outcome-unknown', validation.reasonCode ?? 'OUTCOME_UNKNOWN', request);
 }

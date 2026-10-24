@@ -124,7 +124,12 @@ before binary capture.
 
 Mutating calls that time out or lose confirmation become `OUTCOME_UNKNOWN`.
 They are not retried automatically; an independent validator must first
-classify the state as applied or not applied. Applied operations cannot repeat.
+establish the actual state. Applied operations cannot repeat. A negative desired-state
+predicate does not establish absence of partial effects and retains `OUTCOME_UNKNOWN`.
+The current one-shot protocol emits `WORKFLOW_NOT_APPLIED` only for a path proven
+to stop before potentially state-changing dispatch, not from a negative inspection.
+Validation preparation accepts only credential-class inputs and interactive clicks
+on explicit authentication origins; configuration-class inputs are rejected.
 The same rule applies to a failed fill, select, navigation, or interactive
 control that might have triggered autosave, and to a later failure after a
 successful fill, select, click, submit, or declared mutation. Credential-class

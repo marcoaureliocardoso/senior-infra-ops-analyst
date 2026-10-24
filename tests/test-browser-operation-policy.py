@@ -127,7 +127,7 @@ class BrowserOperationPolicyTests(unittest.TestCase):
 
         manifest = json.loads(SKILL_MANIFEST.read_text(encoding="utf-8"))
         self.assertEqual(manifest["name"], "browser-operations")
-        self.assertEqual(manifest["version"], "1.0.1")
+        self.assertEqual(manifest["version"], "1.0.2")
         self.assertEqual(manifest["type"], "skill")
         self.assertNotIn("scripts", manifest)
 

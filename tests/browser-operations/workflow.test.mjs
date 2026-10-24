@@ -41,6 +41,21 @@ test('parses bounded ordered execution and validation step sequences', () => {
   assert.equal(Object.isFrozen(workflow.validationSteps[0]), true);
 });
 
+test('validation rejects configuration inputs but preserves credential preparation and execution configuration', () => {
+  for (const step of ['fill', 'select']) {
+    const configuration = token({ step, origin: 'http://127.0.0.1:43111',
+      locatorRole: step === 'select' ? 'combobox' : 'textbox',
+      valueRef: 'env:OPS_BROWSER_VALUE_FIELD', valueClass: 'configuration' });
+    expectsWorkflowError(() => parseWorkflowSteps([NAVIGATE], [configuration, INSPECT]),
+      'INVALID_VALIDATION_VALUE_CLASS');
+    assert.equal(parseWorkflowSteps([configuration], [INSPECT]).executionSteps[0].valueClass, 'configuration');
+    const credential = token({ step, origin: 'http://127.0.0.1:43111',
+      locatorRole: step === 'select' ? 'combobox' : 'textbox',
+      valueRef: 'env:OPS_BROWSER_VALUE_FIELD', valueClass: 'credential' });
+    assert.equal(parseWorkflowSteps([NAVIGATE], [credential, INSPECT]).validationSteps[0].valueClass, 'credential');
+  }
+});
+
 
 test('rejects non-canonical, oversized, malformed, and duplicate-key encoded records', () => {
   const duplicateStep = Buffer.from('{"step":"navigate","step":"fill","origin":"http://127.0.0.1:43111"}').toString('base64url');

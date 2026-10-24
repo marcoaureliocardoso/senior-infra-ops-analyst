@@ -93,8 +93,10 @@ Prefer existing authenticated sessions, then protected vault/keychain/helper ref
 Intercept redirects, popups, and new tabs before an origin escape. Treat form fill as `INTERACTIVE_STATE` because a UI
 may autosave. A mutable persistent one-shot closes its execution adapter, resolves a second adapter, and performs its
 read-only postcondition in a fresh validation context. If an interaction fails ambiguously, or if any later step fails
-after a successful fill, select, click, submit, or declared mutation, validation may classify applied or not applied,
-but the interaction is never retried automatically. Any unresolved result returns `OUTCOME_UNKNOWN`.
+after a successful fill, select, click, submit, or declared mutation, validation may confirm the desired state,
+but a negative predicate alone cannot prove that nothing was applied. Retain `OUTCOME_UNKNOWN` and reconcile
+partial effects; never retry automatically. Validation preparation uses only credential-class fill/select and
+interactive clicks on explicitly bound authentication origins, never configuration inputs.
 
 ## Close and clean up
 

@@ -295,6 +295,9 @@ export function parseWorkflowSteps(executionTokens, validationTokens) {
   if (validationSteps.at(-1).step !== 'inspect') fail('MISSING_FINAL_INSPECT');
   for (const step of validationSteps.slice(0, -1)) {
     if (!VALIDATION_STEPS.has(step.step)) fail('INVALID_VALIDATION_STEP');
+    if (['fill', 'select'].includes(step.step) && step.valueClass !== 'credential') {
+      fail('INVALID_VALIDATION_VALUE_CLASS');
+    }
     if (step.step === 'click' && step.effect !== 'INTERACTIVE_STATE') fail('INVALID_VALIDATION_EFFECT');
   }
   return freeze({ executionSteps: freeze(executionSteps), validationSteps: freeze(validationSteps) });

@@ -604,7 +604,43 @@ test('one-shot workflow returns outcome unknown when validation adapter is unava
 });
 
 
-test('one-shot workflow returns workflow not applied for exact not-met validation after ambiguous failure on the later mutable step', async () => {
+test('native guard rejects validation configuration before staging authority or dispatch', async () => {
+  await stateFixture(async (env) => {
+    const inspect = { step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+      predicate: 'text-equals', expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state' };
+    for (const step of ['fill', 'select']) {
+      const args = workflowArgs({ actions: ['navigate', 'fill', 'select', 'submit', 'inspect'],
+        validationSteps: [{ step, origin: 'http://127.0.0.1:43111',
+          locatorRole: step === 'select' ? 'combobox' : 'textbox',
+          locatorName: 'Autosave', valueRef: 'env:OPS_BROWSER_VALUE_FIELD', valueClass: 'configuration' }, inspect] });
+      const decision = evaluateHook(JSON.stringify({
+        session_id: 'session-runner-001', tool_use_id: `invalid-validation-${step}`,
+        hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+        tool_input: { command: workflowCommand(args) },
+      }), env, NOW);
+      assert.equal(decision.hookSpecificOutput.permissionDecision, 'deny');
+      assert.equal(readPendingOperation('session-runner-001', 'op-workflow-001', env, NOW), null);
+      assert.throws(() => parseRunnerArgs(args, NOW), { code: 'BROWSER_RUNNER_INVALID_VALIDATION_VALUE_CLASS' });
+    }
+  });
+});
+
+test('validation interactive preparation requires an explicit authentication origin', () => {
+  const validationSteps = [
+    { step: 'click', origin: 'http://127.0.0.1:43111', locatorRole: 'button',
+      locatorName: 'Sign in', effect: 'INTERACTIVE_STATE' },
+    { step: 'inspect', origin: 'http://127.0.0.1:43111', locatorRole: 'status',
+      predicate: 'present', expectedRef: 'env:OPS_BROWSER_VALUE_EXPECTED', expectRef: 'interface-state' },
+  ];
+  const common = { actions: ['navigate', 'fill', 'click', 'submit', 'inspect'], validationSteps };
+  assert.throws(() => parseRunnerArgs(workflowArgs({ ...common,
+    executionSteps: [{ step: 'navigate', origin: 'http://127.0.0.1:43111' }],
+    authOrigins: ['https://login.example.invalid'],
+  }), NOW), { code: 'BROWSER_RUNNER_WORKFLOW_VALIDATION_AUTH_ORIGIN_NOT_BOUND' });
+  assert.equal(parseRunnerArgs(workflowArgs(common), NOW).validationSteps[0].step, 'click');
+});
+
+test('one-shot workflow retains unknown for not-met validation after ambiguous failure on the later mutable step', async () => {
   await stateFixture(async (env) => {
     const args = workflowArgs({
       effect: 'LOW_RISK_CHANGE',
@@ -668,8 +704,9 @@ test('one-shot workflow returns workflow not applied for exact not-met validatio
       now: NOW + 1,
       adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
     });
-    assert.equal(result.status, 'ok');
-    assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'POSTCONDITION_NOT_MET');
+    assert.equal(result.validationRequired, true);
     assert.deepEqual(calls, [
       'execution:open',
       'execution:navigate',
@@ -749,8 +786,9 @@ test('one-shot workflow validates after a later non-mutable failure once a mutat
       now: NOW + 1,
       adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
     });
-    assert.equal(result.status, 'ok');
-    assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'POSTCONDITION_NOT_MET');
+    assert.equal(result.validationRequired, true);
     assert.doesNotMatch(JSON.stringify(result), /SYNTH_SECRET_WORKFLOW_EXPECTED/u);
     assert.equal(observedDuringValidation?.outcome, 'OUTCOME_UNKNOWN');
     assert.deepEqual(observedDuringValidation?.outcomeObservation, {
@@ -1089,8 +1127,9 @@ test('one-shot workflow validates an ambiguous autosaving fill failure', async (
 });
 
 
-test('one-shot workflow validates after a successful autosaving interaction and a later read failure', async () => {
+test('one-shot workflow retains partial autosaved state as unknown after a later read failure', async () => {
   await stateFixture(async (env) => {
+    const persisted = { changed: false };
     const args = workflowArgs({
       effect: 'INTERACTIVE_STATE',
       risk: 'LOW_RISK_CHANGE',
@@ -1126,7 +1165,7 @@ test('one-shot workflow validates after a successful autosaving interaction and 
         },
         async open() { calls.push('execution:open'); },
         async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
-        async fill(step) { calls.push(`execution:fill:${step.credential}`); return { status: 'ok' }; },
+        async fill(step) { persisted.changed = true; calls.push(`execution:fill:${step.credential}`); return { status: 'ok' }; },
         async inspect() { calls.push('execution:inspect'); throw new Error('SYNTH_READ_FAILURE'); },
         async close() { calls.push('execution:close'); },
       },
@@ -1150,8 +1189,10 @@ test('one-shot workflow validates after a successful autosaving interaction and 
       now: NOW + 1,
       adapterFactory: async () => ({ state: 'ACTIVE', adapter: adapters.shift() }),
     });
-    assert.equal(result.status, 'ok');
-    assert.equal(result.reasonCode, 'WORKFLOW_NOT_APPLIED');
+    assert.equal(persisted.changed, true);
+    assert.equal(result.status, 'outcome-unknown');
+    assert.equal(result.reasonCode, 'POSTCONDITION_NOT_MET');
+    assert.equal(result.validationRequired, true);
     assert.deepEqual(calls, [
       'execution:open', 'execution:navigate', 'execution:fill:synthetic-hostname',
       'execution:inspect', 'execution:close', 'validation:open', 'validation:navigate',

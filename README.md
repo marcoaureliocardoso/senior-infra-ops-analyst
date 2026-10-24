@@ -108,7 +108,10 @@ cannot currently prove pre-navigation popup containment.
 Every `fill` or `select` record declares `valueClass` as `credential` or
 `configuration`. Credential values are accepted only on an explicit
 authentication origin; configuration values are accepted only on a service
-origin. Navigation holds an exact destination-origin lock from request through
+origin during execution, never during independent validation. Validation preparation
+permits only credential-class inputs and interactive clicks on explicit authentication
+origins. A negative desired-state predicate leaves partial effects `OUTCOME_UNKNOWN`;
+it cannot establish `WORKFLOW_NOT_APPLIED`. Navigation holds an exact destination-origin lock from request through
 redirect completion. Page-bound semantic actions verify the actual top-level
 origin before and after dispatch and hold the same lock while in flight. Both
 forms block a top-level transition to another allowed origin. An interrupted
