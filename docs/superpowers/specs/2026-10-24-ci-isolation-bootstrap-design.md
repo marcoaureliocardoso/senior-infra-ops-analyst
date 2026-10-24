@@ -1,9 +1,9 @@
 <!-- cspell:ignore setuid setgid libcap userns NoNewPrivs seccomp -->
 # CI isolation bootstrap and package refresh
 
-Status: option 1 selected by the operator on 2026-10-24. This written design
-awaits approval. No package installation, policy loading, workflow change or
-new CI execution is authorized by this document alone.
+Status: approved by the operator on 2026-10-24, with an amendment permitting a
+general image-package upgrade when viable. The implementation plan is the next
+review gate; no package installation, policy loading or CI dispatch has occurred.
 
 ## Intent and baseline
 
@@ -56,15 +56,28 @@ Goals:
 - Keep network, process, filesystem and privilege boundaries independently checked.
 - Preserve mandatory package validation and closed failure/cleanup reporting.
 
-Proposed interpretation of the operator's package request: update the packages
-needed by these three validation gates, not every installed image package.
-This scope is an author proposal for approval, not an additional operator choice
-already made. It includes Bubblewrap, AppArmor inspection/parser packages, and
-the compiler/build/runtime dependencies required by the selected secure build.
-Use Ubuntu's signed repositories for distribution packages; refresh package
-indices and install/update the explicit package set even when packages exist.
-Do not perform a blanket distribution upgrade, change the runner release, add
-repositories without review, or use downloaded installation scripts.
+The operator additionally permits a general package upgrade of the disposable
+image when viable. Interpret this within the existing Ubuntu 24.04 release, not
+as an OS migration or reboot. Refresh signed package indices, simulate the
+upgrade, reject removals/downgrades/forced hold changes and restart-sensitive
+changes, and run it only when the bounded proposal is safe for the active runner.
+Simulation is not proof that package scripts have no side effects. Revalidate
+the runner, tools and security state afterward; a failed or partially applied
+upgrade fails that job rather than falling back on the changed image.
+
+If a valid simulation is not viable, record that disposition and continue only
+with the explicit dependency refresh needed by the three validation gates.
+Malformed simulation, repository/authentication failure or unknown state blocks
+the bootstrap; these are not reasons to silently use stale packages. Do not
+use dist-upgrade/full-upgrade, reboot, add repositories, remove packages, force
+held packages, or run downloaded installation scripts. Report held/deferred
+updates without claiming the whole image is current.
+
+The required set includes Bubblewrap and the compiler/build/runtime dependencies
+for the selected secure build. Inspect the installed AppArmor parser/ABI and
+install compatible tooling only if this can be done without a broad policy
+reload or service disruption. Refresh explicit safe dependencies even when they
+already exist; do not silently upgrade protected host-policy components.
 
 The existing locked terminal dependency and its integrity checks stay in force.
 Any change to that lockfile requires a separately reviewed compatible version
@@ -185,7 +198,9 @@ Required evidence before the expensive package suite:
   Record/test the bounding set and reject any configuration that can recover
   forbidden privilege; a nonempty bounding set is not silently treated as success.
 - The intended AppArmor child policy is effective when a CI profile was loaded;
-  controlled namespace/capability recovery attempts cannot acquire privilege.
+  controlled recovery attempts cannot acquire forbidden authority over the host
+  or original sandbox namespaces. Fresh descendant-local capabilities alone do
+  not prove an escape; do not promise a global ban on nested namespaces.
 - A dedicated read-only synthetic bind cannot be written, while only its owned
   work bind is writable. Never test write denial against /usr or operator files.
 - A known synthetic host marker/process is not visible inside the sandbox; no
@@ -268,7 +283,7 @@ completion follows without the separate required gates and operator direction.
 
 ## Builder calls and approval boundary
 
-Settled by the author for review: bounded package scope; private root-owned CI
+Settled by the author for review: guarded general-upgrade feasibility; private root-owned CI
 binary; immutable source baseline rather than floating latest; no host-network
 diagnostic; conditional policy with attribution required; shared three-job
 bootstrap; read-only validation tokens; and stronger proof without new native
@@ -281,7 +296,9 @@ and review those values before implementation; unknown provenance cannot be
 deferred until a privileged command executes. Unresolvable ABI/source/correlation
 constraints stop for a revised design, not a silent broader exception.
 
-The independent builder check found no important unanswered planning question.
+The independent builder check of the original bounded-package design found no
+important unanswered planning question. The later general-upgrade amendment
+comes from the operator and is explicitly covered in the implementation plan.
 That check is not a patch/security review, implementation approval or proof of
 runtime compatibility. The actual jobs and dependencies remain unchanged.
 
