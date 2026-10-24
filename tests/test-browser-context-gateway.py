@@ -163,5 +163,18 @@ class GatewayTests(unittest.TestCase):
             post(g,request());self.assertNotEqual(g.snapshot()["fault"],"NONE")
         self.assertTrue(g.stopped);self.assertNotEqual(g.snapshot()["fault"],"NONE")
 
+    def test_shutdown_waits_for_inflight_request_fault(self):
+        with Gateway("run-001") as g:
+            g.begin_stage("skill")
+            s=socket.create_connection(("127.0.0.1",g.port))
+            s.sendall(b"POST /v1/messages HTTP/1.1\r\nHost: localhost\r\nContent-Length: 10\r\n\r\n{")
+            # The counting fact proves that the handler is in flight, not merely queued in TCP.
+            import time
+            deadline=time.monotonic()+1
+            while not g.snapshot()["generationAttempts"] and time.monotonic()<deadline:time.sleep(.001)
+        s.close()
+        self.assertTrue(g.stopped)
+        self.assertEqual(g.snapshot()["fault"],"STATE_UNPROVEN")
+
 
 if __name__=="__main__":unittest.main()

@@ -76,7 +76,7 @@ class StageEvents:
         self.policy=policy; self.expected_session=label(expected_session)
         self.session_id=None;self.init=False;self.result=False;self.terminal=False;self.fault="NONE"
         self.calls={};self.completed=set();self.message_ids=set();self.hooks={};self.hook_done=False
-        self.latest=None;self.advertised=False;self.search=False;self.unexpected=0
+        self.latest=None;self.advertised=False;self.policy_fixed=False;self.search=False;self.unexpected=0
 
     def fail(self,reason):
         if self.fault=="NONE":self.fault=reason
@@ -99,6 +99,10 @@ class StageEvents:
                 self.advertised=(type(tools) is list and len(tools)<=4096 and all(type(x) is str for x in tools))
                 self.search=self.advertised and "ToolSearch" in tools
                 if not self.advertised:self.fail("CAPABILITY_UNAVAILABLE")
+                permitted=set(self.policy["tools"])
+                if self.policy["mcp"]=="fixture":permitted.add("mcp__p004b-context__context_fixture_ping")
+                self.policy_fixed=self.advertised and len(set(tools))==len(tools) and set(tools)<=permitted
+                if self.advertised and not self.policy_fixed:self.fail("POLICY_UNPROVEN")
                 return
             if subtype in ("hook_started","hook_response"):
                 if m.get("outcome") not in (None,"success") or m.get("exit_code") not in (None,0):
@@ -169,7 +173,7 @@ class StageEvents:
 
     def snapshot(self):
         return dict(latestResponseUsage=self.latest,sessionBound=self.init and self.result and self.session_id==self.expected_session and self.fault!="SESSION_UNPROVEN",
-                    policyFixed=self.advertised,historyLinked="NOT_REQUIRED" if self.policy["stage"]=="skill" else "UNPROVEN",
+                    policyFixed=self.policy_fixed,historyLinked="NOT_REQUIRED" if self.policy["stage"]=="skill" else "UNPROVEN",
                     measurementHook=("OBSERVED" if self.hook_done and not self.hooks else "UNPROVEN") if self.policy["stage"]=="subagent" else "NOT_REQUIRED",
                     claimVerified=False,actionCalls=len(self.calls),toolResultsComplete=self.terminal and set(self.calls)==self.completed,
                     toolSearchAvailable=self.search,unexpectedCalls=self.unexpected,fault=self.fault)

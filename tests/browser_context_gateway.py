@@ -113,7 +113,9 @@ class Gateway:
                 self.send(405,b'{}')
             do_GET=do_PUT=do_DELETE=do_PATCH=do_HEAD=do_OPTIONS=reject
         self.server=ThreadingHTTPServer(("127.0.0.1",0),Handler)
-        self.server.daemon_threads=True;self.port=self.server.server_address[1];self.stopped=False
+        # A timed-out request is still evidence. Join bounded handlers before final snapshot/publication.
+        self.server.daemon_threads=False;self.server.block_on_close=True
+        self.port=self.server.server_address[1];self.stopped=False
         self.thread=threading.Thread(target=self.server.serve_forever,kwargs={"poll_interval":.02},daemon=True)
         self.thread.start();return self
 

@@ -113,6 +113,13 @@ class SDKTests(unittest.TestCase):
             self.assertFalse(e.snapshot()["sessionBound"])
             self.assertEqual(e.fault,"SESSION_UNPROVEN")
 
+    def test_advertised_policy_drift_is_not_fixed(self):
+        events=frames();events[0]["tools"].append("Bash")
+        e=StageEvents(stage_policy("skill","run-001"),"native-001")
+        for frame in events:e.feed(frame)
+        self.assertEqual(e.fault,"POLICY_UNPROVEN")
+        self.assertFalse(e.snapshot()["policyFixed"])
+
     def test_unexpected_background_reset_or_compaction_stops(self):
         for late in (dict(type="system",subtype="compact_boundary"),dict(type="conversation_reset"),
                      dict(type="system",subtype="task_started"),
