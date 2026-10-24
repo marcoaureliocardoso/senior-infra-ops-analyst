@@ -20,6 +20,17 @@ GATE = ROOT / "tests" / "validate-package.sh"
 
 
 class LiveBrowserOperationSafetyTests(unittest.TestCase):
+    def test_main_v2_cannot_pass_full_role_validator(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "tests"))
+        import browser_operations_live as reducer
+        with self.assertRaises(ValueError):
+            reducer.validate_trusted_measurement({
+                "schema": "MAIN_STAGE_CONTEXT_V2", "schemaVersion": 2,
+                "runNonce": "run-001", "sessionId": "native-001", "stages": [],
+                "outcome": "MAIN_STAGE_QUALIFIED", "reason": "NONE", "cleanupVerified": True,
+            }, "run-001", {"native-001"})
+
     ROLES = (
         "audit-evidence-collector", "change-manager", "cloud-platform-operator",
         "database-operator", "diagnostic-operator", "incident-commander",
