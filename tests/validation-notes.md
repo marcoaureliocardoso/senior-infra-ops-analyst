@@ -30,6 +30,30 @@ commit-bound wrapper recorded exit -2 after 324.728 seconds, unchanged canonical
 files/archive, and verified disposable-root removal. Final results must identify
 the candidate actually tested, not infer success from focused tests.
 
+### Namespace prerequisite exposed by the longer CI budget
+
+At documentation head `45a1ff5`, Security and all quick checks passed, but CI run
+`40112705714` failed after 5m54s in
+`test_real_namespace_only_runs_one_synthetic_text_case`: SETUP_BLOCKED, before
+disposable-root creation. Source, Node and terminal modules were already usable
+in earlier suites; `_namespace` also requires `bwrap`, which the full-gate jobs
+did not provision. This was not another job timeout or a native-provider result.
+
+The follow-up provisions the existing Bubblewrap test dependency from the signed
+Ubuntu package repositories in all three full-gate jobs. The package gate now
+rejects its absence before terminal execution and performs the existing
+no-Claude isolation audit before expensive suites. No test is skipped, no blocked
+result is treated as success, and no AppArmor/sysctl or namespace protection is
+disabled. The new hermetic missing-runtime test failed with exit 127 and a
+terminal-launch marker before the fix, then passed with exit 2 and no marker.
+The existing real WSL audit reported network isolation, hidden operator state,
+dropped capabilities and disposable-root removal all true.
+
+The ongoing immutable `7f30311` run remains evidence for that exact source only.
+The final CI head must independently pass the complete suite, including this
+prerequisite check and the new local regression. A failed platform audit remains
+blocking; it does not authorize a host-security workaround.
+
 Execution rulings:
 
 - Use explicit Git Bash with process-local `safe.directory` for skill helpers;
@@ -48,6 +72,12 @@ Execution rulings:
 - Push the reviewed, focused-tested candidate while the complete local gate
   runs so GitHub checks can run in parallel; this is not a passing-gate claim.
   Cost if wrong: additional runner consumption or a corrective follow-up commit.
+- Provision the already-required namespace runtime explicitly and audit it
+  before the suite, rather than skip isolation tests or relax the host policy.
+  Cost if wrong: CI fails early and requires an explicit platform decision.
+- Keep the immutable local result bound to `7f30311`; use the final head's full
+  CI result plus focused local tests for the prerequisite follow-up.
+  Cost if wrong: no immutable local qualification of that later source is claimed.
 
 No deferred Minor findings remain from this correction review. Full-PR security,
 native/provider/browser acceptance, and integration are not certified by it.

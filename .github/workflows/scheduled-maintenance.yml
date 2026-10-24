@@ -51,6 +51,13 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Provision required namespace runtime
+        run: |
+          if ! command -v bwrap >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends bubblewrap
+          fi
+          bwrap --version
       - name: Provision test-only terminal runtime
         run: |
           terminal_node="$(readlink -f "$(command -v node)")"

@@ -16,6 +16,9 @@ tag. Tagged versions correspond to repository tags.
   link regressions are included in the package gate. Full-gate and remote check
   results are recorded separately in the validation notes; no native execution,
   release, or merge is implied.
+  A subsequent CI run exposed the previously implicit Bubblewrap prerequisite:
+  full-gate jobs now provision it explicitly and audit isolation before the
+  expensive suites, without skipping tests or disabling host security controls.
 
 - Added a test-only stage-owned public SDK measurement profile with four fixed
   main stages, eight structured context reads and closed MAIN_STAGE_CONTEXT_V2

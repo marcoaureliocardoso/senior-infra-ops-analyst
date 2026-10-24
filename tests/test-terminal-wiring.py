@@ -26,6 +26,25 @@ class TerminalWiringTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(prefix='terminal-wiring-test-')
         self.addCleanup(self.temp.cleanup); self.root=Path(self.temp.name)
 
+    def test_package_gate_rejects_missing_namespace_before_terminal_execution(self):
+        import shutil
+        binaries = self.root / 'bin'
+        binaries.mkdir()
+        (binaries / 'dirname').symlink_to(shutil.which('dirname'))
+        marker = self.root / 'terminal-launched'
+        for name in ('python3', 'node'):
+            executable = binaries / name
+            executable.write_text('#!/bin/sh\nprintf invoked > ' + str(marker) + '\n')
+            executable.chmod(0o700)
+        result = subprocess.run(['/bin/bash', str(ROOT / 'tests/validate-package.sh')],
+            env={'PATH': str(binaries), 'HOME': str(self.root),
+                 'P004B_TERMINAL_NODE': str(binaries / 'node'),
+                 'P004B_TERMINAL_MODULE_ROOT': str(self.root)},
+            capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr.strip(), b'Bubblewrap namespace runtime is required')
+        self.assertFalse(marker.exists(), 'gate launched tests before checking required isolation')
+
     def test_browser_context_entry_cannot_activate_offline_observation(self):
         with mock.patch.object(sys,'argv',['context-entry','--observe-post-enter']),\
                 contextlib.redirect_stderr(io.StringIO()),\
