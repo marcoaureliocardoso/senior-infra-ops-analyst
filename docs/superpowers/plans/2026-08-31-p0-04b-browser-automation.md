@@ -112,7 +112,7 @@ Create `skills/browser-operations/SKILL.md` with frontmatter:
 ---
 name: browser-operations
 description: Operate recognized browser routes for infrastructure diagnosis and approved UI changes under a bound
-operation envelope and active fail-closed guard.
+  operation envelope and active fail-closed guard.
 version: 0.1.0
 last_updated: 2026-08-31
 ---

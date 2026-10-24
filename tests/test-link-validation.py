@@ -96,6 +96,15 @@ class LinkValidationTests(unittest.TestCase):
             "broken_urls": [{"code": "404", "url": url}],
         })
 
+    def test_internal_apostrophe_preserves_url_identity_in_markdown_and_quotes(self):
+        url = "https://en.wikipedia.org/wiki/Occam's_razor"
+        for markdown in (f"[article]({url})", f"'{url}'"):
+            with self.subTest(markdown=markdown):
+                result, calls = self.run_validator(markdown)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual([call[-1] for call in calls], [url])
+                self.assertEqual(json.loads(result.stdout)["checked"], 1)
+
     def test_get_fallback_still_accepts_a_server_that_rejects_head(self):
         result, calls = self.run_validator("https://docs.python.org/3/", head="405")
         self.assertEqual(result.returncode, 0, result.stderr)

@@ -21,13 +21,14 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 # Extract all https?:// URLs from all markdown files.
-# Quotes and backticks delimit embedded JSON and Markdown examples, not URLs.
+# Double quotes and backticks delimit embedded JSON and Markdown examples.
+# Preserve internal apostrophes (valid URL characters); trim wrapper quotes below.
 urls=$(find . -name '*.md' \
   -not -path './.git/*' \
   -not -path './.worktrees/*' \
   -not -path './tests/reports/*' \
   -not -path './.superpowers/*' \
-  -exec grep -Eo "https?://[^])>[:space:]\"'\`]+" {} \; \
+  -exec grep -Eo "https?://[^])>[:space:]\"\`]+" {} \; \
   | sed -e 's/[.,;:]*$//' -e 's/`$//' -e "s/'$//" -e 's/"$//' \
   | awk '!/[<>]/' \
   | LC_ALL=C sort -u \
