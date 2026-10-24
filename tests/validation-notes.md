@@ -3,6 +3,10 @@
 
 ## PR 58 runtime review remediation - 2026-10-24
 
+Current local result: the corrected immutable candidate d3afcfe passed the full
+package gate. Hosted isolation and the separate native/security acceptance gates
+remain blocked or pending; this is not merge authorization.
+
 The approved correction range starts at 91cd9416adf5ce0d92deda312be817dc97169048.
 It repairs three reproduced findings without changing hosted security policy,
 renewing a consumed native grant or qualifying the blocked SDK shutdown boundary.
@@ -59,6 +63,39 @@ All 25 package-contract tests passed after the alignment.
 Hosted CI run 40134580558 on 70381a5 reproduced the known namespace failure at
 the no-content probe before package execution. Every other check, including
 CodeQL, links, schemas and lint, passed. This does not certify a later head.
+
+### Corrected immutable result and remaining gates
+
+Candidate d3afcfe83c4f60704770f24abd54d291c8082b38 passed the fresh complete
+bash tests/validate-package.sh gate in 1,468.887 seconds, exit 0, no timeout.
+All 584 canonical contents/modes and the source archive remained unchanged;
+disposable-root removal was verified. Archive SHA-256:
+0216d3c3186b6dcc4d3934dbe834041a56d1de470332c80ccde31fa0134fbc57.
+The retained structural result and complete package log use that full commit
+prefix under the external .review-runtime/p004b-stage-owned-measurement directory.
+The failed 70381a5 attempt remains a failure and its evidence is preserved.
+
+Explicit exclusions remain: the opt-in production adapter's 37 loopback scenarios
+were not run; three actual-SDK cases skipped in the SDK-free system interpreter;
+native-Windows MCP rejection, confirmed-window CLI validation and Nori argument
+validation without Git Bash each skipped on this platform. PowerShell syntax/help
+coverage was unavailable in the isolated Linux PATH. Schema and local workflow
+validation passed. No actual Claude/provider/browser acceptance was performed.
+
+The source delta after independent review through d3afcfe changes only the stale
+test version expectation and documentation; production skills/scripts are
+unchanged. The subsequent closeout changes Markdown only and receives fresh
+content/architecture/lint checks, not another full-source qualification claim.
+Independent review applies to 91cd941..70381a5; the author observed the corrected
+immutable gate. One deferred Minor remains as documented in the review.
+
+On d3afcfe, hosted CI run 40136079274 again failed at the namespace probe with
+the same RTM_NEWADDR denial before package execution; all other checks passed,
+including both CodeQL languages and links. The final documentation head's fresh
+hosted state is reported in PR 58. No runner security policy was changed.
+Task 3's external-gate handoff remains blocked: scope and approve any runner
+policy adaptation separately, retain native SDK shutdown/full acceptance gates,
+and do not merge, release or mark the definitive TODO complete.
 
 ## PR 58 check repairs - 2026-10-24
 

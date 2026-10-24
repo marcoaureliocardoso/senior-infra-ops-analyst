@@ -130,7 +130,9 @@ or persistent external state should require restoration.
 
 ## Status
 
-Implementation approved and in progress. Focused RED/GREEN checks cover all three
-findings; final immutable package, independent review and exact-head hosted gates
-are recorded in tests/validation-notes.md. No CI policy change or native/provider
-execution is authorized by this plan.
+Implementation, focused RED/GREEN checks, independent review and corrected
+immutable package validation are delivered. Task 3's external-gate handoff
+remains blocked by hosted isolation and separate native/security qualification.
+Evidence and the deferred Minor are recorded in tests/validation-notes.md.
+No CI policy change, native/provider execution, merge or release is authorized
+by this plan. The definitive TODO remains incomplete.
