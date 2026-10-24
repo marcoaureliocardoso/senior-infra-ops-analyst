@@ -21,19 +21,22 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 # Extract all https?:// URLs from all markdown files.
-# Filters out placeholder URLs (<host>, <prometheus>, etc.) and strips trailing backticks.
+# Quotes and backticks delimit embedded JSON and Markdown examples, not URLs.
 urls=$(find . -name '*.md' \
   -not -path './.git/*' \
   -not -path './.worktrees/*' \
   -not -path './tests/reports/*' \
-  -exec grep -Eo 'https?://[^])>[:space:]]+' {} \; \
+  -not -path './.superpowers/*' \
+  -exec grep -Eo "https?://[^])>[:space:]\"'\`]+" {} \; \
   | sed -e 's/[.,;:]*$//' -e 's/`$//' -e "s/'$//" -e 's/"$//' \
-  | grep -v '[<>]' \
+  | awk '!/[<>]/' \
   | LC_ALL=C sort -u \
   | while IFS= read -r url; do
       host=$(echo "$url" | sed -n 's|^https\?://\([^/:]*\).*|\1|p')
       # Skip bare hostnames (no dot — e.g., app02, localhost)
       [[ "$host" != *.* ]] && continue
+      # Loopback fixture addresses are not external documentation links.
+      [[ "$host" =~ ^127(\.[0-9]{1,3}){3}$ ]] && continue
       # Skip .local domains (RFC 6762 reserved — never publicly routable)
       [[ "$host" == *.local ]] && continue
       # Skip .invalid domains (RFC 2606 reserved for deliberately invalid names)
@@ -98,14 +101,19 @@ done <<< "$urls"
 
 # --- JSON report ---
 if $json_output; then
-  entries=""
-  for entry in "${broken[@]}"; do
-    code="${entry%% *}"
-    url="${entry#* }"
-    entries+="{\"code\":\"$code\",\"url\":\"$url\"},"
-  done
-  entries="${entries%,}"
-  echo "{\"status\":\"$([ ${#broken[@]} -eq 0 ] && echo 'ok' || echo 'broken')\",\"checked\":$total,\"ok\":$ok_count,\"broken\":${#broken[@]},\"broken_urls\":[$entries]}"
+  # Use the project's existing Python runtime for JSON escaping, not shell
+  # interpolation: a URL backslash must never become a JSON control escape.
+  python3 - "$total" "$ok_count" "${broken[@]}" <<'PY'
+import json
+import sys
+
+entries = [dict(zip(("code", "url"), entry.split(" ", 1))) for entry in sys.argv[3:]]
+print(json.dumps({
+    "status": "broken" if entries else "ok",
+    "checked": int(sys.argv[1]), "ok": int(sys.argv[2]),
+    "broken": len(entries), "broken_urls": entries,
+}))
+PY
   [ ${#broken[@]} -eq 0 ]
   exit
 fi

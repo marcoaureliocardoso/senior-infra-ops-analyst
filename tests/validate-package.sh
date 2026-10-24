@@ -108,6 +108,7 @@ python3 tests/test-browser-startup-approval.py
 python3 tests/test-browser-context-driver.py
 python3 tests/test-smoke-command-guard.py
 python3 tests/test-ci-workflows.py
+python3 tests/test-link-validation.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
 bash -n skills/context-continuity/scripts/compact-hook-launcher.sh
