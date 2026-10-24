@@ -20,6 +20,29 @@ GATE = ROOT / "tests" / "validate-package.sh"
 
 
 class LiveBrowserOperationSafetyTests(unittest.TestCase):
+    def test_package_gate_wires_only_zero_native_context_suites(self):
+        text=GATE.read_text(encoding="utf-8")
+        for filename in ("test-browser-context-contract.py","test-browser-context-sdk.py",
+                         "test-browser-context-gateway.py","test-browser-context-project.py",
+                         "test-offline-browser-context-safety.py"):
+            self.assertTrue("python3 tests/"+filename in text,"missing zero-native context suite: "+filename)
+        self.assertIn("python3 tests/offline-browser-context-smoke.py --self-test",text)
+        self.assertNotIn("offline-browser-context-smoke.py --run-offline",text)
+
+    def test_sdk_unavailable_is_not_adapter_qualification(self):
+        from browser_context_sdk import detect_sdk
+        from types import SimpleNamespace
+        self.assertEqual(detect_sdk(SimpleNamespace()),{"available":False,"reason":"CAPABILITY_UNAVAILABLE"})
+
+    def test_new_profile_never_emits_full_acceptance_or_active(self):
+        from browser_context_contract import STAGES
+        self.assertEqual(STAGES,("skill","subagent","discovery","use"))
+        spec=(ROOT/"docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md").read_text()
+        self.assertIn("MAIN_STAGE_CONTEXT_V2",spec)
+        notes=(ROOT/"tests/validation-notes.md").read_text()
+        self.assertTrue("MAIN-only structured SDK measurement" in notes,"missing MAIN-only validation record")
+        self.assertIn("Native NOT_RUN",notes)
+
     def test_main_v2_cannot_pass_full_role_validator(self):
         import sys
         sys.path.insert(0, str(ROOT / "tests"))

@@ -35,6 +35,47 @@ structured deny proves runtime coverage before an operational call.
 
 ## Capability states and routing
 
+### Test-only MAIN-stage structured context route
+
+The approved [stage-owned specification](../superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
+and [implementation plan](../superpowers/plans/2026-10-23-p0-04b-stage-owned-context.md)
+add an offline public-SDK profile, not an alternate full-acceptance gate. Four
+sequential clients each own one consumer and a fixed-policy before/query/after
+pair for skill, subagent, discovery and use. Latest completed top-level response
+accounting must match the after read and differ from valid prior accounting;
+ResultMessage cumulative totals and child usage are not substitutes. Native
+window denominators remain reported values, never configured overrides.
+
+MAIN_STAGE_CONTEXT_V2 is private, exact and content-free; its public projection
+removes run/session identity. Negative/zero deltas can be valid, denominator drift
+cannot. A bounded non-forwarding loopback emulator emits fresh reply-only markers
+and requires the prior current-run assistant marker in each resumed top-level
+request. Local project loading copies canonical files and validates flat installed
+agents without SDK agent overrides, operator configuration or registry access.
+
+Only native PreToolUse:Agent measurement lifecycle, exact FIRST_CALL output and
+an exclusive private claim can prove that narrow hook. Operational command and
+browser guards remain CONFIGURED_UNPROVEN. This route cannot emit ACTIVE or
+pass the existing five-anchor/twelve-role v1 validator. The role route and live
+count-request observability still require a separate design and authorization.
+The [one-client provenance result](../reviews/2026-10-23-p0-04b-native-provenance-result.md)
+is earlier structural evidence, not a grant or proof of resumed four-stage support.
+
+Package validation uses zero-native tests and a pure self-test only. Optional-SDK
+absence explicitly skips SDK-boundary cases and cannot establish adapter readiness.
+A future exact-artifact offline grant is consumed before launching, bounds actual
+HTTP attempts and all owned clients, and permits disposable synthetic history
+only. Frozen explicit runtime dependencies are mounted read-only; the bundled CLI
+is masked, operator state hidden and all network access isolated to loopback.
+Final clients/HTTP shutdown, parent-owned reap/root deletion, artifact identity and
+deadline checks precede public reduction. Any inconclusive result stops without
+repair or retry. No native execution is authorized by implementation approval.
+
+See [validation notes](../../tests/validation-notes.md) for independently recorded
+local, SDK, review, package, native, role and remote statuses.
+
+### Operational routing
+
 Runtime capability detection yields `AVAILABLE_RECOGNIZED`,
 `AVAILABLE_UNRECOGNIZED`, `UNAVAILABLE`, or `CONFLICT`. Execution additionally
 stops on `GUARD_UNPROVEN` and unresolved `OUTCOME_UNKNOWN`. A recognized main-session MCP

@@ -120,7 +120,7 @@ def validate_witness(stage, value):
     for key in ("sessionBound", "policyFixed", "claimVerified", "toolResultsComplete", "toolSearchAvailable"):
         if type(value[key]) is not bool: raise ValueError("invalid witness flag")
     for key in ("actionCalls", "unexpectedCalls"): integer(value[key], 40)
-    if value["fault"] not in REASONS: raise ValueError("invalid closed fault")
+    if type(value["fault"]) is not str or value["fault"] not in REASONS: raise ValueError("invalid closed fault")
     if value["latestResponseUsage"] is not None: usage_tuple(value["latestResponseUsage"])
     if value["historyLinked"] not in (("NOT_REQUIRED",) if stage=="skill" else ("OBSERVED", "UNPROVEN")):
         raise ValueError("invalid history witness")
@@ -159,11 +159,13 @@ def validate_main(value, expected_nonce, expected_session):
     if value["schema"]!="MAIN_STAGE_CONTEXT_V2" or type(value["schemaVersion"]) is not int or value["schemaVersion"]!=2:
         raise ValueError("invalid main schema")
     if label(value["runNonce"])!=label(expected_nonce) or label(value["sessionId"])!=label(expected_session): raise ValueError("identity mismatch")
-    if type(value["cleanupVerified"]) is not bool or value["reason"] not in REASONS: raise ValueError("invalid main flags")
+    if type(value["cleanupVerified"]) is not bool or type(value["reason"]) is not str or value["reason"] not in REASONS: raise ValueError("invalid main flags")
     records=value["stages"]
     if type(records) is not list or len(records)>4: raise ValueError("invalid stage list")
     for stage, record in zip(STAGES, records):
         exact(record, {"stage", "before", "after", "witness", "outcome", "reason", "deltaTokens"})
+        if record["deltaTokens"] is not None and (type(record["deltaTokens"]) is not int or abs(record["deltaTokens"])>SAFE_INT):
+            raise ValueError("invalid token delta")
         if record["stage"]!=stage or record!=finish_stage(stage, record["before"], record["after"], record["witness"]):
             raise ValueError("unverified stage reduction")
     success=(len(records)==4 and all(r["outcome"]=="QUALIFIED" for r in records) and value["cleanupVerified"])
@@ -175,6 +177,7 @@ def validate_main(value, expected_nonce, expected_session):
 
 
 def public_main(value):
+    if type(value) is not dict:raise ValueError("invalid main schema")
     value=validate_main(value, value.get("runNonce"), value.get("sessionId"))
     return {k:v for k,v in value.items() if k not in ("runNonce", "sessionId")}
 

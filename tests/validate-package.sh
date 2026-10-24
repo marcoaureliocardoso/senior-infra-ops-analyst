@@ -67,6 +67,12 @@ python3 tests/test-live-browser-operation-safety.py
 python3 tests/test-browser-launch-diagnostics.py
 python3 tests/test-browser-disposable-launcher.py
 python3 tests/test-browser-measurement-guard.py
+python3 tests/test-browser-context-contract.py
+python3 tests/test-browser-context-sdk.py
+python3 tests/test-browser-context-gateway.py
+python3 tests/test-browser-context-project.py
+python3 tests/test-offline-browser-context-safety.py
+python3 tests/offline-browser-context-smoke.py --self-test
 python3 tests/test-browser-mcp-config.py
 python3 tests/test-browser-permission-mcp.py
 python3 tests/test-native-execution-boundary-pty.py

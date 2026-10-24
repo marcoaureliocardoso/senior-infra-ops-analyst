@@ -138,6 +138,10 @@ class SafetyTests(unittest.TestCase):
         bind_sources=[c[i+1] for i,x in enumerate(c[:-2]) if x in ("--bind","--ro-bind")]
         self.assertNotIn(str(Path.home()),bind_sources)
 
+    def test_original_deadline_crosses_namespace_boundary(self):
+        c=smoke.namespace_command(Path("/tmp/owned"),None,None,None,audit=True,parent_net=1,deadline=123.45)
+        self.assertEqual(c[-1],"123.45")
+
     @unittest.skipUnless(os.name=="posix","POSIX supervisor required")
     def test_harmless_supervisor_timeout_oversize_and_owned_cleanup(self):
         from terminal_cancellation import TerminalCancellation

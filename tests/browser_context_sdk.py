@@ -198,6 +198,9 @@ async def run_stage(client,policy,expected_session,*,resume,before_query,history
         await asyncio.sleep(0)
         async with asyncio.timeout(remaining()):
             raw=await client.get_context_usage();before=dict(context=project_context(raw),apiUsage=project_api_usage(raw))
+        if before["apiUsage"]["state"]=="INVALID":raise ValueError("INVALID_OBSERVATION")
+        if before["context"]["autoCompactEnabled"] is not True:
+            events.fail("POLICY_UNPROVEN");raise ValueError("POLICY_UNPROVEN")
         value=before_query(before)
         if inspect.isawaitable(value):await value
         async with asyncio.timeout(remaining()):await client.query(policy["prompt"])

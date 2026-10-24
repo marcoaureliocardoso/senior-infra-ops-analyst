@@ -242,7 +242,7 @@ def decode_report(raw):
     return strict_json(raw)
 
 
-def namespace_command(root,sdk_root,cli_path,node_path,*,audit,parent_net):
+def namespace_command(root,sdk_root,cli_path,node_path,*,audit,parent_net,deadline=None):
     command=[shutil.which("bwrap") or "bwrap","--die-with-parent","--new-session","--unshare-user","--unshare-pid",
         "--unshare-ipc","--unshare-uts","--unshare-net","--cap-drop","ALL","--ro-bind","/usr","/usr",
         "--tmpfs","/usr/local","--symlink","usr/bin","/bin","--symlink","usr/sbin","/sbin",
@@ -258,7 +258,7 @@ def namespace_command(root,sdk_root,cli_path,node_path,*,audit,parent_net):
     command += ["--clearenv","--setenv","PATH","/opt/probe:/usr/bin:/bin","--setenv","HOME","/work/home",
         "--setenv","PYTHONNOUSERSITE","1","--setenv","PYTHONDONTWRITEBYTECODE","1",
         "--setenv","PYTHONPATH","/opt/probe:/work/source:/work/source/tests:/opt/sdk","/usr/bin/python3","-B","/opt/probe/offline-browser-context-smoke.py",
-        "--inner-audit" if audit else "--inner-offline",str(parent_net)]
+        "--inner-audit" if audit else "--inner-offline",str(parent_net),str(deadline if deadline is not None else time.monotonic()+600)]
     return command
 
 
@@ -289,7 +289,7 @@ def run_namespace(*,audit,sdk_root,cli_path,node_path,deadline):
                          "tests/command_guard_install_policy.py","tests/context_continuity_install_policy.py",
                          "tests/browser-measurement-guard.py","tests/mcp-context-fixture.py"):
                 target=source/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(ROOT/name,target)
-        command=namespace_command(root,sdk_root,cli_path,node_path,audit=audit,parent_net=Path("/proc/self/ns/net").stat().st_ino)
+        command=namespace_command(root,sdk_root,cli_path,node_path,audit=audit,parent_net=Path("/proc/self/ns/net").stat().st_ino,deadline=deadline-.8)
         with TerminalCancellation() as cancellation:
             try:
                 process=cancellation.spawn(command,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
@@ -329,6 +329,8 @@ def audit_namespace(parent_net):
 def inner(arguments):
     audit_namespace(int(arguments[1]))
     if arguments[0]=="--inner-audit":return audit_namespace(int(arguments[1]))
+    deadline=float(arguments[2])
+    if not time.monotonic()<deadline<=time.monotonic()+600:raise ValueError("OPERATION_TIMEOUT")
     from browser_context_project import prepare_project
     import claude_agent_sdk as sdk
     if not detect_sdk(sdk)["available"]:raise ValueError("CAPABILITY_UNAVAILABLE")
@@ -342,7 +344,7 @@ def inner(arguments):
             "ANTHROPIC_API_KEY":"synthetic-offline-only-key","ANTHROPIC_BASE_URL":f"http://127.0.0.1:{g.port}",
             "ANTHROPIC_MODEL":"synthetic-model","DISABLE_NONESSENTIAL_TRAFFIC":"1","CLAUDE_CODE_MAX_RETRIES":"0"}
         return sdk.ClaudeSDKClient(options)
-    main=asyncio.run(run_main(factory,g,project,nonce=nonce,requested_session=session,deadline=time.monotonic()+575))
+    main=asyncio.run(run_main(factory,g,project,nonce=nonce,requested_session=session,deadline=deadline))
     snap=g.snapshot()
     return dict(main=main,traffic=dict(userQueries=g.user_queries,contextCalls=g.context_calls,
         generationAttempts=snap["generationAttempts"],countAttempts=snap["countAttempts"],stageCounts=snap["stageCounts"]),reason=main["reason"])
@@ -360,7 +362,7 @@ def main(arguments=None):
     args=list(sys.argv[1:] if arguments is None else arguments)
     if args in ([],["--self-test"]):print(json.dumps(self_test(),sort_keys=True));return 0
     try:
-        if len(args)==2 and args[0] in ("--inner-audit","--inner-offline"):
+        if len(args)==3 and args[0] in ("--inner-audit","--inner-offline"):
             result=inner(args);print(json.dumps(result,separators=(",",":")));return 0
         parser=argparse.ArgumentParser(add_help=False)
         modes=parser.add_mutually_exclusive_group(required=True)

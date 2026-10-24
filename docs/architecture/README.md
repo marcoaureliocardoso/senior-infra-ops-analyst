@@ -17,6 +17,14 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 also indexes the test-only
+[stage-owned structured SDK context profile](../superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
+and [inline implementation plan](../superpowers/plans/2026-10-23-p0-04b-stage-owned-context.md).
+MAIN_STAGE_CONTEXT_V2 cannot satisfy the existing twelve-role/full browser gate;
+operational guards stay CONFIGURED_UNPROVEN. Local/SDK controls and earlier
+[one-client provenance](../reviews/2026-10-23-p0-04b-native-provenance-result.md)
+are distinct from new native acceptance, live requests and remote CI/Security.
+
 ADR-010 also references a [written nonce/history diagnostic proposal](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md),
 approved by the operator on 2026-10-22. Its [implementation plan](../superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)
 was approved for direct/inline implementation with one independent final review.

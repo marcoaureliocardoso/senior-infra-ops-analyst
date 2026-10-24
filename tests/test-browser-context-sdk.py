@@ -150,5 +150,16 @@ class SDKTests(unittest.TestCase):
             before_query=lambda x:None,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+.2))
         self.assertFalse(r["clientsClosed"]);self.assertEqual(r["record"]["reason"],"CLEANUP_INCONCLUSIVE")
 
+    def test_invalid_before_stops_without_query(self):
+        class InvalidBefore(FakeClient):
+            async def get_context_usage(self):
+                self.order.append("before")
+                return {**raw_context(),"apiUsage":{"input_tokens":True}}
+        c=InvalidBefore()
+        r=asyncio.run(run_stage(c,stage_policy("skill","run-001"),"native-001",resume=False,
+            before_query=lambda x:None,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+5))
+        self.assertNotIn("query",c.order)
+        self.assertEqual(r["record"]["reason"],"INVALID_OBSERVATION")
+
 
 if __name__=="__main__":unittest.main()

@@ -7,6 +7,16 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added a test-only stage-owned public SDK measurement profile with four fixed
+  main stages, eight structured context reads and closed MAIN_STAGE_CONTEXT_V2
+  evidence. The loopback emulator counts actual HTTP attempts, verifies fresh
+  resumed assistant-history markers and closes on late faults or cleanup failure.
+  Canonical local project projection preserves installed agent semantics; only
+  the Agent measurement hook can be qualified. Zero-native unit controls are
+  wired into package validation. Native qualification, twelve-role/full browser
+  acceptance and remote CI/Security remain separate pending gates; no consumed
+  execution grant is renewed. Version and production policy are unchanged.
+
 - Added local test-only nonce/history diagnostics after approval of the written
   specification and direct/inline implementation plan. Private call scopes
   freeze seven closed scalars before revocation; optional collection preserves

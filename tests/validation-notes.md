@@ -1,5 +1,61 @@
 # Validation Notes
 
+## MAIN-only structured SDK measurement - local implementation - 2026-10-24
+
+The approved [specification](../docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
+and [plan](../docs/superpowers/plans/2026-10-23-p0-04b-stage-owned-context.md) implement
+a test-only MAIN_STAGE_CONTEXT_V2 route, not the full P0-04B acceptance gate.
+Native NOT_RUN; provider/live EXCLUDED; twelve-role route BLOCKED;
+remote CI/Security NOT_RUN. Existing consumed native grants remain consumed.
+No version bump, registry installation, push, PR, merge or TODO completion.
+
+Local TDD groups passed: contract11, SDK11, gateway13, project4 and offline
+safety11. SDK parser/options cases ran under the existing read-only SDK venv;
+no skip and no Claude/version subprocess occurred. Existing measurement guard3,
+MCP fixture2, cancellation14 and live-browser safety136 also passed. Counts
+refer to unittest methods; these are separate commands, not one combined run.
+The Python-only actual bubblewrap audit mounted zero native executables; fake
+clients exercised four queries/eight reads/four sequential connections. The
+installed-form validator and Node configurators ran only in disposable local
+project fixtures. This is canonical local native-artifact projection, not Nori
+dependency-resolution acceptance; read-the-damn-docs was not fetched.
+
+Three additional reproduced gaps were corrected with RED/GREEN: HTTP shutdown
+waits for bounded in-flight handlers, unexpected advertised built-ins reject
+policy proof, and local project/configuration bytes cannot change inside a
+measurement pair. Cleanup and final gateway facts dominate provisional success.
+Missing/null/malformed/replayed accounting cannot establish after provenance;
+zero/negative token deltas and equal percentages are not automatically rejected.
+
+The package gate runs only five zero-native suites and a pure, non-recursive
+--self-test. Without the optional SDK, parser/options cases explicitly skip;
+such a package result does not qualify the SDK adapter. Local checks do not
+prove native resumed history, native Agent-hook lifecycle or installed command/
+browser guard coverage. Operational guards stay CONFIGURED_UNPROVEN.
+
+Prior one-client native provenance is recorded separately in the
+[structural result](../docs/reviews/2026-10-23-p0-04b-native-provenance-result.md).
+It proves neither this four-stage profile nor the missing twelve-role route.
+Independent final review and the immutable-source full package gate are pending
+at this implementation checkpoint; their eventual results must be recorded
+separately rather than inferred from these focused tests.
+
+Execution rulings so far: host Git/apply_patch bookkeeping replaces skill helpers
+whose WSL Git cannot resolve Windows-style linked-worktree pointers (cost: manual
+ledger verification); task heading spacing is normalized for the helper parser
+(no semantic change); home-exclusion tests inspect mount sources rather than
+empty namespace directory arguments (cost: distinguish names from mounts, with
+a real namespace audit as independent control).
+
+Future offline acceptance requires a fresh exact-artifact grant: four queries,
+eight context reads, four main native clients, at most one SDK version auxiliary
+per client, forty generation HTTP attempts including child work,192 counting
+attempts/48 per stage,25 seconds per non-generating operation,120 per stage and
+600 total including cleanup. Fresh synthetic reply-only history markers and
+disposable native history are required. No real provider or operator state is
+allowed; first inconclusive result stops with no retry. Neither this plan nor
+local self-tests grant that execution.
+
 ## Coherent nonce/history diagnostics - local implementation - 2026-10-22
 
 The operator approved the written specification and plan and selected direct/inline

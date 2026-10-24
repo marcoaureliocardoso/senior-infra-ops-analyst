@@ -111,5 +111,28 @@ class ContractTests(unittest.TestCase):
         import browser_operations_live as legacy
         with self.assertRaises(ValueError): legacy.validate_trusted_measurement(report(), "run-001", {"native-001"})
 
+    def test_invalid_closed_enums_and_delta_types_raise_value_error(self):
+        for change in (lambda x:x.update(reason=[]),
+                       lambda x:x["stages"][0]["witness"].update(fault={}),
+                       lambda x:x["stages"][0].update(deltaTokens=-1.0)):
+            bad=report();change(bad)
+            with self.assertRaises(ValueError):validate_main(bad,"run-001","native-001")
+        with self.assertRaises(ValueError):public_main(None)
+
+    def test_private_reader_rejects_duplicate_symlink_and_permissions(self):
+        import json,os,tempfile
+        from pathlib import Path
+        from browser_context_contract import load_private
+        if os.name!="posix":self.skipTest("POSIX private evidence")
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"report.json";path.write_text(json.dumps(report()));path.chmod(0o600)
+            self.assertEqual(load_private(path,"run-001","native-001"),report())
+            path.chmod(0o644)
+            with self.assertRaises(ValueError):load_private(path,"run-001","native-001")
+            path.chmod(0o600);link=Path(d)/"link";link.symlink_to(path)
+            with self.assertRaises((ValueError,OSError)):load_private(link,"run-001","native-001")
+            path.write_text('{"schema":1,"schema":2}')
+            with self.assertRaises(ValueError):load_private(path,"run-001","native-001")
+
 
 if __name__ == "__main__": unittest.main()

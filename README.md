@@ -566,6 +566,11 @@ use a symlink, junction, reparse point, or linked ancestor.
 
 ## Validation
 
+Test-only MAIN-stage SDK context measurement has a separate
+[qualification boundary](docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
+and [validation record](tests/validation-notes.md). Package tests never launch its
+native offline profile or imply full browser/twelve-role acceptance.
+
 ```bash
 # Full local validation (content + schema + CI workflows)
 # Provision once into a new external test-owned directory; never overwrite one.

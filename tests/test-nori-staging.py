@@ -25,6 +25,13 @@ from scripts.nori_package import build_staging, validate_staging  # noqa: E402
 
 
 class NoriStagingTests(unittest.TestCase):
+    def test_nori_staging_excludes_adapter_and_sdk(self):
+        build_staging(self.source,self.destination)
+        self.assertFalse((self.destination/"tests").exists())
+        self.assertFalse((self.destination/".review-runtime").exists())
+        self.assertFalse(any(self.destination.rglob("browser_context_*.py")))
+        self.assertFalse(any(self.destination.rglob("claude_agent_sdk")))
+
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.temp_root = Path(self.tempdir.name)
