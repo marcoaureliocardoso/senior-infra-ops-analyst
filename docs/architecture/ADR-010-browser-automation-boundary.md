@@ -74,6 +74,15 @@ repair or retry. No native execution is authorized by implementation approval.
 See [validation notes](../../tests/validation-notes.md) for independently recorded
 local, SDK, review, package, native, role and remote statuses.
 
+Independent review subsequently reproduced loss of events during actual public
+SDK disconnect, using an in-memory transport only. The author correction fails
+closed before actual SDK connection/reservation: no sufficient public shutdown
+protocol is currently qualified. Parser/options tests do not change that state.
+Native readiness is CAPABILITY_UNAVAILABLE; resolving this lifecycle boundary
+needs a separately established public guarantee/design, not another native
+attempt or private SDK manipulation. The [review record](../reviews/2026-10-24-p0-04b-stage-owned-context-review.md)
+also distinguishes the single author TDD pass from independent re-review.
+
 ### Operational routing
 
 Runtime capability detection yields `AVAILABLE_RECOGNIZED`,

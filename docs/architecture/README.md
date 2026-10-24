@@ -24,6 +24,9 @@ MAIN_STAGE_CONTEXT_V2 cannot satisfy the existing twelve-role/full browser gate;
 operational guards stay CONFIGURED_UNPROVEN. Local/SDK controls and earlier
 [one-client provenance](../reviews/2026-10-23-p0-04b-native-provenance-result.md)
 are distinct from new native acceptance, live requests and remote CI/Security.
+The [independent review and author correction](../reviews/2026-10-24-p0-04b-stage-owned-context-review.md)
+establish a fail-closed SDK shutdown-capability boundary; native readiness is
+CAPABILITY_UNAVAILABLE, not permission to repeat a native attempt.
 
 ADR-010 also references a [written nonce/history diagnostic proposal](../superpowers/specs/2026-10-22-p0-04b-nonce-history-diagnostics-design.md),
 approved by the operator on 2026-10-22. Its [implementation plan](../superpowers/plans/2026-10-22-p0-04b-nonce-history-diagnostics.md)

@@ -23,7 +23,7 @@ import uuid
 from browser_context_contract import (REASONS, STAGES, exact, finish_stage, integer,
     label, public_main, stage_policy, validate_main)
 from browser_context_gateway import Gateway, strict_json
-from browser_context_sdk import build_options, detect_sdk, run_stage
+from browser_context_sdk import build_options, detect_sdk, is_sdk_client, recognized_shutdown_protocol, run_stage
 from terminal_cancellation import TerminalCancellation
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -106,7 +106,8 @@ async def run_main(client_factory,gateway,project,*,nonce,requested_session,dead
                     async def query(self,prompt):
                         gateway.user_queries+=1;return await client.query(prompt)
                     async def disconnect(self):return await client.disconnect()
-                result=await run_stage(Counted(),policy,session,resume=index>0,before_query=gateway.arm,
+                stage_client=client if is_sdk_client(client) and not recognized_shutdown_protocol() else Counted()
+                result=await run_stage(stage_client,policy,session,resume=index>0,before_query=gateway.arm,
                     history_check=lambda:gateway.snapshot()["historyLinked"].get(stage) is True,
                     claim_check=lambda:_private_claim(project["claim"]),stage_deadline=min(deadline,time.monotonic()+120))
                 closed=closed and result["clientsClosed"]
@@ -375,6 +376,11 @@ def main(arguments=None):
         if opts.audit_isolation:
             result=run_namespace(audit=True,sdk_root=sdk,cli_path=cli,node_path=node,deadline=time.monotonic()+25)
             print(json.dumps(result,sort_keys=True));return 0 if result.get("outcome")=="ISOLATION_AUDIT_PASSED" else 2
+        if opts.run_offline!=sha:raise ValueError("ARTIFACT_CHANGED")
+        if not recognized_shutdown_protocol():
+            report=empty_report(sha,commit)
+            report.update(reason="CAPABILITY_UNAVAILABLE",cleanupVerified=True)
+            print(json.dumps(validate_outer(report),sort_keys=True));return 2
         state=ROOT/".superpowers/offline-context";state.mkdir(parents=True,exist_ok=True)
         result_path=state/(sha+".result.json")
         if result_path.exists() or result_path.is_symlink():raise ValueError("STATE_UNPROVEN")

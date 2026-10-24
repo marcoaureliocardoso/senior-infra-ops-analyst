@@ -24,9 +24,11 @@ def request(stage="skill",nonce="run-001",history=None,stream=False,search=True)
 def post(g,body,path="/v1/messages",method="POST"):
     data=json.dumps(body).encode() if isinstance(body,dict) else body
     c=http.client.HTTPConnection("127.0.0.1",g.port,timeout=3)
-    c.request(method,path,body=data,headers={"Content-Type":"application/json"})
-    r=c.getresponse();raw=r.read();c.close()
-    return r.status, raw
+    try:
+        c.request(method,path,body=data,headers={"Content-Type":"application/json"})
+        r=c.getresponse();raw=r.read()
+        return r.status, raw
+    finally:c.close()
 
 
 def action(g,stage="skill",history=None):
@@ -155,7 +157,17 @@ class GatewayTests(unittest.TestCase):
                 base=b'{"messages":[],"padding":""}'
                 raw=base[:-2]+b'x'*(length-len(base))+base[-2:]
                 self.assertEqual(len(raw),length)
-                self.assertEqual(post(g,raw,"/v1/messages/count_tokens")[0],expected)
+                if length>MAX_BODY:
+                    # Early header rejection is valid HTTP. Do not race a 413/close
+                    # against a client still transmitting a body the server must not read.
+                    c=http.client.HTTPConnection("127.0.0.1",g.port,timeout=3)
+                    try:
+                        c.putrequest("POST","/v1/messages/count_tokens")
+                        c.putheader("Content-Length",str(length));c.endheaders()
+                        r=c.getresponse();r.read();self.assertEqual(r.status,expected)
+                    finally:c.close()
+                    self.assertEqual(g.snapshot()["fault"],"STATE_UNPROVEN")
+                else:self.assertEqual(post(g,raw,"/v1/messages/count_tokens")[0],expected)
 
     def test_late_request_fault_is_visible_after_exit(self):
         with Gateway("run-001") as g:

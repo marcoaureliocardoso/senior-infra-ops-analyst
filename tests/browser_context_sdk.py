@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import inspect
+import importlib.util
 import json
 import time
 from pathlib import Path
@@ -15,19 +16,41 @@ from browser_context_contract import (finish_stage, label, project_api_usage,
                                       project_context, usage_tuple)
 
 
-def detect_sdk(sdk: object) -> dict:
+def sdk_surface(sdk: object) -> bool:
     client=getattr(sdk,"ClaudeSDKClient",None); options=getattr(sdk,"ClaudeAgentOptions",None)
     required={"tools","allowed_tools","permission_mode","setting_sources","system_prompt","strict_mcp_config",
               "max_turns","max_buffer_size","cli_path","session_id","resume","include_hook_events"}
     fields=set(getattr(options,"__dataclass_fields__",{}))
     available=(required <= fields and all(callable(getattr(client,k,None)) for k in
                ("connect","query","receive_messages","get_context_usage","disconnect")))
+    return available
+
+
+def recognized_shutdown_protocol() -> bool:
+    """No sufficient public shutdown-observation protocol is qualified yet.
+
+    Method presence is not proof: the observed SDK disconnect cancels its reader
+    before transport close. Do not infer support from a version or queue drain.
+    A future public protocol requires its own evidence/design, not an opt-in flag.
+    """
+    return False
+
+
+def detect_sdk(sdk: object) -> dict:
+    available=sdk_surface(sdk) and recognized_shutdown_protocol()
     return dict(available=available,reason="NONE" if available else "CAPABILITY_UNAVAILABLE")
+
+
+def is_sdk_client(client) -> bool:
+    if importlib.util.find_spec("claude_agent_sdk") is None:return False
+    import claude_agent_sdk as sdk
+    return isinstance(client,sdk.ClaudeSDKClient)
 
 
 def build_options(policy: dict, owned_root: Path, cli_path: Path, session_id: str, *, resume: bool):
     import claude_agent_sdk as sdk
-    if not detect_sdk(sdk)["available"]: raise ValueError("CAPABILITY_UNAVAILABLE")
+    # Pure option construction is useful even when native lifecycle qualification is blocked.
+    if not sdk_surface(sdk): raise ValueError("CAPABILITY_UNAVAILABLE")
     root=owned_root.resolve(strict=True); cli=cli_path.resolve(strict=True); label(session_id)
     return sdk.ClaudeAgentOptions(
         tools=list(policy["tools"]), allowed_tools=list(policy["allowed_tools"]),
@@ -181,7 +204,14 @@ class StageEvents:
 
 async def run_stage(client,policy,expected_session,*,resume,before_query,history_check,claim_check,stage_deadline):
     events=StageEvents(policy,expected_session); before=after=None; closed=False; consumer=None
+    if is_sdk_client(client) and not recognized_shutdown_protocol():
+        events.fail("CAPABILITY_UNAVAILABLE")
+        return dict(sessionId=None,record=finish_stage(policy["stage"],None,None,events.snapshot()),clientsClosed=True)
     terminal=asyncio.Event()
+    class StopStage(Exception):pass
+    def check_state():
+        if events.terminal and events.fault=="NONE":events.fail("STATE_UNPROVEN")
+        if events.fault!="NONE":raise StopStage()
     def remaining(limit=25):return max(0,min(limit,stage_deadline-time.monotonic()))
     async def receive():
         try:
@@ -196,18 +226,24 @@ async def run_stage(client,policy,expected_session,*,resume,before_query,history
         async with asyncio.timeout(remaining()):await client.connect()
         consumer=asyncio.create_task(receive())
         await asyncio.sleep(0)
+        check_state()
         async with asyncio.timeout(remaining()):
             raw=await client.get_context_usage();before=dict(context=project_context(raw),apiUsage=project_api_usage(raw))
+        await asyncio.sleep(0)
+        check_state()
         if before["apiUsage"]["state"]=="INVALID":raise ValueError("INVALID_OBSERVATION")
         if before["context"]["autoCompactEnabled"] is not True:
             events.fail("POLICY_UNPROVEN");raise ValueError("POLICY_UNPROVEN")
         value=before_query(before)
         if inspect.isawaitable(value):await value
+        await asyncio.sleep(0)
+        check_state()
         async with asyncio.timeout(remaining()):await client.query(policy["prompt"])
         async with asyncio.timeout(remaining(120)):await terminal.wait()
         if events.fault=="NONE" and events.terminal:
             async with asyncio.timeout(remaining()):
                 raw=await client.get_context_usage();after=dict(context=project_context(raw),apiUsage=project_api_usage(raw))
+    except StopStage:pass
     except TimeoutError:events.fail("OPERATION_TIMEOUT")
     except ValueError as exc:events.fail(str(exc) if str(exc) in ("CHALLENGE_UNAVAILABLE","CAPABILITY_UNAVAILABLE") else "INVALID_OBSERVATION")
     except Exception:events.fail("STATE_UNPROVEN")

@@ -65,13 +65,84 @@ class FakeClient:
 
 
 class SDKTests(unittest.TestCase):
+    @unittest.skipUnless(SDK_PRESENT,"optional public SDK absent; lifecycle case skipped explicitly")
+    def test_actual_sdk_unobservable_shutdown_cannot_qualify(self):
+        import claude_agent_sdk as sdk
+        class MemoryTransport(sdk.Transport):
+            def __init__(self):self.queue=asyncio.Queue();self.contexts=0;self.close_emitted=False;self.connected=False
+            async def connect(self):self.connected=True
+            def is_ready(self):return self.connected
+            async def end_input(self):pass
+            async def write(self,data):
+                import json
+                for line in data.splitlines():
+                    frame=json.loads(line)
+                    if frame["type"]=="control_request":
+                        subtype=frame["request"]["subtype"]
+                        response={}
+                        if subtype=="get_context_usage":
+                            self.contexts+=1;response=raw_context(self.contexts==2)
+                        await self.queue.put({"type":"control_response","response":{"subtype":"success",
+                            "request_id":frame["request_id"],"response":response}})
+                    elif frame["type"]=="user":
+                        for event in frames():await self.queue.put(event)
+            async def read_messages(self):
+                while True:yield await self.queue.get()
+            async def close(self):
+                self.close_emitted=True
+                await self.queue.put({"type":"system","subtype":"task_notification","status":"failed"})
+                await asyncio.sleep(0)
+                self.connected=False
+        transport=MemoryTransport()
+        class PublicSDKSubclass(sdk.ClaudeSDKClient):pass
+        client=PublicSDKSubclass(options=sdk.ClaudeAgentOptions(),transport=transport)
+        r=asyncio.run(run_stage(client,stage_policy("skill","run-001"),"native-001",resume=False,
+            before_query=lambda x:None,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+5))
+        self.assertNotEqual(r["record"]["outcome"],"QUALIFIED")
+        self.assertEqual(r["record"]["reason"],"CAPABILITY_UNAVAILABLE")
+        self.assertFalse(transport.connected);self.assertEqual(transport.contexts,0)
+
+    def test_early_faults_and_before_read_fault_stop_without_query(self):
+        faults=[dict(type="conversation_reset"),
+                dict(type="system",subtype="init",session_id="wrong",tools=["Skill"]),
+                dict(type="system",subtype="init",session_id="native-001",tools=["Bash"])]
+        for fault in faults:
+            for during_read in (False,True):
+                class EarlyFault(FakeClient):
+                    async def connect(self):
+                        await super().connect()
+                        if not during_read:await self.queue.put(fault)
+                    async def get_context_usage(self):
+                        if during_read:await self.queue.put(fault);await asyncio.sleep(0)
+                        return await super().get_context_usage()
+                c=EarlyFault()
+                r=asyncio.run(run_stage(c,stage_policy("skill","run-001"),"native-001",resume=False,
+                    before_query=lambda x:None,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+5))
+                self.assertNotIn("query",c.order)
+                self.assertEqual(r["record"]["outcome"],"INCONCLUSIVE")
+                if not during_read:self.assertNotIn("before",c.order)
+        class BrokenStream(FakeClient):
+            async def receive_messages(self):
+                self.order.append("consumer");raise RuntimeError("synthetic stream failure")
+                yield
+        c=BrokenStream()
+        r=asyncio.run(run_stage(c,stage_policy("skill","run-001"),"native-001",resume=False,
+            before_query=lambda x:None,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+5))
+        self.assertNotIn("query",c.order);self.assertNotIn("before",c.order)
+        c=FakeClient()
+        async def arm(_):
+            await c.queue.put({"type":"conversation_reset"});await asyncio.sleep(0)
+        r=asyncio.run(run_stage(c,stage_policy("skill","run-001"),"native-001",resume=False,
+            before_query=arm,history_check=lambda:True,claim_check=lambda:True,stage_deadline=time.monotonic()+5))
+        self.assertNotIn("query",c.order)
+
     def test_declared_sdk_missing_never_qualifies(self):
         self.assertEqual(detect_sdk(SimpleNamespace()), {"available":False,"reason":"CAPABILITY_UNAVAILABLE"})
 
     @unittest.skipUnless(SDK_PRESENT,"optional public SDK absent; native qualification unavailable")
     def test_options_are_fixed_project_local_and_default_permission(self):
         import claude_agent_sdk as sdk
-        self.assertTrue(detect_sdk(sdk)["available"])
+        self.assertEqual(detect_sdk(sdk),{"available":False,"reason":"CAPABILITY_UNAVAILABLE"})
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); cli=root/"cli"; cli.touch()
             for stage in ("skill","subagent","discovery","use"):

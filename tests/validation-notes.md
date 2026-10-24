@@ -2,6 +2,16 @@
 
 ## MAIN-only structured SDK measurement - local implementation - 2026-10-24
 
+**Current qualification boundary:** the independent review of 7c65f29 reproduced
+an actual-SDK shutdown-observation gap and an early-fault query. The single author
+TDD pass blocks actual SDK connection/native reservation before execution while
+no sufficient public shutdown protocol is qualified, and stops pre-query work
+on observed faults. See the [review and causal decision](../docs/reviews/2026-10-24-p0-04b-stage-owned-context-review.md).
+The local harness is implemented, but native readiness is CAPABILITY_UNAVAILABLE,
+not READY. Do not request or consume another native grant for this known boundary.
+No private SDK state, extra observer, custom production transport or retry is an
+approved workaround. Missing lifecycle proof is not repaired by method presence.
+
 The approved [specification](../docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
 and [plan](../docs/superpowers/plans/2026-10-23-p0-04b-stage-owned-context.md) implement
 a test-only MAIN_STAGE_CONTEXT_V2 route, not the full P0-04B acceptance gate.
@@ -36,9 +46,9 @@ browser guard coverage. Operational guards stay CONFIGURED_UNPROVEN.
 Prior one-client native provenance is recorded separately in the
 [structural result](../docs/reviews/2026-10-23-p0-04b-native-provenance-result.md).
 It proves neither this four-stage profile nor the missing twelve-role route.
-Independent final review and the immutable-source full package gate are pending
-at this implementation checkpoint; their eventual results must be recorded
-separately rather than inferred from these focused tests.
+Independent final review found the two Important issues described above; author
+correction verification is not a second review. Immutable package results are
+recorded separately below when complete, not inferred from focused tests.
 
 Execution rulings so far: host Git/apply_patch bookkeeping replaces skill helpers
 whose WSL Git cannot resolve Windows-style linked-worktree pointers (cost: manual
@@ -55,6 +65,33 @@ attempts/48 per stage,25 seconds per non-generating operation,120 per stage and
 disposable native history are required. No real provider or operator state is
 allowed; first inconclusive result stops with no retry. Neither this plan nor
 local self-tests grant that execution.
+
+### Independent-review correction verification
+
+The single author pass reproduced both Important findings before editing and
+passed the corrected whole focused group: contract11/SDK13/gateway13/project4/
+offline12/guard3/MCP2/cancellation14/browser-safety139/installed16/architecture13/
+package-contract25/staging19 =284 unittest methods, zero skips. Actual SDK parser,
+options and in-memory lifecycle regression cases ran; no native executable or
+provider ran. SDK subclasses also fail closed, and reset/identity/policy/stream
+faults at connection, before-read or arming boundaries prevent query submission.
+An independently observed test-only HTTP send/early-413 race was corrected by
+testing overflow-header rejection without sending the already-rejected body;
+the exact1MiB case still sends the entire payload. Socket clients close in finally.
+No production body cap changed. No second independent review occurred.
+
+The first immutable package gate on7c65f29 failed (exit1,1,139.832s, no timeout)
+in the unchanged legacy test
+OfflineFailureDiagnosticsTests.test_version_exec_error_survives_the_nonzero_namespace_result:
+it received NAMESPACE/RuntimeError instead of VERSION/PermissionError/13.
+All578 canonical contents/types/modes matched before/after and owned-root cleanup
+was verified; archive SHA256 remained
+345f04ebd015cd2b79c06540f35b67f8a3ca0c067c8e5bc81b95a482c600564c.
+That gate did not reach all suites and is not a pass. The isolated synthetic case
+then passed on the worktree in0.388s; its harness, cancellation module and test
+are unchanged from the baseline. This does not explain or erase the original
+failure. No unrelated legacy fix or native retry was made. The corrected
+candidate requires its own full immutable gate; result pending at this checkpoint.
 
 ## Coherent nonce/history diagnostics - local implementation - 2026-10-22
 

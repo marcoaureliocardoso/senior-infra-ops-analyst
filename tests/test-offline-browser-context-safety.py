@@ -131,6 +131,21 @@ class SafetyTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode&0o777,0o600)
             with self.assertRaises(FileExistsError):smoke.reserve(path,sha,sha,"1"*40)
 
+    def test_unproven_shutdown_never_consumes_grant_or_starts_namespace(self):
+        import contextlib,io
+        output=io.StringIO();sha="a"*64
+        with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(output):
+            root=Path(d)
+            with mock.patch.object(smoke,"fingerprint",return_value=(sha,"1"*40)), \
+                 mock.patch.object(smoke,"reserve",side_effect=AssertionError("must not consume")), \
+                 mock.patch.object(smoke,"run_namespace",side_effect=AssertionError("must not launch")):
+                code=smoke.main(["--run-offline",sha,"--cli",sys.executable,"--node",sys.executable,"--sdk-root",str(root)])
+        self.assertEqual(code,2)
+        value=json.loads(output.getvalue())
+        self.assertEqual(value["reason"],"CAPABILITY_UNAVAILABLE")
+        self.assertEqual(value["traffic"]["userQueries"],0)
+        self.assertIsNone(value["main"])
+
     def test_no_operator_environment_or_bundled_cli_mount(self):
         c=smoke.namespace_command(Path("/tmp/owned"),Path("/explicit/sdk"),Path("/explicit/cli"),Path("/explicit/node"),audit=True,parent_net=1)
         self.assertIn("--unshare-net",c);self.assertIn("--cap-drop",c);self.assertIn("--clearenv",c)

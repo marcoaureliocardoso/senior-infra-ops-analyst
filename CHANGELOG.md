@@ -16,6 +16,11 @@ tag. Tagged versions correspond to repository tags.
   wired into package validation. Native qualification, twelve-role/full browser
   acceptance and remote CI/Security remain separate pending gates; no consumed
   execution grant is renewed. Version and production policy are unchanged.
+  Independent review reproduced an actual-SDK shutdown-observation gap. The
+  author TDD correction blocks native qualification before connection/reservation
+  until a sufficient public shutdown protocol is established, and stops query
+  submission after an observed early fault. No private-API workaround or new
+  native attempt is authorized; current native readiness is CAPABILITY_UNAVAILABLE.
 
 - Added local test-only nonce/history diagnostics after approval of the written
   specification and direct/inline implementation plan. Private call scopes
