@@ -3639,6 +3639,96 @@ raise SystemExit(1)
                 self.assertNotIn("content", json.dumps(result))
                 self.assertNotIn("discarded", json.dumps(result))
 
+    def test_measurement_parser_latches_lifecycle_faults_and_builder_rejects_them(self) -> None:
+        import sys
+        import tempfile
+
+        sys.path.insert(0, str(ROOT / "tests"))
+        from browser_operations_live import (  # noqa: PLC0415
+            build_trusted_measurement, evaluate_measurement_stream,
+        )
+
+        session = "context-main-001"
+        nonce = "p004b-run-001"
+        base = [
+            {"type": "system", "subtype": "init", "session_id": session,
+             "tools": ["Skill", "ToolSearch"]},
+            {"type": "assistant", "session_id": session, "message": {"content": [{
+                "type": "tool_use", "id": "tool-skill", "name": "Skill",
+                "input": {"skill": "context-continuity"},
+            }]}},
+            {"type": "user", "session_id": session, "message": {"content": [{
+                "type": "tool_result", "tool_use_id": "tool-skill", "content": "discarded",
+            }]}},
+            {"type": "result", "subtype": "success", "is_error": False,
+             "session_id": session},
+        ]
+        hook = {
+            "type": "system", "subtype": "hook_response", "session_id": session,
+            "hook_id": "hook-001", "hook_name": "PreToolUse:Skill",
+            "hook_event": "PreToolUse", "outcome": "success", "exit_code": 0,
+        }
+        faults = [
+            {"type": "conversation_reset", "session_id": session},
+            {"type": "error", "session_id": session},
+            {**hook, "outcome": "error", "exit_code": 1},
+            {**hook, "outcome": "cancelled"},
+            {**hook, "session_id": "foreign-session"},
+            {**hook, "hook_id": []},
+            {**hook, "hook_name": "bad name"},
+            {**hook, "hook_event": None},
+            {**hook, "exit_code": False},
+            {**hook, "exit_code": "0"},
+            {**hook, "outcome": []},
+            {**hook, "subtype": "hook_started", "exit_code": 1},
+            {**base[1], "error": "synthetic-failure"},
+        ]
+        stages = [
+            {"stage": stage, "sessionId": session, "usedPercentage": percent}
+            for percent, stage in enumerate(
+                ("before", "afterSkill", "afterSubagent", "afterDiscovery", "afterUse"), 1,
+            )
+        ]
+        signal = {"sessionId": session, "terminalSuccess": True, "skillCalls": 0,
+                  "subagentCalls": 0, "toolSearchAvailable": True,
+                  "toolSearchCalls": 0, "mcpCalls": 0, "unexpectedToolCalls": 0}
+        mcp = {"connected": True, "toolsListed": True, "visibleToolCount": 1,
+               "called": True, "callCount": 1, "runNonce": nonce}
+        controls = [
+            base,
+            [*base[:1], {**hook, "subtype": "hook_started", "outcome": None,
+                        "exit_code": None}, *base[1:], hook],
+        ]
+        cases = [("control", index, events, True) for index, events in enumerate(controls)]
+        for index, fault in enumerate(faults):
+            for position in (1, len(base)):
+                events = [*base[:position], fault, hook, *base[position:]]
+                cases.append(("fault", (index, position), events, False))
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / "measurement.jsonl"
+            for kind, index, events, accepted in cases:
+                with self.subTest(kind=kind, index=index):
+                    stream.write_text("".join(json.dumps(event) + "\n" for event in events),
+                                      encoding="utf-8")
+                    result = evaluate_measurement_stream(stream, session, "skill", nonce)
+                    self.assertIs(result["terminalSuccess"], accepted)
+                    self.assertEqual(result["skillCalls"], 1 if accepted else 0)
+                    samples = {
+                        "skill": result,
+                        "subagent": {**signal, "subagentCalls": 1},
+                        "discovery": {**signal, "toolSearchCalls": 1},
+                        "use": {**signal, "mcpCalls": 1},
+                    }
+                    if accepted:
+                        build_trusted_measurement(nonce, ["session-live-browser-001"],
+                                                 self._trusted_measurement()["roleProbes"],
+                                                 stages, samples, mcp)
+                    else:
+                        with self.assertRaises(ValueError):
+                            build_trusted_measurement(nonce, ["session-live-browser-001"],
+                                                     self._trusted_measurement()["roleProbes"],
+                                                     stages, samples, mcp)
+
     def test_measurement_parser_ignores_nested_forgery_and_wrong_sessions(self) -> None:
         import sys
         import tempfile

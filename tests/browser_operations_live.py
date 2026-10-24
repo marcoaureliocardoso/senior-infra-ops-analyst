@@ -1092,7 +1092,24 @@ def evaluate_measurement_stream(
                     continue
                 event_type = event.get("type")
                 session_id = event.get("session_id")
-                if event_type == "system" and event.get("subtype") == "init":
+                # Lifecycle faults taint the whole sample, including after success.
+                # Later successful events cannot restore the previous session state.
+                if event_type in {"conversation_reset", "error"} or event.get("error"):
+                    malformed = True
+                if event_type == "system" and event.get("subtype") in {
+                    "hook_started", "hook_response",
+                }:
+                    identity_fields = ("hook_id", "hook_name", "hook_event")
+                    exit_code = event.get("exit_code")
+                    if (session_id != expected_session
+                            or any(not isinstance(event.get(field), str)
+                                   or not LABEL.fullmatch(event[field])
+                                   for field in identity_fields)
+                            or event.get("outcome") not in (None, "success")
+                            or (exit_code is not None
+                                and (type(exit_code) is not int or exit_code != 0))):
+                        malformed = True
+                elif event_type == "system" and event.get("subtype") == "init":
                     advertised = event.get("tools")
                     if (init_seen or session_id != expected_session
                             or not isinstance(advertised, list)
