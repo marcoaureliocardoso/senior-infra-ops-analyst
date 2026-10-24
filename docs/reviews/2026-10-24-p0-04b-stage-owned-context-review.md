@@ -50,3 +50,7 @@ from the review of 7c65f29 and its concurrently running original gate.
   and retain remote/integration gates. Cost: local green is not remote certification.
 
 Deferred minor findings: none.
+
+The corrected immutable full gate subsequently passed on8d1b596 in1,461.331s.
+This is author-observed package verification, not a second independent review or
+native qualification; see the [final handoff](2026-10-24-p0-04b-stage-owned-context-handoff.md).

@@ -93,6 +93,42 @@ are unchanged from the baseline. This does not explain or erase the original
 failure. No unrelated legacy fix or native retry was made. The corrected
 candidate requires its own full immutable gate; result pending at this checkpoint.
 
+### Corrected immutable package gate passed
+
+The full provider-free gate passed on exact source
+8d1b596821ca67ba56fc882e212b94366b202906: exit0, no timeout,1,461.331s and
+the literal `package validation passed`. All579 canonical file contents/types/
+Git modes matched the archive before testing and remained unchanged afterward.
+The owned Linux export was removed. Archive SHA256 before/after, independently
+rechecked at closeout, was
+d06890da118593412ab322c03d0774b5dc3620051437b841c252dd3ea69ed464.
+The earlier7c65f29 failure remains recorded above; a later pass does not explain
+or retroactively pass that failed run. No legacy source was changed to obtain it.
+
+Explicit exclusions in this clean WSL gate: three optional actual-SDK methods
+skipped because the SDK was absent from its system interpreter; these same
+methods ran in the separate13-method actual-SDK focused suite. One opt-in
+production-browser test covering37 loopback scenarios skipped CAPABILITY_UNAVAILABLE.
+The native-Windows MCP rejection, Git-Bash-specific confirmed-window argument,
+and Git-Bash-specific Nori argument tests each skipped. The final PowerShell
+syntax/help block skipped because PowerShell was unavailable in that namespace.
+These are not passing SDK-native, production-browser or Windows certifications.
+No ResourceWarning or unexpected traceback appeared in the corrected gate.
+The three expected argparse errors are negative-entrypoint controls, not failures.
+Local schema and CI-workflow validation passed; remote CI/Security did not run.
+
+The single independent review remains on7c65f29;8d1b596 is the author's one
+TDD correction pass, not an independently re-reviewed candidate. Native readiness
+remains CAPABILITY_UNAVAILABLE, with zero native attempts or reservations for
+this new profile. Provider/live execution, twelve-role and operational browser
+acceptance remain excluded/unproved. No push, PR, merge, release or TODO completion.
+
+The [handoff and exhaustive execution rulings](../docs/reviews/2026-10-24-p0-04b-stage-owned-context-handoff.md)
+distinguish the gated code from this later documentation-only closeout. Content,
+architecture and whitespace checks are repeated for the closeout; no full gate
+is claimed for changed documentation bytes. Production/test implementation bytes
+remain those of8d1b596.
+
 ## Coherent nonce/history diagnostics - local implementation - 2026-10-22
 
 The operator approved the written specification and plan and selected direct/inline
