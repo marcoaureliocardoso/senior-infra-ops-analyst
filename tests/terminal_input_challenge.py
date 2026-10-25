@@ -7,6 +7,7 @@ import secrets
 import socket
 import time
 import weakref
+from ci_privilege_status import validate_privilege_status
 
 from terminal_input_policy import TerminalInputPolicy, INPUT_ELIGIBILITY_REJECTIONS, INPUT_ROW_RELATIONS, INPUT_ROW_CAUSES
 from terminal_state_adapter import TerminalState, TerminalSnapshot, MAX_CAPTURE
@@ -42,8 +43,8 @@ def audit_offline_namespace():
     try:
         if {name for _,name in socket.if_nameindex()}!={'lo'}: raise ValueError
         if Path('/mnt/c').exists() or any(Path('/home').iterdir()) or any(Path('/root').iterdir()): raise ValueError
-        caps=re.search(r'^CapEff:\s*([0-9a-fA-F]+)$',Path('/proc/self/status').read_text(),re.MULTILINE)
-        if caps is None or int(caps[1],16)!=0: raise ValueError
+        with Path('/proc/self/status').open() as status:
+            validate_privilege_status(status.read(65537))
     except (OSError,ValueError): raise InputProofError('INPUT_PROBE_SCOPE_REJECTED') from None
     return {'networkIsolated':True,'operatorStateHidden':True,'capabilitiesDropped':True}
 

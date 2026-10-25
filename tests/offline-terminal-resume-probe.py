@@ -517,7 +517,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
             '--ro-bind',str(source/'tests/terminal-runtime/package-lock.json'),'/opt/probe/terminal-runtime/package-lock.json']
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
                      'terminal_context_sample.py',
-                     'terminal_input_challenge.py',
+                     'terminal_input_challenge.py','ci_privilege_status.py',
                      'terminal_resume_history.py',
                      'terminal_nonce_history_diagnostics.py',
                      'terminal_context_debug.py',

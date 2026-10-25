@@ -234,7 +234,7 @@ class LinuxExecutor:
     def verify_child_transition(self, runtime, policy, deadline):
         # The full child proof is implemented by the same fixed fixture used by
         # --verify, rather than trusting only a profile name or successful load.
-        from ci_isolation_proof import verify_isolation
+        from ci_isolation_probe import verify_isolation
         return verify_isolation(runtime, executor=self, policy=policy, deadline=deadline) is True
 
 

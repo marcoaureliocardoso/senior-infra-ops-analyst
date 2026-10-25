@@ -828,6 +828,8 @@ print(json.dumps({'report':value,'spawned':spawned,'rootAbsent':not root.exists(
         index=command.index(target)
         self.assertEqual(command[index-2:index+1],['--ro-bind',str(ROOT/'tests/terminal_context_echo.py'),target])
         self.assertNotIn('/opt/probe/claude',command)
+        self.assertIn('/opt/probe/ci_privilege_status.py',command,
+            'shared static privilege validator must be mounted, without Claude')
 
     def test_namespace_mounts_only_observer_runtime_not_diagnostic_fixtures(self):
         commands=[]

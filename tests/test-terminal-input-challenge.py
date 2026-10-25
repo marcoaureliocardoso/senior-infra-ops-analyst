@@ -423,4 +423,23 @@ class InputChallengeTests(unittest.TestCase):
             transition_owner=transition,frame=7))
 
 
+class PrivilegeStatusTests(unittest.TestCase):
+    valid=''.join(name+':\t0000000000000000\n' for name in
+        ('CapInh','CapPrm','CapEff','CapBnd','CapAmb'))+'NoNewPrivs:\t1\n'
+
+    def test_all_five_empty_sets_and_no_new_privileges_are_required(self):
+        import terminal_input_challenge as module
+        self.assertTrue(callable(getattr(module,'validate_privilege_status',None)),
+            'complete capability validation is absent')
+        self.assertIsNone(module.validate_privilege_status(self.valid))
+        for name in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb'):
+            for text in (self.valid.replace(name+':\t0000000000000000',name+':\t0000000000000001'),
+                         self.valid.replace(name+':\t0000000000000000\n',''),
+                         self.valid+name+':\t0000000000000000\n'):
+                with self.subTest(name=name),self.assertRaises(ValueError):
+                    module.validate_privilege_status(text)
+        for text in ('CapEff:\t0000000000000000\n',self.valid.replace('NoNewPrivs:\t1','NoNewPrivs:\t0'),
+                     self.valid+'NoNewPrivs:\t1\n',self.valid+'x'*65537):
+            with self.assertRaises(ValueError): module.validate_privilege_status(text)
+
 if __name__=='__main__': unittest.main()
