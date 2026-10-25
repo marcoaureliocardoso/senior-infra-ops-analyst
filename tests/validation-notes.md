@@ -1,5 +1,52 @@
-<!-- cspell:ignore Bxll Cpmw yufz -->
+<!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
+
+## Guarded CI isolation bootstrap - 2026-10-25
+
+Implementation range starts at 854e77c6681c30875fc66ea34005b23eb92d5e11.
+The approved direct/inline plan has five locally completed implementation steps;
+final immutable validation, one independent review and exact-head hosted
+CI/Security are pending at this checkpoint. No new native/provider attempt,
+operator-host package installation or policy load has occurred.
+
+At 5dfcf05, the new focused group passed 81 tests: image policy13, runtime
+identity7, provisioning/policy24, actual synthetic isolation5, workflow wiring7
+and existing workflow regressions25. Earlier in the same increment, all 33
+input-challenge tests and 76 offline safety tests passed, including the actual
+existing helper audit. The real fixed namespace proof passed; real one-condition
+IPC/UTS/PID/network/read-only-bind negative controls reached proof rejection, not
+merely a failed launcher. Timeout controls and the all-five-capability/NoNewPrivs
+validator passed. These are local tests, not hosted/AppArmor qualification.
+
+The public fixed archive was independently read into memory only: 126452 bytes,
+SHA-256 `9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314`,
+source revision `2a76602a8c71f36c1527cf9fc3417d9149822e0c`. Its 67 members
+include exactly two license symlinks to COPYING; these are normalized to regular
+copies after full identity/member validation. No executable is built or installed
+locally by this bootstrap. AppArmor template origin is separately pinned at
+`72229df83059480f4e9fb1488624201bdbd61755`, with the adapted-template digest
+`3a48ae42f4f70c3d7da2ce938cf4e9b9cc8db3134e7e66c9868d8a9609d11867`.
+Its separate full GPL-2.0 license and modification notice are retained.
+
+General-upgrade ALLOW/SKIP_UNSAFE/BLOCKED and safe dependency refresh were
+exercised through stateful synthetic package processes. No real image-upgrade
+disposition, private-build receipt, kernel denial attribution or loaded child
+policy is claimed yet. Those require the approved ephemeral CI job, including
+successful actual audit, full package validation and owned cleanup within its
+unchanged 40-minute budget. Raw command/audit output is not an artifact.
+
+The initial real proof rejected only networking. The cause was a kernel IPv6
+RTF_REJECT sentinel being mistaken for a usable default route; a distinct
+positive/negative route-viability test preceded the correction. An access-time
+update similarly reproduced a false binary-substitution refusal before its TDD
+fix. A script-entry module-identity regression and official APT auxiliary-list
+fixtures also failed before correction. None of these repairs weakens identity,
+namespace, capability, approval or retention gates.
+
+Root 0.15.0 remains unreleased and browser metadata remains 1.0.2. The blocked
+native SDK shutdown capability, provider/browser/twelve-role acceptance, formal
+full-PR security qualification, merge/release and definitive TODO completion are
+not satisfied by this CI-only work. See [ADR-011](../docs/architecture/ADR-011-ci-isolation-bootstrap.md).
 
 ## PR 58 runtime review remediation - 2026-10-24
 

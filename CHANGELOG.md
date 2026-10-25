@@ -7,6 +7,15 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Implemented a shared guarded CI bootstrap in all three full-validation jobs:
+  conditional image upgrades, verified private Bubblewrap 0.12.0, evidence-gated
+  executable-specific policy, stronger namespace/capability proofs and owned
+  always-run cleanup. Validation tokens are read-only and checkout credentials
+  are not persisted. Local synthetic/namespace controls are distinct from pending
+  hosted provisioning, final review and exact-candidate gate evidence, recorded
+  in validation notes and indexed ADR-011. Native/provider/browser acceptance,
+  root/component versions, release and merge authority are unchanged.
+
 - Corrected three reproduced PR 58 runtime review findings. Independent browser
   validation rejects configuration inputs and restricts interactive preparation
   to explicit authentication origins. A negative desired-state predicate after

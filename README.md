@@ -569,6 +569,13 @@ use a symlink, junction, reparse point, or linked ancestor.
 
 ## Validation
 
+The three hosted full-gate jobs use the guarded private isolation bootstrap in
+[ADR-011](docs/architecture/ADR-011-ci-isolation-bootstrap.md). Package updates
+and any executable-specific policy are limited to their disposable CI VM; do
+not run that privileged bootstrap on an operator workstation. Local validation
+requires an existing supported non-root Bubblewrap runtime and the test-only
+terminal dependencies below. The package gate itself never installs OS packages.
+
 Test-only MAIN-stage SDK context measurement has a separate
 [qualification boundary](docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
 and [validation record](tests/validation-notes.md). Package tests never launch its
@@ -610,8 +617,9 @@ For credential-free P0-04B launcher diagnostic checks, see
 [the test-only diagnostic boundary](tests/browser-launch-diagnostics.md).
 The terminal dependency is test-only and excluded from Nori staging. The gate
 does not install packages, start Claude, or call a provider. Native offline
-controls are separate explicit probes and require proven Bubblewrap isolation;
-an unavailable namespace test is reported as a skip, never native acceptance.
+controls are separate explicit probes and require proven Bubblewrap isolation.
+Individual portable checks may report a skip, but the full package gate requires
+the actual isolation audit; neither result establishes native acceptance.
 Offline context probes include bounded content-free structural diagnostics,
 separate from acceptance evidence; see [ADR-010](docs/architecture/ADR-010-browser-automation-boundary.md).
 The isolated offline route additionally uses an unsubmitted edit/echo/clear

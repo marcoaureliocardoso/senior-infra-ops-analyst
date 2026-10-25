@@ -14,6 +14,7 @@ This index is the versioned architectural history for implemented AI-first contr
 | [ADR-008](ADR-008-native-execution-boundary.md) | Accepted | Fail-closed native execution routing for main sessions and executor fallback |
 | [ADR-009](ADR-009-global-prompt-injection-defense.md) | Accepted | Deterministic prompt-injection boundaries and runtime compatibility reporting |
 | [ADR-010](ADR-010-browser-automation-boundary.md) | Accepted | Capability-detected, fail-closed browser operations for infrastructure UIs |
+| [ADR-011](ADR-011-ci-isolation-bootstrap.md) | Implemented locally; hosted pending | Guarded image refresh, verified private isolation runtime and conditional owned policy |
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
