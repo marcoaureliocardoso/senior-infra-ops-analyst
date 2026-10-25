@@ -122,6 +122,25 @@ class ImageUpgradeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.m.parse_apt_simulation(upgrade().split("Conf")[0])
 
+    def test_standard_auxiliary_apt_lists_are_data_not_selected_actions(self):
+        text = ("The following packages were automatically installed and are no longer required:\n"
+                "  old-demo\nUse 'sudo apt autoremove' to remove them.\n"
+                "The following additional packages will be installed:\n  build-demo\n"
+                "Suggested packages:\n  doc-demo | doc-other\nRecommended packages:\n  optional-demo\n"
+                "The following NEW packages will be installed:\n  build-demo\n" + INSTALL)
+        proposal = self.m.parse_apt_simulation(text)
+        self.assertEqual(tuple(action.package for action in proposal.actions), ("build-demo",))
+        self.assertEqual(self.m.assess_dependency_install(proposal, requested=frozenset({"build-demo"}),
+                         service_packages=frozenset(), compare_versions=self.m.compare_debian_versions).status, "ALLOW")
+        with self.assertRaises(ValueError):
+            self.m.parse_apt_simulation(text.replace("sudo apt autoremove", "sudo apt autoremove; unmodelled"))
+
+    def test_deferred_phasing_and_kept_lists_share_the_pending_count(self):
+        text = ("The following upgrades have been deferred due to phasing:\n  later-demo\n"
+                "The following packages have been kept back:\n  held-demo\n"
+                "0 upgraded, 0 newly installed, 0 to remove and 2 not upgraded.\n")
+        self.assertEqual(self.decision(text).status, "SKIP_UNSAFE")
+
     def test_comparison_failures_and_invalid_fact_types_block(self):
         def unavailable(_left, _right):
             raise OSError("synthetic comparator failure")

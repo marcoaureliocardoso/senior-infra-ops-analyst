@@ -46,6 +46,12 @@ _HEADERS = {
     "The following packages will be REMOVED:": "remove",
     "The following packages have been kept back:": "held",
     "The following packages will be DOWNGRADED:": "upgrade",
+    "The following upgrades have been deferred due to phasing:": "phased",
+    "The following additional packages will be installed:": "additional",
+    "Suggested packages:": "suggested",
+    "Recommended packages:": "recommended",
+    "The following package was automatically installed and is no longer required:": "auto",
+    "The following packages were automatically installed and are no longer required:": "auto",
 }
 _BANNERS = frozenset(
     text + suffix for text in ("Reading package lists...", "Building dependency tree...",
@@ -78,6 +84,7 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
     actions, configured, unchanged = {}, {}, []
     lists = {}
     list_kind = None
+    advisory_seen = False
     for line in lines:
         if not line.strip():
             list_kind = None
@@ -93,11 +100,20 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
             continue
         if line.startswith("  ") and list_kind:
             packages = line.split()
+            if list_kind in ("suggested", "recommended"):
+                packages = [name for name in packages if name != "|"]
             if not packages or not all(_valid_package(name) for name in packages):
                 raise ValueError("APT_SIMULATION_INVALID")
             lists[list_kind].extend(packages)
             continue
         list_kind = None
+        if line in {f"Use '{prefix}apt autoremove' to remove {pronoun}."
+                    for prefix in ("", "sudo ") for pronoun in ("it", "them")}:
+            # Recognized APT narrative only. NEVER return/execute its command.
+            if advisory_seen or not lists.get("auto"):
+                raise ValueError("APT_SIMULATION_AMBIGUOUS")
+            advisory_seen = True
+            continue
         if match := _SUMMARY.fullmatch(line):
             if summary is not None:
                 raise ValueError("APT_SIMULATION_AMBIGUOUS")
@@ -135,9 +151,17 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
         raise ValueError("APT_SIMULATION_DRIFT")
     for kind, names in lists.items():
         expected_names = {name for name, action in actions.items() if action.kind == kind}
-        if (len(names) != len(set(names)) or
-                (len(names) != summary[3] if kind == "held" else set(names) != expected_names)):
+        if len(names) != len(set(names)):
             raise ValueError("APT_SIMULATION_DRIFT")
+        if kind in ("upgrade", "install", "remove") and set(names) != expected_names:
+            raise ValueError("APT_SIMULATION_DRIFT")
+        if kind == "additional" and not set(names) <= set(expected):
+            raise ValueError("APT_SIMULATION_DRIFT")
+        if kind == "auto" and set(names) & set(actions):
+            raise ValueError("APT_SIMULATION_DRIFT")
+    pending = lists.get("held", []) + lists.get("phased", [])
+    if pending and (len(pending) != len(set(pending)) or len(pending) != summary[3]):
+        raise ValueError("APT_SIMULATION_DRIFT")
     return UpgradeProposal(tuple(actions.values()), summary[3], tuple(unchanged))
 
 

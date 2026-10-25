@@ -113,6 +113,28 @@ class RuntimeIdentityTests(unittest.TestCase):
                         self.m.extract_verified_archive(data, spec, destination)
                     self.assertFalse(destination.exists())
 
+    def test_reviewed_license_aliases_are_materialized_not_symlinked(self):
+        import hashlib
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:xz") as archive:
+            info = tarfile.TarInfo("bubblewrap-0.12.0/COPYING")
+            info.size = 3
+            archive.addfile(info, io.BytesIO(b"abc"))
+            for name in ("COPYING.LIB", "LICENSE"):
+                alias = tarfile.TarInfo("bubblewrap-0.12.0/" + name)
+                alias.type, alias.linkname = tarfile.SYMTYPE, "COPYING"
+                archive.addfile(alias)
+        data = buffer.getvalue()
+        spec = replace(self.m.load_runtime_spec(ROOT / "tests/ci-runtime-lock.json"),
+                       source_size=len(data), source_sha256=hashlib.sha256(data).hexdigest())
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "source"
+            self.m.extract_verified_archive(data, spec, destination)
+            for name in ("COPYING.LIB", "LICENSE"):
+                path = destination / "bubblewrap-0.12.0" / name
+                self.assertFalse(path.is_symlink())
+                self.assertEqual(path.read_bytes(), b"abc")
+
 
 if __name__ == "__main__":
     unittest.main()

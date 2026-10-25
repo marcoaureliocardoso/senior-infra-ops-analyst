@@ -58,7 +58,8 @@ class LinuxExecutor:
         if privileged:
             argv = ["/usr/bin/sudo", "-n", "/usr/bin/timeout", "--kill-after=5s",
                     f"{remaining:.3f}s", *argv]
-        env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "HOME": str(self.workspace),
+        env = {"PATH": (str(self.runtime.binary.parent) + ":" if self.runtime else "") + "/usr/bin:/bin",
+               "LC_ALL": "C", "HOME": str(self.workspace),
                "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
                "DEBIAN_FRONTEND": "noninteractive", "NEEDRESTART_MODE": "l"}
         with tempfile.TemporaryFile(dir=self.workspace) as output:

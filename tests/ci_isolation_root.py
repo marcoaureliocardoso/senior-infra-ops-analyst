@@ -55,6 +55,8 @@ def read_record(path, *, owner_uid=0, limit=16384):
 
 def load_owned_runtime(spec, nonce):
     prefix = PREFIX_BASE / spec.source_sha256
+    protected_directory(prefix)
+    protected_directory(prefix / "bin")
     record = read_record(prefix / "receipt.json")
     if record.get("owner_nonce") != nonce:
         raise ValueError("CI_ROOT_OWNERSHIP_UNPROVEN")

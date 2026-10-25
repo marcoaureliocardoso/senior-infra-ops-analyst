@@ -16,36 +16,40 @@ permissions:
 jobs:
   package-validate:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
     # Full gate measured at 24m21s; include provisioning and runner variance.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Provision required namespace runtime
-        run: |
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install --yes --no-install-recommends bubblewrap
-          fi
-          bwrap --version
-      - name: Diagnose required namespace capability
-        run: |
-          # Fixed no-content probe; never mount the checkout or operator state.
-          bwrap --die-with-parent --new-session --unshare-user --unshare-pid \
-            --unshare-ipc --unshare-uts --unshare-net --cap-drop ALL \
-            --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib \
-            --symlink usr/lib64 /lib64 --proc /proc --dev /dev /usr/bin/true
+        with:
+          persist-credentials: false
+      - name: Prepare guarded image and verified namespace runtime
+        id: isolation_prepare
+        run: python3 tests/ci_isolation_bootstrap.py --prepare --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
       - name: Provision test-only terminal runtime
+        id: terminal_provision
         run: |
           terminal_node="$(readlink -f "$(command -v node)")"
           terminal_npm="$(readlink -f "$(command -v npm)")"
           python3 tests/provision-terminal-runtime.py --target "$RUNNER_TEMP/p004b-terminal-runtime" --npm "$terminal_npm" --node "$terminal_node"
           printf 'P004B_TERMINAL_NODE=%s\n' "$terminal_node" >> "$GITHUB_ENV"
           printf 'P004B_TERMINAL_MODULE_ROOT=%s\n' "$RUNNER_TEMP/p004b-terminal-runtime/node_modules" >> "$GITHUB_ENV"
+      - name: Verify required isolation and real helper audit
+        id: isolation_verify
+        run: python3 tests/ci_isolation_bootstrap.py --verify --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
       - name: Package validation
+        id: package_gate
         env:
           P004B_TERMINAL_NODE: ${{ env.P004B_TERMINAL_NODE }}
           P004B_TERMINAL_MODULE_ROOT: ${{ env.P004B_TERMINAL_MODULE_ROOT }}
         run: bash tests/validate-package.sh
+      - name: Clean owned namespace runtime and policy
+        id: isolation_cleanup
+        if: always()
+        run: python3 tests/ci_isolation_bootstrap.py --cleanup --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
 
   lint-hygiene:
     runs-on: ubuntu-24.04

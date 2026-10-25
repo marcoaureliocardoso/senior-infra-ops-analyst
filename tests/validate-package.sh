@@ -9,6 +9,17 @@ if ! command -v bwrap >/dev/null 2>&1; then
   printf 'Bubblewrap namespace runtime is required\n' >&2
   exit 2
 fi
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+  /usr/bin/python3 -I -B -c 'import sys; sys.path.insert(0,"tests"); from ci_isolation_bootstrap import require_frozen_ci_runtime; require_frozen_ci_runtime()'
+fi
+python3 tests/test-ci-image-upgrade.py
+python3 tests/test-ci-isolation-runtime.py
+python3 tests/test-ci-isolation-bootstrap.py
+python3 tests/test-ci-isolation-probe.py
+python3 tests/test-ci-isolation-wiring.py
+python3 tests/test-ci-workflows.py
+python3 tests/test-nori-package-contract.py
+python3 tests/test-browser-operation-policy.py
 python3 tests/terminal-runtime-preflight.py --node "$P004B_TERMINAL_NODE" \
   --module-root "$P004B_TERMINAL_MODULE_ROOT"
 python3 tests/offline-terminal-resume-probe.py --audit-isolation --source . \
@@ -62,7 +73,6 @@ python3 tests/test-command-guard-install-policy.py
 python3 tests/test-native-execution-boundary.py
 python3 tests/test-native-execution-boundary-safety.py
 python3 tests/test-prompt-injection-policy.py
-python3 tests/test-browser-operation-policy.py
 python3 tests/test-browser-operation-install-policy.py
 python3 tests/test-prompt-injection-claims.py
 python3 tests/test-prompt-injection-install-policy.py
@@ -85,7 +95,6 @@ python3 tests/test-native-execution-boundary-pty.py
 python3 tests/test-native-execution-boundary-lifecycle.py
 python3 tests/test-context-continuity-install-policy.py
 python3 -m json.tool nori.json >/dev/null
-python3 tests/test-nori-package-contract.py
 python3 tests/test-content-discovery.py
 python3 tests/test-nori-staging.py
 python3 tests/test-nori-archive.py

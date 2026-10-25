@@ -94,20 +94,29 @@ def extract_verified_archive(data, spec, destination):
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:xz") as archive:
             members = archive.getmembers()
             names = set()
+            aliases = {}
             total = 0
             if not members or len(members) > 2048:
                 raise ValueError("RUNTIME_ARCHIVE_UNSAFE")
             for member in members:
                 path = PurePosixPath(member.name)
+                license_alias = (member.issym() and member.linkname == "COPYING"
+                                 and member.name in (f"bubblewrap-{spec.version}/COPYING.LIB",
+                                                     f"bubblewrap-{spec.version}/LICENSE"))
                 if (not member.name or path.is_absolute() or ".." in path.parts
                         or "\\" in member.name or path.parts[0] != f"bubblewrap-{spec.version}"
-                        or not (member.isfile() or member.isdir()) or member.name in names
+                        or not (member.isfile() or member.isdir() or license_alias) or member.name in names
                         or member.mode & 0o7000 or member.size > 8 * 1024 * 1024):
                     raise ValueError("RUNTIME_ARCHIVE_UNSAFE")
                 names.add(member.name)
                 total += member.size
+                if license_alias:
+                    aliases[member.name] = f"bubblewrap-{spec.version}/COPYING"
             if total > 32 * 1024 * 1024:
                 raise ValueError("RUNTIME_ARCHIVE_UNSAFE")
+            for target in aliases.values():
+                if target not in names or not archive.getmember(target).isfile():
+                    raise ValueError("RUNTIME_ARCHIVE_UNSAFE")
             destination.mkdir(mode=0o700)  # exclusive owned destination, after validation
             for member in members:
                 target = destination / member.name
@@ -115,8 +124,9 @@ def extract_verified_archive(data, spec, destination):
                     target.mkdir(parents=True, exist_ok=True, mode=0o700)
                 else:
                     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-                    with archive.extractfile(member) as source, target.open("xb") as output:
-                        output.write(source.read(member.size + 1))
+                    source_member = archive.getmember(aliases[member.name]) if member.name in aliases else member
+                    with archive.extractfile(source_member) as source, target.open("xb") as output:
+                        output.write(source.read(source_member.size + 1))
                     target.chmod(0o755 if member.mode & 0o111 else 0o644)
     except (OSError, tarfile.TarError, EOFError):
         raise ValueError("RUNTIME_ARCHIVE_UNSAFE") from None
