@@ -3,9 +3,10 @@
 Parsing and policy are deliberately separate from privileged execution.  APT
 output is data, never a command source or an authorization to install anything.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 import subprocess
+import time
 from typing import Callable
 
 
@@ -211,3 +212,71 @@ def assess_dependency_install(proposal, *, requested: frozenset[str],
                               service_packages: frozenset[str], compare_versions) -> UpgradeDecision:
     return _assess(proposal, service_packages, compare_versions,
                    dependency=True, requested=requested, reboot=False)
+
+
+def prepare_image_packages(adapter, *, deadline):
+    """Run fixed stages. A skipped general upgrade is not a failed transaction.
+
+    The private adapter freezes signed lists/archives, performs bounded metadata
+    inspection and verifies the installed state. No adapter comes from CLI data.
+    """
+    deadline = min(deadline, time.monotonic() + 600)
+
+    def check():
+        if time.monotonic() >= deadline:
+            raise ValueError("PACKAGE_PROVISIONING_DEADLINE")
+
+    check()
+    adapter.refresh(deadline)
+    general = None
+    for kind in ("upgrade", "dependencies"):
+        check()
+        before = adapter.snapshot(deadline)
+        proposal = parse_apt_simulation(adapter.simulate(kind, deadline))
+        services = adapter.service_packages(proposal, deadline)
+        held = adapter.held_packages(deadline)
+        if type(held) is not frozenset or not all(_valid_package(name) for name in held):
+            raise ValueError("PACKAGE_HOLDS_UNPROVEN")
+        if any(action.package in held or action.package.partition(":")[0] in held
+               for action in proposal.actions):
+            if kind == "dependencies":
+                raise ValueError("PACKAGE_HOLD_CHANGE_REJECTED")
+            general = UpgradeDecision("SKIP_UNSAFE", "PACKAGE_HOLD_CHANGE_REJECTED", len(proposal.actions))
+            continue
+
+        def decide():
+            if kind == "upgrade":
+                return assess_upgrade(proposal, reboot_required=adapter.reboot_required,
+                                      service_packages=services,
+                                      compare_versions=compare_debian_versions)
+            # APT's "not upgraded" is not synonymous with an explicit dpkg hold.
+            # Unrelated pending updates must not prevent safe build dependencies.
+            return assess_dependency_install(replace(proposal, held_count=0), requested=adapter.requested,
+                                             service_packages=services,
+                                             compare_versions=compare_debian_versions)
+
+        decision = decide()
+        if kind == "upgrade":
+            general = decision
+        if decision.status == "BLOCKED":
+            raise ValueError("PACKAGE_PROPOSAL_BLOCKED")
+        if decision.status in ("UP_TO_DATE", "SKIP_UNSAFE"):
+            if adapter.snapshot(deadline) != before:
+                raise ValueError("PACKAGE_STATE_CHANGED")
+            continue
+        if len(proposal.actions) > 500:
+            raise ValueError("PACKAGE_PROPOSAL_TOO_LARGE")
+        adapter.freeze(kind, proposal, deadline)
+        # Candidate archives are now present: check candidate service metadata as
+        # well as the installed files checked before downloading anything.
+        services = adapter.service_packages(proposal, deadline)
+        if decide().status != "ALLOW":
+            raise ValueError("PACKAGE_CANDIDATE_UNSAFE")
+        if (parse_apt_simulation(adapter.simulate(kind, deadline)) != proposal
+                or adapter.snapshot(deadline) != before or adapter.held_packages(deadline) != held):
+            raise ValueError("PACKAGE_PROPOSAL_DRIFT")
+        check()
+        adapter.apply(kind, proposal, deadline)
+        adapter.verify_changes(before, proposal, deadline)
+        check()
+    return general

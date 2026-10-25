@@ -1,0 +1,271 @@
+"""Fixed Linux transport for the reviewed ephemeral hosted-runner bootstrap.
+
+No production entry point accepts an executor, package name, command, URL,
+binary override or policy path. This module is imported only by the closed CLI.
+"""
+from dataclasses import asdict
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import signal
+import stat
+import subprocess
+import tempfile
+import time
+import urllib.request
+
+from ci_image_upgrade import (
+    _valid_package, _valid_version, prepare_image_packages,
+)
+from ci_isolation_runtime import (
+    BuildReceipt, OwnedRuntime, _read_binary, extract_verified_archive,
+    verify_installed_runtime,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PREFIX_BASE = Path("/opt/senior-infra-ci")
+CACHE_BASE = Path("/opt/senior-infra-ci-cache")
+DEPENDENCIES = frozenset({"gcc", "meson", "ninja-build", "pkgconf", "libcap-dev",
+                          "libcap2-bin", "python3", "xz-utils", "ca-certificates"})
+
+
+class LinuxExecutor:
+    prefix_base = PREFIX_BASE
+    owner_uid = 0
+
+    def __init__(self, spec, workspace, nonce, template_sha256):
+        self.spec, self.workspace, self.nonce = spec, workspace, nonce
+        self.template_sha256 = template_sha256
+        self.cache = CACHE_BASE / spec.source_sha256
+        self.upgrade_decision = None
+        self.runtime = None
+        self.cache_owned = False
+
+    def command(self, argv, deadline, *, privileged=False, limit=512 * 1024):
+        remaining = min(120, deadline - time.monotonic())
+        if remaining <= 0 or not argv or not str(argv[0]).startswith("/usr/"):
+            raise ValueError("CI_COMMAND_SCOPE_REJECTED")
+        argv = [str(arg) for arg in argv]
+        if any("\x00" in arg or len(arg) > 4096 for arg in argv):
+            raise ValueError("CI_COMMAND_SCOPE_REJECTED")
+        if privileged:
+            argv = ["/usr/bin/sudo", "-n", "/usr/bin/timeout", "--kill-after=5s",
+                    f"{remaining:.3f}s", *argv]
+        env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "HOME": str(self.workspace),
+               "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
+               "DEBIAN_FRONTEND": "noninteractive", "NEEDRESTART_MODE": "l"}
+        with tempfile.TemporaryFile(dir=self.workspace) as output:
+            process = subprocess.Popen(argv, cwd=self.workspace, env=env,
+                                       stdin=subprocess.DEVNULL, stdout=output,
+                                       stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                while process.poll() is None:
+                    if time.monotonic() >= deadline or output.tell() > limit:
+                        raise ValueError("CI_COMMAND_BOUNDED_FAILURE")
+                    time.sleep(0.05)
+                if process.returncode or output.tell() > limit:
+                    raise ValueError("CI_COMMAND_FAILED")
+                output.seek(0)
+                return output.read(limit + 1)
+            finally:
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGTERM)
+                        process.wait(timeout=6)
+                    except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        process.wait(timeout=remaining + 6)
+
+    def root_action(self, action, deadline, *args):
+        return self.command(["/usr/bin/python3", "-I", "-B",
+                             str(ROOT / "tests/ci_isolation_root.py"), action,
+                             str(ROOT / "tests/ci-runtime-lock.json"), self.nonce,
+                             *map(str, args)], deadline, privileged=True)
+
+    def prepare_packages(self, deadline):
+        self.root_action("cache-create", deadline)
+        self.cache_owned = True
+        self.upgrade_decision = prepare_image_packages(LinuxPackageAdapter(self), deadline=deadline)
+
+    def build_candidate(self, spec, deadline):
+        if platform.machine() != spec.architecture:
+            raise ValueError("RUNTIME_ARCHITECTURE_UNSUPPORTED")
+        # TLS and the exact URL are necessary but not sufficient: the local
+        # reviewed size and digest, never a downloaded sidecar, are authoritative.
+        request = urllib.request.Request(spec.source_url, headers={"User-Agent": "senior-infra-ci"})
+        with urllib.request.urlopen(request, timeout=min(30, max(1, deadline - time.monotonic()))) as response:
+            data = response.read(spec.source_size + 1)
+        source = self.workspace / "source"
+        extract_verified_archive(data, spec, source)
+        build = self.workspace / "build"
+        self.command(["/usr/bin/meson", "setup", str(build),
+                      str(source / f"bubblewrap-{spec.version}"), *spec.build_options], deadline)
+        self.command(["/usr/bin/ninja", "-C", str(build), "bwrap"], deadline)
+        candidate = build / "bwrap"
+        _read_binary(candidate, os.getuid())
+        return candidate
+
+    def install_candidate(self, candidate, prefix, receipt, deadline):
+        # A small runner-owned request carries hashes only. The root worker
+        # independently derives/validates every privileged target.
+        request = self.workspace / "install-request.json"
+        with request.open("x", encoding="ascii") as stream:
+            json.dump(asdict(receipt), stream)
+        result = self.root_action("runtime-install", deadline, candidate, request)
+        record = json.loads(result)
+        record["build_options"] = tuple(record["build_options"])
+        record["prefix_identity"] = tuple(record["prefix_identity"])
+        record["binary_identity"] = tuple(record["binary_identity"])
+        self.runtime = OwnedRuntime(prefix, prefix / "bin/bwrap", BuildReceipt(**record))
+        return self.runtime
+
+    def publish(self, runtime):
+        verify_installed_runtime(runtime)
+        self.runtime = runtime  # CLI publishes PATH only after namespace diagnosis too.
+
+    def cleanup_owned(self, runtime, deadline):
+        return self.root_action("runtime-cleanup", deadline).strip() == b"CLEAN"
+
+    def cleanup_cache(self, deadline):
+        if not self.cache_owned:
+            return True
+        return self.root_action("cache-cleanup", deadline).strip() == b"CLEAN"
+
+
+class LinuxPackageAdapter:
+    requested = DEPENDENCIES
+
+    def __init__(self, executor):
+        self.executor = executor
+        self.reboot_required = Path("/var/run/reboot-required").exists()
+        self.frozen = {}
+        self.security = self.security_snapshot()
+
+    def options(self):
+        return ["-o", f"Dir::State::lists={self.executor.cache}/lists",
+                "-o", f"Dir::Cache::archives={self.executor.cache}/archives",
+                "-o", "APT::Update::Error-Mode=any",
+                "-o", "Acquire::AllowInsecureRepositories=false",
+                "-o", "APT::Get::AllowUnauthenticated=false",
+                "-o", "APT::Get::Always-Include-Phased-Updates=false"]
+
+    def apt(self, extra, deadline):
+        return self.executor.command(["/usr/bin/apt-get", *self.options(), *extra],
+                                     deadline, privileged=True)
+
+    def security_snapshot(self):
+        result = [platform.release()]
+        for path in ("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                     "/sys/module/apparmor/parameters/enabled", "/proc/self/attr/current"):
+            file = Path(path)
+            result.append(file.read_bytes() if file.exists() else None)
+        for path in ("/usr/bin/apt-get", "/usr/bin/dpkg", "/usr/bin/sudo", "/usr/bin/python3"):
+            result.append(hashlib.sha256(Path(path).read_bytes()).digest())
+        return tuple(result)
+
+    def refresh(self, deadline):
+        self.apt(["update", "--quiet"], deadline)
+
+    def snapshot(self, deadline):
+        raw = self.executor.command(
+            ["/usr/bin/dpkg-query", "--show", "--showformat=${binary:Package}\t${Version}\t${db:Status-Status}\n"],
+            deadline)
+        records = {}
+        for line in raw.decode("ascii").splitlines():
+            parts = line.split("\t")
+            if (len(parts) != 3 or not _valid_package(parts[0]) or not _valid_version(parts[1])
+                    or parts[2] not in ("installed", "config-files") or parts[0] in records):
+                raise ValueError("PACKAGE_STATE_UNPROVEN")
+            records[parts[0]] = (parts[1], parts[2])
+        return records
+
+    def held_packages(self, deadline):
+        raw = self.executor.command(["/usr/bin/apt-mark", "showhold"], deadline)
+        names = raw.decode("ascii").splitlines()
+        if not all(_valid_package(name) for name in names) or len(names) != len(set(names)):
+            raise ValueError("PACKAGE_HOLDS_UNPROVEN")
+        return frozenset(names)
+
+    def arguments(self, kind):
+        return (["upgrade"] if kind == "upgrade" else
+                ["install", "--no-install-recommends", *sorted(self.requested)])
+
+    def simulate(self, kind, deadline):
+        return self.apt(["--simulate", *self.arguments(kind)], deadline).decode("ascii")
+
+    @staticmethod
+    def service_path(path):
+        path = path.lstrip("./")
+        return path.startswith(("etc/init/", "etc/init.d/", "lib/systemd/", "usr/lib/systemd/",
+                                "usr/share/dbus-1/system-services/", "etc/systemd/"))
+
+    def service_packages(self, proposal, deadline):
+        services = set()
+        for action in proposal.actions:
+            if action.installed_version is not None:
+                files = self.executor.command(["/usr/bin/dpkg-query", "--listfiles", action.package], deadline)
+                if not files or any(self.service_path(line) for line in files.decode("ascii").splitlines()):
+                    services.add(action.package)
+            archive = self.frozen.get(action.package)
+            if archive:
+                listing = self.executor.command(["/usr/bin/dpkg-deb", "--contents", str(archive[0])], deadline)
+                for line in listing.decode("utf-8").splitlines():
+                    fields = line.split(maxsplit=5)
+                    if len(fields) != 6:
+                        raise ValueError("PACKAGE_OWNERSHIP_UNPROVEN")
+                    if self.service_path(fields[5]):
+                        services.add(action.package)
+        return frozenset(services)
+
+    def freeze(self, kind, proposal, deadline):
+        self.apt(["--yes", "--download-only", "--no-remove", *self.arguments(kind)], deadline)
+        total, found = 0, {}
+        for path in (self.executor.cache / "archives").iterdir():
+            if path.name in ("partial", "lock"):
+                continue
+            info = path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o22:
+                raise ValueError("PACKAGE_CACHE_UNSAFE")
+            total += info.st_size
+            if total > 2 * 1024 ** 3 or path.suffix != ".deb":
+                raise ValueError("PACKAGE_CACHE_TOO_LARGE")
+            fields = self.executor.command(
+                ["/usr/bin/dpkg-deb", "--field", str(path), "Package", "Version", "Architecture"], deadline)
+            metadata = dict(line.split(": ", 1) for line in fields.decode("ascii").splitlines())
+            if set(metadata) != {"Package", "Version", "Architecture"} or metadata["Architecture"] not in ("amd64", "all"):
+                raise ValueError("PACKAGE_ARCHIVE_UNPROVEN")
+            name = metadata["Package"]
+            if not _valid_package(name) or not _valid_version(metadata["Version"]):
+                raise ValueError("PACKAGE_ARCHIVE_UNPROVEN")
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            found[name] = (path, metadata["Version"], digest)
+        for action in proposal.actions:
+            item = found.get(action.package.partition(":")[0])
+            if item is None or item[1] != action.candidate_version:
+                raise ValueError("PACKAGE_ARCHIVE_UNAVAILABLE")
+            self.frozen[action.package] = item
+
+    def apply(self, kind, proposal, deadline):
+        for action in proposal.actions:
+            path, version, digest = self.frozen[action.package]
+            if hashlib.sha256(path.read_bytes()).hexdigest() != digest or version != action.candidate_version:
+                raise ValueError("PACKAGE_CACHE_CHANGED")
+        self.apt(["--yes", "--no-download", "--no-remove", *self.arguments(kind)], deadline)
+
+    def verify_changes(self, before, proposal, deadline):
+        expected = dict(before)
+        for action in proposal.actions:
+            # Preserve dpkg's native multiarch spelling when already installed.
+            key = action.package
+            if key not in expected and key + ":amd64" in expected:
+                key += ":amd64"
+            expected[key] = (action.candidate_version, "installed")
+        if (self.snapshot(deadline) != expected or self.security_snapshot() != self.security
+                or Path("/var/run/reboot-required").exists()):
+            raise ValueError("PACKAGE_POSTCONDITION_FAILED")

@@ -2,8 +2,10 @@
 from dataclasses import replace
 import importlib
 import json
+import io
 from pathlib import Path
 import tempfile
+import tarfile
 import unittest
 
 
@@ -80,6 +82,36 @@ class RuntimeIdentityTests(unittest.TestCase):
         for data in (b"abd", b"abcd", b"ab", bytearray(b"abc")):
             with self.subTest(size=len(data)), self.assertRaises(ValueError):
                 self.m.verify_archive(data, spec)
+
+    def test_archive_members_are_validated_before_any_extraction(self):
+        self.assertTrue(hasattr(self.m, "extract_verified_archive"), "safe extraction is absent")
+        import hashlib
+        for name, kind, allowed in (("bubblewrap-0.12.0/meson.build", "file", True),
+                                    ("../outside", "file", False),
+                                    ("/absolute", "file", False),
+                                    ("bubblewrap-0.12.0/link", "symlink", False),
+                                    ("bubblewrap-0.12.0/../outside", "file", False)):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                buffer = io.BytesIO()
+                with tarfile.open(fileobj=buffer, mode="w:xz") as archive:
+                    info = tarfile.TarInfo(name)
+                    if kind == "symlink":
+                        info.type, info.linkname = tarfile.SYMTYPE, "../outside"
+                        archive.addfile(info)
+                    else:
+                        info.size = 3
+                        archive.addfile(info, io.BytesIO(b"abc"))
+                data = buffer.getvalue()
+                spec = replace(self.m.load_runtime_spec(ROOT / "tests/ci-runtime-lock.json"),
+                               source_size=len(data), source_sha256=hashlib.sha256(data).hexdigest())
+                destination = Path(directory) / "source"
+                if allowed:
+                    self.m.extract_verified_archive(data, spec, destination)
+                    self.assertEqual((destination / name).read_bytes(), b"abc")
+                else:
+                    with self.assertRaises(ValueError):
+                        self.m.extract_verified_archive(data, spec, destination)
+                    self.assertFalse(destination.exists())
 
 
 if __name__ == "__main__":
