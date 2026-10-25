@@ -28,6 +28,7 @@ class FixtureExecutor:
         self.state.write_text(json.dumps({"generation": 0, "events": []}), encoding="ascii")
         (directory / "foreign").write_bytes(b"foreign fixture")
         self.published = False
+        self.nonce = "a" * 32
 
     def external(self, tool, *args):
         result = subprocess.run([sys.executable, str(FIXTURES / tool), *map(str, args)],
@@ -208,6 +209,12 @@ class ProvisioningTests(unittest.TestCase):
             self.m.provision_runtime(self.spec, executor=executor, deadline=time.monotonic() - 1)
         self.assertEqual(json.loads(executor.state.read_text())["events"], [])
 
+    def test_normal_access_time_update_is_not_binary_substitution(self):
+        runtime = self.execute()
+        info = runtime.binary.stat()
+        os.utime(runtime.binary, ns=(1, info.st_mtime_ns))
+        self.assertIsNone(self.r.verify_installed_runtime(runtime))
+
     def test_resolver_drift_never_applies_or_builds(self):
         with self.assertRaises(ValueError):
             self.execute("drift")
@@ -240,6 +247,140 @@ class ProvisioningTests(unittest.TestCase):
         for command in (("relative",), ("/bin/sh", "-c", "true"), ("/usr/bin/python3", "bad\x00arg")):
             with self.subTest(command=command), self.assertRaises(ValueError):
                 transport.command(command, time.monotonic() + 1)
+
+
+class PolicyFixtureExecutor(FixtureExecutor):
+    def snapshot_policy(self, runtime, deadline):
+        from ci_isolation_bootstrap import PolicySnapshot
+        return PolicySnapshot(True, 1, ("foreign",) if self.mode == "foreign" else ())
+
+    def namespace_probe(self, runtime, kind, deadline):
+        self.external("fake-policy.py", self.state, "probe-" + kind, self.mode)
+        return self.mode == "supported" or json.loads(self.state.read_text()).get("policy", False)
+
+    def denial_evidence(self, runtime, deadline):
+        from ci_isolation_bootstrap import DenialEvidence
+        return DenialEvidence(runtime.receipt.binary_sha256, (1.0, 2.0),
+                              "unprivileged_userns", "net_admin", self.mode != "unrelated")
+
+    def load_policy(self, runtime, policy, deadline):
+        self.external("fake-policy.py", self.state, "policy-load", self.mode)
+        if self.mode == "cancel-load":
+            raise KeyboardInterrupt
+
+    def remove_policy(self, policy, deadline):
+        self.external("fake-policy.py", self.state, "policy-remove", self.mode)
+        return True
+
+    def policy_template(self):
+        from ci_isolation_bootstrap import load_policy_template
+        return load_policy_template(ROOT / "tests/ci-runtime-lock.json")
+
+    def verify_child_transition(self, runtime, policy, deadline):
+        return self.mode not in ("transition-failure", "cleanup-failure")
+
+
+class PolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.m = importlib.import_module("ci_isolation_bootstrap")
+        self.assertTrue(hasattr(self.m, "policy_is_needed"), "conditional policy gate is absent")
+
+    def test_uncorrelated_denial_cannot_request_policy(self):
+        snapshot = self.m.PolicySnapshot(True, 1, ())
+        evidence = self.m.DenialEvidence("verified-binary", (1, 2),
+                                         "unprivileged_userns", "net_admin", False)
+        self.assertFalse(self.m.policy_is_needed(snapshot, evidence))
+        self.assertTrue(self.m.policy_is_needed(snapshot, replace(evidence, correlated=True)))
+        for mutation in (replace(snapshot, enforcing=False), replace(snapshot, restriction=0),
+                         replace(snapshot, attachments=("foreign",))):
+            self.assertFalse(self.m.policy_is_needed(mutation, replace(evidence, correlated=True)))
+
+    def test_successful_baseline_never_loads_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executor, runtime = self.runtime(Path(directory), "supported")
+            result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+            self.assertEqual(result.status, "SUPPORTED")
+            self.assertNotIn("policy-load", json.loads(executor.state.read_text())["events"])
+
+    def runtime(self, directory, mode):
+        import ci_isolation_runtime
+        executor = PolicyFixtureExecutor(directory, mode)
+        executor.template_sha256 = hashlib.sha256(executor.policy_template()).hexdigest()
+        spec = ci_isolation_runtime.load_runtime_spec(ROOT / "tests/ci-runtime-lock.json")
+        runtime = self.m.provision_runtime(spec, executor=executor, deadline=time.monotonic() + 15)
+        return executor, runtime
+
+    def test_matching_denial_loads_owned_policy_then_retests_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executor, runtime = self.runtime(Path(directory), "matching")
+            result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+            self.assertEqual(result.status, "POLICY_NEEDED")
+            policy = self.m.arm_policy(runtime, result.evidence, executor=executor, deadline=time.monotonic() + 10)
+            events = json.loads(executor.state.read_text())["events"]
+            self.assertEqual([event for event in events if event.startswith("probe-")],
+                             ["probe-full", "probe-minimal", "probe-full"])
+            self.assertTrue(self.m.cleanup_policy(policy, executor=executor, deadline=time.monotonic() + 5))
+
+    def test_missing_attribution_or_foreign_attachment_never_loads(self):
+        for mode in ("unrelated", "foreign"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                executor, runtime = self.runtime(Path(directory), mode)
+                result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+                self.assertEqual(result.status, "BLOCKED")
+                self.assertNotIn("policy-load", json.loads(executor.state.read_text())["events"])
+
+    def test_load_or_transition_failure_removes_partial_owned_policy(self):
+        for mode in ("load-failure", "transition-failure"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                executor, runtime = self.runtime(Path(directory), mode)
+                result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+                with self.assertRaises(ValueError) as raised:
+                    self.m.arm_policy(runtime, result.evidence, executor=executor, deadline=time.monotonic() + 10)
+                self.assertIn(str(raised.exception), ("FIXTURE_TOOL_FAILED", "CI_POLICY_CHILD_UNPROVEN"))
+                state = json.loads(executor.state.read_text())
+                self.assertFalse(state["policy"])
+                self.assertIn("policy-remove", state["events"])
+
+    def test_template_drift_and_broad_binary_path_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executor, runtime = self.runtime(Path(directory), "matching")
+            executor.policy_template = lambda: b"unconfined,"
+            evidence = executor.denial_evidence(runtime, time.monotonic() + 5)
+            with self.assertRaises(ValueError):
+                self.m.arm_policy(runtime, evidence, executor=executor, deadline=time.monotonic() + 10)
+            self.assertNotIn("policy-load", json.loads(executor.state.read_text())["events"])
+            with self.assertRaises(ValueError):
+                self.m.render_policy(b"@BINARY@", runtime.binary.parent / "*", "parent", "child")
+
+    def test_audit_record_must_match_owned_pid_window_and_executable(self):
+        self.assertTrue(hasattr(self.m, "match_denial_records"), "audit correlation is absent")
+        binary = "/opt/senior-infra-ci/" + "a" * 64 + "/bin/bwrap"
+        message = ('apparmor="DENIED" operation="capable" profile="unprivileged_userns" '
+                   f'pid=123 comm="bwrap" exe="{binary}" capability=12 capname="net_admin"')
+        record = {"MESSAGE": message, "__REALTIME_TIMESTAMP": "1500000"}
+        self.assertTrue(self.m.match_denial_records(json.dumps(record).encode(),
+                                                   pids=(123,), window=(1., 2.), binary=binary))
+        for mutated in (dict(record, MESSAGE=message.replace("pid=123", "pid=124")),
+                        dict(record, MESSAGE=message.replace(binary, "/usr/bin/bwrap")),
+                        dict(record, MESSAGE=message.replace("net_admin", "unrelated")),
+                        dict(record, __REALTIME_TIMESTAMP="3000000")):
+            self.assertFalse(self.m.match_denial_records(json.dumps(mutated).encode(),
+                                                        pids=(123,), window=(1., 2.), binary=binary))
+
+    def test_load_cancellation_cleans_only_owned_policy_and_reraises(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executor, runtime = self.runtime(Path(directory), "cancel-load")
+            result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+            with self.assertRaises(KeyboardInterrupt):
+                self.m.arm_policy(runtime, result.evidence, executor=executor, deadline=time.monotonic() + 10)
+            self.assertFalse(json.loads(executor.state.read_text())["policy"])
+
+    def test_cleanup_failure_dominates_transition_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executor, runtime = self.runtime(Path(directory), "cleanup-failure")
+            result = self.m.diagnose_namespace(runtime, executor=executor, deadline=time.monotonic() + 10)
+            with self.assertRaisesRegex(ValueError, "^CI_POLICY_CLEANUP_FAILED$"):
+                self.m.arm_policy(runtime, result.evidence, executor=executor, deadline=time.monotonic() + 10)
 
 
 if __name__ == "__main__":

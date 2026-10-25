@@ -47,10 +47,16 @@ def load_runtime_spec(path: Path) -> RuntimeSpec:
         if len(raw) > 16384:
             raise ValueError("RUNTIME_MANIFEST_INVALID")
         record = json.loads(raw, object_pairs_hook=_unique_object)
-        if (type(record) is not dict or set(record) != {"schemaVersion", "bubblewrap", "apparmorSource"}
+        if (type(record) is not dict or set(record) != {"schemaVersion", "bubblewrap", "apparmorSource", "policyTemplate"}
                 or type(record["schemaVersion"]) is not int or record["schemaVersion"] != 1):
             raise ValueError("RUNTIME_MANIFEST_INVALID")
         source, policy = record["bubblewrap"], record["apparmorSource"]
+        template = record["policyTemplate"]
+        if (type(template) is not dict or set(template) != {"path", "sha256", "license"}
+                or template["path"] != "tests/fixtures/ci-isolation/bwrap.apparmor.in"
+                or template["license"] != "GPL-2.0-only" or type(template["sha256"]) is not str
+                or not re.fullmatch(r"[0-9a-f]{64}", template["sha256"])):
+            raise ValueError("RUNTIME_POLICY_PROVENANCE_INVALID")
         if (type(source) is not dict or set(source) != _SOURCE_KEYS
                 or type(policy) is not dict or set(policy) != {"commit", "path", "url"}
                 or policy != {"commit": _AA_COMMIT, "path": _AA_PATH,
@@ -155,6 +161,12 @@ def _identity(info):
     return info.st_dev, info.st_ino
 
 
+def _security_metadata(info):
+    # Reading/executing can update atime. It is not an identity/security field.
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,
+            info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
 def _read_binary(path, owner_uid):
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
@@ -166,7 +178,7 @@ def _read_binary(path, owner_uid):
                     or not 0 < info.st_size <= 8 * 1024 * 1024):
                 raise ValueError("RUNTIME_BINARY_UNSAFE")
             data = os.read(fd, info.st_size + 1)
-            if len(data) != info.st_size or os.fstat(fd) != info:
+            if len(data) != info.st_size or _security_metadata(os.fstat(fd)) != _security_metadata(info):
                 raise ValueError("RUNTIME_BINARY_CHANGED")
             if owner_uid == 0 and not data.startswith(b"\x7fELF"):
                 raise ValueError("RUNTIME_BINARY_UNSAFE")
@@ -219,7 +231,7 @@ def verify_installed_runtime(runtime: OwnedRuntime, *, check_version=True) -> No
             if result.returncode or result.stdout != f"bubblewrap {receipt.version}\n".encode() or result.stderr:
                 raise ValueError("RUNTIME_VERSION_MISMATCH")
         again, after = _read_binary(runtime.binary, receipt.owner_uid)
-        if info != after or data != again:
+        if _security_metadata(info) != _security_metadata(after) or data != again:
             raise ValueError("RUNTIME_IDENTITY_CHANGED")
     except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, AttributeError):
         raise ValueError("RUNTIME_VERIFICATION_FAILED") from None

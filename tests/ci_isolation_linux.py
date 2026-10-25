@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import signal
 import stat
 import subprocess
@@ -43,10 +44,13 @@ class LinuxExecutor:
         self.upgrade_decision = None
         self.runtime = None
         self.cache_owned = False
+        self.probe_records = []
+        self.owned_policy = None
 
     def command(self, argv, deadline, *, privileged=False, limit=512 * 1024):
         remaining = min(120, deadline - time.monotonic())
-        if remaining <= 0 or not argv or not str(argv[0]).startswith("/usr/"):
+        private_binary = str(self.runtime.binary) if self.runtime else None
+        if remaining <= 0 or not argv or not (str(argv[0]).startswith("/usr/") or str(argv[0]) == private_binary):
             raise ValueError("CI_COMMAND_SCOPE_REJECTED")
         argv = [str(arg) for arg in argv]
         if any("\x00" in arg or len(arg) > 4096 for arg in argv):
@@ -136,6 +140,102 @@ class LinuxExecutor:
         if not self.cache_owned:
             return True
         return self.root_action("cache-cleanup", deadline).strip() == b"CLEAN"
+
+    @staticmethod
+    def namespace_argv(runtime, kind):
+        if kind not in ("full", "minimal"):
+            raise ValueError("CI_PROBE_SCOPE_REJECTED")
+        argv = [str(runtime.binary), "--die-with-parent", "--new-session", "--unshare-user"]
+        if kind == "full":
+            argv += ["--unshare-pid", "--unshare-ipc", "--unshare-uts"]
+        return argv + ["--unshare-net", "--cap-drop", "ALL", "--ro-bind", "/usr", "/usr",
+                       "--symlink", "usr/bin", "/bin", "--symlink", "usr/lib", "/lib",
+                       "--symlink", "usr/lib64", "/lib64", "--proc", "/proc", "--dev", "/dev",
+                       "--clearenv", "--setenv", "PATH", "/usr/bin:/bin", "/usr/bin/true"]
+
+    def namespace_probe(self, runtime, kind, deadline):
+        verify_installed_runtime(runtime)
+        started = time.time()
+        pids, labels = set(), set()
+        with tempfile.TemporaryFile(dir=self.workspace) as output:
+            process = subprocess.Popen(self.namespace_argv(runtime, kind), cwd=self.workspace,
+                                       stdin=subprocess.DEVNULL, stdout=output, stderr=output,
+                                       env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, start_new_session=True)
+            try:
+                while True:
+                    # Inspect only this owned child and descendants linked from
+                    # it. Never enumerate the host process table/operator state.
+                    pending, seen = [process.pid], set()
+                    while pending and len(seen) < 128:
+                        pid = pending.pop()
+                        if pid in seen:
+                            continue
+                        seen.add(pid)
+                        base = Path("/proc") / str(pid)
+                        try:
+                            if os.readlink(base / "exe") == str(runtime.binary):
+                                pids.add(pid)
+                                labels.add((base / "attr/current").read_text()[:512].strip())
+                            children = (base / f"task/{pid}/children").read_text().split()
+                            pending.extend(int(value) for value in children if value.isdecimal())
+                        except (OSError, ValueError):
+                            pass
+                    if process.poll() is not None:
+                        break
+                    if time.monotonic() >= deadline or output.tell() > 65536:
+                        raise ValueError("CI_NAMESPACE_PROBE_BOUNDED_FAILURE")
+                    time.sleep(0.001)
+                return process.returncode == 0
+            finally:
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=5)
+                self.probe_records.append((started, time.time(), tuple(sorted(pids)), tuple(sorted(labels))))
+
+    def snapshot_policy(self, runtime, deadline):
+        from ci_isolation_bootstrap import PolicySnapshot
+        enabled = Path("/sys/module/apparmor/parameters/enabled").read_text().strip() == "Y"
+        restriction = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns").read_text().strip()
+        if restriction not in ("0", "1"):
+            raise ValueError("CI_POLICY_STATE_UNPROVEN")
+        labels = {label for record in self.probe_records for label in record[3]}
+        foreign = tuple(sorted(label for label in labels
+                               if label not in ("unconfined", "unprivileged_userns (enforce)")))
+        return PolicySnapshot(enabled, int(restriction), foreign)
+
+    def denial_evidence(self, runtime, deadline):
+        from ci_isolation_bootstrap import DenialEvidence
+        records = self.probe_records[:2]
+        if not records:
+            raise ValueError("CI_POLICY_EVIDENCE_MISSING")
+        pids = tuple(sorted({pid for record in records for pid in record[2]}))
+        window = (records[0][0], records[-1][1])
+        request = json.dumps({"pids": pids, "window": window}, separators=(",", ":"))
+        response = json.loads(self.root_action("audit-read", deadline, request))
+        return DenialEvidence(runtime.receipt.binary_sha256, window, "unprivileged_userns",
+                              "net_admin", response == {"matched": True})
+
+    def policy_template(self):
+        from ci_isolation_bootstrap import load_policy_template
+        return load_policy_template(ROOT / "tests/ci-runtime-lock.json")
+
+    def load_policy(self, runtime, policy, deadline):
+        self.root_action("policy-load", deadline)
+
+    def remove_policy(self, policy, deadline):
+        result = self.root_action("policy-cleanup", deadline).strip() == b"CLEAN"
+        if result:
+            self.owned_policy = None
+        return result
+
+    def verify_child_transition(self, runtime, policy, deadline):
+        # The full child proof is implemented by the same fixed fixture used by
+        # --verify, rather than trusting only a profile name or successful load.
+        from ci_isolation_proof import verify_isolation
+        return verify_isolation(runtime, executor=self, policy=policy, deadline=deadline) is True
 
 
 class LinuxPackageAdapter:

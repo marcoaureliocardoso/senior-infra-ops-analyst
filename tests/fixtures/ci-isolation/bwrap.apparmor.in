@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Adapted 2026-10-25 from AppArmor 72229df83059480f4e9fb1488624201bdbd61755,
+# profiles/apparmor/profiles/extras/bwrap-userns-restrict.
+# Changes: private exact attachment, unique names, no site-local includes.
+# CI-only policy data; see COPYING.AppArmor and NOTICE.md.
+abi <abi/4.0>,
+include <tunables/global>
+profile @PARENT@ @BINARY@ flags=(attach_disconnected,mediate_deleted) {
+  allow capability,
+  allow file rwlkm /{**,},
+  allow network,
+  allow unix,
+  allow ptrace,
+  allow signal,
+  allow mqueue,
+  allow io_uring,
+  allow userns,
+  allow mount,
+  allow umount,
+  allow pivot_root,
+  allow dbus,
+  allow px /** -> @PARENT@//&@CHILD@,
+}
+profile @CHILD@ flags=(attach_disconnected,mediate_deleted) {
+  allow file rwlkm /{**,},
+  allow network,
+  allow unix,
+  allow ptrace,
+  allow signal,
+  allow mqueue,
+  allow io_uring,
+  allow userns,
+  allow mount,
+  allow umount,
+  allow pivot_root,
+  allow dbus,
+  allow pix /** -> &@CHILD@,
+  audit deny capability,
+}

@@ -9,6 +9,11 @@
     "architecture": "x86_64",
     "buildOptions": ["-Dman=disabled", "-Dselinux=disabled", "--wrap-mode=nodownload"]
   },
+  "policyTemplate": {
+    "path": "tests/fixtures/ci-isolation/bwrap.apparmor.in",
+    "sha256": "3a48ae42f4f70c3d7da2ce938cf4e9b9cc8db3134e7e66c9868d8a9609d11867",
+    "license": "GPL-2.0-only"
+  },
   "apparmorSource": {
     "commit": "72229df83059480f4e9fb1488624201bdbd61755",
     "path": "profiles/apparmor/profiles/extras/bwrap-userns-restrict",
