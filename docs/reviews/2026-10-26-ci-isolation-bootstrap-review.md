@@ -36,7 +36,11 @@ The old concurrent immutable gate failed at the browser test's invalid-override
 fallback, with source unchanged and disposable cleanup proved. A synthetic
 recognized dependency reproduced that failure; a test-helper-only correction
 now rejects invalid explicit overrides without changing production discovery.
-A new immutable full gate is required for the corrected candidate.
+The corrected immutable gate at `db4766f74cf62242d640ecb5b78edb81bd7600c5`
+subsequently passed in 1480.972 seconds, exit0, source/archive identity unchanged
+and disposable cleanup proved. Browser acceptance without opt-in and PowerShell
+syntax checks without that runtime remained explicit exclusions. This local pass
+does not replace exact-head hosted qualification or change the independent verdict.
 
 Hostile root administrators/malicious workflows are outside the trusted-runner
 model. Claude/provider/browser/twelve-role acceptance, earlier PR changes,

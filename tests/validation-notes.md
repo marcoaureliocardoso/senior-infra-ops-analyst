@@ -11,8 +11,9 @@ the browser test's invalid-override helper unexpectedly selected ACTIVE instead
 of UNAVAILABLE. Archive identity and canonical source were unchanged and the
 disposable root was absent afterwards. A recognized synthetic dependency reproduces
 this helper fallback; its test-only correction does not change production discovery.
-This failed attempt is not qualification. Corrected full validation and exact-head
-hosted CI/Security remain pending. The checkpoint below is historical.
+This failed attempt is not qualification. The corrected local gate passed as
+recorded below; exact-head hosted CI/Security remain pending. The earlier
+implementation checkpoint further below is historical.
 
 After remediation, the complete focused group passed91/91: image15, runtime7,
 bootstrap32, actual synthetic isolation6, wiring7 and workflow25. Input33 and
@@ -21,6 +22,17 @@ The browser-operation group passed222 tests with one explicit real-browser capab
 no native/provider/browser acceptance was performed. ShellCheck16, Markdown275,
 spelling, schema, content, architecture13 and workflow quality checks passed.
 The command-guard mutation gate passed86/86 with all four fixed seeds.
+
+The full immutable package gate passed at
+`db4766f74cf62242d640ecb5b78edb81bd7600c5` in 1480.972 seconds, exit0, no timeout.
+All609 canonical files matched the archive before execution and remained
+unchanged. Archive SHA-256 before/after was
+`648961e2ed0ccf9df97b4faaf336145b714fdd186315624dfcae95517bf9f2b6`;
+the disposable root was absent after cleanup. It reached `package validation passed`.
+Explicit exclusions: real browser acceptance lacked opt-in; PowerShell was absent
+in Debian, so `.ps1` syntax validation was skipped there. This is local provider-free
+qualification, not a private-runtime/AppArmor hosted success or native acceptance.
+Subsequent evidence-only Markdown changes are distinct from that tested source.
 
 Implementation range starts at 854e77c6681c30875fc66ea34005b23eb92d5e11.
 The approved direct/inline plan has five locally completed implementation steps;
