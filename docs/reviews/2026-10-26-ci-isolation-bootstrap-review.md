@@ -42,6 +42,15 @@ and disposable cleanup proved. Browser acceptance without opt-in and PowerShell
 syntax checks without that runtime remained explicit exclusions. This local pass
 does not replace exact-head hosted qualification or change the independent verdict.
 
+An operator-authorized follow-up corrected the three workflows' runner report
+bindings after GitHub rejected their job-level expressions before any job ran.
+Step-scoped bindings and actual-script environment flow now have RED-to-GREEN
+coverage. A full local pass at b260356 was recovered with intact source/archive
+and cleanup proof after the first receipt was found unreadable; the original
+attempt was preserved, not rewritten. See the dated validation notes for hashes,
+timing and exclusions. This follow-up is author-verified, not a new independent
+review or hosted-runtime approval.
+
 Hostile root administrators/malicious workflows are outside the trusted-runner
 model. Claude/provider/browser/twelve-role acceptance, earlier PR changes,
 formal full-PR security certification and legal sufficiency of notices were not

@@ -20,8 +20,30 @@ the exact RUNNER_TEMP-derived environment and CLI report argument. Seven failing
 subcases reproduced the original scope/data-flow defect;60 missing/duplicate/
 foreign binding mutations failed before the closed contract was strengthened.
 Wiring9 and workflow25 tests then passed. This contract is deliberately narrow,
-not a claim to implement the full GitHub expression validator. Fresh complete
-local validation and exact-head hosted checks are pending for this correction.
+not a claim to implement the full GitHub expression validator.
+
+The93 focused tests and all existing quality checks passed for the correction.
+The first full run reached `package validation passed`, but its424-byte final
+receipt was entirely NUL bytes when resumed; its wrapper identity/cleanup proof
+was therefore unavailable, not inferred. That attempt and log were preserved.
+A separate bounded recovery attempt used the exact same b260356 Git archive and
+product source. Only its private validation wrapper added explicit final receipt
+flush/sync; no product or shared helper changed. The persistence failure's cause
+was not established, and no native/provider execution occurred.
+
+The recovered full gate at `b260356d157c823738e57a0884d6e84479a4384d` passed in
+1474.604 seconds, exit0, no timeout;609 canonical files matched the archive before
+execution and remained unchanged, and the disposable root was absent afterwards.
+Archive SHA-256 before/after:
+`8a6db23848029a610d4f319d08b6c9075c68838a804f1fac09031e4001fc336f`.
+A one-shot native Windows preserver validated the receipt, wrote identical bytes
+exclusively and flushed them; both receipt hashes matched
+`3ad2e11074b683f82cb4570dad671f493b1de3cdc662b1b0280273e89153cb20`.
+Debian's real-browser opt-in and PowerShell absence remain explicit exclusions.
+The existing PowerShell syntax validator separately passed on Windows. Exact-head
+hosted checks remain pending; later evidence-only Markdown is distinct from this
+tested source. No independent re-review, merge, release or native acceptance is
+claimed by this follow-up.
 
 The [official context availability table](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability)
 permits `runner` in step environments, not job environments. The earlier full
