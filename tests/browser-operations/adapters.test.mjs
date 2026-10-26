@@ -77,15 +77,17 @@ function puppeteerRuntime() {
     async setRequestInterception(value) { state.interception = value; },
     on(name, handler) { pageEvents.set(name, handler); },
     async goto(url) { state.goto = url; state.currentUrl = url; },
-    getByRole(role, options) {
+    locator(selector) {
+      const handle = {
+        async evaluate(fn) { return fn({ textContent: 'untrusted page text', value: 'selected-value', checked: true }); },
+        async uploadFile() {},
+        async dispose() {},
+      };
       return {
-        async evaluate() { state.locator = { role, ...options }; return 'untrusted page text'; },
-        async textContent() { state.locator = { role, ...options }; return 'untrusted page text'; },
-        async inputValue() { state.locator = { role, ...options }; return 'selected-value'; },
-        async isChecked() { state.locator = { role, ...options }; return true; },
-        async fill(value) { state.fill = { role, ...options, value }; },
-        async select(value) { state.select = { role, ...options, value }; },
-        async click() { state.click = { role, ...options }; },
+        setTimeout() { return this; },
+        async waitHandle() { state.locator = selector; return handle; },
+        async fill(value) { state.fill = { selector, value }; },
+        async click() { state.click = { selector }; },
       };
     },
     async screenshot() { state.screenshot = true; return Buffer.from('synthetic-image'); },
@@ -312,7 +314,7 @@ test('semantic actions block an allowed-origin navigation race before applying p
     await adapter.navigate({ origin: 'https://login.example.invalid:443' });
 
     let protectedValueApplied = false;
-    fake.resources.page.getByRole = () => {
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => {
       fake.state.currentUrl = 'https://router.example.invalid/dashboard';
       return {
         async fill() { protectedValueApplied = true; },
@@ -326,7 +328,7 @@ test('semantic actions block an allowed-origin navigation race before applying p
     assert.equal(protectedValueApplied, false);
 
     fake.state.currentUrl = 'https://login.example.invalid/auth';
-    fake.resources.page.getByRole = () => ({
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
       async fill() {
         let aborted = false;
         const syntheticNavigation = {
@@ -478,7 +480,7 @@ test('page-bound screenshot actions enforce origin without requiring a semantic 
 
 test('Playwright semantic locator drift fails closed with a content-free reason code', async () => {
   const fake = playwrightRuntime();
-  fake.resources.page.getByRole = () => ({
+  fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
     async click() {
       const error = new Error('UNTRUSTED_RUNTIME_LOCATOR_DETAIL');
       error.name = 'TimeoutError';
@@ -504,7 +506,7 @@ test('Playwright semantic locator drift fails closed with a content-free reason 
 test('Playwright preserves trusted content-free failures and sanitizes other action errors', async () => {
   for (const code of ['ORIGIN_ESCAPE', 'TOOL_TIMEOUT', 'BROWSER_CRASH', 'ARTIFACT_HANDLE_UNKNOWN']) {
     const fake = playwrightRuntime();
-    fake.resources.page.getByRole = () => ({
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
       async click() { const error = new Error('UNTRUSTED_DETAIL'); error.code = code; throw error; },
     });
     const adapter = await createPlaywrightAdapter(fake.runtime, {
@@ -523,7 +525,7 @@ test('Playwright preserves trusted content-free failures and sanitizes other act
   }
 
   const fake = playwrightRuntime();
-  fake.resources.page.getByRole = () => ({
+  fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
     async click() { throw new Error('UNTRUSTED_RAW_ACTION_DETAIL'); },
   });
   const adapter = await createPlaywrightAdapter(fake.runtime, {
@@ -546,7 +548,7 @@ test('Playwright preserves trusted content-free failures and sanitizes other act
 test('Playwright generic click denies a download link before dispatch', async () => {
   const fake = playwrightRuntime();
   let clicks = 0;
-  fake.resources.page.getByRole = () => ({
+  fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
     async getAttribute(name) { return name === 'download' ? '' : '/download'; },
     async click() { clicks += 1; },
   });
@@ -572,7 +574,7 @@ test('Playwright denies declared artifact navigation and submit before dispatch 
     const fake = playwrightRuntime();
     let dispatches = 0;
     fake.resources.page.goto = async (url) => { dispatches += 1; fake.state.currentUrl = url; };
-    fake.resources.page.getByRole = () => ({ async click() { dispatches += 1; } });
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({ async click() { dispatches += 1; } });
     const adapter = await createPlaywrightAdapter(fake.runtime, {
       allowedOrigins: ['https://router.example.invalid:443'],
     });
@@ -711,7 +713,7 @@ test('Playwright rejects unexpected attachment responses and disposes them', asy
       fake.state.currentUrl = url;
     };
     fake.resources.page.goto = dispatch;
-    fake.resources.page.getByRole = () => ({ async click() { await dispatch('https://router.example.invalid/download'); } });
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({ async click() { await dispatch('https://router.example.invalid/download'); } });
     const adapter = await createPlaywrightAdapter(fake.runtime, {
       allowedOrigins: ['https://router.example.invalid:443'],
     });
@@ -832,7 +834,7 @@ test('Playwright expiry inside link metadata blocks the following click and perm
   const fake = playwrightRuntime();
   const clock = lifetimeFixture();
   const calls = [];
-  fake.resources.page.getByRole = () => ({
+  fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
     async getAttribute(name) { assert.equal(name, 'download'); calls.push('attribute'); clock.expire(); return null; },
     async click() { calls.push('click'); },
   });
@@ -857,7 +859,7 @@ for (const [family, create, makeRuntime] of [
     const clock = lifetimeFixture();
     const calls = [];
     fake.resources.page.goto = async () => { calls.push('navigate'); fake.state.currentUrl = LIFETIME_ORIGIN; clock.expire(); };
-    fake.resources.page.getByRole = () => ({
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
       async textContent() { calls.push('read'); return 'fixture'; },
       async evaluate() { calls.push('read'); return 'fixture'; },
     });
@@ -890,7 +892,7 @@ for (const [family, create, makeRuntime] of [
     const fake = makeRuntime();
     const clock = lifetimeFixture();
     const calls = [];
-    fake.resources.page.getByRole = () => ({
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
       async setInputFiles() { calls.push('upload'); },
       async uploadFile() { calls.push('upload'); },
     });
@@ -937,7 +939,13 @@ for (const [family, create, makeRuntime] of [
     await adapter.open();
     fake.state.currentUrl = LIFETIME_ORIGIN;
     assert.equal((await adapter.fill({ origin: LIFETIME_ORIGIN, locatorRole: 'textbox', credential: 'fixture-value' })).status, 'ok');
-    fake.resources.page.getByRole = () => ({ async inputValue() { clock.expire(); return 'fixture-value'; } });
+    fake.resources.page[typeof fake.resources.page.locator === 'function' ? 'locator' : 'getByRole'] = () => ({
+      async inputValue() { clock.expire(); return 'fixture-value'; },
+      async waitHandle() { return {
+        async evaluate() { clock.expire(); return 'fixture-value'; },
+        async dispose() {},
+      }; },
+    });
     await assert.rejects(() => adapter.verify({
       origin: LIFETIME_ORIGIN, locatorRole: 'textbox', predicate: 'value-equals', expected: 'fixture-value', expectRef: 'fixture-state',
     }), expired);

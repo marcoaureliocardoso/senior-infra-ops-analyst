@@ -1060,6 +1060,7 @@ def evaluate_measurement_stream(
     }
     if expected_stage not in expected_calls:
         raise ValueError("invalid measurement stage")
+    from stream_lifecycle import benign_hook, faulty_metadata
     expected_name, expected_input, expected_count = expected_calls[expected_stage]
     empty = {
         "sessionId": expected_session, "terminalSuccess": False,
@@ -1094,20 +1095,12 @@ def evaluate_measurement_stream(
                 session_id = event.get("session_id")
                 # Lifecycle faults taint the whole sample, including after success.
                 # Later successful events cannot restore the previous session state.
-                if event_type in {"conversation_reset", "error"} or event.get("error"):
+                if event_type not in ("system", "assistant", "user", "result") or faulty_metadata(event):
                     malformed = True
-                if event_type == "system" and event.get("subtype") in {
+                if event_type == "system" and event.get("subtype") in (
                     "hook_started", "hook_response",
-                }:
-                    identity_fields = ("hook_id", "hook_name", "hook_event")
-                    exit_code = event.get("exit_code")
-                    if (session_id != expected_session
-                            or any(not isinstance(event.get(field), str)
-                                   or not LABEL.fullmatch(event[field])
-                                   for field in identity_fields)
-                            or event.get("outcome") not in (None, "success")
-                            or (exit_code is not None
-                                and (type(exit_code) is not int or exit_code != 0))):
+                ):
+                    if not init_seen or not benign_hook(event, expected_session, LABEL):
                         malformed = True
                 elif event_type == "system" and event.get("subtype") == "init":
                     advertised = event.get("tools")
@@ -1123,7 +1116,9 @@ def evaluate_measurement_stream(
                 elif event_type in {"assistant", "user"}:
                     message = event.get("message")
                     content = message.get("content") if isinstance(message, dict) else None
-                    if not isinstance(content, list) or len(content) > 64:
+                    if (not init_seen or terminal_seen or session_id != expected_session
+                            or not isinstance(content, list) or len(content) > 64
+                            or faulty_metadata(message)):
                         malformed = True
                         continue
                     tool_blocks = [
@@ -1146,7 +1141,7 @@ def evaluate_measurement_stream(
                                     or identifier in calls):
                                 malformed = True
                                 continue
-                            if name != expected_name or tool_input != expected_input:
+                            if name != expected_name or name not in tools or tool_input != expected_input:
                                 call_counts["unexpectedToolCalls"] += 1
                                 malformed = True
                                 continue
@@ -1163,13 +1158,17 @@ def evaluate_measurement_stream(
                                 continue
                             calls[identifier] = True
                 elif event_type == "result":
-                    if (terminal_seen or session_id != expected_session
+                    unavailable_discovery = expected_stage == 'discovery' and 'ToolSearch' not in tools
+                    required_calls = 0 if unavailable_discovery else 1
+                    if (not init_seen or terminal_seen or session_id != expected_session
                             or event.get("subtype") != "success"
                             or event.get("is_error") is not False
-                            or not calls or not all(calls.values())):
+                            or len(calls) != required_calls or not all(calls.values())):
                         malformed = True
                     else:
                         terminal_seen = True
+                else:
+                    malformed = True
         if malformed or not init_seen or not terminal_seen:
             return empty
         return {
@@ -1181,7 +1180,7 @@ def evaluate_measurement_stream(
             "mcpCalls": call_counts["mcpCalls"],
             "unexpectedToolCalls": call_counts["unexpectedToolCalls"],
         }
-    except (OSError, UnicodeError):
+    except (OSError, UnicodeError, TypeError, ValueError, RecursionError):
         return empty
 
 

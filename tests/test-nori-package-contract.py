@@ -147,12 +147,12 @@ class NoriPackageContractTests(unittest.TestCase):
             (ROOT / "skills/context-continuity/nori.json").read_text(encoding="utf-8")
         )
         self.assertEqual(root_manifest["version"], "0.15.0")
-        self.assertEqual(browser_manifest["version"], "1.0.2")
+        self.assertEqual(browser_manifest["version"], "1.0.3")
         browser_skill = (ROOT / "skills/browser-operations/SKILL.md").read_text(encoding="utf-8")
         frontmatter = browser_skill.split("---", 2)[1]
         self.assertRegex(frontmatter, r"(?m)^version: 0\.1\.1$")
         self.assertRegex(frontmatter, r"(?m)^last_updated: 2026-10-08$")
-        self.assertEqual(command_manifest["version"], "1.2.0")
+        self.assertEqual(command_manifest["version"], "1.2.1")
         self.assertEqual(continuity_manifest["version"], "1.0.1")
 
     def test_canonical_manifest_is_accepted(self) -> None:

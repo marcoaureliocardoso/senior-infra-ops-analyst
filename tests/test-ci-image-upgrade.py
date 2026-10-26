@@ -2,6 +2,7 @@
 import importlib
 from pathlib import Path
 import unittest
+import time
 
 
 def upgrade(package="demo", old="1.0-1", new="1.1-1", held=0):
@@ -42,6 +43,46 @@ class ImageUpgradeTests(unittest.TestCase):
     def test_no_updates_is_not_an_upgrade(self):
         result = self.decision("0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n")
         self.assertEqual((result.status, result.package_count), ("UP_TO_DATE", 0))
+
+    def test_new_service_in_frozen_general_candidate_skips_and_continues_dependencies(self):
+        class Adapter:
+            requested = frozenset({'build-demo'})
+            reboot_required = False
+            def __init__(self, drift=None, unsafe_dependencies=False):
+                self.frozen = set(); self.events = []; self.generation = 0
+                self.drift, self.unsafe_dependencies = drift, unsafe_dependencies
+            def refresh(self, deadline): self.events.append('refresh')
+            def snapshot(self, deadline):
+                return self.generation + (1 if self.drift == 'state' and 'upgrade' in self.frozen else 0)
+            def held_packages(self, deadline):
+                return frozenset({'changed-hold'}) if self.drift == 'holds' and self.frozen else frozenset()
+            def simulate(self, kind, deadline):
+                self.events.append('simulate-'+kind)
+                text = upgrade() if kind == 'upgrade' else INSTALL
+                return text.replace('1.1-1', '1.2-1') if self.drift == 'proposal' and kind in self.frozen else text
+            def service_packages(self, proposal, deadline):
+                if proposal.actions[0].package == 'demo':
+                    return frozenset({'demo'}) if 'upgrade' in self.frozen else frozenset()
+                return frozenset({'build-demo'}) if self.unsafe_dependencies and 'dependencies' in self.frozen else frozenset()
+            def freeze(self, kind, proposal, deadline): self.frozen.add(kind); self.events.append('freeze-'+kind)
+            def apply(self, kind, proposal, deadline): self.events.append('apply-'+kind); self.generation += 1
+            def verify_changes(self, before, proposal, deadline):
+                if self.generation != before + 1: raise ValueError('PACKAGE_POSTCONDITION_FAILED')
+        adapter = Adapter()
+        result = self.m.prepare_image_packages(adapter, deadline=time.monotonic()+5)
+        self.assertEqual(result.status, 'SKIP_UNSAFE')
+        self.assertIn('freeze-upgrade', adapter.events)
+        self.assertNotIn('apply-upgrade', adapter.events)
+        self.assertIn('apply-dependencies', adapter.events)
+        for drift in ('state', 'holds', 'proposal'):
+            adapter = Adapter(drift=drift)
+            with self.subTest(drift=drift), self.assertRaisesRegex(ValueError, 'PACKAGE_PROPOSAL_DRIFT'):
+                self.m.prepare_image_packages(adapter, deadline=time.monotonic()+5)
+            self.assertFalse(any(e.startswith('apply-') for e in adapter.events))
+        adapter = Adapter(unsafe_dependencies=True)
+        with self.assertRaisesRegex(ValueError, 'PACKAGE_CANDIDATE_UNSAFE'):
+            self.m.prepare_image_packages(adapter, deadline=time.monotonic()+5)
+        self.assertNotIn('apply-dependencies', adapter.events)
 
     def test_general_upgrade_refuses_effects_outside_safe_scope(self):
         cases = [

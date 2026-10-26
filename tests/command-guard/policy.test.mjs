@@ -6,9 +6,10 @@ import { analyzeCommand } from '../../skills/command-driven-operations/scripts/c
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
 import { validEvent } from './helpers.mjs';
 
-function analyze(command, permissionMode = 'default') {
+function analyze(command, permissionMode = 'default', native = {}) {
   return analyzeCommand(parseHookEvent(JSON.stringify(validEvent({
     permission_mode: permissionMode,
+    ...native,
     tool_input: { command },
   }))));
 }
@@ -39,7 +40,8 @@ test('protected browser runner is an exact always-confirmed command family', () 
     '--validation-ref interface-state --compensation-ref restore-interface --expires-in-seconds 600',
   ]);
   for (const mode of ['default', 'bypassPermissions']) {
-    const result = analyze(open, mode);
+    const result = analyze(open.replace('--permission-mode normal', `--permission-mode ${mode}`), mode,
+      { session_id: 'session-123', agent_type: 'network-edge-operator' });
     assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
     assert.equal(result.risk, 'LOW_RISK_CHANGE');
     assert.equal(result.decision, 'ask');
@@ -49,15 +51,15 @@ test('protected browser runner is an exact always-confirmed command family', () 
     '--operation-id op-123 --step inspect --origin https://router.example.invalid',
     '--locator-role status --expect-ref status-readable',
   ]));
-  assert.equal(inspect.policyId, 'BROWSER_PROTECTED_RUNNER');
-  assert.equal(inspect.risk, 'SAFE_READ_ONLY');
-  assert.equal(inspect.decision, 'ask');
+  assert.equal(inspect.reasonCode, 'DENY_BROWSER_BINDING');
+  assert.equal(inspect.decision, 'deny');
 });
 
 
 test('one-shot browser workflows always ask even in bypassPermissions', () => {
   for (const mode of ['default', 'bypassPermissions']) {
-    const result = analyze(workflowCommand(), mode);
+    const result = analyze(workflowCommand().replace('--permission-mode normal', `--permission-mode ${mode}`), mode,
+      { session_id: 'session-workflow-123', agent_type: 'network-edge-operator' });
     assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
     assert.equal(result.decision, 'ask');
     assert.equal(result.reasonCode, 'ASK_SENSITIVE_OPERATION');

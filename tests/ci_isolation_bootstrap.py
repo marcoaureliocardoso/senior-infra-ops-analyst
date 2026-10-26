@@ -12,6 +12,8 @@ import stat
 import sys
 import tempfile
 import time
+from ci_diagnostics import (diagnostic_summary, empty_diagnostics, record_cleanup,
+                            record_failure, remember_failure, validate_diagnostics)
 
 from ci_isolation_runtime import (
     BuildReceipt, OwnedRuntime, RuntimeSpec, _read_binary,
@@ -47,7 +49,8 @@ def provision_runtime(spec: RuntimeSpec, *, executor, deadline: float) -> OwnedR
         verify_installed_runtime(runtime)
         executor.publish(runtime)
         return runtime
-    except BaseException:
+    except BaseException as error:
+        remember_failure(executor, 'PREPARE', error)
         executor.cleanup_owned(runtime, deadline)
         raise
 
@@ -214,7 +217,8 @@ def arm_policy(runtime, evidence, *, executor, deadline):
                 or not executor.verify_child_transition(runtime, policy, deadline)):
             raise ValueError("CI_POLICY_CHILD_UNPROVEN")
         return policy
-    except BaseException:
+    except BaseException as error:
+        remember_failure(executor, 'PREPARE', error)
         if not cleanup_policy(policy, executor=executor, deadline=time.monotonic() + 30):
             raise ValueError("CI_POLICY_CLEANUP_FAILED") from None
         raise
@@ -236,7 +240,7 @@ _REASONS = frozenset({"PREPARING", "PREPARE_PASSED", "VERIFY_PASSED", "PREPARE_B
                       "VERIFY_BLOCKED", "CLEANUP_FAILED", "CLEANUP_PASSED"})
 _REPORT_KEYS = {"schemaVersion", "manifestSha256", "nonce", "workspaceIdentity", "state", "reason",
                 "runId", "runAttempt", "githubSha", "binarySha256", "upgradeStatus", "upgradePackageCount",
-                "policy", "proof", "cleanup"}
+                "policy", "proof", "cleanup", "diagnostics"}
 
 
 def validate_manifest_argument(value):
@@ -293,7 +297,7 @@ def _read_report(path):
         record = json.loads(os.read(fd, 4097))
     finally:
         os.close(fd)
-    if (type(record) is not dict or set(record) != _REPORT_KEYS or record["schemaVersion"] != 1
+    if (type(record) is not dict or set(record) != _REPORT_KEYS or record["schemaVersion"] != 2
             or record["manifestSha256"] != MANIFEST_SHA256
             or type(record["nonce"]) is not str or not re.fullmatch(r"[0-9a-f]{32}", record["nonce"])
             or record["state"] not in _STATES or record["reason"] not in _REASONS
@@ -302,10 +306,12 @@ def _read_report(path):
             or record["githubSha"] != os.environ.get("GITHUB_SHA")
             or type(record["policy"]) is not bool or type(record["cleanup"]) is not bool):
         raise ValueError("CI_REPORT_INVALID")
+    validate_diagnostics(record['diagnostics'])
     return record
 
 
 def _save_report(path, record, *, create=False):
+    validate_diagnostics(record['diagnostics'])
     data = json.dumps(record, separators=(",", ":"), sort_keys=True).encode("ascii")
     if len(data) > 4096:
         raise ValueError("CI_REPORT_TOO_LARGE")
@@ -376,6 +382,7 @@ def _cleanup(executor, record, *, deadline):
         # Exact resolved, inode-checked owned leaf. Never a workspace/repo root.
         if workspace.parent != executor.workspace.parent or workspace.name != "senior-infra-ci-" + nonce:
             return False
+        executor.stage = 'CLEANUP_WORKSPACE'
         shutil.rmtree(workspace)
         return not workspace.exists() and time.monotonic() < deadline
     except (OSError, ValueError, KeyError, TypeError):
@@ -402,18 +409,20 @@ def prepare_cli(report_path, runner_temp):
     workspace = runner_temp / ("senior-infra-ci-" + nonce)
     workspace.mkdir(mode=0o700)
     info = workspace.stat()
-    record = {"schemaVersion": 1, "manifestSha256": MANIFEST_SHA256, "nonce": nonce,
+    record = {"schemaVersion": 2, "manifestSha256": MANIFEST_SHA256, "nonce": nonce,
               "workspaceIdentity": [info.st_dev, info.st_ino], "state": "PREPARING", "reason": "PREPARING",
               "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
               "githubSha": os.environ["GITHUB_SHA"], "binarySha256": "", "upgradeStatus": None,
-              "upgradePackageCount": 0, "policy": False, "proof": None, "cleanup": False}
+              "upgradePackageCount": 0, "policy": False, "proof": None, "cleanup": False,
+              "diagnostics": empty_diagnostics()}
     try:
         _save_report(report_path, record, create=True)
     except BaseException:
         workspace.rmdir()
         raise
-    executor = _executor(record, runner_temp)
+    executor = None
     try:
+        executor = _executor(record, runner_temp)
         deadline = time.monotonic() + 600
         runtime = provision_runtime(executor.spec, executor=executor, deadline=deadline)
         diagnostic = diagnose_namespace(runtime, executor=executor, deadline=deadline)
@@ -426,10 +435,13 @@ def prepare_cli(report_path, runner_temp):
                       upgradeStatus=executor.upgrade_decision.status,
                       upgradePackageCount=executor.upgrade_decision.package_count)
         _save_report(report_path, record)
+        executor.stage = 'PUBLISH_PATH'
         _publish_github_path(runtime, runner_temp)
-    except BaseException:
+    except BaseException as error:
+        record_failure(record, 'PREPARE', error, executor)
         record.update(state="BLOCKED", reason="PREPARE_BLOCKED")
-        record["cleanup"] = _cleanup(executor, record, deadline=time.monotonic() + 90)
+        record["cleanup"] = executor is not None and _cleanup(executor, record, deadline=time.monotonic() + 90)
+        record_cleanup(record, record['cleanup'], executor)
         if not record["cleanup"]:
             record["reason"] = "CLEANUP_FAILED"
         _save_report(report_path, record)
@@ -442,17 +454,21 @@ def verify_cli(report_path, runner_temp):
     record = _read_report(report_path)
     if record["state"] != "PREPARED" or record["cleanup"]:
         raise ValueError("CI_PREPARE_NOT_PROVEN")
-    executor = _executor(record, runner_temp)
+    executor = None
     try:
+        executor = _executor(record, runner_temp)
         deadline = time.monotonic() + 120
+        executor.stage = 'VERIFY_RUNTIME'
         runtime = _runtime_from_disk(executor.spec, record["nonce"])
         if runtime.receipt.binary_sha256 != record["binarySha256"]:
             raise ValueError("CI_RUNTIME_IDENTITY_CHANGED")
         executor.runtime = runtime
         policy = policy_for_runtime(runtime, executor.policy_template()) if record["policy"] else None
+        executor.stage = 'VERIFY_PROOF'
         proof = run_isolation_proof(runtime, policy, deadline=deadline)
         # Mandatory existing helper audit remains distinct from the stronger
         # structural child fixture. Neither path mounts or invokes Claude.
+        executor.stage = 'VERIFY_REAL_AUDIT'
         output = executor.command(["/usr/bin/python3", "-B", str(ROOT / "tests/offline-terminal-resume-probe.py"),
                                    "--audit-isolation", "--source", str(ROOT), "--node", os.environ["P004B_TERMINAL_NODE"],
                                    "--module-root", os.environ["P004B_TERMINAL_MODULE_ROOT"]], deadline, limit=4096)
@@ -462,7 +478,8 @@ def verify_cli(report_path, runner_temp):
         verify_installed_runtime(runtime)
         record.update(state="VERIFIED", reason="VERIFY_PASSED", proof=asdict(proof))
         _save_report(report_path, record)
-    except BaseException:
+    except BaseException as error:
+        record_failure(record, 'VERIFY', error, executor)
         record.update(state="BLOCKED", reason="VERIFY_BLOCKED", proof=None)
         _save_report(report_path, record)
         raise
@@ -472,8 +489,18 @@ def cleanup_cli(report_path, runner_temp):
     record = _read_report(report_path)
     if record["cleanup"]:
         return
-    executor = _executor(record, runner_temp)
+    try:
+        executor = _executor(record, runner_temp)
+    except BaseException as error:
+        record_failure(record, 'CLEANUP', error)
+        record_cleanup(record, False, None)
+        record.update(state='BLOCKED', reason='CLEANUP_FAILED')
+        _save_report(report_path, record)
+        raise
     success = _cleanup(executor, record, deadline=time.monotonic() + 90)
+    record_cleanup(record, success, executor)
+    if not success:
+        record_failure(record, 'CLEANUP', ValueError('CLEANUP_UNPROVEN'), executor)
     record.update(state="CLEANED" if success else "BLOCKED", cleanup=success,
                   reason="CLEANUP_PASSED" if success else "CLEANUP_FAILED")
     _save_report(report_path, record)
@@ -507,6 +534,7 @@ def main(argv=None):
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--report", required=True)
     args = parser.parse_args(argv)
+    report = None
     try:
         runner_temp = _hosted_environment()  # BEFORE any persistent/privileged action
         validate_manifest_argument(args.manifest)
@@ -517,9 +545,13 @@ def main(argv=None):
             verify_cli(report, runner_temp)
         else:
             cleanup_cli(report, runner_temp)
+        print(diagnostic_summary(_read_report(report)))
         print("CI_BOOTSTRAP_PASSED")
         return 0
     except (OSError, ValueError, KeyError, TypeError, KeyboardInterrupt):
+        if report is not None:
+            try: print(diagnostic_summary(_read_report(report)))
+            except (OSError, ValueError, KeyError, TypeError): pass
         print("CI_BOOTSTRAP_BLOCKED")
         return 1
 

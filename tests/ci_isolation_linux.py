@@ -46,6 +46,8 @@ class LinuxExecutor:
         self.cache_owned = False
         self.probe_records = []
         self.owned_policy = None
+        self.stage = 'EXECUTOR_INIT'
+        self.primary_failure = None
 
     def command(self, argv, deadline, *, privileged=False, limit=512 * 1024):
         remaining = min(120, deadline - time.monotonic())
@@ -99,11 +101,13 @@ class LinuxExecutor:
                              *map(str, args)], deadline, privileged=True)
 
     def prepare_packages(self, deadline):
+        self.stage = 'CACHE_CREATE'
         self.root_action("cache-create", deadline)
         self.cache_owned = True
         self.upgrade_decision = prepare_image_packages(LinuxPackageAdapter(self), deadline=deadline)
 
     def build_candidate(self, spec, deadline):
+        self.stage = 'RUNTIME_BUILD_DOWNLOAD'
         if platform.machine() != spec.architecture:
             raise ValueError("RUNTIME_ARCHITECTURE_UNSUPPORTED")
         # TLS and the exact URL are necessary but not sufficient: the local
@@ -112,16 +116,21 @@ class LinuxExecutor:
         with urllib.request.urlopen(request, timeout=min(30, max(1, deadline - time.monotonic()))) as response:
             data = response.read(spec.source_size + 1)
         source = self.workspace / "source"
+        self.stage = 'RUNTIME_BUILD_EXTRACT'
         extract_verified_archive(data, spec, source)
         build = self.workspace / "build"
+        self.stage = 'RUNTIME_BUILD_CONFIGURE'
         self.command(["/usr/bin/meson", "setup", str(build),
                       str(source / f"bubblewrap-{spec.version}"), *spec.build_options], deadline)
+        self.stage = 'RUNTIME_BUILD_COMPILE'
         self.command(["/usr/bin/ninja", "-C", str(build), "bwrap"], deadline)
         candidate = build / "bwrap"
+        self.stage = 'RUNTIME_BUILD_BINARY'
         _read_binary(candidate, os.getuid())
         return candidate
 
     def install_candidate(self, candidate, prefix, receipt, deadline):
+        self.stage = 'RUNTIME_INSTALL'
         # A small runner-owned request carries hashes only. The root worker
         # independently derives/validates every privileged target.
         request = self.workspace / "install-request.json"
@@ -136,13 +145,16 @@ class LinuxExecutor:
         return self.runtime
 
     def publish(self, runtime):
+        self.stage = 'RUNTIME_PUBLISH'
         verify_installed_runtime(runtime)
         self.runtime = runtime  # CLI publishes PATH only after namespace diagnosis too.
 
     def cleanup_owned(self, runtime, deadline):
+        self.stage = 'CLEANUP_RUNTIME'
         return self.root_action("runtime-cleanup", deadline).strip() == b"CLEAN"
 
     def cleanup_cache(self, deadline):
+        self.stage = 'CLEANUP_CACHE'
         if not self.cache_owned:
             return True
         return self.root_action("cache-cleanup", deadline).strip() == b"CLEAN"
@@ -160,6 +172,7 @@ class LinuxExecutor:
                        "--clearenv", "--setenv", "PATH", "/usr/bin:/bin", "/usr/bin/true"]
 
     def namespace_probe(self, runtime, kind, deadline):
+        self.stage = 'NAMESPACE_FULL' if kind == 'full' else 'NAMESPACE_MINIMAL'
         verify_installed_runtime(runtime)
         started = time.time()
         pids, labels = set(), set()
@@ -202,6 +215,7 @@ class LinuxExecutor:
                 self.probe_records.append((started, time.time(), tuple(sorted(pids)), tuple(sorted(labels))))
 
     def snapshot_policy(self, runtime, deadline):
+        self.stage = 'POLICY_SNAPSHOT'
         from ci_isolation_bootstrap import PolicySnapshot
         enabled = Path("/sys/module/apparmor/parameters/enabled").read_text().strip() == "Y"
         restriction = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns").read_text().strip()
@@ -213,6 +227,7 @@ class LinuxExecutor:
         return PolicySnapshot(enabled, int(restriction), foreign)
 
     def denial_evidence(self, runtime, deadline):
+        self.stage = 'POLICY_AUDIT'
         from ci_isolation_bootstrap import DenialEvidence
         records = self.probe_records[:2]
         if not records:
@@ -225,19 +240,23 @@ class LinuxExecutor:
                               "net_admin", response == {"matched": True})
 
     def policy_template(self):
+        self.stage = 'POLICY_TEMPLATE'
         from ci_isolation_bootstrap import load_policy_template
         return load_policy_template(ROOT / "tests/ci-runtime-lock.json")
 
     def load_policy(self, runtime, policy, deadline):
+        self.stage = 'POLICY_LOAD'
         self.root_action("policy-load", deadline)
 
     def remove_policy(self, policy, deadline):
+        self.stage = 'CLEANUP_POLICY'
         result = self.root_action("policy-cleanup", deadline).strip() == b"CLEAN"
         if result:
             self.owned_policy = None
         return result
 
     def verify_child_transition(self, runtime, policy, deadline):
+        self.stage = 'POLICY_TRANSITION'
         # The full child proof is implemented by the same fixed fixture used by
         # --verify, rather than trusting only a profile name or successful load.
         from ci_isolation_probe import verify_isolation
@@ -288,9 +307,11 @@ class LinuxPackageAdapter:
         return tuple(result)
 
     def refresh(self, deadline):
+        self.executor.stage = 'PACKAGE_REFRESH'
         self.apt(["update", "--quiet"], deadline)
 
     def snapshot(self, deadline):
+        self.executor.stage = 'PACKAGE_SNAPSHOT'
         raw = self.executor.command(
             ["/usr/bin/dpkg-query", "--show", "--showformat=${binary:Package}\t${Version}\t${db:Status-Status}\n"],
             deadline)
@@ -304,6 +325,7 @@ class LinuxPackageAdapter:
         return records
 
     def held_packages(self, deadline):
+        self.executor.stage = 'PACKAGE_HOLDS'
         raw = self.executor.command(["/usr/bin/apt-mark", "showhold"], deadline)
         names = raw.decode("ascii").splitlines()
         if not all(_valid_package(name) for name in names) or len(names) != len(set(names)):
@@ -315,6 +337,7 @@ class LinuxPackageAdapter:
                 ["install", "--no-install-recommends", *sorted(self.requested)])
 
     def simulate(self, kind, deadline):
+        self.executor.stage = 'PACKAGE_UPGRADE_SIMULATE' if kind == 'upgrade' else 'PACKAGE_DEPENDENCIES_SIMULATE'
         return self.apt(["--simulate", *self.arguments(kind)], deadline).decode("ascii")
 
     @staticmethod
@@ -324,6 +347,7 @@ class LinuxPackageAdapter:
                                 "usr/share/dbus-1/system-services/", "etc/systemd/"))
 
     def service_packages(self, proposal, deadline):
+        self.executor.stage = 'PACKAGE_METADATA'
         services = set()
         for action in proposal.actions:
             if action.installed_version is not None:
@@ -342,6 +366,7 @@ class LinuxPackageAdapter:
         return frozenset(services)
 
     def freeze(self, kind, proposal, deadline):
+        self.executor.stage = 'PACKAGE_UPGRADE_FREEZE' if kind == 'upgrade' else 'PACKAGE_DEPENDENCIES_FREEZE'
         self.apt(["--yes", "--download-only", "--no-remove", *self.arguments(kind)], deadline)
         total, found = 0, {}
         for path in (self.executor.cache / "archives").iterdir():
@@ -373,6 +398,7 @@ class LinuxPackageAdapter:
             self.frozen[action.package] = item
 
     def apply(self, kind, proposal, deadline):
+        self.executor.stage = 'PACKAGE_UPGRADE_APPLY' if kind == 'upgrade' else 'PACKAGE_DEPENDENCIES_APPLY'
         for action in proposal.actions:
             path, version, digest, _ = self.frozen[action.package]
             if hashlib.sha256(path.read_bytes()).hexdigest() != digest or version != action.candidate_version:
@@ -380,6 +406,7 @@ class LinuxPackageAdapter:
         self.apt(["--yes", "--no-download", "--no-remove", *self.arguments(kind)], deadline)
 
     def verify_changes(self, before, proposal, deadline):
+        self.executor.stage = 'PACKAGE_VERIFY'
         expected = dict(before)
         for action in proposal.actions:
             # Verified archive metadata determines dpkg's binary:Package identity

@@ -307,11 +307,15 @@ def prepare_image_packages(adapter, *, deadline):
         # Candidate archives are now present: check candidate service metadata as
         # well as the installed files checked before downloading anything.
         services = adapter.service_packages(proposal, deadline)
-        if decide().status != "ALLOW":
-            raise ValueError("PACKAGE_CANDIDATE_UNSAFE")
+        candidate_decision = decide()
         if (parse_apt_simulation(adapter.simulate(kind, deadline)) != proposal
                 or adapter.snapshot(deadline) != before or adapter.held_packages(deadline) != held):
             raise ValueError("PACKAGE_PROPOSAL_DRIFT")
+        if kind == "upgrade" and candidate_decision.status == "SKIP_UNSAFE":
+            general = candidate_decision
+            continue
+        if candidate_decision.status != "ALLOW":
+            raise ValueError("PACKAGE_CANDIDATE_UNSAFE")
         check()
         adapter.apply(kind, proposal, deadline)
         adapter.verify_changes(before, proposal, deadline)

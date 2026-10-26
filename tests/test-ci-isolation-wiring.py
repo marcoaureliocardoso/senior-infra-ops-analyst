@@ -1,6 +1,8 @@
 """Canonical workflow contract and no-provider execution of selected real steps."""
 from dataclasses import dataclass
 import importlib
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -10,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +97,84 @@ def check_workflows(root=ROOT):
 
 
 class WiringTests(unittest.TestCase):
+    def test_prepare_reports_closed_primary_failure_before_cleanup_overwrites_stage(self):
+        import ci_isolation_bootstrap as bootstrap
+        for error, expected in ((ValueError('PACKAGE_STATE_UNPROVEN'), 'PACKAGE_STATE_UNPROVEN'),
+                                (ValueError('untrusted path/URL/secret text'), 'UNKNOWN_ERROR')):
+            for cleanup_success in (True, False):
+                with self.subTest(code=expected, cleanup=cleanup_success), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory); report = root / 'report.json'
+                    executor = SimpleNamespace(stage='PACKAGE_SNAPSHOT', spec=object())
+                    def cleanup(*args, **kwargs):
+                        executor.stage = 'CLEANUP_CACHE'
+                        return cleanup_success
+                    with patch.dict(os.environ, {'GITHUB_RUN_ID': '1', 'GITHUB_RUN_ATTEMPT': '1',
+                                                 'GITHUB_SHA': 'a'*40}), \
+                            patch.object(bootstrap, '_executor', return_value=executor), \
+                            patch.object(bootstrap, 'provision_runtime', side_effect=error), \
+                            patch.object(bootstrap, '_cleanup', side_effect=cleanup):
+                        with self.assertRaises(ValueError): bootstrap.prepare_cli(report, root)
+                        record = bootstrap._read_report(report)
+                        self.assertIn('diagnostics', record)
+                        diag = record['diagnostics']
+                        self.assertEqual((diag['phase'], diag['stage'], diag['error']),
+                                         ('PREPARE', 'PACKAGE_SNAPSHOT', expected))
+                        self.assertEqual(diag['cleanup'], 'PASSED' if cleanup_success else 'FAILED')
+                        # An always-run cleanup cannot erase the original failure.
+                        if not cleanup_success:
+                            with self.assertRaises(ValueError): bootstrap.cleanup_cli(report, root)
+                        else:
+                            bootstrap.cleanup_cli(report, root)
+                        self.assertEqual(bootstrap._read_report(report)['diagnostics']['error'], expected)
+                        projection = bootstrap.diagnostic_summary(record)
+                        self.assertLess(len(projection), 1024)
+                        for forbidden in ('untrusted', directory, 'nonce', 'workspaceIdentity', 'runId', 'githubSha'):
+                            self.assertNotIn(forbidden, projection)
+                        self.assertTrue(projection.startswith('CI_BOOTSTRAP_DIAGNOSTICS '))
+
+    def test_diagnostic_contract_rejects_unknown_fields_codes_and_untrusted_stage(self):
+        import ci_diagnostics as diagnostics
+        valid = diagnostics.empty_diagnostics()
+        self.assertEqual(diagnostics.failure_stage(SimpleNamespace(stage='untrusted secret')), 'UNKNOWN_STAGE')
+        for changed in ({**valid, 'error': 'UNREVIEWED'}, {**valid, 'stage': '../private'},
+                        {**valid, 'extra': 'content'}, {**valid, 'cleanup': True}):
+            with self.assertRaises(ValueError): diagnostics.validate_diagnostics(changed)
+
+    def test_hosted_failure_emits_only_structural_whitelist_and_rejects_old_report_schema(self):
+        import ci_isolation_bootstrap as bootstrap
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); report = root / 'report.json'
+            executor = SimpleNamespace(stage='PACKAGE_REFRESH', spec=object())
+            output = io.StringIO()
+            with patch.dict(os.environ, {'GITHUB_RUN_ID': '1', 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_SHA': 'a'*40}), \
+                    patch.object(bootstrap, '_hosted_environment', return_value=root), \
+                    patch.object(bootstrap, '_executor', return_value=executor), \
+                    patch.object(bootstrap, 'provision_runtime', side_effect=ValueError('CI_COMMAND_FAILED')), \
+                    patch.object(bootstrap, '_cleanup', return_value=True), contextlib.redirect_stdout(output):
+                status = bootstrap.main(['--prepare', '--manifest', 'tests/ci-runtime-lock.json', '--report', str(report)])
+                self.assertEqual(status, 1)
+                lines = output.getvalue().splitlines()
+                self.assertEqual(len(lines), 2)
+                self.assertEqual(lines[-1], 'CI_BOOTSTRAP_BLOCKED')
+                data = json.loads(lines[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
+                self.assertEqual(set(data), {'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError'})
+                self.assertEqual((data['stage'], data['error']), ('PACKAGE_REFRESH', 'CI_COMMAND_FAILED'))
+                record = json.loads(report.read_text()); record['schemaVersion'] = 1
+                report.write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, 'CI_REPORT_INVALID'): bootstrap._read_report(report)
+
+    def test_internal_cleanup_does_not_replace_primary_failure_stage_or_code(self):
+        from ci_diagnostics import empty_diagnostics, record_failure, remember_failure
+        executor = SimpleNamespace(stage='RUNTIME_PUBLISH')
+        remember_failure(executor, 'PREPARE', ValueError('RUNTIME_BINARY_CHANGED'))
+        executor.stage = 'CLEANUP_RUNTIME'
+        record = dict(diagnostics=empty_diagnostics())
+        record_failure(record, 'PREPARE', ValueError('CI_POLICY_CLEANUP_FAILED'), executor)
+        self.assertEqual((record['diagnostics']['stage'], record['diagnostics']['error']),
+                         ('RUNTIME_PUBLISH', 'RUNTIME_BINARY_CHANGED'))
+        record_failure(record, 'CLEANUP', ValueError('CLEANUP_UNPROVEN'), executor)
+        self.assertEqual(record['diagnostics']['error'], 'RUNTIME_BINARY_CHANGED')
+
     def test_each_stage_rejects_missing_duplicate_or_foreign_report_binding(self):
         binding = "          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json\n"
         for file, job in JOBS:
@@ -215,6 +297,7 @@ class WiringTests(unittest.TestCase):
             self.assertLess(source.index("python3 tests/" + name), boundary)
         self.assertIn("require_frozen_ci_runtime()", source)
         self.assertIn("tests/offline-terminal-resume-probe.py --audit-isolation", source)
+        self.assertIn("node --test tests/browser-operations/puppeteer-api.test.mjs", source)
 
     def test_cli_and_transport_share_one_typed_module_identity(self):
         script = ("import runpy,sys; from pathlib import Path; "

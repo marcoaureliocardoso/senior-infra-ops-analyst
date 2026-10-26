@@ -7,6 +7,17 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected eight P2 findings from the resumed PR 58 review: native browser-role
+  binding and live legacy close/validate ownership; Puppeteer ARIA selectors and
+  documented Locator/ElementHandle usage; unavailable ToolSearch zero-call
+  discovery; sticky legacy/SDK stream lifecycle rejection; and safe skipping of
+  general candidates whose frozen archives introduce services. Browser and
+  command components advance to 1.0.3 and 1.2.1. Added schema2 CI diagnostics with
+  finite phase/stage/error/cleanup codes and original-failure preservation; no
+  exception text, command streams or host identifiers enter the stdout projection.
+  Local tests and exact-head hosted qualification remain distinct; no native,
+  provider or real-browser acceptance, release or merge is implied.
+
 - Implemented a shared guarded CI bootstrap in all three full-validation jobs:
   conditional image upgrades, verified private Bubblewrap 0.12.0, evidence-gated
   executable-specific policy, stronger namespace/capability proofs and owned
@@ -15,7 +26,7 @@ tag. Tagged versions correspond to repository tags.
   hosted provisioning and exact-candidate gate evidence. The independent review
   and author's single TDD remediation pass are recorded
   in validation notes and indexed ADR-011. Native/provider/browser acceptance,
-  root/component versions, release and merge authority are unchanged.
+  root version, release and merge authority are unchanged.
   Corrected report binding to runner-scoped step environments in all three jobs;
   actual-script controls no longer pre-inject the missing variable and reject
   absent, duplicate or divergent stage bindings before dispatch.

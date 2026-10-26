@@ -3639,6 +3639,47 @@ raise SystemExit(1)
                 self.assertNotIn("content", json.dumps(result))
                 self.assertNotIn("discarded", json.dumps(result))
 
+    def test_measurement_discovery_accepts_zero_calls_only_when_toolsearch_is_unavailable(self):
+        import tempfile
+        from browser_operations_live import evaluate_measurement_stream
+        session, nonce = 'measurement-session', 'measurement-nonce'
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / 'sample.jsonl'
+            for stage in ('skill', 'subagent', 'discovery', 'use'):
+                for tools in ([], ['ToolSearch']):
+                    events = [dict(type='system', subtype='init', session_id=session, tools=tools),
+                              dict(type='result', subtype='success', session_id=session, is_error=False)]
+                    stream.write_text(''.join(json.dumps(e)+'\n' for e in events), encoding='utf-8')
+                    self.assertIs(evaluate_measurement_stream(stream, session, stage, nonce)['terminalSuccess'],
+                                  stage == 'discovery' and not tools)
+
+    def test_measurement_rejects_compaction_deferred_denied_and_preinit_operations(self):
+        import copy
+        import tempfile
+        from browser_operations_live import evaluate_measurement_stream
+        session, nonce = 'measurement-session', 'measurement-nonce'
+        base = [dict(type='system', subtype='init', session_id=session, tools=['Skill']),
+                dict(type='assistant', session_id=session, message={'content': [dict(
+                    type='tool_use', id='call-1', name='Skill', input={'skill': 'context-continuity'})]}),
+                dict(type='user', session_id=session, message={'content': [dict(
+                    type='tool_result', tool_use_id='call-1', is_error=False)]}),
+                dict(type='result', subtype='success', session_id=session, is_error=False)]
+        faults = [dict(type='system', subtype=value, session_id=session)
+                  for value in ('compact_boundary', 'future_lifecycle', ['hook_response'])]
+        faults.append(dict(type=['malformed-type'], session_id=session))
+        samples = [[base[1], base[0], *base[2:]], [base[-1], *base[:-1]]]
+        for fault in faults:
+            samples.extend([[base[0], fault, *base[1:]], [*base, fault]])
+        for fields in (dict(errors=['synthetic']), dict(permission_denials=[{}]),
+                       dict(deferred_tool_use=True), dict(error='synthetic'), dict(errors='')):
+            changed = copy.deepcopy(base); changed[-1].update(fields); samples.append(changed)
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory) / 'sample.jsonl'
+            for index, events in enumerate(samples):
+                with self.subTest(index=index):
+                    stream.write_text(''.join(json.dumps(e)+'\n' for e in events), encoding='utf-8')
+                    self.assertFalse(evaluate_measurement_stream(stream, session, 'skill', nonce)['terminalSuccess'])
+
     def test_measurement_parser_latches_lifecycle_faults_and_builder_rejects_them(self) -> None:
         import sys
         import tempfile

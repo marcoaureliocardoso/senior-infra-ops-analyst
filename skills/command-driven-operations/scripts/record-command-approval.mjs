@@ -63,6 +63,7 @@ export function stageBrowserOpenApproval(result, event, env = process.env, now =
       || typeof event?.toolUseId !== 'string') return false;
   const request = parseRunnerArgs(result.browserArgs, now);
   if (!['open', 'workflow'].includes(request.step) || request.envelope.sessionId !== event.sessionId
+      || request.envelope.role !== (event.agentType ?? 'main')
       || request.envelope.permissionModeAtApproval !== event.permissionMode) return false;
   const protectedCapability = protectedRunnerCapability();
   const capability = request.step === 'workflow' ? workflowApprovalMarker() : protectedCapability;

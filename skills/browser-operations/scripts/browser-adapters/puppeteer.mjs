@@ -53,15 +53,21 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
   function locator(selected, request) {
     live.check();
     const descriptor = locatorDescriptor(request);
-    let found;
-    if (typeof selected.getByRole === 'function') {
-      found = selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
-    } else if (typeof selected.locator === 'function') {
-      const name = descriptor.name === undefined ? '' : `[name="${descriptor.name.replace(/["\\]/gu, '')}"]`;
-      found = selected.locator(`::-p-aria(${descriptor.role}${name})`);
-    } else {
+    if (typeof selected.locator !== 'function' || !/^[a-z][a-z0-9-]*$/u.test(descriptor.role)) {
       throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
     }
+    // The supported aria/ prefix avoids a second CSS parser. Puppeteer's ARIA
+    // handler preserves attribute values literally (it does not unescape them).
+    // Choose an absent delimiter; never strip or rewrite an accessible name.
+    let name = '';
+    if (descriptor.name !== undefined) {
+      const quote = descriptor.name.includes('"') ? "'" : '"';
+      if (descriptor.name.includes(quote) || /[\r\n\0]/u.test(descriptor.name)) {
+        throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
+      }
+      name = `[name=${quote}${descriptor.name}${quote}]`;
+    }
+    const found = selected.locator(`aria/[role="${descriptor.role}"]${name}`);
     if (live.lifetime && typeof found.setTimeout === 'function') {
       live.check();
       return found.setTimeout(live.timeout());
@@ -97,6 +103,20 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
       assertCurrentOrigin(selected, request.origin);
       return action(selectedLocator, selected);
     });
+  }
+
+  async function withElementHandle(selected, request, action) {
+    live.check();
+    // Retain the acquired handle even when the await crosses the deadline, so
+    // cleanup still disposes it without authorizing another browser action.
+    const handle = await selected.waitHandle();
+    try {
+      live.check();
+      assertCurrentOrigin(requirePage(), request.origin);
+      return await live.dispatch(() => action(handle));
+    } finally {
+      await handle.dispose();
+    }
   }
 
   async function withNavigationOrigin(request, action) {
@@ -173,13 +193,8 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
         await withNavigationOrigin(request, (selected, destination) =>
           live.dispatch(() => selected.goto(destination, { waitUntil: 'domcontentloaded', timeout: live.timeout() })));
       }
-      await withBoundOrigin(request, async (selected) => {
-        if (typeof selected.evaluate === 'function') {
-          await live.dispatch(() => selected.evaluate((element) => element.textContent));
-        } else {
-          await live.dispatch(() => selected.textContent());
-        }
-      });
+      await withBoundOrigin(request, (selected) => withElementHandle(selected, request,
+        (handle) => handle.evaluate((element) => element.textContent)));
       return { status: 'ok', observation: 'element-present' };
     },
     async navigate(request) {
@@ -188,14 +203,14 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
       return { status: 'ok', observation: 'navigation-complete' };
     },
     async fill(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.fill(request.credential))); return { status: 'ok', observation: 'field-filled' }; },
-    async select(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.select(request.credential))); return { status: 'ok', observation: 'option-selected' }; },
+    async select(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.fill(request.credential))); return { status: 'ok', observation: 'option-selected' }; },
     async click(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.click())); return { status: 'ok', observation: 'control-clicked' }; },
     async submit(request) { await withBoundOrigin(request, (selected) => live.dispatch(() => selected.click())); return { status: 'ok', observation: 'form-submitted' }; },
     async upload(request) {
       if (!artifactManager) throw adapterError('ARTIFACT_POLICY_REQUIRED');
       await withBoundOrigin(request, async (selected) => {
         const materialized = await live.dispatch(() => artifactManager.materialize(request.artifactRef));
-        await live.dispatch(() => selected.uploadFile(materialized));
+        await withElementHandle(selected, request, (handle) => handle.uploadFile(materialized));
       });
       return { status: 'ok', observation: 'upload-staged' };
     },
@@ -214,26 +229,20 @@ export async function createPuppeteerAdapter(runtime, options = {}) {
     async validate(request) { return adapter.inspect({ ...request, locatorRole: 'status' }); },
     async verify(request) {
       const met = await withBoundOrigin(request, async (selected) => {
-        if (request.predicate === 'present') {
-          if (typeof selected.textContent === 'function') await live.dispatch(() => selected.textContent());
-          else await live.dispatch(() => selected.evaluate((element) => element.textContent));
-          return true;
+        if (!['present', 'text-equals', 'value-equals', 'selected-value-equals', 'checked'].includes(request.predicate)) {
+          throw adapterError('INVALID_PREDICATE');
         }
-        if (request.predicate === 'text-equals') {
-          const value = typeof selected.textContent === 'function'
-            ? await live.dispatch(() => selected.textContent())
-            : await live.dispatch(() => selected.evaluate((element) => element.textContent));
+        return withElementHandle(selected, request, async (handle) => {
+          if (request.predicate === 'present') return true;
+          const value = request.predicate === 'text-equals'
+            ? await handle.evaluate((element) => element.textContent)
+            : request.predicate === 'checked'
+              ? await handle.evaluate((element) => element.checked)
+              : await handle.evaluate((element) => element.value);
+          if (request.predicate === 'checked') return typeof value === 'boolean' && String(value) === request.expected;
+          if (request.predicate !== 'text-equals') return typeof value === 'string' && value === request.expected;
           return String(value ?? '') === request.expected;
-        }
-        if (['value-equals', 'selected-value-equals'].includes(request.predicate)) {
-          if (typeof selected.inputValue !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await live.dispatch(() => selected.inputValue())) === request.expected;
-        }
-        if (request.predicate === 'checked') {
-          if (typeof selected.isChecked !== 'function') throw adapterError('VERIFY_UNSUPPORTED');
-          return String(await live.dispatch(() => selected.isChecked())) === request.expected;
-        }
-        throw adapterError('INVALID_PREDICATE');
+        });
       });
       return { status: met ? 'met' : 'not-met', expectRef: request.expectRef };
     },

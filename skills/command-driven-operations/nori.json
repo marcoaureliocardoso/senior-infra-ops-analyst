@@ -1,6 +1,6 @@
 {
   "name": "command-driven-operations",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "skill",
   "description": "Use when the agent has terminal, shell, SSH, PowerShell, API, or MCP/tool access and must actively execute infrastructure diagnostics or controlled operations instead of only suggesting commands."
 }

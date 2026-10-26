@@ -27,6 +27,9 @@ are skipped explicitly. Unknown state or a failed/partial transaction blocks.
 Required build dependencies are assessed separately. Explicit native holds are
 checked independently of APT's count of unrelated pending updates. Suggested,
 recommended and autoremove lists are data only, never an action source.
+A general candidate that introduces service files only after archive freezing
+is also skipped, but only after unchanged proposal/package/hold proof. This is
+not a fallback for unknown state or unsafe required dependencies; both still block.
 
 Execution repeats the proposal and package/hold identity after archive freezing,
 uses private lists/archives and `--no-download --no-remove`, then compares actual
@@ -75,6 +78,13 @@ receipts and nonce/inode ownership bind lifecycle stages. Raw command/audit
 streams are not exported or uploaded. Always-run cleanup removes only owned
 policy names/files, the private runtime/cache and the owned build workspace.
 Failed cleanup is a failed job, not qualified isolation.
+The schema2 aggregate includes finite diagnostic phase, stage, error and cleanup
+codes. A primary failure is latched before internal or always-run cleanup can
+replace the current stage; later cleanup cannot erase it. Only this validated
+six-field projection enters stdout, including on prepare failure. Arbitrary
+exception text, command arguments/output, URLs, paths, environment and host/run
+identifiers are excluded; unknown values map to fixed UNKNOWN codes. Old or
+extended report schemas reject. This improves attribution, not runtime authority.
 The shared report path is explicitly bound in each lifecycle step's environment,
 where GitHub makes runner context available; no job-level runtime expression or
 successful earlier initialization is required by cleanup. The wiring contract
@@ -102,8 +112,9 @@ variants automatically. Generic local input audits do not depend on AppArmor.
 The template has its own GPL-2.0 notice/license and is excluded from Nori delivery;
 the upstream archive and built binary are not release artifacts.
 
-Root 0.15.0 remains unreleased; browser component 1.0.2 and all production/native
-authorization contracts are unchanged. ADR-010's blocked SDK shutdown boundary,
+Root 0.15.0 remains unreleased. The resumed review's browser/guard corrections
+advance the browser component to 1.0.3 and command component to 1.2.1; the CI-only
+diagnostics grant no additional production/native authority. ADR-010's blocked SDK shutdown boundary,
 provider/browser/twelve-role acceptance, formal full-PR security qualification,
 merge, release and definitive TODO completion remain separate gates.
 See [validation notes](../../tests/validation-notes.md) for exact evidence and exclusions.

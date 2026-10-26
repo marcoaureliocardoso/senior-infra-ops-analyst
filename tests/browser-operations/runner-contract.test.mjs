@@ -132,6 +132,7 @@ async function stageWorkflowApproval(env, args, now = NOW) {
     hook_event_name: 'PreToolUse',
     tool_name: 'Bash',
     permission_mode: 'normal',
+    agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
     tool_input: { command: workflowCommand(args) },
   }), env, now);
   assert.equal(decision.hookSpecificOutput.permissionDecision, 'ask');
@@ -354,6 +355,7 @@ test('native PostToolUse activates only a matching operation staged by PreToolUs
     const decision = evaluateHook(JSON.stringify({
       session_id: 'session-runner-001', tool_use_id: 'tool-runner-post-001',
       hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+      agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
       tool_input: { command },
     }), env, NOW + 2);
     assert.equal(decision.hookSpecificOutput.permissionDecision, 'ask');
@@ -616,6 +618,7 @@ test('native guard rejects validation configuration before staging authority or 
       const decision = evaluateHook(JSON.stringify({
         session_id: 'session-runner-001', tool_use_id: `invalid-validation-${step}`,
         hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+        agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
         tool_input: { command: workflowCommand(args) },
       }), env, NOW);
       assert.equal(decision.hookSpecificOutput.permissionDecision, 'deny');

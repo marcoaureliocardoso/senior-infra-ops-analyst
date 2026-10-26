@@ -61,6 +61,7 @@ node --test tests/browser-operations/workflow.test.mjs
 node --test tests/browser-operations/runner-contract.test.mjs
 node --test tests/browser-operations/runner-lifetime.test.mjs
 node --test tests/browser-operations/adapters.test.mjs
+node --test tests/browser-operations/puppeteer-api.test.mjs
 node --test tests/browser-operations/artifacts.test.mjs
 node --test tests/browser-operations/fixture-server.test.mjs
 node --test tests/browser-operations/real-browser.test.mjs

@@ -53,7 +53,12 @@ the manifest grammar. The final validation step is one `inspect`, and its
 
 The native command guard parses the complete manifest, applies the highest
 declared effect, and marks every mutable workflow `ALWAYS_ASK`, including in
-`bypassPermissions`. It stores only the SHA-256 invocation fingerprint. Once
+`bypassPermissions`. The envelope role must equal the native hook's agent type;
+absent native agent fields identify only the main session. CLI role declarations
+cannot impersonate another executor. Legacy calls require the same live session,
+native role and operation binding; close/validate derive their target origin from
+that exact binding, not an invented or broad environment selector.
+It stores only the SHA-256 invocation fingerprint. Once
 the exact approved Bash process starts, the runner intersects every requested
 action, effect, origin, artifact, and popup guarantee with the runtime-observed
 adapter capability and activates only the same pending fingerprint. Activation

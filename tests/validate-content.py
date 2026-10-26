@@ -1049,8 +1049,8 @@ for source, actual, expected in version_contracts:
         err(f'current-version metadata drift: {source} has {actual!r}, expected {expected!r}')
 
 command_manifest = json.loads(read('skills/command-driven-operations/nori.json'))
-if command_manifest.get('version') != '1.2.0':
-    err('component-version drift: command-driven-operations must be 1.2.0')
+if command_manifest.get('version') != '1.2.1':
+    err('component-version drift: command-driven-operations must be 1.2.1')
 command_skill = read('skills/command-driven-operations/SKILL.md')
 if not re.search(r'^version: 0\.7\.0$', command_skill, re.MULTILINE):
     err('skill-version drift: command-driven-operations must be 0.7.0')

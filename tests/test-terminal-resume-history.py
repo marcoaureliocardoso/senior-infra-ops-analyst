@@ -71,6 +71,27 @@ class ResumeHistoryTests(unittest.TestCase):
             with self.assertRaises(dataclasses.FrozenInstanceError):
                 facts.valid = False
 
+    def test_sdk_rejects_lifecycle_faults_even_with_successful_tool_pairs(self):
+        hook = dict(type='system', subtype='hook_response', session_id=SESSION,
+                    hook_id='hook-1', hook_name='PreToolUse:Skill', hook_event='PreToolUse',
+                    outcome='success', exit_code=0)
+        for kind in ('text-turn', 'skill-turn'):
+            base = sdk_events(SESSION, kind)
+            self.assertTrue(self.parse(encode_events([base[0], hook, *base[1:]]), kind).valid)
+            faults = [dict(hook, outcome='error', exit_code=1),
+                      dict(hook, exit_code=False), dict(hook, subtype='compact_boundary'),
+                      dict(hook, subtype=['hook_response']), dict(hook, subtype='future_lifecycle')]
+            for fault in faults:
+                with self.subTest(kind=kind, subtype=fault['subtype']):
+                    self.assertFalse(self.parse(encode_events([base[0], fault, *base[1:]]), kind).valid)
+            for fields in (dict(error='synthetic-error'), dict(errors=['synthetic-error']),
+                           dict(permission_denials=[{}]), dict(deferred_tool_use=True),
+                           dict(deferred_tool_use='false'), dict(errors='')):
+                for index in (1, len(base)-1):
+                    changed = copy.deepcopy(base); changed[index].update(fields)
+                    with self.subTest(kind=kind, fields=tuple(fields), index=index):
+                        self.assertFalse(self.parse(encode_events(changed), kind).valid)
+
     def test_sdk_rejects_session_lifecycle_and_tool_contract_mutations(self):
         mutations = []
         def add(kind, mutate):

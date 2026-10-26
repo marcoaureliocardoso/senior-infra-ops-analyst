@@ -67,6 +67,7 @@ export function stageLifetimeApproval(env, workflow = true, valueStep = 'fill') 
   const event = {
     session_id: SESSION, tool_use_id: APPROVAL, hook_event_name: 'PreToolUse',
     tool_name: 'Bash', permission_mode: 'normal',
+    agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
     tool_input: { command: ['node', JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs')), ...args].join(' ') },
   };
   const previous = Date.now;
@@ -172,6 +173,7 @@ export function replaceWorkflowApproval(env, capability, unknown = true, differe
     decision = evaluateHook(JSON.stringify({
       session_id: SESSION, tool_use_id: 'tool-replacement-001', hook_event_name: 'PreToolUse',
       tool_name: 'Bash', permission_mode: 'normal',
+      agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
       tool_input: { command: ['node', JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs')), ...args].join(' ') },
     }), env);
   } finally { Date.now = previous; }

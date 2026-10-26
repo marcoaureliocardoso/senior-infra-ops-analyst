@@ -311,6 +311,7 @@ test('PostToolUse browser correlation covers exact activation and every fail-clo
     const pre = JSON.stringify({
       session_id: 'session-post-coverage', tool_use_id: 'tool-post-coverage',
       hook_event_name: 'PreToolUse', tool_name: 'Bash', permission_mode: 'normal',
+      agent_type: 'network-edge-operator', agent_id: 'native-fixture-agent',
       tool_input: { command: browserOpenCommand() },
     });
     const approvalNow = Date.now();
@@ -333,6 +334,7 @@ test('browser PreToolUse staging covers every non-activation branch', async () =
     const result = { policyId: 'BROWSER_PROTECTED_RUNNER', browserArgs, decision: 'ask' };
     const event = {
       sessionId: 'session-post-coverage', toolUseId: 'tool-post-coverage', permissionMode: 'normal',
+      agentType: 'network-edge-operator',
     };
     assert.equal(stageBrowserOpenApproval({ ...result, policyId: 'OTHER' }, event, env, NOW), false);
     assert.equal(stageBrowserOpenApproval({ ...result, browserArgs: null }, event, env, NOW), false);
@@ -357,6 +359,7 @@ test('PreToolUse stages one-shot workflows and exact activation rejects every ma
     const now = Date.now();
     const pre = validEvent({
       session_id: 'session-workflow-approval', tool_use_id: 'tool-workflow-approval',
+      agent_type: 'network-edge-operator',
       permission_mode: 'normal', tool_input: { command: workflowCommand() },
     });
     assert.equal(evaluateHook(JSON.stringify(pre), env).hookSpecificOutput.permissionDecision, 'ask');
@@ -372,6 +375,7 @@ test('PreToolUse stages one-shot workflows and exact activation rejects every ma
     );
     const bypass = validEvent({
       session_id: 'session-workflow-approval', tool_use_id: 'tool-workflow-bypass',
+      agent_type: 'network-edge-operator',
       permission_mode: 'bypassPermissions', tool_input: { command: workflowCommand(bypassArgs) },
     });
     assert.equal(evaluateHook(JSON.stringify(bypass), env).hookSpecificOutput.permissionDecision, 'ask');

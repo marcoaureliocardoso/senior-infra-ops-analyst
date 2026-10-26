@@ -518,7 +518,7 @@ def _namespace(*,source,node,module_root,claude=None,audit=False,debug_context=F
         for name in ('claude-pty-driver.py','headless_context_driver.py','terminal_input_policy.py','terminal_cancellation.py',
                      'terminal_context_sample.py',
                      'terminal_input_challenge.py','ci_privilege_status.py',
-                     'terminal_resume_history.py',
+                     'terminal_resume_history.py', 'stream_lifecycle.py',
                      'terminal_nonce_history_diagnostics.py',
                      'terminal_context_debug.py',
                      'terminal_context_echo.py',

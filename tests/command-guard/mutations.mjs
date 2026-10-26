@@ -429,4 +429,14 @@ export const MUTATIONS = Object.freeze([
     search: "  return ['ALWAYS_ASK', ...new Set(steps.flatMap(browserStepModifiers))];",
     replacement: '  return [...new Set(steps.flatMap(browserStepModifiers))];',
   },
+  {
+    id: 'POLICY_BROWSER_NATIVE_ROLE', file: 'command-guard/policy.mjs',
+    search: "  if (envelope.role !== (event.agentType ?? 'main')) return null;",
+    replacement: '  if (false) return null;',
+  },
+  {
+    id: 'POLICY_BROWSER_ACTIVE_BINDING', file: 'command-guard/policy.mjs',
+    search: '      match = bindBrowserMatch(match, event, env);',
+    replacement: '      match = match;',
+  },
 ]);

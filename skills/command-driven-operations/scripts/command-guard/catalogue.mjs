@@ -1662,7 +1662,7 @@ function parseBrowserRunner(words) {
   if (!risk) return null;
   return {
     risk, target: request.operationId,
-    environment, modifiers: browserModifiers(request), browserArgs: words.slice(2),
+    environment, modifiers: browserModifiers(request), browserArgs: words.slice(2), browserRequest: request,
   };
 }
 
@@ -1679,7 +1679,7 @@ export function lookupFamily(stage, context = {}) {
     return invocation ? result(
       'BROWSER_PROTECTED_RUNNER', invocation.risk, invocation.target,
       invocation.environment, invocation.modifiers,
-      { requiresExplicitBinding: true, browserArgs: invocation.browserArgs },
+      { requiresExplicitBinding: true, browserArgs: invocation.browserArgs, browserRequest: invocation.browserRequest },
     ) : null;
   }
 

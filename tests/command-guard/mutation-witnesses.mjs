@@ -16,7 +16,8 @@ async function policyFixture({ root, mutationId }, command, permissionMode = 'by
   const { parseHookEvent } = await import(moduleUrl(root, mutationId, 'contract.mjs'));
   const { analyzeCommand } = await import(moduleUrl(root, mutationId, 'policy.mjs'));
   const event = parseHookEvent(JSON.stringify(validEvent({
-    permission_mode: permissionMode, ...(extra.cwd ? { cwd: extra.cwd } : {}), tool_input: { command },
+    permission_mode: permissionMode, ...(extra.cwd ? { cwd: extra.cwd } : {}),
+    ...extra.event, tool_input: { command },
   })));
   return analyzeCommand(event, extra.env ?? {});
 }
@@ -507,8 +508,25 @@ const witnesses = {
   },
   async CATALOGUE_BROWSER_ALWAYS_ASK(context) {
     const argv = browserOpenArgv(context);
+    argv[argv.indexOf('--permission-mode') + 1] = 'bypassPermissions';
     const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
-    assert.equal((await policyFixture(context, command)).decision, 'ask');
+    assert.equal((await policyFixture(context, command, 'bypassPermissions', {
+      event: { session_id: 'session-witness', agent_type: 'network-edge-operator' },
+    })).decision, 'ask');
+  },
+  async POLICY_BROWSER_NATIVE_ROLE(context) {
+    const argv = browserOpenArgv(context);
+    const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
+    const result = await policyFixture(context, command, 'normal', {
+      event: { session_id: 'session-witness', agent_type: 'audit-evidence-collector' },
+    });
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_BROWSER_BINDING');
+  },
+  async POLICY_BROWSER_ACTIVE_BINDING(context) {
+    const command = ['node', JSON.stringify(browserRunnerPath(context)),
+      '--operation-id op-unbound --step navigate --origin https://router.example.invalid'].join(' ');
+    assert.equal((await policyFixture(context, command)).decision, 'deny');
   },
 };
 

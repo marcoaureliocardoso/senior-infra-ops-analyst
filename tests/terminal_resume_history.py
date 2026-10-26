@@ -14,6 +14,7 @@ import unicodedata
 import weakref
 
 from terminal_state_adapter import TerminalCell
+from stream_lifecycle import benign_hook, faulty_metadata
 
 TEXT_PROMPT = 'P0-04B synthetic text control. Reply P004B_SKILL_OK only.'
 SKILL_PROMPT = 'P0-04B synthetic. Invoke Skill(context-continuity) once; reply P004B_SKILL_OK. No browser.'
@@ -135,6 +136,8 @@ def parse_sdk_sample(raw: bytes, *, expected_session: str, case_kind: str) -> SD
                 _reject('SESSION_MISMATCH')
             if finished:
                 _reject('LIFECYCLE')
+            if faulty_metadata(event):
+                _reject('LIFECYCLE')
             is_init = event_type == 'system' and event.get('subtype') == 'init'
             if index == 0 and not is_init:
                 _reject('LIFECYCLE')
@@ -146,11 +149,15 @@ def parse_sdk_sample(raw: bytes, *, expected_session: str, case_kind: str) -> SD
                         or any(type(tool) is not str or not _LABEL.fullmatch(tool) for tool in tools)):
                     _reject('MALFORMED')
                 initialized = True
+            elif event_type == 'system' and not benign_hook(event, expected_session, _LABEL):
+                _reject('LIFECYCLE')
             permitted = set()
             if event_type in ('assistant', 'user'):
                 message = event.get('message')
                 if type(message) is not dict or message.get('role') != event_type:
                     _reject('MALFORMED')
+                if faulty_metadata(message):
+                    _reject('LIFECYCLE')
                 blocks = message.get('content')
                 if type(blocks) is not list or len(blocks) > 64:
                     _reject('BOUNDS')

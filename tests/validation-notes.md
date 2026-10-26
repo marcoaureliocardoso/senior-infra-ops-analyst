@@ -1,6 +1,39 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Resumed PR 58 review remediation - 2026-10-26
+The operator approved one author TDD wave for all eight P2 findings from the
+resumed ordinary browser, CI and harness reviews, plus closed structural CI
+diagnostics. The indexed [review record](../docs/reviews/2026-10-26-ci-isolation-bootstrap-review.md)
+describes each reproduction, correction and coverage boundary. Browser and
+command component manifests advance to1.0.3 and1.2.1; root0.15.0 stays unreleased.
+
+Observed local results: command guard310 tests,100% critical line/branch/function
+coverage and88/88 semantic mutations; browser226 passing tests plus one explicit
+real-browser opt-in skip; SDK/resume history29; legacy harness142; image policy16,
+runtime7, bootstrap32, namespace proof6, diagnostic/wiring13 and existing workflow25.
+Input-challenge33 and offline safety76 passed with the existing real helper audit.
+The final Puppeteer observation regression also rejects absent value/checked
+properties rather than accepting an empty expected value. Malformed stream
+metadata rejects without a parser crash. No actual Claude/provider/browser run,
+operator credentials/configuration access, local package installation or policy
+load occurred. Windows PowerShell syntax validation separately passed.
+
+The exact previous published8e7429b CI40372767139 failed prepare after about6.5s,
+skipped terminal/verify/package stages and passed cleanup; six other CI jobs and
+Security40372767160 passed. No CI artifacts were retained. The generic failure
+line did not establish an APT, AppArmor or provider cause. Schema2 diagnostics now
+emit only fixed phase/stage/error/cleanup codes and retain the primary failure
+through internal and always-run cleanup; this is observability, not a policy
+relaxation or a blind retry. Unknown exceptions map to a finite UNKNOWN code.
+
+This checkpoint precedes the fresh immutable full-package gate and exact-head
+hosted attempt. Quality/version checks and final-gate evidence must be recorded
+for the resulting candidate; earlier full passes below do not certify it. The
+formal security plugin failed setup before scanId, so no formal security scan
+result or canonical artifact exists. Native acceptance, blocked SDK shutdown
+qualification, merge/release and definitive TODO completion remain separate.
+
 ## Workflow report binding correction - 2026-10-26
 The published b22c4f7 head was rejected before any job in CI40356481086,
 scheduled40356479028 and release40356477039. These were invalid-definition
