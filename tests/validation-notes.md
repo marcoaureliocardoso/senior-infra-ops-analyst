@@ -27,9 +27,16 @@ emit only fixed phase/stage/error/cleanup codes and retain the primary failure
 through internal and always-run cleanup; this is observability, not a policy
 relaxation or a blind retry. Unknown exceptions map to a finite UNKNOWN code.
 
-This checkpoint precedes the fresh immutable full-package gate and exact-head
-hosted attempt. Quality/version checks and final-gate evidence must be recorded
-for the resulting candidate; earlier full passes below do not certify it. The
+The first immutable candidate `d11513acd555a623acbe15e500a0eadfb5735b13` exited1
+after1300.741s at two release-history assertions still pinned to command1.2.0.
+All613 canonical files matched before execution and remained unchanged, the
+archive digest stayed4886371cf6ab5dff5d9fa5c6639c9c7f81d29dda144b75d0415623511c54702e,
+and disposable cleanup was proved. The synchronized failure receipt/log remain
+unaltered; the Windows preserver correctly refused a qualifying success copy.
+This is a failed gate, not acceptance. The current-version assertion now requires
+1.2.1 and the negative mutation changes1.2.1 to1.2.2, preserving drift rejection.
+A fresh immutable candidate must pass the complete gate; no push occurred for
+the failed candidate. Earlier full passes below do not certify this fix wave. The
 formal security plugin failed setup before scanId, so no formal security scan
 result or canonical artifact exists. Native acceptance, blocked SDK shutdown
 qualification, merge/release and definitive TODO completion remain separate.

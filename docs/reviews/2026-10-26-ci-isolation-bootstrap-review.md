@@ -20,7 +20,11 @@ P2 findings in one author TDD fix wave, alongside bounded CI failure diagnostics
 All reproductions use synthetic/native-shaped fixtures or documented API-surface
 doubles, not actual Claude/provider/browser execution or privileged host package
 changes. The Puppeteer guide, Locator API and upstream ARIA parser were consulted;
-no library version was pinned or dependency installed. Finite CI diagnostics
+no library version was pinned or dependency installed. Primary contracts:
+[page interactions](https://pptr.dev/guides/page-interactions),
+[Locator API](https://pptr.dev/api/puppeteer.locator) and
+[ARIA query parser](https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/common/AriaQueryHandler.ts).
+Finite CI diagnostics
 preserve the first failure before cleanup and exclude raw content/host identities.
 
 Coverage: the browser review inspected production browser modules, launcher,
@@ -60,8 +64,10 @@ The reviewed diff SHA-256 was
 
 Real temporary-filesystem controls cover interrupted publication, substituted
 inodes and unload failure. They do not establish hosted kernel/parser behavior.
-No second independent review occurred: remediation is author-verified under the
-approved single-review/single-fix-pass method, not a new independent approval.
+That bootstrap remediation had no second independent review; it was
+author-verified under the approved single-review/single-fix-pass method, not a
+new independent approval. The later operator-requested resumed PR review is
+recorded separately above.
 
 ## Deferred minors
 - Diagnosis and optional policy arming do not share one 120-second sub-budget;

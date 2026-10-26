@@ -125,7 +125,7 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertIn('"version": "0.15.0"', self.original_nori_version)
         self.assertIn("Version: 0.15.0", self.original_readme)
         self.assertIn("Version: 0.15.0", self.original_docs)
-        self.assertIn('"version": "1.2.0"', self.original_skill_manifest)
+        self.assertIn('"version": "1.2.1"', self.original_skill_manifest)
         self.assertIn("version: 0.7.0", self.original_skill)
         self.assertIn("last_updated: 2026-08-31", self.original_skill)
         self.assertIn('"command-driven-operations": "*"', self.original_skills_catalog)
@@ -152,7 +152,7 @@ class ReleaseHistoryTests(unittest.TestCase):
              "current-version metadata drift"),
             (self.docs, self.original_docs.replace("Version: 0.15.0", "Version: 0.15.1", 1),
              "current-version metadata drift"),
-            (self.skill_manifest, self.original_skill_manifest.replace("1.2.0", "1.2.1", 1),
+            (self.skill_manifest, self.original_skill_manifest.replace("1.2.1", "1.2.2", 1),
              "component-version drift"),
             (self.skill, self.original_skill.replace("version: 0.7.0", "version: 0.7.1", 1),
              "skill-version drift"),
