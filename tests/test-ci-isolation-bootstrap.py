@@ -10,10 +10,195 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests/fixtures/ci-isolation"
+
+
+class ReviewedTransportTests(unittest.TestCase):
+    def test_top_level_cleanup_checks_policy_even_without_completed_marker(self):
+        import ci_isolation_bootstrap as bootstrap
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            nonce = "a" * 32
+            workspace = root / ("senior-infra-ci-" + nonce)
+            workspace.mkdir(mode=0o700)
+            cache = root / "cache"
+            cache.mkdir()
+            prefix = root / "prefix" / ("0" * 64)
+            prefix.mkdir(parents=True)
+            target = root / "orphan-policy"
+            target.write_bytes(b"unmarked policy")
+            record = {"nonce": nonce, "workspaceIdentity": [workspace.stat().st_dev, workspace.stat().st_ino]}
+            runtime = SimpleNamespace(prefix=prefix)
+            policy = bootstrap.OwnedPolicy("parent", "child", target, "0" * 64)
+            executor = SimpleNamespace(spec=SimpleNamespace(source_sha256="0" * 64),
+                prefix_base=prefix.parent, cache=cache, workspace=workspace,
+                policy_template=lambda: b"fixture", cleanup_owned=lambda *args: True,
+                cleanup_cache=lambda *args: True,
+                remove_policy=lambda *args: False)  # actual worker rejects an unmarked target
+            with patch.object(bootstrap, "_runtime_from_disk", return_value=runtime), \
+                    patch.object(bootstrap, "policy_for_runtime", return_value=policy):
+                self.assertFalse(bootstrap._cleanup(executor, record, deadline=time.monotonic() + 5))
+            self.assertTrue(target.exists())
+            self.assertTrue(workspace.exists())
+
+    def test_partial_policy_publication_is_owned_before_target_appears(self):
+        import ci_isolation_root as worker
+        from ci_isolation_bootstrap import OwnedPolicy
+        self.assertTrue(hasattr(worker, "publish_owned_policy"), "transactional publication is absent")
+        for boundary in ("before-marker", "before-link", "after-link", "complete"):
+            with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                cache = root / "cache"
+                cache.mkdir()
+                data = b"synthetic policy data\n"
+                policy = OwnedPolicy("synthetic-parent", "synthetic-child", root / "target",
+                                     hashlib.sha256(data).hexdigest())
+                real_link, real_marker = os.link, worker.store_policy_marker
+
+                def link(*args, **kwargs):
+                    if boundary == "before-link":
+                        raise InterruptedError("synthetic cancellation")
+                    real_link(*args, **kwargs)
+                    if boundary == "after-link":
+                        raise InterruptedError("synthetic cancellation")
+
+                def marker(*args, **kwargs):
+                    if boundary == "before-marker":
+                        raise InterruptedError("synthetic cancellation")
+                    return real_marker(*args, **kwargs)
+
+                with patch.object(worker.os, "link", link), patch.object(worker, "store_policy_marker", marker):
+                    if boundary == "complete":
+                        worker.publish_owned_policy(policy, data, cache, "a" * 32)
+                    else:
+                        with self.assertRaises(InterruptedError):
+                            worker.publish_owned_policy(policy, data, cache, "a" * 32)
+                if policy.path.exists():
+                    self.assertTrue((cache / "policy-owner.json").is_file())
+                worker.cleanup_owned_policy(policy, cache, "a" * 32, owner_uid=os.getuid())
+                self.assertFalse(policy.path.exists())
+                self.assertFalse((cache / "policy-owner.json").exists())
+
+    def test_unmarked_policy_target_cannot_be_reported_clean(self):
+        import ci_isolation_root as worker
+        from ci_isolation_bootstrap import OwnedPolicy
+        self.assertTrue(hasattr(worker, "cleanup_owned_policy"), "owned cleanup is absent")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.write_bytes(b"foreign")
+            policy = OwnedPolicy("synthetic-parent", "synthetic-child", target, "0" * 64)
+            with self.assertRaises(ValueError):
+                worker.cleanup_owned_policy(policy, root, "a" * 32, owner_uid=os.getuid())
+            self.assertEqual(target.read_bytes(), b"foreign")
+
+    def test_partial_policy_load_failure_retains_ownership_until_both_names_are_absent(self):
+        import ci_isolation_root as worker
+        from ci_isolation_bootstrap import OwnedPolicy
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = b"synthetic policy\n"
+            policy = OwnedPolicy("synthetic-parent", "synthetic-child", root / "target",
+                                 hashlib.sha256(data).hexdigest())
+            marker = worker.publish_owned_policy(policy, data, root, "a" * 32)
+            worker.store_policy_marker(root, {**marker, "loadStarted": True})
+
+            def still_loaded():
+                raise ValueError("CI_POLICY_CLEANUP_FAILED")
+
+            with self.assertRaisesRegex(ValueError, "CI_POLICY_CLEANUP_FAILED"):
+                worker.cleanup_owned_policy(policy, root, "a" * 32, owner_uid=os.getuid(),
+                    profiles=frozenset({"synthetic-child"}), remove=still_loaded)
+            self.assertTrue(policy.path.exists())
+            self.assertTrue((root / "policy-owner.json").exists())
+            worker.cleanup_owned_policy(policy, root, "a" * 32, owner_uid=os.getuid(), remove=lambda: None)
+            self.assertFalse(policy.path.exists())
+
+    def test_policy_cleanup_rejects_substituted_inode_and_preserves_foreign_data(self):
+        import ci_isolation_root as worker
+        from ci_isolation_bootstrap import OwnedPolicy
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = b"synthetic policy\n"
+            policy = OwnedPolicy("synthetic-parent", "synthetic-child", root / "target",
+                                 hashlib.sha256(data).hexdigest())
+            worker.publish_owned_policy(policy, data, root, "a" * 32)
+            policy.path.unlink()
+            policy.path.write_bytes(data)
+            with self.assertRaises(ValueError):
+                worker.cleanup_owned_policy(policy, root, "a" * 32, owner_uid=os.getuid())
+            self.assertEqual(policy.path.read_bytes(), data)
+            self.assertTrue((root / "policy-owner.json").exists())
+
+    def test_new_and_existing_multiarch_packages_use_validated_archive_identity(self):
+        import ci_isolation_linux as linux
+        from ci_image_upgrade import UpgradeAction, UpgradeProposal
+        # A native dpkg-query record for Multi-Arch: same is qualified even on
+        # its first installation. Never derive the expected spelling from before.
+        metadata = {"Package": "libcap-dev", "Version": "1.0", "Architecture": "amd64", "Multi-Arch": "same"}
+        adapter = object.__new__(linux.LinuxPackageAdapter)
+        adapter.security = ("fixed",)
+        adapter.frozen = {"libcap-dev": (None, "1.0", "0" * 64, "libcap-dev:amd64")}
+        adapter.executor = type("QueryFixture", (), {"command": lambda self, argv, deadline:
+            b"libcap-dev:amd64\t1.0\tinstalled\n"})()
+        for before in ({}, {"libcap-dev:amd64": ("0.9", "installed")}):
+            action = UpgradeAction("upgrade" if before else "install", "libcap-dev",
+                                   "0.9" if before else None, "1.0")
+            proposal = UpgradeProposal((action,), 0)
+            with patch.object(adapter, "security_snapshot", return_value=("fixed",)):
+                adapter.verify_changes(before, proposal, time.monotonic() + 5)
+        self.assertEqual(linux.archive_package_identity(metadata), "libcap-dev:amd64")
+        for architecture, multiarch in (("arm64", "same"), ("amd64", "unknown"), ("all", "same")):
+            with self.assertRaises(ValueError):
+                linux.archive_package_identity({**metadata, "Architecture": architecture, "Multi-Arch": multiarch})
+        self.assertEqual(linux.archive_package_identity({**metadata, "Multi-Arch": "foreign"}), "libcap-dev")
+
+    def test_hosted_writable_opt_does_not_control_private_runtime_ancestors(self):
+        import ci_isolation_linux as linux
+        import ci_isolation_root as worker
+        original = Path.lstat
+
+        def hosted_lstat(path):
+            info = original(path)
+            if path == Path("/opt"):
+                values = list(info)
+                values[0] = (info.st_mode & ~0o777) | 0o777
+                return os.stat_result(values)
+            return info
+
+        with patch.object(Path, "lstat", hosted_lstat):
+            for module in (linux, worker):
+                worker.protected_directory(module.PREFIX_BASE.parent)
+                worker.protected_directory(module.CACHE_BASE.parent)
+
+    def test_package_child_receives_fixed_environment_after_sudo_reset(self):
+        import ci_isolation_linux as linux
+        real_popen = subprocess.Popen
+
+        def synthetic_sudo(argv, **kwargs):
+            self.assertEqual(argv[:2], ["/usr/bin/sudo", "-n"])
+            return real_popen([sys.executable, str(FIXTURES / "fake-sudo.py"), *argv[1:]], **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            spec = importlib.import_module("ci_isolation_runtime").load_runtime_spec(ROOT / "tests/ci-runtime-lock.json")
+            executor = linux.LinuxExecutor(spec, Path(directory), "a" * 32, "0" * 64)
+            with patch.object(linux.subprocess, "Popen", synthetic_sudo):
+                raw = executor.command(["/usr/bin/python3", "-c",
+                    "import os,json; print(json.dumps(dict(os.environ)))"],
+                    time.monotonic() + 5, privileged=True)
+            env = json.loads(raw)
+            self.assertEqual(env.get("DEBIAN_FRONTEND"), "noninteractive")
+            self.assertEqual(env.get("NEEDRESTART_MODE"), "l")
+            self.assertEqual(env.get("LC_ALL"), "C")
+            self.assertEqual(env.get("HOME"), directory)
+            # dpkg maintainer scripts require the fixed system sbin locations
+            # (for example ldconfig); never use runner-controlled PATH entries.
+            self.assertEqual(env.get("PATH"), "/usr/sbin:/usr/bin:/sbin:/bin")
 
 
 class FixtureExecutor:

@@ -3,6 +3,25 @@
 
 ## Guarded CI isolation bootstrap - 2026-10-25
 
+Update 2026-10-26: the single independent review returned six Important findings.
+The author's TDD remediation pass is recorded in the indexed
+[review record](../docs/reviews/2026-10-26-ci-isolation-bootstrap-review.md).
+The first complete immutable attempt at cbac3c7 exited1 after 1191.315 seconds:
+the browser test's invalid-override helper unexpectedly selected ACTIVE instead
+of UNAVAILABLE. Archive identity and canonical source were unchanged and the
+disposable root was absent afterwards. A recognized synthetic dependency reproduces
+this helper fallback; its test-only correction does not change production discovery.
+This failed attempt is not qualification. Corrected full validation and exact-head
+hosted CI/Security remain pending. The checkpoint below is historical.
+
+After remediation, the complete focused group passed91/91: image15, runtime7,
+bootstrap32, actual synthetic isolation6, wiring7 and workflow25. Input33 and
+offline safety76 also passed, including the mandatory real helper audit.
+The browser-operation group passed222 tests with one explicit real-browser capability skip;
+no native/provider/browser acceptance was performed. ShellCheck16, Markdown275,
+spelling, schema, content, architecture13 and workflow quality checks passed.
+The command-guard mutation gate passed86/86 with all four fixed seeds.
+
 Implementation range starts at 854e77c6681c30875fc66ea34005b23eb92d5e11.
 The approved direct/inline plan has five locally completed implementation steps;
 final immutable validation, one independent review and exact-head hosted

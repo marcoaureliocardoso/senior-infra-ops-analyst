@@ -141,6 +141,30 @@ class ImageUpgradeTests(unittest.TestCase):
                 "0 upgraded, 0 newly installed, 0 to remove and 2 not upgraded.\n")
         self.assertEqual(self.decision(text).status, "SKIP_UNSAFE")
 
+    def test_native_manual_mark_is_bounded_data_for_an_explicit_current_package(self):
+        text = ("build-demo is already the newest version (1.0).\n"
+                "build-demo set to manually installed.\n"
+                "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n")
+        proposal = self.m.parse_apt_simulation(text)
+        self.assertEqual(proposal.unchanged_packages, ("build-demo",))
+        self.assertEqual(proposal.actions, ())
+        for invalid in (text + "build-demo set to manually installed.\n",
+                        text.replace("build-demo set", "unknown-demo set"),
+                        text.replace("build-demo set", "--option set")):
+            with self.assertRaises(ValueError):
+                self.m.parse_apt_simulation(invalid)
+
+    def test_native_mixed_phasing_notice_requires_both_complete_lists(self):
+        text = ("The following upgrades have been deferred due to phasing:\n  later-demo\n"
+                "The following packages have been kept back:\n  held-demo\n"
+                "0 upgraded, 0 newly installed, 0 to remove and 2 not upgraded.\n"
+                "N: Some packages may have been kept back due to phasing.\n")
+        self.assertEqual(self.decision(text).status, "SKIP_UNSAFE")
+        for invalid in (text + "N: Some packages may have been kept back due to phasing.\n",
+                        text.replace("  later-demo\n", ""), text + "N: unmodelled notice\n"):
+            with self.assertRaises(ValueError):
+                self.m.parse_apt_simulation(invalid)
+
     def test_comparison_failures_and_invalid_fact_types_block(self):
         def unavailable(_left, _right):
             raise OSError("synthetic comparator failure")

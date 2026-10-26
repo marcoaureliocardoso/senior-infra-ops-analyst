@@ -143,7 +143,19 @@ async function loadTestRuntime() {
 
 async function resolveTestAdapter(configuration) {
   const runtime = await loadTestRuntime();
-  if (!runtime) return resolveBrowserAdapter(configuration);
+  if (!runtime) {
+    const explicitOverride = process.env.P004B_PLAYWRIGHT_TEST_MODULE !== undefined
+      || process.env.P004B_BROWSER_TEST_CHANNEL !== undefined;
+    if (explicitOverride) {
+      // An invalid TEST override must not silently select a different installed
+      // capability. Production discovery without an override is unchanged.
+      return resolveBrowserAdapter({
+        ...configuration,
+        importModule: async () => { throw new Error('TEST_RUNTIME_UNAVAILABLE'); },
+      });
+    }
+    return resolveBrowserAdapter(configuration);
+  }
   const channel = process.env.P004B_BROWSER_TEST_CHANNEL;
   const injectedRuntime = Object.freeze({
     version: runtime.version,
@@ -852,7 +864,13 @@ test('test-only real adapter override accepts only bounded Playwright module and
   process.env.P004B_PLAYWRIGHT_TEST_MODULE = path.join(os.tmpdir(), 'untrusted-runtime.mjs');
   process.env.P004B_BROWSER_TEST_CHANNEL = 'arbitrary-browser';
   try {
-    const selected = await resolveTestAdapter({ options: { allowedOrigins: ['http://127.0.0.1:43111'] } });
+    const selected = await resolveTestAdapter({
+      options: { allowedOrigins: ['http://127.0.0.1:43111'] },
+      importModule: async (specifier) => {
+        if (specifier !== 'playwright') throw new Error('SYNTHETIC_UNAVAILABLE');
+        return { version: '1.62.1', chromium: { launch() { throw new Error('SYNTHETIC_NO_BROWSER'); } } };
+      },
+    });
     assert.equal(selected.state, 'UNAVAILABLE');
     assert.equal(selected.reasonCode, 'CAPABILITY_UNAVAILABLE');
   } finally {

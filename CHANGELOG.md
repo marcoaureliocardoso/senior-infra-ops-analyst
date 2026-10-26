@@ -12,7 +12,8 @@ tag. Tagged versions correspond to repository tags.
   executable-specific policy, stronger namespace/capability proofs and owned
   always-run cleanup. Validation tokens are read-only and checkout credentials
   are not persisted. Local synthetic/namespace controls are distinct from pending
-  hosted provisioning, final review and exact-candidate gate evidence, recorded
+  hosted provisioning and exact-candidate gate evidence. The independent review
+  and author's single TDD remediation pass are recorded
   in validation notes and indexed ADR-011. Native/provider/browser acceptance,
   root/component versions, release and merge authority are unchanged.
 

@@ -1,9 +1,10 @@
 """Data-only privileged worker for the ephemeral CI bootstrap.
 
-Never invoked by package tests. Fixed targets come from the reviewed manifest,
+The privileged entry point never runs in package tests. Fixed targets come from the reviewed manifest,
 not from a cleanup path, executable, package or command supplied by a caller.
 """
 from dataclasses import asdict
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,8 +30,8 @@ from ci_isolation_bootstrap import load_policy_template, match_denial_records, p
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PREFIX_BASE = Path("/opt/senior-infra-ci")
-CACHE_BASE = Path("/opt/senior-infra-ci-cache")
+PREFIX_BASE = Path("/var/lib/senior-infra-ci")
+CACHE_BASE = Path("/var/cache/senior-infra-ci")
 
 
 def protected_directory(path, *, create=False):
@@ -96,8 +97,80 @@ def loaded_profiles():
     return frozenset(line.rsplit(" (", 1)[0] for line in raw.decode("ascii").splitlines())
 
 
+def store_policy_marker(cache, marker):
+    pending = cache / "policy-owner.pending"
+    with pending.open("x", encoding="ascii") as stream:
+        json.dump(marker, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    pending.chmod(0o600)
+    os.replace(pending, cache / "policy-owner.json")
+
+
+def publish_owned_policy(policy, data, cache, nonce):
+    if hashlib.sha256(data).hexdigest() != policy.digest:
+        raise ValueError("CI_POLICY_TEMPLATE_CHANGED")
+    pending = cache / "policy-pending"
+    with pending.open("xb") as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    pending.chmod(0o644)
+    info = pending.lstat()
+    marker = {"nonce": nonce, "digest": policy.digest,
+              "identity": [info.st_dev, info.st_ino], "loadStarted": False}
+    # Ownership intent exists BEFORE any file becomes visible to AppArmor.
+    # link is exclusive: it cannot overwrite/adopt a foreign target.
+    store_policy_marker(cache, marker)
+    os.link(pending, policy.path, follow_symlinks=False)
+    return marker
+
+
+def cleanup_owned_policy(policy, cache, nonce, *, owner_uid=0, profiles=frozenset(), remove=None):
+    names = {policy.parent_name, policy.child_name}
+    marker_path = cache / "policy-owner.json"
+    if not marker_path.exists():
+        if marker_path.is_symlink() or names & profiles or policy.path.exists() or policy.path.is_symlink():
+            raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
+        return
+    marker = read_record(marker_path, owner_uid=owner_uid)
+    if (type(marker) is not dict or set(marker) != {"nonce", "digest", "identity", "loadStarted"}
+            or marker["nonce"] != nonce or marker["digest"] != policy.digest
+            or type(marker["loadStarted"]) is not bool or type(marker["identity"]) is not list
+            or len(marker["identity"]) != 2
+            or not all(type(value) is int and value >= 0 for value in marker["identity"])):
+        raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
+    pending = cache / "policy-pending"
+    # The retained private inode is authoritative even if publication failed.
+    for path in (pending, policy.path):
+        if not path.exists() and not path.is_symlink() and path == policy.path:
+            continue
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            info = os.fstat(fd)
+            data = os.read(fd, 16385)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner_uid or info.st_mode & 0o22
+                    or info.st_nlink not in (1, 2) or info.st_size > 16384
+                    or marker["identity"] != [info.st_dev, info.st_ino]
+                    or hashlib.sha256(data).hexdigest() != policy.digest):
+                raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
+        finally:
+            os.close(fd)
+    if not marker["loadStarted"]:
+        if names & profiles:
+            raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
+    else:
+        if remove is None or not policy.path.exists():
+            raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
+        # Actual caller removes both exact owned names and proves their absence.
+        remove()
+    if policy.path.exists():
+        policy.path.unlink()
+    pending.unlink()
+    marker_path.unlink()
+
+
 def policy_action(action, spec, nonce, cache):
-    import hashlib
     runtime = load_owned_runtime(spec, nonce)
     verify_installed_runtime(runtime, check_version=False)
     template = load_policy_template(ROOT / "tests/ci-runtime-lock.json")
@@ -125,36 +198,22 @@ def policy_action(action, spec, nonce, cache):
         if hashlib.sha256(template_copy.read_bytes()).hexdigest() != runtime.receipt.template_sha256:
             raise ValueError("CI_POLICY_TEMPLATE_CHANGED")
         data = render_policy(template_copy.read_bytes(), runtime.binary, policy.parent_name, policy.child_name)
-        with policy.path.open("xb") as stream:
-            stream.write(data)
-        policy.path.chmod(0o644)
-        info = policy.path.lstat()
-        marker = {"nonce": nonce, "digest": policy.digest, "identity": [info.st_dev, info.st_ino]}
-        with marker_path.open("x", encoding="ascii") as stream:
-            json.dump(marker, stream)
+        marker = publish_owned_policy(policy, data, cache, nonce)
+        # Atomic phase transition precedes the first possible kernel side effect.
+        store_policy_marker(cache, {**marker, "loadStarted": True})
         bounded_root_command([str(parser), "--add", "--skip-cache", str(policy.path)], cache)
         if not names <= loaded_profiles():
             raise ValueError("CI_POLICY_LOAD_UNPROVEN")
     else:
-        if not marker_path.exists():
-            if names & loaded_profiles() or policy.path.exists() or policy.path.is_symlink():
-                raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
-            print("CLEAN")
-            return
-        marker = read_record(marker_path)
-        info = policy.path.lstat()
-        if (policy.path.is_symlink() or info.st_uid != 0 or info.st_mode & 0o22
-                or marker != {"nonce": nonce, "digest": policy.digest, "identity": [info.st_dev, info.st_ino]}
-                or hashlib.sha256(policy.path.read_bytes()).hexdigest() != policy.digest):
-            raise ValueError("CI_POLICY_CLEANUP_OWNERSHIP_UNPROVEN")
-        # Removal may report a missing half after a partial load. Only the
-        # independently observed absence of BOTH exact names is success.
-        bounded_root_command([str(parser), "--remove", "--skip-cache", str(policy.path)],
-                             cache, allow_failure=True)
-        if names & loaded_profiles():
-            raise ValueError("CI_POLICY_CLEANUP_FAILED")
-        policy.path.unlink()
-        marker_path.unlink()
+        def remove():
+            # A partial load can leave either half. Parser status alone is not
+            # success: BOTH exact owned names must independently be absent.
+            bounded_root_command([str(parser), "--remove", "--skip-cache", str(policy.path)],
+                                 cache, allow_failure=True)
+            if names & loaded_profiles():
+                raise ValueError("CI_POLICY_CLEANUP_FAILED")
+
+        cleanup_owned_policy(policy, cache, nonce, profiles=loaded_profiles(), remove=remove)
         print("CLEAN")
 
 
@@ -171,7 +230,8 @@ def main(argv):
         raise ValueError("CI_ROOT_SCOPE_REJECTED")
     spec = load_runtime_spec(Path(argv[1]))
     cache = CACHE_BASE / spec.source_sha256
-    protected_directory(Path("/opt"))
+    protected_directory(PREFIX_BASE.parent)
+    protected_directory(CACHE_BASE.parent)
     if action == "cache-create":
         protected_directory(CACHE_BASE, create=True)
         cache.mkdir(mode=0o755)  # exclusive; collisions never become ownership

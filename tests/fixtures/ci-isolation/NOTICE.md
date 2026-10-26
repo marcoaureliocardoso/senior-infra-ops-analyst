@@ -1,3 +1,4 @@
+<!-- cspell:ignore userns -->
 # CI isolation third-party policy notice
 `bwrap.apparmor.in` is separately licensed GPL-2.0-only, not MIT. It adapts
 AppArmor's `profiles/apparmor/profiles/extras/bwrap-userns-restrict` at revision

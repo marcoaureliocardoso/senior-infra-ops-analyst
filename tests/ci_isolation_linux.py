@@ -27,8 +27,8 @@ from ci_isolation_runtime import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PREFIX_BASE = Path("/opt/senior-infra-ci")
-CACHE_BASE = Path("/opt/senior-infra-ci-cache")
+PREFIX_BASE = Path("/var/lib/senior-infra-ci")
+CACHE_BASE = Path("/var/cache/senior-infra-ci")
 DEPENDENCIES = frozenset({"gcc", "meson", "ninja-build", "pkgconf", "libcap-dev",
                           "libcap2-bin", "python3", "xz-utils", "ca-certificates"})
 
@@ -55,13 +55,18 @@ class LinuxExecutor:
         argv = [str(arg) for arg in argv]
         if any("\x00" in arg or len(arg) > 4096 for arg in argv):
             raise ValueError("CI_COMMAND_SCOPE_REJECTED")
-        if privileged:
-            argv = ["/usr/bin/sudo", "-n", "/usr/bin/timeout", "--kill-after=5s",
-                    f"{remaining:.3f}s", *argv]
         env = {"PATH": (str(self.runtime.binary.parent) + ":" if self.runtime else "") + "/usr/bin:/bin",
                "LC_ALL": "C", "HOME": str(self.workspace),
                "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
                "DEBIAN_FRONTEND": "noninteractive", "NEEDRESTART_MODE": "l"}
+        if privileged:
+            # sudo env_reset must not strip the fixed package safety settings.
+            # Re-establish only this closed environment after elevation; never
+            # preserve caller-supplied variables or executable-resolution paths.
+            settings = {**env, "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"}
+            argv = ["/usr/bin/sudo", "-n", "/usr/bin/env",
+                    *(f"{key}={value}" for key, value in settings.items()),
+                    "/usr/bin/timeout", "--kill-after=5s", f"{remaining:.3f}s", *argv]
         with tempfile.TemporaryFile(dir=self.workspace) as output:
             process = subprocess.Popen(argv, cwd=self.workspace, env=env,
                                        stdin=subprocess.DEVNULL, stdout=output,
@@ -239,6 +244,18 @@ class LinuxExecutor:
         return verify_isolation(runtime, executor=self, policy=policy, deadline=deadline) is True
 
 
+def archive_package_identity(metadata):
+    required = {"Package", "Version", "Architecture"}
+    if (not required <= metadata.keys() or metadata.keys() - required - {"Multi-Arch"}
+            or not _valid_package(metadata["Package"]) or ":" in metadata["Package"]
+            or not _valid_version(metadata["Version"])
+            or metadata["Architecture"] not in ("amd64", "all")
+            or metadata.get("Multi-Arch", "no") not in ("no", "same", "foreign", "allowed")
+            or metadata["Architecture"] == "all" and metadata.get("Multi-Arch") == "same"):
+        raise ValueError("PACKAGE_ARCHIVE_UNPROVEN")
+    return metadata["Package"] + (":amd64" if metadata.get("Multi-Arch") == "same" else "")
+
+
 class LinuxPackageAdapter:
     requested = DEPENDENCIES
 
@@ -337,24 +354,27 @@ class LinuxPackageAdapter:
             if total > 2 * 1024 ** 3 or path.suffix != ".deb":
                 raise ValueError("PACKAGE_CACHE_TOO_LARGE")
             fields = self.executor.command(
-                ["/usr/bin/dpkg-deb", "--field", str(path), "Package", "Version", "Architecture"], deadline)
-            metadata = dict(line.split(": ", 1) for line in fields.decode("ascii").splitlines())
-            if set(metadata) != {"Package", "Version", "Architecture"} or metadata["Architecture"] not in ("amd64", "all"):
+                ["/usr/bin/dpkg-deb", "--field", str(path), "Package", "Version", "Architecture", "Multi-Arch"], deadline)
+            records = [line.split(": ", 1) for line in fields.decode("ascii").splitlines()]
+            if any(len(record) != 2 for record in records) or len({record[0] for record in records}) != len(records):
                 raise ValueError("PACKAGE_ARCHIVE_UNPROVEN")
+            metadata = dict(records)
+            binary_package = archive_package_identity(metadata)
             name = metadata["Package"]
-            if not _valid_package(name) or not _valid_version(metadata["Version"]):
+            if name in found:
                 raise ValueError("PACKAGE_ARCHIVE_UNPROVEN")
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            found[name] = (path, metadata["Version"], digest)
+            found[name] = (path, metadata["Version"], digest, binary_package)
         for action in proposal.actions:
             item = found.get(action.package.partition(":")[0])
-            if item is None or item[1] != action.candidate_version:
+            qualifier = action.package.partition(":")[2]
+            if item is None or item[1] != action.candidate_version or qualifier not in ("", "amd64"):
                 raise ValueError("PACKAGE_ARCHIVE_UNAVAILABLE")
             self.frozen[action.package] = item
 
     def apply(self, kind, proposal, deadline):
         for action in proposal.actions:
-            path, version, digest = self.frozen[action.package]
+            path, version, digest, _ = self.frozen[action.package]
             if hashlib.sha256(path.read_bytes()).hexdigest() != digest or version != action.candidate_version:
                 raise ValueError("PACKAGE_CACHE_CHANGED")
         self.apt(["--yes", "--no-download", "--no-remove", *self.arguments(kind)], deadline)
@@ -362,10 +382,13 @@ class LinuxPackageAdapter:
     def verify_changes(self, before, proposal, deadline):
         expected = dict(before)
         for action in proposal.actions:
-            # Preserve dpkg's native multiarch spelling when already installed.
-            key = action.package
-            if key not in expected and key + ":amd64" in expected:
-                key += ":amd64"
+            # Verified archive metadata determines dpkg's binary:Package identity
+            # for BOTH new and existing packages; do not guess from before-state.
+            key = self.frozen[action.package][3]
+            if action.package.partition(":")[2] not in ("", "amd64"):
+                raise ValueError("PACKAGE_POSTCONDITION_FAILED")
+            if key != action.package:
+                expected.pop(action.package, None)
             expected[key] = (action.candidate_version, "installed")
         if (self.snapshot(deadline) != expected or self.security_snapshot() != self.security
                 or Path("/var/run/reboot-required").exists()):

@@ -41,7 +41,10 @@ The runner builds the exact verified Bubblewrap archive without dependency
 fetching. Only the two reviewed COPYING aliases are materialized as regular
 license copies; arbitrary archive links and traversal paths reject. A data-only
 privileged worker installs an exclusive digest-named prefix under
-`/opt/senior-infra-ci/`. System Bubblewrap is not replaced. Root-owned ancestors,
+`/var/lib/senior-infra-ci/`, with private caches under `/var/cache/senior-infra-ci/`.
+The hosted image makes `/opt` writable by ordinary users, so it is not a safe
+ancestor for this receipt. No global permissions are repaired. System Bubblewrap
+is not replaced. Root-owned ancestors,
 file identity/digest, mode, absence of setuid/setgid/file capabilities and the
 actual runner-invoked version are verified before PATH publication and the gate.
 
@@ -72,6 +75,14 @@ receipts and nonce/inode ownership bind lifecycle stages. Raw command/audit
 streams are not exported or uploaded. Always-run cleanup removes only owned
 policy names/files, the private runtime/cache and the owned build workspace.
 Failed cleanup is a failed job, not qualified isolation.
+Policy publication first retains a private inode and atomically records ownership
+intent, then exclusively links that inode into the policy directory. Load intent
+is recorded before parser execution. Cleanup checks the expected target even when
+publication never completed; foreign or unprovable ownership blocks cleanup rather
+than deleting data or reporting success. Package subprocesses receive fixed
+non-interactive/list-only settings after elevation, not through sudo environment
+preservation. Verified archive Architecture/Multi-Arch metadata determines dpkg
+identities for new as well as existing packages.
 
 ## Trust, consequences and qualification
 This trusts reviewed workflow/bootstrap code and the ephemeral hosted image,
@@ -99,3 +110,6 @@ See [validation notes](../../tests/validation-notes.md) for exact evidence and e
 - [AppArmor parser add/remove/cache semantics](https://manpages.ubuntu.com/manpages/noble/man8/apparmor_parser.8.html).
 - [Immutable policy origin](https://gitlab.com/apparmor/apparmor/-/blob/72229df83059480f4e9fb1488624201bdbd61755/profiles/apparmor/profiles/extras/bwrap-userns-restrict).
 - [Hosted-runner variable contract](https://docs.github.com/en/actions/reference/workflows-and-actions/variables).
+- [Exact hosted image permission setup](https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/scripts/build/configure-system.sh).
+- [Native APT simulation messages](https://github.com/Debian/apt/blob/2.7.14/apt-private/private-install.cc).
+- [dpkg binary package identities](https://manpages.debian.org/bookworm/dpkg/dpkg-query.1.en.html).

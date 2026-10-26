@@ -103,6 +103,15 @@ def _network_proof(isolated):
             return payload == b"CI" and peer[0] == "127.0.0.1"
 
 
+def policy_label_matches(label, names):
+    if (type(label) is not str or len(label) > 4096 or type(names) not in (list, tuple)
+            or len(names) != 2 or not all(type(name) is str for name in names)
+            or names[1] != names[0] + "-child" or not label.endswith(" (enforce)")):
+        return False
+    components = label[:-len(" (enforce)")].split("//&")
+    return len(components) == 2 and set(components) == set(names)
+
+
 def inner_proof():
     config = json.loads(_read("/proof/config.json", 4096))
     namespaces = {name: os.readlink(f"/proc/self/ns/{name}") for name in NAMESPACES}
@@ -133,7 +142,7 @@ def inner_proof():
         pass
     names = config["policyNames"]
     label = _read("/proc/self/attr/current", 4096).decode().strip() if names else ""
-    result["policy"] = names is None or (all(name in label for name in names) and label.endswith("(enforce)"))
+    result["policy"] = names is None or policy_label_matches(label, names)
     print(json.dumps(result, separators=(",", ":")))
 
 

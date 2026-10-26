@@ -358,7 +358,8 @@ def _cleanup(executor, record, *, deadline):
     spec, nonce = executor.spec, record["nonce"]
     prefix = executor.prefix_base / spec.source_sha256
     try:
-        if (executor.cache / "policy-owner.json").exists():
+        if (prefix.exists() or prefix.is_symlink()
+                or (executor.cache / "policy-owner.json").exists()):
             runtime = _runtime_from_disk(spec, nonce)
             policy = policy_for_runtime(runtime, executor.policy_template())
             if not cleanup_policy(policy, executor=executor, deadline=deadline):

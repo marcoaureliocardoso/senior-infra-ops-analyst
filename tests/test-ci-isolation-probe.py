@@ -47,6 +47,22 @@ class IsolationProofTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.m._run_proof(Path("/does-not-exist"), None, deadline=time.monotonic() - 1)
 
+    def test_policy_attestation_requires_the_exact_two_enforced_stack_components(self):
+        parent = "senior-infra-ci-" + "a" * 24
+        child = parent + "-child"
+        names = [parent, child]
+        self.assertTrue(hasattr(self.m, "policy_label_matches"), "exact label parser is absent")
+        for label, expected in (
+            (parent + "//&" + child + " (enforce)", True),
+            (child + " (enforce)", False), (parent + " (enforce)", False),
+            (parent + "//&" + child + "-foreign (enforce)", False),
+            (parent + "//&" + child + "//&foreign (enforce)", False),
+            (parent + "//&" + child + " (complain)", False),
+            (parent + "//&" + parent + " (enforce)", False),
+        ):
+            with self.subTest(label=label):
+                self.assertEqual(self.m.policy_label_matches(label, names), expected)
+
     def test_kernel_reject_sentinel_is_not_a_usable_ipv6_default_route(self):
         self.assertTrue(hasattr(self.m, "routes_are_isolated"), "route viability parser is absent")
         sentinel = "0" * 32 + " 00 " + "0" * 32 + " 00 " + "0" * 32 + " ffffffff 00000001 00000000 00200200 lo\n"

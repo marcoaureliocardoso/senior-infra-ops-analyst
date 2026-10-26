@@ -40,6 +40,7 @@ _INST = re.compile(r"Inst (\S+)(?: \[(\S+)\])? \((\S+) [^()\x00-\x1f]+\)")
 _CONF = re.compile(r"Conf (\S+) \((\S+) [^()\x00-\x1f]+\)")
 _REMV = re.compile(r"Remv (\S+) \[(\S+)\]")
 _CURRENT = re.compile(r"(\S+) is already the newest version \((\S+)\)\.")
+_MANUAL = re.compile(r"(\S+) set to manually installed\.")
 _HEADERS = {
     "The following packages will be upgraded:": "upgrade",
     "The following NEW packages will be installed:": "install",
@@ -85,6 +86,7 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
     lists = {}
     list_kind = None
     advisory_seen = False
+    manual, phasing_notice = set(), False
     for line in lines:
         if not line.strip():
             list_kind = None
@@ -107,6 +109,11 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
             lists[list_kind].extend(packages)
             continue
         list_kind = None
+        if line == "N: Some packages may have been kept back due to phasing.":
+            if phasing_notice:
+                raise ValueError("APT_SIMULATION_AMBIGUOUS")
+            phasing_notice = True
+            continue
         if line in {f"Use '{prefix}apt autoremove' to remove {pronoun}."
                     for prefix in ("", "sudo ") for pronoun in ("it", "them")}:
             # Recognized APT narrative only. NEVER return/execute its command.
@@ -139,9 +146,15 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
             if not _valid_package(name) or not _valid_version(version) or name in unchanged:
                 raise ValueError("APT_SIMULATION_INVALID")
             unchanged.append(name)
+        elif match := _MANUAL.fullmatch(line):
+            name = match[1]
+            if not _valid_package(name) or name in manual:
+                raise ValueError("APT_SIMULATION_AMBIGUOUS")
+            manual.add(name)
         else:
             raise ValueError("APT_SIMULATION_UNRECOGNIZED")
-    if summary is None or set(unchanged) & set(actions):
+    if (summary is None or set(unchanged) & set(actions) or not manual <= set(unchanged)
+            or phasing_notice and not (lists.get("held") and lists.get("phased"))):
         raise ValueError("APT_SIMULATION_AMBIGUOUS")
     expected = {name: action.candidate_version for name, action in actions.items()
                 if action.kind != "remove"}
