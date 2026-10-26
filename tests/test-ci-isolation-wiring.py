@@ -23,6 +23,7 @@ class Step:
     name: str
     script: str
     always: bool
+    report: str
 
 
 def full_job(text, name):
@@ -34,6 +35,11 @@ def full_job(text, name):
 
 def validate_job(text, name):
     job = full_job(text, name)
+    # This is a closed lifecycle contract, not a general GitHub YAML validator.
+    # runner context is unavailable at jobs.<job_id>.env. All lifecycle bindings
+    # must instead be explicit step environments, including always-run cleanup.
+    if re.search(r"^    env:", job, re.M):
+        raise ValueError("CI_FULL_JOB_ENV_SCOPE_INVALID")
     required = ("    runs-on: ubuntu-24.04", "    timeout-minutes: 40",
                 "    permissions:\n      contents: read", "          persist-credentials: false")
     if any(job.count(token) != 1 for token in required):
@@ -50,6 +56,11 @@ def validate_job(text, name):
         if len(identifier) != 1 or identifier[0] not in ORDER:
             raise ValueError("CI_FULL_JOB_STAGE_INVALID")
         stage = identifier[0]
+        environments = re.findall(r"^        env:\n((?:          [^\n]*\n)+)", chunk, re.M)
+        reports = re.findall(r"^          CI_ISOLATION_REPORT: (.+)$", chunk, re.M)
+        if (len(environments) != 1 or reports != ["${{ runner.temp }}/ci-isolation-report.json"]
+                or re.findall(r"^          CI_ISOLATION_REPORT: (.+)$", environments[0], re.M) != reports):
+            raise ValueError("CI_FULL_JOB_REPORT_SCOPE_INVALID")
         condition = re.findall(r"^        if: (.+)$", chunk, re.M)
         if condition != (["always()"] if stage == "isolation_cleanup" else []):
             raise ValueError("CI_FULL_JOB_STAGE_CONDITIONAL")
@@ -70,7 +81,7 @@ def validate_job(text, name):
             raise ValueError("CI_FULL_JOB_GATE_DRIFT")
         elif stage == "terminal_provision" and "python3 tests/provision-terminal-runtime.py" not in script:
             raise ValueError("CI_FULL_JOB_TERMINAL_DRIFT")
-        steps.append(Step(stage, script, bool(condition)))
+        steps.append(Step(stage, script, bool(condition), reports[0]))
     if tuple(step.name for step in steps) != ORDER:
         raise ValueError("CI_FULL_JOB_ORDER_INVALID")
     return steps
@@ -82,6 +93,32 @@ def check_workflows(root=ROOT):
 
 
 class WiringTests(unittest.TestCase):
+    def test_each_stage_rejects_missing_duplicate_or_foreign_report_binding(self):
+        binding = "          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json\n"
+        for file, job in JOBS:
+            source = (ROOT / ".github/workflows" / file).read_text()
+            for stage in ORDER:
+                start = source.index("        id: " + stage + "\n")
+                end = source.find("      - ", start)
+                end = len(source) if end == -1 else end
+                chunk = source[start:end]
+                for replacement in ("", binding + binding,
+                                    binding.replace("runner.temp", "github.workspace"),
+                                    binding.replace("/ci-isolation-report.json", "/../foreign.json")):
+                    mutated = source[:start] + chunk.replace(binding, replacement, 1) + source[end:]
+                    with self.subTest(file=file, stage=stage, replacement=replacement), \
+                            self.assertRaisesRegex(ValueError, "CI_FULL_JOB_REPORT_SCOPE_INVALID"):
+                        validate_job(mutated, job)
+
+    def test_runner_context_in_job_environment_is_rejected_before_dispatch(self):
+        source = (ROOT / ".github/workflows/ci.yml").read_text()
+        # Reproduce GitHub's rejected scope even once the real job is repaired.
+        job_env = "    env:\n      CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json\n"
+        if job_env not in source:
+            source = source.replace("  package-validate:\n", "  package-validate:\n" + job_env, 1)
+        with self.assertRaisesRegex(ValueError, "CI_FULL_JOB_ENV_SCOPE_INVALID"):
+            validate_job(source, "package-validate")
+
     def test_full_jobs_execute_the_same_bootstrap_order(self):
         for file, job in JOBS:
             with self.subTest(file=file):
@@ -114,14 +151,16 @@ class WiringTests(unittest.TestCase):
             events.write_text("[]")
             environment = {"PATH": str(bin_directory) + ":/usr/bin:/bin", "HOME": str(root),
                            "RUNNER_TEMP": str(root), "GITHUB_ENV": str(root / "environment"),
-                           "GITHUB_PATH": str(root / "path"), "CI_ISOLATION_REPORT": str(root / "report"),
+                           "GITHUB_PATH": str(root / "path"),
                            "FIXTURE_EVENTS": str(events), "FIXTURE_PREPARE_FAIL": str(int(fail))}
             status = 0
             for step in steps:
                 if status and not step.always:
                     continue
+                step_environment = {**environment,
+                    "CI_ISOLATION_REPORT": step.report.replace("${{ runner.temp }}", str(root))}
                 result = subprocess.run(["/bin/bash", "-e", "-o", "pipefail", "-c", step.script],
-                                        cwd=ROOT, env=environment, capture_output=True, timeout=5)
+                                        cwd=ROOT, env=step_environment, capture_output=True, timeout=5)
                 status = status or result.returncode
             return status, json.loads(events.read_text())
 

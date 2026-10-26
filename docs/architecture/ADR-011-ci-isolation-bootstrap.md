@@ -75,6 +75,11 @@ receipts and nonce/inode ownership bind lifecycle stages. Raw command/audit
 streams are not exported or uploaded. Always-run cleanup removes only owned
 policy names/files, the private runtime/cache and the owned build workspace.
 Failed cleanup is a failed job, not qualified isolation.
+The shared report path is explicitly bound in each lifecycle step's environment,
+where GitHub makes runner context available; no job-level runtime expression or
+successful earlier initialization is required by cleanup. The wiring contract
+rejects absent, duplicate and divergent bindings and exercises the actual selected
+run scripts with no pre-injected report variable.
 Policy publication first retains a private inode and atomically records ownership
 intent, then exclusively links that inode into the policy directory. Load intent
 is recorded before parser execution. Cleanup checks the expected target even when

@@ -16,6 +16,9 @@ tag. Tagged versions correspond to repository tags.
   and author's single TDD remediation pass are recorded
   in validation notes and indexed ADR-011. Native/provider/browser acceptance,
   root/component versions, release and merge authority are unchanged.
+  Corrected report binding to runner-scoped step environments in all three jobs;
+  actual-script controls no longer pre-inject the missing variable and reject
+  absent, duplicate or divergent stage bindings before dispatch.
 
 - Corrected three reproduced PR 58 runtime review findings. Independent browser
   validation rejects configuration inputs and restricts interactive preparation

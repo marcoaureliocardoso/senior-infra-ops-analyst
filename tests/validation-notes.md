@@ -1,6 +1,32 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Workflow report binding correction - 2026-10-26
+The published b22c4f7 head was rejected before any job in CI40356481086,
+scheduled40356479028 and release40356477039. These were invalid-definition
+records, not scheduled/release execution. Security40356493652 passed Python,
+JavaScript/TypeScript and ShellCheck. No hosted provisioning was reached.
+
+The introduced defect put `runner.temp` in job-level `env`, where GitHub does not
+provide the runner context. All five lifecycle stages in each full-validation
+job now bind the same report in step-level `env`; cleanup does not depend on a
+previous initialization step succeeding. Permissions and the five-stage order,
+40-minute limit, mandatory real audit and always-run cleanup are unchanged.
+
+The previous test pre-injected a report path into every child, masking the missing
+binding. That shortcut is removed. Selected real run scripts now receive their
+checked-in stage binding, and the synthetic child independently verifies both
+the exact RUNNER_TEMP-derived environment and CLI report argument. Seven failing
+subcases reproduced the original scope/data-flow defect;60 missing/duplicate/
+foreign binding mutations failed before the closed contract was strengthened.
+Wiring9 and workflow25 tests then passed. This contract is deliberately narrow,
+not a claim to implement the full GitHub expression validator. Fresh complete
+local validation and exact-head hosted checks are pending for this correction.
+
+The [official context availability table](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability)
+permits `runner` in step environments, not job environments. The earlier full
+local pass below remains evidence for its exact db4766f source, not this change.
+
 ## Guarded CI isolation bootstrap - 2026-10-25
 
 Update 2026-10-26: the single independent review returned six Important findings.

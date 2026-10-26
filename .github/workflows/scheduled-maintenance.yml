@@ -49,8 +49,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    env:
-      CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
     # Keep the full-gate budget aligned with CI package-validate.
     timeout-minutes: 40
     steps:
@@ -59,9 +57,13 @@ jobs:
           persist-credentials: false
       - name: Prepare guarded image and verified namespace runtime
         id: isolation_prepare
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         run: python3 tests/ci_isolation_bootstrap.py --prepare --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
       - name: Provision test-only terminal runtime
         id: terminal_provision
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         run: |
           terminal_node="$(readlink -f "$(command -v node)")"
           terminal_npm="$(readlink -f "$(command -v npm)")"
@@ -70,9 +72,13 @@ jobs:
           printf 'P004B_TERMINAL_MODULE_ROOT=%s\n' "$RUNNER_TEMP/p004b-terminal-runtime/node_modules" >> "$GITHUB_ENV"
       - name: Verify required isolation and real helper audit
         id: isolation_verify
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         run: python3 tests/ci_isolation_bootstrap.py --verify --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
       - name: Full package validation
         id: package_gate
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         run: bash tests/validate-package.sh
       - name: Schema validation
         run: python3 tests/validate-schema.py
@@ -80,5 +86,7 @@ jobs:
         run: bash tests/validate-ci-workflows.sh
       - name: Clean owned namespace runtime and policy
         id: isolation_cleanup
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         if: always()
         run: python3 tests/ci_isolation_bootstrap.py --cleanup --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
