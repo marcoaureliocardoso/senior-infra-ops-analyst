@@ -35,8 +35,22 @@ and disposable cleanup was proved. The synchronized failure receipt/log remain
 unaltered; the Windows preserver correctly refused a qualifying success copy.
 This is a failed gate, not acceptance. The current-version assertion now requires
 1.2.1 and the negative mutation changes1.2.1 to1.2.2, preserving drift rejection.
-A fresh immutable candidate must pass the complete gate; no push occurred for
-the failed candidate. Earlier full passes below do not certify this fix wave. The
+No push occurred for the failed candidate. The corrected release-history group
+passed42 tests against a canonical source fixture without ignored worktree data.
+The fresh complete immutable gate at
+`e614e3c08debd85662c891dcd374300e6606fdf1` then passed in1481.213s, exit0,
+no timeout. All613 files matched the archive before execution and remained
+unchanged; disposableRootAbsent was true. Archive SHA-256 before/after:
+`c0f4c9cd353a5a67e9f61da8b48c45521271e025ef2b9ca907033bf93c3ed09a`.
+The synchronized receipt and exclusive Windows-preserved identical-byte copy
+both hashed to
+`b7af26a19eba479ba5ee93a808a0b8aea344c8c4beda1b7fdf710e4f03ab6fbe`.
+The full log reached `package validation passed`. Real-browser acceptance lacked
+opt-in; PowerShell was absent in Debian, so its syntax gate was explicitly
+skipped there and separately passed on Windows. Final quality checks passed
+ShellCheck16, Markdown275, spelling/schema/content, architecture13 and workflows.
+Later evidence-only Markdown is distinct from this tested source; exact-head
+hosted CI/Security remain pending. No native acceptance is inferred. The
 formal security plugin failed setup before scanId, so no formal security scan
 result or canonical artifact exists. Native acceptance, blocked SDK shutdown
 qualification, merge/release and definitive TODO completion remain separate.

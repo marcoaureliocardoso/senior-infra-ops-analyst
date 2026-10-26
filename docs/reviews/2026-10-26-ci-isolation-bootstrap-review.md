@@ -42,6 +42,13 @@ not formal full-PR certification or licensing/legal approval. Native/provider/
 browser/twelve-role acceptance and platform kernel/process behavior remain
 unqualified by these reviews; ADR-010's CAPABILITY_UNAVAILABLE gate is unchanged.
 Author remediation is not an independent re-review or merge approval.
+The complete provider-free gate passed at `e614e3c` in1481.213 seconds with613
+canonical files unchanged and disposable cleanup proved; its synchronized receipt
+was preserved byte-for-byte on Windows. The prior `d11513a` gate failed at two
+stale release-history version assertions and was retained, not rewritten. Those
+test-only pins were corrected without relaxing drift rejection. Exact hashes,
+exclusions and subsequent evidence-only documentation are in the validation notes.
+This local pass does not establish exact-head hosted isolation or native acceptance.
 
 ## Independent assessment
 One read-only independent review inspected the immutable implementation range
