@@ -1,6 +1,26 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Official APT action suffix grammar - 2026-10-27
+Native diagnostic CI40542797673 at a20ee24 identified INST_SUFFIX,line28,
+length126; cleanup passed, all six other CI jobs and Security40542797971 passed.
+This proves the structural rejection, not the exact received suffix content.
+The operator requested modeling of official action annotations. The indexed
+[ADR](../docs/architecture/ADR-011-ci-isolation-bootstrap.md) defines the exact
+ordered grammar, whitespace, full names and refusal cases. Core selected actions,
+native command success and all existing safety/coherence checks remain binding.
+
+RED: the image suite failed11 positive official-form assertions before the
+recognizer existed. GREEN: image23, runtime7, bootstrap32, proof6, wiring17 and
+workflow25 passed. The new controls cover policy refusal despite annotations,
+targeted dependencies, malformed/foreign/reordered/duplicate syntax, complete
+configuration and count/version coherence. Internal schema3 and all Nori
+versions stay unchanged; only CI/test code changed. Independent review, complete
+immutable package proof and one fresh exact-head hosted observation are pending
+at this record's creation. No raw APT line/hash, provider/browser/native session,
+operator state, local APT/root/AppArmor operation, retry, merge or release is
+authorized by this repair.
+
 ## Structural APT rejection instrumentation - 2026-10-27
 The operator approved category, position and length only, followed by one
 exact-head hosted CI validation. No parser acceptance or operational command

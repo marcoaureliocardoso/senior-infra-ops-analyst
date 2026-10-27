@@ -7,6 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Modeled official APT action annotations in the CI-only simulation parser:
+  ordered relational blocks on Inst and one optional trailing ShortBreaks list
+  on Inst/Conf/Remv. Exact syntax and bounded package identities are validated;
+  annotations never become actions or authority. Unknown suffixes and all
+  proposal/policy/postcondition failures still block. Nori versions are unchanged.
+
 - Added operator-approved, content-free APT rejection diagnostics to the CI-only
   bootstrap. Internal report schema3 projects a finite first-rejected-line kind,
   one-based line number and bounded character length, preserving the original

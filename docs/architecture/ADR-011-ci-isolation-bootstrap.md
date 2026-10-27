@@ -40,6 +40,19 @@ migration, reboot, removal, downgrade or forced hold change is allowed.
 scripts harmless. A postcondition failure discards the job, not an attempted
 package downgrade or a stale-package fallback.
 
+The simulator's official action suffixes are parsed explicitly, never stripped.
+Inst may contain zero or more exact relational blocks `[fullname on fullname]`
+and then at most one ShortBreaks list. Configuration/removal records allow only that optional list.
+Each block has one leading space; ShortBreaks contains zero or more distinct
+bounded Debian full names, each followed by one space. Empty `[]` is valid.
+Duplicate relational edges are allowed; duplicate ShortBreaks names, foreign
+syntax, reversed order, extra lists or invalid names reject. Positional parsing
+consumes the whole line without repeated suffix copies. These intermediate
+simulation annotations never become selected actions or authority and waive
+none of the command-success, complete-Conf/version/count, protected-package,
+service, hold, reboot, frozen-proposal or postcondition checks. Schema3 still
+reports the first unknown suffix without its content.
+
 The runner builds the exact verified Bubblewrap archive without dependency
 fetching. Only the two reviewed COPYING aliases are materialized as regular
 license copies; arbitrary archive links and traversal paths reject. A data-only
@@ -126,6 +139,7 @@ merge, release and definitive TODO completion remain separate gates.
 See [validation notes](../../tests/validation-notes.md) for exact evidence and exclusions.
 
 ## Primary sources
+- [APT action and ShortBreaks emission](https://github.com/Debian/apt/blob/2.8.1/apt-pkg/algorithms.cc#L110-L287).
 - [Fixed source release](https://github.com/containers/bubblewrap/releases/tag/v0.12.0).
 - [Upstream security advisory](https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx).
 - [APT transaction semantics](https://manpages.debian.org/bookworm/apt/apt-get.8.en.html).

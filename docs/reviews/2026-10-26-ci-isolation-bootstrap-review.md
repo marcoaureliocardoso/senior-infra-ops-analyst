@@ -1,5 +1,22 @@
 # CI isolation bootstrap review and author remediation
 
+## Official APT action suffix model - 2026-10-27
+The previous exact-head hosted diagnostic identified INST_SUFFIX at line28,
+length126, with cleanup PASSED. The operator requested strict modeling of the
+official forms, not blanket suffix removal. Upstream Describe/RealInstall/
+RealConfigure/RealRemove/ShortBreaks/Go emit relational blocks only for Inst,
+followed optionally by a ShortBreaks list; configuration/removal records permit only that list.
+
+The new positional recognizer validates the entire suffix, exact whitespace,
+bounded full names, ordering and multiplicity. It returns the same core action
+groups; annotations are never returned as actions or authority. Native command
+success and all coherence, package-policy and postcondition checks remain.
+Five new test methods pin official forms, targeted-dependency and unsafe-policy
+behavior, malformed/foreign/reordered suffixes and incomplete proposals. The
+diagnostic examples now use invalid suffixes so known official syntax no longer
+has an obsolete rejection expectation. Review and immutable/hosted evidence are
+pending at this record's creation. No actual received line was captured.
+
 ## Approved structural APT diagnostic increment - 2026-10-27
 After the fresh four-finding repair, hosted CI40534516818 at be6f470 rejected
 an APT simulation line with APT_SIMULATION_UNRECOGNIZED and passed cleanup.

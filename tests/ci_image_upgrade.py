@@ -41,6 +41,8 @@ _CONF = re.compile(r"Conf (\S+) \((\S+) [^()\x00-\x1f]+\)")
 _REMV = re.compile(r"Remv (\S+) \[(\S+)\]")
 _CURRENT = re.compile(r"(\S+) is already the newest version \((\S+)\)\.")
 _MANUAL = re.compile(r"(\S+) set to manually installed\.")
+_RELATION = re.compile(r" \[([^\s\[\]]+) on ([^\s\[\]]+)\]", re.ASCII)
+_SHORT_BREAKS = re.compile(r" \[((?:[^\s\[\]]+ )*)\]", re.ASCII)
 _HEADERS = {
     "The following packages will be upgraded:": "upgrade",
     "The following NEW packages will be installed:": "install",
@@ -71,6 +73,23 @@ def _valid_package(value):
 
 def _valid_version(value):
     return type(value) is str and len(value) <= 128 and _VERSION.fullmatch(value) is not None
+
+
+def _action_record(pattern, line, *, relations=False):
+    """Consume native action annotations, never turn them into actions or authority."""
+    match = pattern.match(line)
+    if match is None: return None
+    position = match.end()
+    if relations:
+        while relation := _RELATION.match(line, position):
+            if not all(_valid_package(name) for name in relation.groups()): return None
+            position = relation.end()
+    if position == len(line): return match
+    short = _SHORT_BREAKS.fullmatch(line, position)
+    if short is None: return None
+    names = short[1].split()
+    if len(names) != len(set(names)) or not all(_valid_package(name) for name in names): return None
+    return match
 
 
 def _unrecognized_line_kind(line):
@@ -139,18 +158,18 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
             if summary is not None:
                 raise ValueError("APT_SIMULATION_AMBIGUOUS")
             summary = tuple(int(number) for number in match.groups())
-        elif match := _INST.fullmatch(line):
+        elif match := _action_record(_INST, line, relations=True):
             name, old, new = match.groups()
             if (not _valid_package(name) or not _valid_version(new)
                     or old is not None and not _valid_version(old) or name in actions):
                 raise ValueError("APT_SIMULATION_INVALID")
             actions[name] = UpgradeAction("upgrade" if old else "install", name, old, new)
-        elif match := _CONF.fullmatch(line):
+        elif match := _action_record(_CONF, line):
             name, version = match.groups()
             if not _valid_package(name) or not _valid_version(version) or name in configured:
                 raise ValueError("APT_SIMULATION_INVALID")
             configured[name] = version
-        elif match := _REMV.fullmatch(line):
+        elif match := _action_record(_REMV, line):
             name, old = match.groups()
             if not _valid_package(name) or not _valid_version(old) or name in actions:
                 raise ValueError("APT_SIMULATION_INVALID")

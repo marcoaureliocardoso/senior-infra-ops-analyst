@@ -45,9 +45,9 @@ class ImageUpgradeTests(unittest.TestCase):
         self.assertEqual((result.status, result.package_count), ("UP_TO_DATE", 0))
 
     def test_first_unrecognized_line_reports_only_bounded_structural_scalars(self):
-        cases = [('Inst demo (2 src) []', 'INST_SUFFIX', 20),
-                 ('Conf demo (2 src) []', 'CONF_SUFFIX', 20),
-                 ('Remv demo [1] []', 'REMV_SUFFIX', 16),
+        cases = [('Inst demo (2 src) [!]', 'INST_SUFFIX', 21),
+                 ('Conf demo (2 src) [!]', 'CONF_SUFFIX', 21),
+                 ('Remv demo [1] [!]', 'REMV_SUFFIX', 17),
                  ('Inst unknown', 'INST_OTHER', 12),
                  ('Conf unknown', 'CONF_OTHER', 12),
                  ('Remv unknown', 'REMV_OTHER', 12),
@@ -62,6 +62,84 @@ class ImageUpgradeTests(unittest.TestCase):
                 self.assertEqual(type(caught.exception), ValueError)
                 self.assertEqual(caught.exception.args, ('APT_SIMULATION_UNRECOGNIZED', kind, 2, length))
                 self.assertNotIn(line, repr(caught.exception.args))
+
+    def test_official_install_annotations_do_not_become_selected_actions(self):
+        suffixes = (' []', ' [other:amd64 ]', ' [other:amd64 companion:i386 ]',
+                    ' [other:amd64 on demo:amd64]',
+                    ' [other:amd64 on demo:amd64] [companion:i386 on demo:amd64]',
+                    ' [other:amd64 on demo:amd64] [other:amd64 on demo:amd64] []',
+                    ' [other:amd64 on demo:amd64] [companion:i386 ]')
+        for suffix in suffixes:
+            with self.subTest(suffix=suffix):
+                text = upgrade().replace(' [amd64])\nConf', ' [amd64])' + suffix + '\nConf')
+                try: proposal = self.m.parse_apt_simulation(text)
+                except ValueError: proposal = None
+                self.assertIsNotNone(proposal, 'official annotation must parse')
+                self.assertEqual([(a.kind, a.package, a.installed_version, a.candidate_version)
+                                  for a in proposal.actions], [('upgrade', 'demo', '1.0-1', '1.1-1')])
+                self.assertEqual((proposal.held_count, proposal.unchanged_packages), (0, ()))
+                self.assertEqual(self.decision(text).status, 'ALLOW')
+
+    def test_official_configuration_and_removal_short_breaks_are_structural_data(self):
+        for suffix in (' []', ' [other:amd64 ]', ' [other:amd64 companion:i386 ]'):
+            with self.subTest(suffix=suffix):
+                text = upgrade().rstrip('\n') + suffix + '\n'
+                try: proposal = self.m.parse_apt_simulation(text)
+                except ValueError: proposal = None
+                self.assertIsNotNone(proposal, 'configuration ShortBreaks must parse')
+                self.assertEqual(self.decision(text).status, 'ALLOW')
+                removal = ('0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.\n'
+                           'Remv demo [1.0]' + suffix + '\n')
+                try: proposal = self.m.parse_apt_simulation(removal)
+                except ValueError: proposal = None
+                self.assertIsNotNone(proposal, 'removal ShortBreaks must parse')
+                self.assertEqual([(a.kind, a.package) for a in proposal.actions], [('remove', 'demo')])
+                self.assertEqual(self.decision(removal).status, 'SKIP_UNSAFE')
+
+    def test_official_annotation_keeps_targeted_dependency_and_unsafe_policy_checks(self):
+        install = INSTALL.replace(' [amd64])\nConf', ' [amd64]) [other:amd64 ]\nConf')
+        try: proposal = self.m.parse_apt_simulation(install)
+        except ValueError: proposal = None
+        self.assertIsNotNone(proposal, 'annotated targeted dependency must parse')
+        self.assertEqual(self.m.assess_dependency_install(proposal, requested=frozenset({'build-demo'}),
+                         service_packages=frozenset(), compare_versions=self.m.compare_debian_versions).status, 'ALLOW')
+        self.assertEqual(self.m.assess_dependency_install(proposal, requested=frozenset({'build-demo'}),
+                         service_packages=frozenset({'build-demo'}), compare_versions=self.m.compare_debian_versions).status, 'BLOCKED')
+        annotated = upgrade().replace(' [amd64])\nConf', ' [amd64]) []\nConf')
+        for text, services, reboot in ((annotated.replace('demo', 'apparmor'), frozenset(), False),
+                                      (annotated, frozenset({'demo'}), False),
+                                      (annotated, frozenset(), True),
+                                      (annotated.replace('0 not upgraded', '1 not upgraded'), frozenset(), False),
+                                      (annotated.replace('1.1-1', '0.9-1'), frozenset(), False)):
+            with self.subTest(service=bool(services), reboot=reboot):
+                self.assertEqual(self.decision(text, services=services, reboot=reboot).status, 'SKIP_UNSAFE')
+
+    def test_unknown_or_malformed_action_suffixes_remain_rejected(self):
+        invalid = (' [!]', ' [--option ]', ' [demo;operation ]', ' [demo/other ]',
+                   ' [Demo ]', ' [demo]', ' [demo  ]', ' [ demo ]', ' [demo\t]',
+                   ' [demo:amd64 demo:amd64 ]', ' [demo] tail', ' [] []',
+                   ' [] [other:amd64 on demo:amd64]', ' [a on]', ' [a on --option]',
+                   ' [a on b] extra', ' [a on b] [] []', ' [a [b] ]',
+                   ' [' + 'x' * 129 + ' ]', ' []\r', ' []\x1b', ' []\x00')
+        for suffix in invalid:
+            text = upgrade().replace(' [amd64])\nConf', ' [amd64])' + suffix + '\nConf')
+            with self.subTest(index=invalid.index(suffix)), self.assertRaises(ValueError):
+                self.m.parse_apt_simulation(text)
+        for kind in ('Conf', 'Remv'):
+            for suffix in (' [other:amd64 on demo:amd64]', ' [] []'):
+                text = (upgrade().rstrip('\n') + suffix + '\n' if kind == 'Conf' else
+                        '0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.\nRemv demo [1.0]' + suffix + '\n')
+                with self.subTest(record=kind), self.assertRaises(ValueError):
+                    self.m.parse_apt_simulation(text)
+
+    def test_annotations_never_waive_coherent_actions_or_complete_configuration(self):
+        annotated = upgrade().replace(' [amd64])\nConf', ' [amd64]) [other:amd64 ]\nConf')
+        for text in (annotated.split('Conf')[0], annotated.replace('1 upgraded', '2 upgraded'),
+                     annotated.replace('Conf demo (1.1-1', 'Conf demo (1.2-1'),
+                     annotated + 'Conf demo (1.1-1 src) []\n',
+                     annotated + 'Inst other (1.0 src) []\n',
+                     annotated.replace('Conf demo (1.1-1 Ubuntu:24.04/noble-updates [amd64])', 'Conf demo broken')):
+            with self.assertRaises(ValueError): self.m.parse_apt_simulation(text)
 
     def test_rejection_position_and_length_remain_within_existing_input_bounds(self):
         with self.assertRaises(ValueError) as caught:
