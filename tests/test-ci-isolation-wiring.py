@@ -97,6 +97,72 @@ def check_workflows(root=ROOT):
 
 
 class WiringTests(unittest.TestCase):
+    def test_first_apt_rejection_survives_prepare_cleanup_and_stdout_without_content(self):
+        import ci_isolation_bootstrap as bootstrap
+        from ci_image_upgrade import parse_apt_simulation
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); report = root / 'report.json'; output = io.StringIO()
+            executor = SimpleNamespace(stage='PACKAGE_UPGRADE_SIMULATE', spec=object())
+            def reject(*args, **kwargs): parse_apt_simulation('\nN: demo\nW: later\n')
+            def cleanup(*args, **kwargs):
+                executor.stage = 'CLEANUP_CACHE'
+                return True
+            with patch.dict(os.environ, {'GITHUB_RUN_ID': '1', 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_SHA': 'a'*40}), \
+                    patch.object(bootstrap, '_hosted_environment', return_value=root), \
+                    patch.object(bootstrap, '_executor', return_value=executor), \
+                    patch.object(bootstrap, 'provision_runtime', side_effect=reject), \
+                    patch.object(bootstrap, '_cleanup', side_effect=cleanup), contextlib.redirect_stdout(output):
+                self.assertEqual(bootstrap.main(['--prepare', '--manifest', 'tests/ci-runtime-lock.json',
+                                                 '--report', str(report)]), 1)
+                bootstrap.cleanup_cli(report, root)
+                record = bootstrap._read_report(report)
+            self.assertEqual(record['schemaVersion'], 3)
+            projection = json.loads(output.getvalue().splitlines()[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
+            for diag in (record['diagnostics'], projection):
+                self.assertEqual(diag['aptRejection'], dict(kind='NOTICE', line=2, length=7))
+                self.assertEqual((diag['stage'], diag['error'], diag['cleanup']),
+                                 ('PACKAGE_UPGRADE_SIMULATE', 'APT_SIMULATION_UNRECOGNIZED', 'PASSED'))
+            for text in (report.read_text(), output.getvalue()):
+                for forbidden in ('N: demo', 'W: later', directory): self.assertNotIn(forbidden, text)
+
+    def test_rejection_projection_rejects_content_and_invalid_scalar_contracts(self):
+        import ci_diagnostics as diagnostics
+        valid = {**diagnostics.empty_diagnostics(), 'phase': 'PREPARE', 'stage': 'PACKAGE_UPGRADE_SIMULATE',
+                 'error': 'APT_SIMULATION_UNRECOGNIZED', 'aptRejection': dict(kind='NOTICE', line=2, length=7)}
+        try: validated = diagnostics.validate_diagnostics(valid)
+        except ValueError: validated = None
+        self.assertEqual(validated, valid, 'bounded rejection projection must be accepted')
+        for detail in ({'kind': 'untrusted', 'line': 2, 'length': 7},
+                       {'kind': 'NOTICE', 'line': True, 'length': 7},
+                       {'kind': 'NOTICE', 'line': 4097, 'length': 7},
+                       {'kind': 'NOTICE', 'line': 2, 'length': 524289},
+                       {'kind': 'NOTICE', 'line': 0, 'length': 7},
+                       {'kind': 'NOTICE', 'line': 2, 'length': 0},
+                       {'kind': 'NOTICE', 'line': 2, 'length': True},
+                       {'kind': 'NOTICE', 'line': 2, 'length': 7, 'text': 'not-exported'}):
+            with self.subTest(keys=sorted(detail)), self.assertRaises(ValueError):
+                diagnostics.validate_diagnostics({**valid, 'aptRejection': detail})
+        with self.assertRaises(ValueError):
+            diagnostics.validate_diagnostics({**valid, 'error': 'CI_COMMAND_FAILED'})
+        self.assertIsNone(diagnostics.empty_diagnostics()['aptRejection'])
+        for error in (ValueError('APT_SIMULATION_UNRECOGNIZED', 'NOTICE', True, 7),
+                      ValueError('APT_SIMULATION_UNRECOGNIZED', 'private-text', 2, 7),
+                      type('UntrustedError', (ValueError,), {})('APT_SIMULATION_UNRECOGNIZED', 'NOTICE', 2, 7)):
+            self.assertEqual(diagnostics.error_code(error), 'UNKNOWN_ERROR')
+
+    def test_primary_apt_rejection_survives_failed_cleanup_and_later_errors(self):
+        from ci_diagnostics import empty_diagnostics, record_cleanup, record_failure, remember_failure
+        executor = SimpleNamespace(stage='PACKAGE_UPGRADE_SIMULATE')
+        remember_failure(executor, 'PREPARE', ValueError('APT_SIMULATION_UNRECOGNIZED', 'NOTICE', 2, 7))
+        executor.stage = 'CLEANUP_CACHE'
+        record = dict(diagnostics=empty_diagnostics())
+        record_failure(record, 'PREPARE', ValueError('CI_COMMAND_FAILED'), executor)
+        record_cleanup(record, False, executor)
+        record_failure(record, 'CLEANUP', ValueError('CLEANUP_UNPROVEN'), executor)
+        self.assertEqual(record['diagnostics'].get('aptRejection'), dict(kind='NOTICE', line=2, length=7))
+        self.assertEqual(record['diagnostics']['error'], 'APT_SIMULATION_UNRECOGNIZED')
+        self.assertEqual(record['diagnostics']['cleanupError'], 'CLEANUP_UNPROVEN')
+
     def test_real_apt_parser_codes_survive_prepare_cleanup_and_stdout(self):
         import ci_isolation_bootstrap as bootstrap
         from ci_image_upgrade import parse_apt_simulation
@@ -196,11 +262,14 @@ class WiringTests(unittest.TestCase):
                 self.assertEqual(len(lines), 2)
                 self.assertEqual(lines[-1], 'CI_BOOTSTRAP_BLOCKED')
                 data = json.loads(lines[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
-                self.assertEqual(set(data), {'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError'})
+                self.assertEqual(set(data), {'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection'})
+                self.assertIsNone(data['aptRejection'])
                 self.assertEqual((data['stage'], data['error']), ('PACKAGE_REFRESH', 'CI_COMMAND_FAILED'))
-                record = json.loads(report.read_text()); record['schemaVersion'] = 1
-                report.write_text(json.dumps(record))
-                with self.assertRaisesRegex(ValueError, 'CI_REPORT_INVALID'): bootstrap._read_report(report)
+                record = json.loads(report.read_text())
+                for old in (1, 2):
+                    record['schemaVersion'] = old
+                    report.write_text(json.dumps(record))
+                    with self.assertRaisesRegex(ValueError, 'CI_REPORT_INVALID'): bootstrap._read_report(report)
 
     def test_internal_cleanup_does_not_replace_primary_failure_stage_or_code(self):
         from ci_diagnostics import empty_diagnostics, record_failure, remember_failure

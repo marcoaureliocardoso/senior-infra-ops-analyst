@@ -1,5 +1,20 @@
 # CI isolation bootstrap review and author remediation
 
+## Approved structural APT diagnostic increment - 2026-10-27
+After the fresh four-finding repair, hosted CI40534516818 at be6f470 rejected
+an APT simulation line with APT_SIMULATION_UNRECOGNIZED and passed cleanup.
+No received line or artifact survived; the root trigger could not be recovered.
+Official APT simulation sources and six pure synthetic probes demonstrated that
+multiple structural forms share this error, not which one occurred in CI.
+
+The operator approved one diagnostic increment and one exact-head CI validation.
+Schema3 adds nullable aptRejection={kind,line,length}, with a finite kind and
+bounded numeric fields only. Existing rejection, operational commands, capture,
+privileges and Nori versions remain unchanged. No raw line, content hash or
+package identity may enter the projection; cleanup cannot replace the primary
+detail. Focused CI suites passed after RED-to-GREEN controls. Independent
+targeted review and immutable/full-hosted qualification remain pending here.
+
 ## Fresh review and four-finding author fix pass - 2026-10-27
 Three fresh independent ordinary domain reviews inspected the published
 `cd78c2a472a219636fc1cadf59387b7017f74e77` candidate against the unchanged base.

@@ -78,13 +78,19 @@ receipts and nonce/inode ownership bind lifecycle stages. Raw command/audit
 streams are not exported or uploaded. Always-run cleanup removes only owned
 policy names/files, the private runtime/cache and the owned build workspace.
 Failed cleanup is a failed job, not qualified isolation.
-The schema2 aggregate includes finite diagnostic phase, stage, error and cleanup
+The schema3 aggregate includes finite diagnostic phase, stage, error and cleanup
 codes. A primary failure is latched before internal or always-run cleanup can
 replace the current stage; later cleanup cannot erase it. Only this validated
-six-field projection enters stdout, including on prepare failure. Arbitrary
+projection enters stdout, including on prepare failure. Arbitrary
 exception text, command arguments/output, URLs, paths, environment and host/run
 identifiers are excluded; unknown values map to fixed UNKNOWN codes. Old or
 extended report schemas reject. This improves attribution, not runtime authority.
+The operator-approved first-rejection diagnostic is nullable aptRejection with
+exact keys kind, line and length. Kind is a closed structural enum; line is
+one-based including blank lines (1..4096); character length excludes newline
+(1..524288). Only APT_SIMULATION_UNRECOGNIZED can carry this detail. No line,
+package identity or received-content hash is preserved, and no new form is
+accepted. The old schema2 is rejected rather than silently extended.
 The shared report path is explicitly bound in each lifecycle step's environment,
 where GitHub makes runner context available; no job-level runtime expression or
 successful earlier initialization is required by cleanup. The wiring contract

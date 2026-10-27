@@ -73,6 +73,20 @@ def _valid_version(value):
     return type(value) is str and len(value) <= 128 and _VERSION.fullmatch(value) is not None
 
 
+def _unrecognized_line_kind(line):
+    # Diagnostic only: never changes acceptance or preserves received text.
+    for prefix, pattern, kind in (("Inst ", _INST, "INST"), ("Conf ", _CONF, "CONF"),
+                                  ("Remv ", _REMV, "REMV")):
+        if line.startswith(prefix):
+            match = pattern.match(line)
+            return kind + ("_SUFFIX" if match and line[match.end():].startswith(" [") else "_OTHER")
+    if re.match(r"[0-9]+ upgraded,", line): return "SUMMARY_VARIANT"
+    if line.startswith("N: "): return "NOTICE"
+    if line.startswith("W: "): return "WARNING"
+    if line == "The following held packages will be changed:": return "HELD_CHANGE_HEADER"
+    return "HEADER" if line.endswith(":") else "OTHER"
+
+
 def parse_apt_simulation(text: str) -> UpgradeProposal:
     """Accept a bounded, internally coherent C-locale simulation or fail closed."""
     if (type(text) is not str or not text or len(text.encode("utf-8")) > 512 * 1024
@@ -87,7 +101,7 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
     list_kind = None
     advisory_seen = False
     manual, phasing_notice = set(), False
-    for line in lines:
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             list_kind = None
             continue
@@ -152,7 +166,7 @@ def parse_apt_simulation(text: str) -> UpgradeProposal:
                 raise ValueError("APT_SIMULATION_AMBIGUOUS")
             manual.add(name)
         else:
-            raise ValueError("APT_SIMULATION_UNRECOGNIZED")
+            raise ValueError("APT_SIMULATION_UNRECOGNIZED", _unrecognized_line_kind(line), line_number, len(line))
     if (summary is None or set(unchanged) & set(actions) or not manual <= set(unchanged)
             or phasing_notice and not (lists.get("held") and lists.get("phased"))):
         raise ValueError("APT_SIMULATION_AMBIGUOUS")

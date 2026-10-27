@@ -1,6 +1,25 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Structural APT rejection instrumentation - 2026-10-27
+The operator approved category, position and length only, followed by one
+exact-head hosted CI validation. No parser acceptance or operational command
+changes were approved. Internal report schema3 adds nullable aptRejection with
+exact keys kind, line and length. Kind is a finite enum; line is one-based,
+including blank lines, from1 through4096; character length excludes newline,
+from1 through524288. Unrelated errors carry null. Old report schemas reject.
+
+RED-to-GREEN tests cover the actual parser's first-rejection path, all12 kinds,
+existing input limits, prepare/report/cleanup/stdout transport, failed-cleanup
+primary evidence preservation and malformed/content-bearing projections.
+Focused suites passed: image18, runtime7, bootstrap32, proof6, wiring17 and
+workflow25. The root and all component versions stay unchanged: this code is
+CI/test-only. Immutable full-package evidence, independent review and the one
+hosted validation are pending at this record's creation. No raw line, package
+name, received-content hash, provider/browser/native session, local APT/root
+operation, operator configuration or credential access, retry, merge or release
+is authorized by this diagnostic increment.
+
 ## Fresh PR 58 four-finding remediation - 2026-10-27
 The operator approved both P2 and both P3 findings from the fresh independent
 CI, browser and harness reviews. The indexed

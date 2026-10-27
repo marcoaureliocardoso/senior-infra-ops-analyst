@@ -44,6 +44,33 @@ class ImageUpgradeTests(unittest.TestCase):
         result = self.decision("0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n")
         self.assertEqual((result.status, result.package_count), ("UP_TO_DATE", 0))
 
+    def test_first_unrecognized_line_reports_only_bounded_structural_scalars(self):
+        cases = [('Inst demo (2 src) []', 'INST_SUFFIX', 20),
+                 ('Conf demo (2 src) []', 'CONF_SUFFIX', 20),
+                 ('Remv demo [1] []', 'REMV_SUFFIX', 16),
+                 ('Inst unknown', 'INST_OTHER', 12),
+                 ('Conf unknown', 'CONF_OTHER', 12),
+                 ('Remv unknown', 'REMV_OTHER', 12),
+                 ('0 upgraded, unexpected', 'SUMMARY_VARIANT', 22),
+                 ('N: demo', 'NOTICE', 7), ('W: demo', 'WARNING', 7),
+                 ('The following held packages will be changed:', 'HELD_CHANGE_HEADER', 44),
+                 ('Unmodelled header:', 'HEADER', 18), ('Unmodelled text', 'OTHER', 15)]
+        for line, kind, length in cases:
+            with self.subTest(kind=kind):
+                with self.assertRaises(ValueError) as caught:
+                    self.m.parse_apt_simulation('\n' + line + '\nN: later\n')
+                self.assertEqual(type(caught.exception), ValueError)
+                self.assertEqual(caught.exception.args, ('APT_SIMULATION_UNRECOGNIZED', kind, 2, length))
+                self.assertNotIn(line, repr(caught.exception.args))
+
+    def test_rejection_position_and_length_remain_within_existing_input_bounds(self):
+        with self.assertRaises(ValueError) as caught:
+            self.m.parse_apt_simulation('\n' * 4095 + 'x')
+        self.assertEqual(caught.exception.args, ('APT_SIMULATION_UNRECOGNIZED', 'OTHER', 4096, 1))
+        with self.assertRaises(ValueError) as caught:
+            self.m.parse_apt_simulation('x' * (512 * 1024))
+        self.assertEqual(caught.exception.args, ('APT_SIMULATION_UNRECOGNIZED', 'OTHER', 1, 524288))
+
     def test_new_service_in_frozen_general_candidate_skips_and_continues_dependencies(self):
         class Adapter:
             requested = frozenset({'build-demo'})

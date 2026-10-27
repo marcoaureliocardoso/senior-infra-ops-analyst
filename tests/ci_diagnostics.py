@@ -27,22 +27,37 @@ PACKAGE_OWNERSHIP_UNPROVEN PACKAGE_CACHE_UNSAFE PACKAGE_CACHE_TOO_LARGE
 PACKAGE_ARCHIVE_UNPROVEN PACKAGE_ARCHIVE_UNAVAILABLE PACKAGE_CACHE_CHANGED
 PACKAGE_POSTCONDITION_FAILED RUNTIME_SPEC_INVALID RUNTIME_PREFIX_COLLISION
 RUNTIME_ARCHITECTURE_UNSUPPORTED RUNTIME_BINARY_CHANGED'''.split())
-KEYS = frozenset({'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError'})
+KEYS = frozenset({'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection'})
+APT_LINE_KINDS = frozenset('''INST_SUFFIX CONF_SUFFIX REMV_SUFFIX INST_OTHER CONF_OTHER
+REMV_OTHER SUMMARY_VARIANT NOTICE WARNING HELD_CHANGE_HEADER HEADER OTHER'''.split())
 
 
 def empty_diagnostics():
     return dict(phase='NONE', stage='NONE', error='NONE', cleanup='NOT_ATTEMPTED',
-                cleanupStage='NONE', cleanupError='NONE')
+                cleanupStage='NONE', cleanupError='NONE', aptRejection=None)
+
+
+def validate_apt_rejection(value):
+    if value is None: return None
+    if (type(value) is not dict or set(value) != {'kind', 'line', 'length'}
+            or type(value['kind']) is not str or value['kind'] not in APT_LINE_KINDS
+            or type(value['line']) is not int or not 1 <= value['line'] <= 4096
+            or type(value['length']) is not int or not 1 <= value['length'] <= 524288):
+        raise ValueError('CI_DIAGNOSTICS_INVALID')
+    return value
 
 
 def validate_diagnostics(value):
-    if type(value) is not dict or set(value) != KEYS or any(type(v) is not str for v in value.values()):
+    if (type(value) is not dict or set(value) != KEYS
+            or any(type(value[key]) is not str for key in KEYS - {'aptRejection'})):
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     if (value['phase'] not in PHASES or value['stage'] not in STAGES or value['error'] not in ERRORS
             or value['cleanupStage'] not in STAGES or value['cleanupError'] not in ERRORS
             or value['cleanup'] not in ('NOT_ATTEMPTED', 'PASSED', 'FAILED')):
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     if (value['error'] == 'NONE') != (value['phase'] == 'NONE' and value['stage'] == 'NONE'):
+        raise ValueError('CI_DIAGNOSTICS_INVALID')
+    if validate_apt_rejection(value['aptRejection']) is not None and value['error'] != 'APT_SIMULATION_UNRECOGNIZED':
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     return value
 
@@ -55,25 +70,38 @@ def failure_stage(executor):
 def error_code(error):
     if isinstance(error, KeyboardInterrupt): return 'INTERRUPTED'
     if isinstance(error, OSError): return 'OS_ERROR'
-    # Inspect only a single exact built-in scalar, never str/repr(error), chains,
-    # child output, exception subclass properties or arbitrary message fragments.
-    if type(error) is ValueError and len(error.args) == 1:
-        code = error.args[0]
-        if type(code) is str and code in ERRORS - {'NONE'}: return code
+    # Only exact built-in scalar args; never str/repr, chains or subclass properties.
+    if type(error) is ValueError:
+        if len(error.args) == 4 and apt_rejection(error) is not None:
+            return 'APT_SIMULATION_UNRECOGNIZED'
+        if len(error.args) == 1:
+            code = error.args[0]
+            if type(code) is str and code in ERRORS - {'NONE'}: return code
     return 'UNKNOWN_ERROR'
+
+
+def apt_rejection(error):
+    if (type(error) is ValueError and len(error.args) == 4
+            and type(error.args[0]) is str and error.args[0] == 'APT_SIMULATION_UNRECOGNIZED'):
+        value = dict(kind=error.args[1], line=error.args[2], length=error.args[3])
+        try: return validate_apt_rejection(value)
+        except ValueError: pass
+    return None
 
 
 def remember_failure(executor, phase, error):
     """Latch before any internal cleanup can replace the current stage."""
     if getattr(executor, 'primary_failure', None) is None:
-        executor.primary_failure = dict(phase=phase, stage=failure_stage(executor), error=error_code(error))
+        executor.primary_failure = dict(phase=phase, stage=failure_stage(executor), error=error_code(error),
+                                        aptRejection=apt_rejection(error))
 
 
 def record_failure(record, phase, error, executor=None):
     diag = record['diagnostics']
     if diag['error'] != 'NONE': return
     prior = getattr(executor, 'primary_failure', None)
-    values = prior if type(prior) is dict else dict(phase=phase, stage=failure_stage(executor), error=error_code(error))
+    values = prior if type(prior) is dict else dict(phase=phase, stage=failure_stage(executor), error=error_code(error),
+                                                 aptRejection=apt_rejection(error))
     candidate = {**diag, **values}
     validate_diagnostics(candidate)
     record['diagnostics'] = candidate

@@ -7,6 +7,12 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Added operator-approved, content-free APT rejection diagnostics to the CI-only
+  bootstrap. Internal report schema3 projects a finite first-rejected-line kind,
+  one-based line number and bounded character length, preserving the original
+  error through cleanup. No received text or hashes are retained; package
+  acceptance, commands, privileges and component versions are unchanged.
+
 - Corrected four findings from the fresh PR 58 review: preserve the four finite
   APT simulation parser codes through CI cleanup and stdout diagnostics; match
   Playwright literal control names exactly; reject legacy tool streams with
