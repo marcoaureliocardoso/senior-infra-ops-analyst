@@ -15,9 +15,25 @@ recognizer existed. GREEN: image23, runtime7, bootstrap32, proof6, wiring17 and
 workflow25 passed. The new controls cover policy refusal despite annotations,
 targeted dependencies, malformed/foreign/reordered/duplicate syntax, complete
 configuration and count/version coherence. Internal schema3 and all Nori
-versions stay unchanged; only CI/test code changed. Independent review, complete
-immutable package proof and one fresh exact-head hosted observation are pending
-at this record's creation. No raw APT line/hash, provider/browser/native session,
+versions stay unchanged; only CI/test code changed. Fresh independent read-only
+review of a20ee24..b709621 and all six changed files found no actionable
+Critical/Important/Minor issues. Both inspected upstream versions match the
+ordered grammar. The review independently passed diff checking, not the tests;
+the actual earlier line28, full/hosted outcomes, real root/maintainer/native/
+provider behavior and wider PR security/merge/release remain outside its verdict.
+
+The complete immutable gate at
+`b709621f91f1bd28277e5a4dffc4261b5c62988c` passed in1485.36 seconds, exit0,
+no timeout. All613 canonical files matched the archive before execution and
+remained unchanged; disposableRootAbsent was true. Archive SHA-256 before/after:
+`fd6fcab07fe8d7482637064d79c853ea200f0907d63c96c9780b9277036d6574`.
+The synchronized receipt and exclusive Windows-preserved identical-byte copy
+both hashed to
+`2b69102dcc67d475644642deaba2a8a5162c748d0e35cb318002721bff27a313`.
+The log reached `package validation passed` and guard mutations passed88/88.
+The final evidence-only Markdown commit is distinct from this tested source.
+One fresh exact-head hosted observation remains pending publication, not
+qualified by the local pass. No raw APT line/hash, provider/browser/native session,
 operator state, local APT/root/AppArmor operation, retry, merge or release is
 authorized by this repair.
 

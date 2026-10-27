@@ -14,8 +14,18 @@ success and all coherence, package-policy and postcondition checks remain.
 Five new test methods pin official forms, targeted-dependency and unsafe-policy
 behavior, malformed/foreign/reordered suffixes and incomplete proposals. The
 diagnostic examples now use invalid suffixes so known official syntax no longer
-has an obsolete rejection expectation. Review and immutable/hosted evidence are
-pending at this record's creation. No actual received line was captured.
+has an obsolete rejection expectation. Fresh independent read-only review of
+a20ee24..b709621 and all six changed files found no actionable Critical/Important/
+Minor issues. The upstream2.8.1/2.7.14 emitters and diff whitespace were verified;
+author-reported110 focused tests were not independently rerun. The actual line28,
+full/hosted qualification, real APT/root/maintainer/native/provider behavior and
+wider PR security/merge/release/TODO completion were explicitly not certified.
+The author then ran the complete immutable gate at
+`b709621f91f1bd28277e5a4dffc4261b5c62988c`: exit0 in1485.36 seconds, no timeout,
+all613 canonical files/archive identity unchanged, disposable cleanup proved and
+an identical Windows-preserved receipt. Exact hashes are in validation notes.
+One fresh exact-head hosted observation remains pending. No actual received
+line was captured and no native/provider acceptance or merge follows.
 
 ## Approved structural APT diagnostic increment - 2026-10-27
 After the fresh four-finding repair, hosted CI40534516818 at be6f470 rejected
