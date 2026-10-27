@@ -12,8 +12,17 @@ Schema3 adds nullable aptRejection={kind,line,length}, with a finite kind and
 bounded numeric fields only. Existing rejection, operational commands, capture,
 privileges and Nori versions remain unchanged. No raw line, content hash or
 package identity may enter the projection; cleanup cannot replace the primary
-detail. Focused CI suites passed after RED-to-GREEN controls. Independent
-targeted review and immutable/full-hosted qualification remain pending here.
+detail. Focused CI suites passed after RED-to-GREEN controls. A fresh independent
+read-only review of be6f470..75767fd and all nine changed files found no actionable
+Critical/Important/Minor findings. It verified the unchanged acceptance path,
+strict finite projection and cleanup preservation without rerunning tests.
+The actual prior APT trigger, whole-package/hosted behavior, whole-PR security,
+operational root/provider/native acceptance and merge/release were not certified.
+The author subsequently ran the complete immutable gate at
+`75767fd92071ad0a0697b73c097e7efe06766aa2`: exit0 in1476.21 seconds, no timeout,
+all613 canonical files/archive digest unchanged, disposable cleanup proved and
+identical Windows-preserved receipt. Exact hashes are in validation notes.
+The one authorized exact-head hosted diagnostic validation remains pending.
 
 ## Fresh review and four-finding author fix pass - 2026-10-27
 Three fresh independent ordinary domain reviews inspected the published

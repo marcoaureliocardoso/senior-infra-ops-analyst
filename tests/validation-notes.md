@@ -14,8 +14,26 @@ existing input limits, prepare/report/cleanup/stdout transport, failed-cleanup
 primary evidence preservation and malformed/content-bearing projections.
 Focused suites passed: image18, runtime7, bootstrap32, proof6, wiring17 and
 workflow25. The root and all component versions stay unchanged: this code is
-CI/test-only. Immutable full-package evidence, independent review and the one
-hosted validation are pending at this record's creation. No raw line, package
+CI/test-only. The fresh independent targeted reviewer inspected the exact
+be6f470..75767fd range and all nine changed files, finding no actionable
+Critical/Important/Minor issues. This was a read-only source review, not an
+independent test rerun or whole-PR security certification. The actual earlier
+APT trigger, real operational behavior and native/provider/merge/release gates
+were explicitly left unqualified.
+
+The immutable full-package gate at
+`75767fd92071ad0a0697b73c097e7efe06766aa2` passed in1476.21 seconds, exit0,
+without timeout. All613 canonical files matched the archive before execution
+and remained unchanged; disposableRootAbsent was true. Archive SHA-256 before
+and after:
+`0834525c8e3aad1596d0c19702838c8018b1a649c79ac1adf73c19a45db63060`.
+The synchronized receipt and exclusive Windows-preserved identical-byte copy
+both hashed to
+`b251c62276556502b2406d3da81fecabd877e9460374fdee583f53f32e656a4c`.
+The log reached `package validation passed`; guard mutations passed88/88.
+The evidence-only Markdown commit is distinct from this source candidate.
+One exact-head hosted validation remains pending publication; no local pass
+certifies hosted provisioning. No raw line, package
 name, received-content hash, provider/browser/native session, local APT/root
 operation, operator configuration or credential access, retry, merge or release
 is authorized by this diagnostic increment.
