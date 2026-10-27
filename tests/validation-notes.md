@@ -16,8 +16,22 @@ The stream ownership and duplicate-key regressions passed after rejecting all
 nine previously accepted malformed traces. Complete legacy144 and SDK/resume29
 tests passed, as did ShellCheck16, Markdown275, spelling, schema, content,
 architecture13, workflow, Nori package contracts25 and browser policy4 checks,
-plus Windows PowerShell syntax. A fresh
-immutable whole-package receipt remains pending at this record's creation.
+plus Windows PowerShell syntax.
+
+The fresh immutable full-package gate at
+`a041214992d34d659c12dfc850a1377a47aa9a36` passed in1473.52 seconds, exit0,
+without timeout. All613 canonical files matched the source archive before
+execution and remained unchanged; disposableRootAbsent was true. Archive
+SHA-256 before and after:
+`9e1940bf73ba6d592f4a6adea069ba691694e70afa03ef14f8117f653ef8223f`.
+The synchronized receipt and exclusive Windows-preserved identical-byte copy
+both hashed to
+`3e9df27bc0d57a88423e0bbc0cb944b4bd2731d0bf21b03bcc04cd4a9e8158db`.
+The full log reached `package validation passed`; guard semantic mutations
+passed88/88. The final evidence-only Markdown commit is distinct from this
+tested source candidate. Hosted exact-head CI/Security qualification remains
+pending publication; this local pass does not replace it. The prior failed
+hosted run and earlier gate artifacts remain unmodified.
 
 The previous published cd78c2a CI40415866653 failed prepare at
 PACKAGE_UPGRADE_SIMULATE with UNKNOWN_ERROR and cleanup PASSED. All six other

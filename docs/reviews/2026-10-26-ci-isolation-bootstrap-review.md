@@ -20,6 +20,15 @@ error; the assertion now uses the adapter's existing sanitized public failure
 and separately verifies zero protected dispatch. No production error handling
 was relaxed. Browser component advances to1.0.4; command stays1.2.1.
 
+Author verification: whole browser227 pass plus one real-browser opt-in skip;
+legacy144, SDK/resume29 and all six affected CI groups passed. Package metadata
+and quality checks passed. The immutable full-package gate at
+`a041214992d34d659c12dfc850a1377a47aa9a36` passed in1473.52 seconds, exit0,
+no timeout; all613 canonical files and the archive digest remained unchanged,
+with disposable cleanup proved and an identical Windows-preserved receipt.
+Exact hashes and exclusions are in the validation notes. This author repair
+pass is not a second independent review, native acceptance or hosted approval.
+
 The exact published cd78c2a CI40415866653 failed at
 PACKAGE_UPGRADE_SIMULATE with UNKNOWN_ERROR and cleanup PASSED. The six other
 CI jobs and Security40415866666 passed. These reviews establish diagnostic loss,
