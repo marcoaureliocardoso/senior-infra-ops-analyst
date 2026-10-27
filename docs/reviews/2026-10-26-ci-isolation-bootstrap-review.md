@@ -1,5 +1,34 @@
 # CI isolation bootstrap review and author remediation
 
+## Fresh review and four-finding author fix pass - 2026-10-27
+Three fresh independent ordinary domain reviews inspected the published
+`cd78c2a472a219636fc1cadf59387b7017f74e77` candidate against the unchanged base.
+They reported two P2 and two P3 findings, all approved for correction by the
+operator. This is their single author TDD repair pass, not a fresh independent
+approval or a formal security scan.
+
+| Finding | Reproduction and correction |
+|---|---|
+| P2 finite APT parser errors lost as UNKNOWN_ERROR | Four real parser failures passed through prepare, cleanup and stdout projection reproduced the loss. Add only the four existing APT_SIMULATION parser codes to the closed diagnostic enum; arbitrary messages remain UNKNOWN_ERROR. |
+| P2 Playwright names matched different controls | Real adapter methods with documented-surface doubles accepted longer or case-different names. Require exact matching for named locators; positive controls cover fill/select/click/submit/inspect/verify and negatives prove no wrong dispatch. |
+| P3 legacy stream tool ownership | Synthetic traces accepted user-owned calls, assistant-owned results and conflicting supplied message roles. Enforce native event ownership and consistent supplied roles while preserving omitted historical inner roles. |
+| P3 duplicate JSON fields hid errors | Duplicate terminal, init and nested fields overwrote failures or session metadata. Reuse the strict object-pairs parser and reject the whole ambiguous sample, including later success records. |
+
+All four regressions failed before the implementation changes. The first
+Playwright GREEN run exposed an overly specific assertion on a private double
+error; the assertion now uses the adapter's existing sanitized public failure
+and separately verifies zero protected dispatch. No production error handling
+was relaxed. Browser component advances to1.0.4; command stays1.2.1.
+
+The exact published cd78c2a CI40415866653 failed at
+PACKAGE_UPGRADE_SIMULATE with UNKNOWN_ERROR and cleanup PASSED. The six other
+CI jobs and Security40415866666 passed. These reviews establish diagnostic loss,
+not the actual hosted APT exception or a parser grammar defect. Hosted and local
+qualification remain separate. No real browser/provider/native session, raw
+diagnostic retention, manual hosted retry, merge or release is authorized by
+these repairs. Formal security-diff-scan remains unavailable: the earlier setup
+failed before scanId; ordinary reviews and hosted Security do not replace it.
+
 ## Operator-requested resumed PR review
 The three original ordinary engineering reviewers resumed at
 `8846bee1aa47834cec95c206e8e1cd90514868d4..8e7429be1c23dea1cdb368432dee976e845b111b`

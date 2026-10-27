@@ -3639,6 +3639,62 @@ raise SystemExit(1)
                 self.assertNotIn("content", json.dumps(result))
                 self.assertNotIn("discarded", json.dumps(result))
 
+    def _measurement_tool_fixture(self):
+        session, nonce = 'measurement-session', 'measurement-nonce'
+        return session, nonce, [
+            dict(type='system', subtype='init', session_id=session, tools=['Skill']),
+            dict(type='assistant', session_id=session, message=dict(role='assistant', content=[
+                dict(type='tool_use', id='call-1', name='Skill', input={'skill': 'context-continuity'})])),
+            dict(type='user', session_id=session, message=dict(role='user', content=[
+                dict(type='tool_result', tool_use_id='call-1', is_error=False)])),
+            dict(type='result', subtype='success', session_id=session, is_error=False, error=None)]
+
+    def test_measurement_requires_native_tool_owners_and_consistent_supplied_message_roles(self):
+        import copy
+        import tempfile
+        from browser_operations_live import evaluate_measurement_stream
+        session, nonce, base = self._measurement_tool_fixture()
+        samples = [(base, True)]
+        omitted_roles = copy.deepcopy(base)
+        for index in (1, 2): omitted_roles[index]['message'].pop('role')
+        samples.append((omitted_roles, True))
+        for index, wrong in ((1, 'user'), (2, 'assistant')):
+            changed = copy.deepcopy(base)
+            changed[index].update(type=wrong)
+            changed[index]['message']['role'] = wrong
+            samples.append((changed, False))
+            changed = copy.deepcopy(base)
+            changed[index]['message']['role'] = wrong
+            samples.append((changed, False))
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory)/'sample.jsonl'
+            for index, (events, accepted) in enumerate(samples):
+                with self.subTest(index=index):
+                    stream.write_text(''.join(json.dumps(e)+'\n' for e in events), encoding='utf-8')
+                    self.assertIs(evaluate_measurement_stream(stream, session, 'skill', nonce)['terminalSuccess'], accepted)
+
+    def test_measurement_rejects_duplicate_fields_in_terminal_init_and_nested_messages(self):
+        import tempfile
+        from browser_operations_live import evaluate_measurement_stream
+        session, nonce, base = self._measurement_tool_fixture()
+        lines = [json.dumps(e, separators=(',', ':')) for e in base]
+        mutations = [(3, '"error":null', '"error":"fixture-error","error":null'),
+                     (3, '"is_error":false', '"is_error":true,"is_error":false'),
+                     (2, '"is_error":false', '"is_error":true,"is_error":false'),
+                     (2, '"role":"user"', '"role":"assistant","role":"user"'),
+                     (0, '"session_id":"measurement-session"',
+                      '"session_id":"foreign-session","session_id":"measurement-session"')]
+        with tempfile.TemporaryDirectory() as directory:
+            stream = Path(directory)/'sample.jsonl'
+            stream.write_text('\n'.join(lines)+'\n', encoding='utf-8')
+            self.assertTrue(evaluate_measurement_stream(stream, session, 'skill', nonce)['terminalSuccess'])
+            for index, (line_index, old, new) in enumerate(mutations):
+                with self.subTest(index=index):
+                    self.assertIn(old, lines[line_index])
+                    changed = list(lines); changed[line_index] = changed[line_index].replace(old, new, 1)
+                    stream.write_text('\n'.join(changed)+'\n', encoding='utf-8')
+                    self.assertFalse(evaluate_measurement_stream(stream, session, 'skill', nonce)['terminalSuccess'])
+
     def test_measurement_discovery_accepts_zero_calls_only_when_toolsearch_is_unavailable(self):
         import tempfile
         from browser_operations_live import evaluate_measurement_stream

@@ -273,6 +273,43 @@ test('Playwright adapter enforces origins requests popups and ephemeral context'
 });
 
 
+test('Playwright literal names reject different controls across action and observation consumers', async () => {
+  const origin = 'https://router.example.invalid:443';
+  for (const method of ['fill', 'select', 'click', 'submit', 'inspect', 'verify']) {
+    for (const actualName of ['Restart', 'Restart all nodes', 'restart']) {
+      const fake = playwrightRuntime();
+      const dispatched = [];
+      fake.resources.page.getByRole = (_role, options = {}) => {
+        const matches = options.exact ? options.name === actualName
+          : actualName.toLowerCase().includes(String(options.name).toLowerCase());
+        const action = async () => {
+          if (!matches) throw new Error('NO_MATCHING_CONTROL');
+          dispatched.push(method);
+          return 'fixture-value';
+        };
+        return { fill: action, selectOption: action, click: action, textContent: action,
+          async getAttribute() { if (!matches) throw new Error('NO_MATCHING_CONTROL'); return null; } };
+      };
+      const adapter = await createPlaywrightAdapter(fake.runtime, { allowedOrigins: [origin] });
+      try {
+        await adapter.open();
+        fake.state.currentUrl = origin;
+        const request = { origin, locatorRole: method === 'fill' ? 'textbox'
+          : method === 'select' ? 'combobox' : ['inspect', 'verify'].includes(method) ? 'status' : 'button',
+        locatorName: 'Restart', credential: 'fixture-value', predicate: 'text-equals',
+        expected: 'fixture-value', expectRef: 'fixture-state' };
+        if (actualName === 'Restart') {
+          assert.equal((await adapter[method](request)).status, method === 'verify' ? 'met' : 'ok');
+          assert.deepEqual(dispatched, [method]);
+        } else {
+          await assert.rejects(() => adapter[method](request), /ADAPTER_ACTION_FAILED/u);
+          assert.deepEqual(dispatched, []);
+        }
+      } finally { await adapter.close(); }
+    }
+  }
+});
+
 test('Puppeteer adapter does not claim pre-navigation popup containment', async () => {
   const fake = puppeteerRuntime();
   const adapter = await createPuppeteerAdapter(fake.runtime, {

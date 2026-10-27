@@ -7,6 +7,13 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected four findings from the fresh PR 58 review: preserve the four finite
+  APT simulation parser codes through CI cleanup and stdout diagnostics; match
+  Playwright literal control names exactly; reject legacy tool streams with
+  incorrect owners, conflicting message roles or duplicate JSON fields. Browser
+  component advances to 1.0.4; command component remains 1.2.1. These synthetic
+  regressions do not establish the hosted APT root cause or native acceptance.
+
 - Corrected eight P2 findings from the resumed PR 58 review: native browser-role
   binding and live legacy close/validate ownership; Puppeteer ARIA selectors and
   documented Locator/ElementHandle usage; unavailable ToolSearch zero-call

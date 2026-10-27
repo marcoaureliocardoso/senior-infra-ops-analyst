@@ -97,6 +97,45 @@ def check_workflows(root=ROOT):
 
 
 class WiringTests(unittest.TestCase):
+    def test_real_apt_parser_codes_survive_prepare_cleanup_and_stdout(self):
+        import ci_isolation_bootstrap as bootstrap
+        from ci_image_upgrade import parse_apt_simulation
+        cases = [('', 'APT_SIMULATION_INVALID'),
+                 ('0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\nUnmodelled notice\n',
+                  'APT_SIMULATION_UNRECOGNIZED'),
+                 ('1 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n',
+                  'APT_SIMULATION_DRIFT'),
+                 ('0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n' * 2,
+                  'APT_SIMULATION_AMBIGUOUS')]
+        for sample, expected in cases:
+            with self.subTest(code=expected), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); report = root/'report.json'; output = io.StringIO()
+                executor = SimpleNamespace(stage='PACKAGE_UPGRADE_SIMULATE', spec=object())
+                def fail_parser(*args, **kwargs): parse_apt_simulation(sample)
+                def cleanup(*args, **kwargs):
+                    executor.stage = 'CLEANUP_CACHE'
+                    return True
+                with patch.dict(os.environ, {'GITHUB_RUN_ID': '1', 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_SHA': 'a'*40}), \
+                        patch.object(bootstrap, '_hosted_environment', return_value=root), \
+                        patch.object(bootstrap, '_executor', return_value=executor), \
+                        patch.object(bootstrap, 'provision_runtime', side_effect=fail_parser), \
+                        patch.object(bootstrap, '_cleanup', side_effect=cleanup), contextlib.redirect_stdout(output):
+                    self.assertEqual(bootstrap.main(['--prepare', '--manifest', 'tests/ci-runtime-lock.json',
+                                                     '--report', str(report)]), 1)
+                    record = bootstrap._read_report(report)
+                    self.assertEqual(record['diagnostics']['error'], expected)
+                    self.assertEqual(record['diagnostics']['stage'], 'PACKAGE_UPGRADE_SIMULATE')
+                    self.assertEqual(record['diagnostics']['cleanup'], 'PASSED')
+                    bootstrap.cleanup_cli(report, root)
+                    self.assertEqual(bootstrap._read_report(report)['diagnostics']['error'], expected)
+                projection = json.loads(output.getvalue().splitlines()[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
+                self.assertEqual(projection['error'], expected)
+                self.assertNotIn('Unmodelled', output.getvalue())
+                self.assertNotIn(directory, output.getvalue())
+        from ci_diagnostics import error_code
+        self.assertEqual(error_code(ValueError('APT_SIMULATION_UNREVIEWED')), 'UNKNOWN_ERROR')
+        self.assertEqual(error_code(ValueError('untrusted message')), 'UNKNOWN_ERROR')
+
     def test_prepare_reports_closed_primary_failure_before_cleanup_overwrites_stage(self):
         import ci_isolation_bootstrap as bootstrap
         for error, expected in ((ValueError('PACKAGE_STATE_UNPROVEN'), 'PACKAGE_STATE_UNPROVEN'),

@@ -108,7 +108,7 @@ export async function createPlaywrightAdapter(runtime, options = {}) {
     live.check();
     const descriptor = locatorDescriptor(request);
     if (typeof selected.getByRole !== 'function') throw adapterError('SEMANTIC_LOCATOR_UNAVAILABLE');
-    return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name });
+    return selected.getByRole(descriptor.role, descriptor.name === undefined ? {} : { name: descriptor.name, exact: true });
   }
 
   function denyUnmanagedArtifactDispatch(request) {

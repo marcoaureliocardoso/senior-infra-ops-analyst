@@ -1084,7 +1084,7 @@ def evaluate_measurement_stream(
         with path.open("r", encoding="utf-8") as stream:
             for line in stream:
                 try:
-                    event = json.loads(line)
+                    event = json.loads(line, object_pairs_hook=_unique_json_object)
                 except json.JSONDecodeError:
                     malformed = True
                     continue
@@ -1118,6 +1118,7 @@ def evaluate_measurement_stream(
                     content = message.get("content") if isinstance(message, dict) else None
                     if (not init_seen or terminal_seen or session_id != expected_session
                             or not isinstance(content, list) or len(content) > 64
+                            or message.get('role', event_type) != event_type
                             or faulty_metadata(message)):
                         malformed = True
                         continue
@@ -1135,7 +1136,7 @@ def evaluate_measurement_stream(
                             name = block.get("name")
                             identifier = block.get("id")
                             tool_input = block.get("input")
-                            if (not isinstance(name, str) or not LABEL.fullmatch(name)
+                            if (event_type != 'assistant' or not isinstance(name, str) or not LABEL.fullmatch(name)
                                     or not isinstance(identifier, str)
                                     or not LABEL.fullmatch(identifier)
                                     or identifier in calls):
@@ -1150,7 +1151,7 @@ def evaluate_measurement_stream(
                         else:
                             identifier = block.get("tool_use_id")
                             is_error = block.get("is_error")
-                            if (not isinstance(identifier, str)
+                            if (event_type != 'user' or not isinstance(identifier, str)
                                     or not LABEL.fullmatch(identifier)
                                     or identifier not in calls or calls.get(identifier) is True
                                     or (is_error is not None and is_error is not False)):

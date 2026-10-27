@@ -1,6 +1,32 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Fresh PR 58 four-finding remediation - 2026-10-27
+The operator approved both P2 and both P3 findings from the fresh independent
+CI, browser and harness reviews. The indexed
+[review record](../docs/reviews/2026-10-26-ci-isolation-bootstrap-review.md)
+records the exact RED-to-GREEN contracts and review limits. Browser component
+advances to1.0.4; command stays1.2.1 and root0.15.0 remains unreleased.
+
+Observed local suites: browser227 passed with one real-browser opt-in skip;
+CI image16, runtime7, bootstrap32, proof6, diagnostics/wiring14 and workflow25
+passed. Four real APT parser failures retain their finite codes through the
+actual prepare/cleanup/stdout path; unrecognized messages remain UNKNOWN_ERROR.
+The stream ownership and duplicate-key regressions passed after rejecting all
+nine previously accepted malformed traces. Complete legacy144 and SDK/resume29
+tests passed, as did ShellCheck16, Markdown275, spelling, schema, content,
+architecture13, workflow, Nori package contracts25 and browser policy4 checks,
+plus Windows PowerShell syntax. A fresh
+immutable whole-package receipt remains pending at this record's creation.
+
+The previous published cd78c2a CI40415866653 failed prepare at
+PACKAGE_UPGRADE_SIMULATE with UNKNOWN_ERROR and cleanup PASSED. All six other
+CI jobs and Security40415866666 passed. The exact APT cause is unproven; these
+repairs expose known parser categories without changing conservative grammar.
+No raw command content, real browser/provider/native invocation, operator
+configuration or credential access, local APT installation, manual workflow
+retry, merge, release or TODO completion occurred in this pass.
+
 ## Resumed PR 58 review remediation - 2026-10-26
 The operator approved one author TDD wave for all eight P2 findings from the
 resumed ordinary browser, CI and harness reviews, plus closed structural CI
