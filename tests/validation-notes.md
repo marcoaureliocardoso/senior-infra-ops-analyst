@@ -55,6 +55,22 @@ admitted Document URL, parent and fresh loader; migration remains refused.
 Actual public-session support, startup/exclusivity, cross-domain timing and
 real redirect/TLS/cleanup behavior remain F1 or later proof obligations.
 
+The single immutable full-package gate at
+`d7d40c7baefe50b18524f70e41da19b85b438960` passed in1505.694 seconds, exit0,
+without timeout. All620 canonical files matched the archive before execution
+and remained unchanged; disposableRootAbsent was true. Archive SHA-256 before
+and after:
+`60fb9dff734f07e40453a5aef91eec9e3f0d7f39f024611ff5a81ad46281b086`.
+The synchronized receipt and its exclusive, identical-byte Windows-preserved
+copy both hashed to
+`717b1300795fdd086ffc65daa50dfb1028346bb5d887946ee8d97b0908930c37`.
+The log reached `package validation passed`; guard mutations passed88/88.
+Final affected checks passed browser264/1real opt-in skip, legacy146, CI111,
+metadata29 and quality. No second review, native/provider/browser run, push,
+new hosted CI/Security, merge, release or TODO completion is implied. F0 is
+complete locally; the real F1 harness and its execution grant remain separate.
+The following evidence-only documentation commit is distinct from tested source.
+
 ## Official APT action suffix grammar - 2026-10-27
 Native diagnostic CI40542797673 at a20ee24 identified INST_SUFFIX,line28,
 length126; cleanup passed, all six other CI jobs and Security40542797971 passed.

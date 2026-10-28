@@ -200,7 +200,7 @@ Failure cleanup dominates the candidate result; reports cannot carry exception t
   `python3 tests/test-ci-isolation-wiring.py`; schema/content/architecture,
   Markdown/spelling and ShellCheck. Record all failures, including unrelated
   ones. Verify Nori packaging excludes test-only modules in the normal contract.
-- [ ] **5. Review and commit the candidate:** use one fresh independent reviewer
+- [x] **5. Review and commit the candidate:** use one fresh independent reviewer
   for the combined candidate, preserve the chosen inline method and avoid
   automatic review/repair loops. Confirm no production redirect-capability
   change and no raw evidence retention. After focused checks and review, commit
@@ -208,7 +208,7 @@ Failure cleanup dominates the candidate result; reports cannot carry exception t
   their tests/docs. Label it locally verified but full-gate/native-unqualified;
   do not stage unrelated/operator files or push. The immutable gate needs this
   exact source commit, not a stale HEAD archive or a mixed working-tree copy.
-- [ ] **6. Run the full project command:** through the established clean Debian
+- [x] **6. Run the full project command:** through the established clean Debian
   WSL/Node24.17.0 route, run `bash tests/validate-package.sh` against an immutable
   Git archive of that combined author-repair plus F0 candidate. Preserve
   bounded receipt and owned cleanup proof using the already-qualified wrapper.
@@ -216,7 +216,7 @@ Failure cleanup dominates the candidate result; reports cannot carry exception t
   Stop and report any failure; do not automatically repeat the full gate. Record
   actual results in a separate evidence-only documentation checkpoint. Keep
   remote/native gates open; no push without explicit publication approval.
-- [ ] **7. Stop for F1:** report whether the candidate is ready or unavailable.
+- [x] **7. Stop for F1:** report whether the candidate is ready or unavailable.
   Request a separately bounded, commit-bound real-Chromium loopback feasibility
   grant only if F0 has no unresolved public-API blocker. No native execution,
   automatic repeat, custom launcher or alternative transport follows this plan.
@@ -244,11 +244,39 @@ tests. Interfaces above are shared verbatim between router, probe and finalizer.
 F1 and production acceptance are deliberately deferred because they depend on
 native feasibility, not because a synthetic pass waives them. Defaults are
 builder choices within the approved design, not operator claims about capability.
-Tasks1/2 and the Task3 local controls are implemented; combined qualification is
-in progress. The preserved execution method is direct/inline. Native feasibility
+Tasks1-3 are complete locally. The preserved execution method is direct/inline. Native feasibility
 and production transport admission remain unimplemented and unqualified.
 
 The independent review found four Important F0 defects; one author TDD pass
 corrected revocation queues, request-stage/ID validation, expected close detach
-and same-owned-frame navigation.36 local F0 controls pass; full-package evidence
-is still required. Native event ordering and exclusivity remain unproven.
+and same-owned-frame navigation.36 local F0 controls pass. The single immutable
+full gate passed at d7d40c7 in1505.694s,620 canonical files unchanged and owned
+cleanup proved; validation notes retain source/receipt hashes. No native run or
+publication occurred. F1 needs a concrete bounded driver and separate execution
+grant; neither is delivered or consumed by this F0 plan. Native ordering and
+exclusivity remain unproven.
+
+## Execution rulings and costs
+
+1. Host Git plus scoped manual markers replace Git-dependent Bash helpers; Windows linked metadata requires it. Risk: bookkeeping drift.
+2. Owned context closes before router listeners are removed; routing and resource ownership stay separate. Risk: false cleanup proof if reordered.
+3. Network correlation must precede Fetch admission; no invented redirect IDs. Cost: a native profile can be incompatible.
+4. Unresolved work closes/refuses instead of waiting without a bound. Cost: busy asynchronous UIs can be refused, never inferred not-applied.
+5. Local transport failure uses method:null, not a fabricated CDP event. Cost: synthetic ordering still cannot establish native ownership.
+6. Final review covers the combined cycle against eb895f6, not unchanged historical PR code. Cost: no renewed whole-PR certification.
+7. Precommit review holds an explicit complete source inventory unchanged. Cost: rechecking its digest before author changes/commit.
+8. Actual public-session availability is F1-only. Cost: the native route may be unavailable.
+9. First-traffic interception is F1-only. Cost: no native startup claim from fixture order.
+10. Competing-client exclusivity is F1-only. Cost: no operational activation from detecting one conflict symptom.
+11. Native inter-domain and acknowledgment ordering is F1-only. Cost: conservative ordering may reject the native profile.
+12. Arbitrary dynamic frames and OOPIF migration remain refused. Cost: narrower UI coverage, not stale identity reuse.
+13. Real redirects, URLs, methods, cookies and bodies need native endpoint tests. Cost: no real-transport qualification from F0.
+14. TLS, downloads, artifacts, service workers and non-HTTP remain deferred. Cost: limited F0 scope, never weakened policy.
+15. Real context/process recovery needs native proof. Cost: synthetic cleanup callbacks cannot qualify recovery.
+16. Real workload sizing is deferred; F0 limits remain finite. Cost: larger workloads can be refused.
+17. Puppeteer requires independent qualification. Cost: no inherited containment claim.
+18. Hosted PACKAGE_METADATA cause/resolution remains unproven. Cost: the hosted gate remains open despite the local filename repair.
+19. Full-package/remote/native/release/merge are distinct gates; review itself ran none. Local full-package later passed; other gates remain open.
+20. Unchanged old PR behavior is outside the cycle verdict. Cost: earlier risks are not qualified again by this review.
+21. Add synchronous router.revoke before awaited cleanup, without detach/disable. Risk: post-revocation sends if ordering regresses; I1/I3 pin it.
+22. The no-listener rule applies to the new F0 candidate, not existing isolated loopback fixtures in the approved full gate. Cost: scope interpretation must not authorize a new native/debug endpoint or external target.
