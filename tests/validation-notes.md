@@ -41,8 +41,23 @@ Review exclusions remain hosted/real privileged behavior, unchanged timestamp
 and matching semantics, full-PR/formal security/native/provider/browser/SDK
 qualification, merge/release/TODO completion and exhaustive native behavior of
 other root actions. These are not established by this repair. The new immutable
-full-package gate remains pending.
+full-package gate was pending at this checkpoint.
 No new CI, real sudo/journal, provider/browser/native attempt, push or merge ran.
+
+The single immutable gate at `93aae0323b79b623d7a7bfe16a893a72550edf85`
+passed in1496.831 seconds, exit0, without timeout. All622 canonical files matched
+the archive before execution and remained unchanged; disposableRootAbsent was
+true. Archive SHA-256 before/after:
+`ffc3df781230fd31645876d255e19d097c5b69db225d2c39cc482c7cc7eae736`.
+The synchronized receipt and its exclusive identical-byte Windows copy both
+hashed to `4b22fc03c98501ecb23a49b5df74cb26a9d7e7673e0c9eaf14bc68e375e55486`.
+The log reached `package validation passed`; guard mutations passed88/88.
+Existing explicit exclusions remained: Python batches3/1/1/1, one Node browser
+opt-in case, and the .ps1 syntax check because Linux had no PowerShell. No new
+test was skipped by this repair. These are not native acceptance evidence.
+This following documentation-only commit is distinct from tested source.
+Hosted resolution, full-PR formal security, native/provider/browser/SDK gates,
+push, merge, release and definitive TODO completion remain separate and pending.
 
 ## CI probe identity and finite failure preservation - 2026-10-28
 
