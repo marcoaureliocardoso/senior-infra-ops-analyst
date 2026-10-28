@@ -1,6 +1,6 @@
 # Senior Infrastructure Operations Analyst Skillset
 
-Version: 0.14.0
+Version: 0.15.0
 
 [![CI](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/ci.yml)
 [![Security](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml/badge.svg)](https://github.com/marcoaureliocardoso/senior-infra-ops-analyst/actions/workflows/security.yml)
@@ -14,7 +14,7 @@ The agent should not merely suggest diagnostics when tool access exists. It shou
 
 ## Included skills
 
-This package includes 25 skills covering core operations, continuity, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
+This package includes 26 skills covering core operations, continuity, guarded browser operations, incident/change/RCA, on-prem infrastructure, cloud, Kubernetes, databases, containers, load balancers, PKI, CI/CD, monitoring stacks, message queues, web gateways, privileged access, ITSM/CMDB, DR drills, vendor escalation, and audit evidence.
 
 ## Context continuity and preventive compaction
 
@@ -69,7 +69,110 @@ use `--confirmed-window-diagnostic <tokens>` only when that positive integer
 equals the single consistent capacity observed through that runtime field and
 the operator separately approves it. Missing, conflicting, or mismatched evidence
 blocks before the exceptional automatic probe.
-P0-04B browser automation remains outside this release.
+
+## Guarded browser operations
+
+Protected runner effects use the original approval deadline and a fresh
+per-dispatch clock shared with the adapter. Expiry blocks new effects; late
+results are inconclusive and cleanup still runs. See the
+[browser contract](references/browser-operations.md#protected-runner-approval-lifetime).
+
+Browser capability detection uses this route precedence: an existing recognized
+main-session MCP first, then a recognized protected runner. Unavailable,
+unrecognized, conflicting, or guard-unproven routes
+stop without execution. Nori installation does not install or enable an MCP,
+browser, Playwright, or Puppeteer, and it does not activate the project hooks.
+
+Inspect, activate, or remove only package-owned browser settings with:
+
+```bash
+node skills/browser-operations/scripts/configure-browser-operations.mjs --check
+node skills/browser-operations/scripts/configure-browser-operations.mjs --apply
+node skills/browser-operations/scripts/configure-browser-operations.mjs --remove-owned
+```
+
+Exact settings are not runtime proof: the current session must observe the
+expected structured guard deny before use. Every navigation and UI effect stays
+bound to one operation envelope, approved origins, and native authorization.
+Persisted settings or ownership data can never promote the configurator to
+`ACTIVE`; only current correlated runtime evidence can establish that state.
+The legacy read-only multi-command runner uses separate processes and does not
+share login state. Authentication or mutation instead requires one
+`browser-runner.mjs --step workflow` call with the complete operation envelope,
+reference-only base64url `--workflow-step` records, and fresh-context
+`--validation-step` records. Every mutable workflow is `ALWAYS_ASK`, even in
+`bypassPermissions`; the approved invocation fingerprint and the
+runtime-observed capability must match before browser open. Playwright may
+satisfy popup containment when detected; Puppeteer remains read-only because it
+cannot currently prove pre-navigation popup containment.
+Every `fill` or `select` record declares `valueClass` as `credential` or
+`configuration`. Credential values are accepted only on an explicit
+authentication origin; configuration values are accepted only on a service
+origin during execution, never during independent validation. Validation preparation
+permits only credential-class inputs and interactive clicks on explicit authentication
+origins. A negative desired-state predicate leaves partial effects `OUTCOME_UNKNOWN`;
+it cannot establish `WORKFLOW_NOT_APPLIED`. Navigation holds an exact destination-origin lock from request through
+redirect completion. Page-bound semantic actions verify the actual top-level
+origin before and after dispatch and hold the same lock while in flight. Both
+forms block a top-level transition to another allowed origin. An interrupted
+one-shot binding is quarantined instead of being reusable through the legacy
+multi-command route.
+The non-interactive acceptance harness uses `--permission-mode default` with
+phase-specific disposable test permission servers. One server permits only the
+exact synthetic loopback change; a fresh-session server denies only the exact
+synthetic rollback attempt. Their evidence is labelled
+`synthetic-deterministic`, never human approval. The servers, verifier, configs,
+claims, and signals are excluded from Nori staging and installed skill roots and
+are deleted before aggregation. Production does not install a permission server:
+mutable work uses the native interactive Claude Code prompt for every `ask`.
+The acceptance run is fixed at six top-level invocations and at most 40 model
+turns, with no automatic retry. A decision record alone is not approval
+evidence: an active result additionally requires the exact package runner and
+same-session SDK tool envelope, the actual Claude Code `hook_started` and
+`hook_response` lifecycle for the configured `PreToolUse:Bash` and
+`PostToolUse:Bash` matchers, the exact `ask` response produced by the installed
+command guard, successful tool completion, the matching successful post hook,
+the same parent tool identity, and a coherent structural workflow result in that order. Missing or
+unrecognized runtime fields remain inconclusive. The authenticated acceptance
+result remains pending until a separately authorized run observes this complete
+sequence.
+The Linux/WSL harness can run a provider-free request-shape diagnostic inside a
+Bubblewrap network namespace with no egress, a minimal disposable environment,
+a synthetic credential, and an in-namespace loopback API sentinel. It
+classifies the `/v1/messages` model field without retaining request content,
+rejects timeout or interruption evidence, and builds an explicit filesystem
+allowlist that does not mount host homes, user data, runtime sockets, host
+configuration, or unrelated temporary paths. It never executes an
+unisolated Claude version probe. The diagnostic is an explicit informational
+tool and is not invoked by preflight or live acceptance. P0-04B binds the
+configured provider endpoint, not the provider's internal model selection:
+live execution requires `P004B_AUTHORIZED_PROVIDER_ENDPOINT` to be a bounded
+HTTPS URL and to match `ANTHROPIC_BASE_URL` exactly. Model names and
+provider-internal remapping remain operational metadata and do not gate browser
+acceptance.
+Arbitrary stream records cannot supply role or context measurements, and an
+error terminal, later tool activity, or any failure lifecycle invalidates the
+sample. Until role and context evidence is collected through a separately
+trusted runtime channel, the aggregate remains inconclusive even when the
+one-shot workflow itself is structurally observed.
+Interactive authentication may use an existing protected session, a recognized
+vault/helper, or a credential requested from the operator; credentials remain
+authentication data and are never approval. A human-only challenge pauses for
+the operator.
+
+Downloads, screenshots, traces, and other artifact classes are denied unless
+the envelope explicitly permits their type and limits; binary evidence also
+requires a reviewed redactor. Artifact retention is not implemented and is
+denied. An unknown mutating or potentially autosaving interactive outcome is
+reconciled through the separate validation context and is never retried
+automatically. A later failure also triggers that validation when a preceding
+fill, select, click, or submit may already have persisted state. Every workflow
+exit invalidates the binding
+and cleans ephemeral browser, artifact, and reference state. Workflow results
+report the envelope's actual maximum effect. The 12 subagents keep
+their role-specific authority and receive no generic browser or MCP grant. See
+`references/browser-operations.md` and
+`docs/architecture/ADR-010-browser-automation-boundary.md`.
 
 ## Prompt-injection defense
 
@@ -445,6 +548,10 @@ python3 scripts/build_nori_staging.py \
   --check
 ```
 
+The builder normalizes packaged shell scripts to POSIX mode `0755` and other
+regular files to `0644`. The archive builder records the corresponding
+deterministic ZIP modes so installed hook launchers remain executable on POSIX.
+
 The staging root contains only `AGENTS.md`, `LICENSE`, `nori.json`,
 `skills.json`, `references/`, `skills/`, `slashcommands/`, and `subagents/`.
 The `subagents/` tree contains 12 first-class packages, each with
@@ -462,8 +569,25 @@ use a symlink, junction, reparse point, or linked ancestor.
 
 ## Validation
 
+The three hosted full-gate jobs use the guarded private isolation bootstrap in
+[ADR-011](docs/architecture/ADR-011-ci-isolation-bootstrap.md). Package updates
+and any executable-specific policy are limited to their disposable CI VM; do
+not run that privileged bootstrap on an operator workstation. Local validation
+requires an existing supported non-root Bubblewrap runtime and the test-only
+terminal dependencies below. The package gate itself never installs OS packages.
+
+Test-only MAIN-stage SDK context measurement has a separate
+[qualification boundary](docs/superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
+and [validation record](tests/validation-notes.md). Package tests never launch its
+native offline profile or imply full browser/twelve-role acceptance.
+
 ```bash
 # Full local validation (content + schema + CI workflows)
+# Provision once into a new external test-owned directory; never overwrite one.
+python3 tests/provision-terminal-runtime.py --target /absolute/test-runtime \
+  --npm /absolute/bin/npm --node /absolute/bin/node
+export P004B_TERMINAL_NODE=/absolute/bin/node
+export P004B_TERMINAL_MODULE_ROOT=/absolute/test-runtime/node_modules
 bash tests/validate-package.sh
 
 # Schema-only check
@@ -488,6 +612,19 @@ bash tests/validate-links.sh --json
 CI runs all validators on every PR and push to main. See `.github/workflows/ci.yml`.
 
 PowerShell parser validation requires a host with `pwsh` or Windows PowerShell installed.
+
+For credential-free P0-04B launcher diagnostic checks, see
+[the test-only diagnostic boundary](tests/browser-launch-diagnostics.md).
+The terminal dependency is test-only and excluded from Nori staging. The gate
+does not install packages, start Claude, or call a provider. Native offline
+controls are separate explicit probes and require proven Bubblewrap isolation.
+Individual portable checks may report a skip, but the full package gate requires
+the actual isolation audit; neither result establishes native acceptance.
+Offline context probes include bounded content-free structural diagnostics,
+separate from acceptance evidence; see [ADR-010](docs/architecture/ADR-010-browser-automation-boundary.md).
+The isolated offline route additionally uses an unsubmitted edit/echo/clear
+challenge for pinned input; it is not available to live callers and requires
+a fresh exact-commit grant before any native experiment.
 
 ## Docs
 

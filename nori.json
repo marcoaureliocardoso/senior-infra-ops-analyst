@@ -1,7 +1,7 @@
 {
   "name": "senior-infra-ops-analyst",
-  "version": "0.14.0",
-  "description": "A command-driven Senior Infrastructure Operations Analyst skillset with layered untrusted-input and prompt-injection defenses, preventive compaction, native task continuity, and safe authorization handling.",
+  "version": "0.15.0",
+  "description": "A command-driven Senior Infrastructure Operations Analyst skillset with guarded browser operations, layered untrusted-input defenses, preventive compaction, native task continuity, and safe authorization handling.",
   "author": "Marco Aurelio Cardoso",
   "license": "MIT",
   "dependencies": {
@@ -113,7 +113,9 @@
     "domain-specific-skills",
     "skill-examples",
     "untrusted-input",
-    "prompt-injection-defense"
+    "prompt-injection-defense",
+    "browser-automation",
+    "infrastructure-ui"
   ],
   "repository": "https://github.com/marcoaureliocardoso/senior-infra-ops-analyst"
 }

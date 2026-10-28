@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -8,11 +8,13 @@ import { SECURITY_PREDICATE_IDS } from '../../skills/command-driven-operations/s
 import { interpretWitnessResult } from './mutation-protocol.mjs';
 import { MUTATIONS } from './mutations.mjs';
 import { MUTATION_WITNESSES } from './mutation-witnesses.mjs';
+import { copyMutationSandbox } from './mutation-sandbox.mjs';
 
 assert.deepEqual(MUTATIONS.map(({ id }) => id).sort(), [...SECURITY_PREDICATE_IDS].sort());
 assert.deepEqual(Object.keys(MUTATION_WITNESSES).sort(), [...SECURITY_PREDICATE_IDS].sort());
 
 const sourceScripts = path.resolve('skills/command-driven-operations/scripts');
+const sourceBrowserScripts = path.resolve('skills/browser-operations/scripts');
 const witnessRunner = path.resolve('tests/command-guard/run-mutation-witness.mjs');
 
 function runWitness(id, root) {
@@ -31,10 +33,7 @@ let killed = 0;
 for (const mutation of MUTATIONS) {
   const temporary = await mkdtemp(path.join(os.tmpdir(), `ops-guard-mutant-${mutation.id.toLowerCase()}-`));
   try {
-    const mutantRoot = path.join(temporary, 'scripts');
-    await mkdir(mutantRoot, { recursive: true });
-    await cp(path.join(sourceScripts, 'command-guard'), path.join(mutantRoot, 'command-guard'), { recursive: true });
-    await cp(path.join(sourceScripts, 'validate-ops-command.mjs'), path.join(mutantRoot, 'validate-ops-command.mjs'));
+    const mutantRoot = await copyMutationSandbox({ sourceScripts, sourceBrowserScripts, temporary });
     const target = path.join(mutantRoot, mutation.file);
     const source = await readFile(target, 'utf8');
     const count = source.split(mutation.search).length - 1;

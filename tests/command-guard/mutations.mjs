@@ -409,4 +409,34 @@ export const MUTATIONS = Object.freeze([
     search: "    if (profileCount !== 1) throw new CommandPolicyError('DENY_POWERSHELL_PROFILE', 'PowerShell profile loading must be disabled exactly once');",
     replacement: '    if (false) throw new CommandPolicyError(\'DENY_POWERSHELL_PROFILE\', \'PowerShell profile loading must be disabled exactly once\');',
   },
+  {
+    id: 'CATALOGUE_BROWSER_RUNNER_PATH_IDENTITY', file: 'command-guard/catalogue.mjs',
+    search: '      || path.normalize(words[1]) !== BROWSER_RUNNER_PATH) return null;',
+    replacement: '      || false) return null;',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_WORKFLOW_DECODE', file: 'command-guard/catalogue.mjs',
+    search: '    request = parseRunnerArgs(words.slice(2));',
+    replacement: '    request = parseRunnerArgs(words.slice(2).slice(0, -2));',
+  },
+  {
+    id: 'CATALOGUE_BROWSER_EFFECT_CLASSIFICATION', file: 'command-guard/catalogue.mjs',
+    search: "  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'DESTRUCTIVE'],",
+    replacement: "  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'LOW_RISK_CHANGE'],",
+  },
+  {
+    id: 'CATALOGUE_BROWSER_ALWAYS_ASK', file: 'command-guard/catalogue.mjs',
+    search: "  return ['ALWAYS_ASK', ...new Set(steps.flatMap(browserStepModifiers))];",
+    replacement: '  return [...new Set(steps.flatMap(browserStepModifiers))];',
+  },
+  {
+    id: 'POLICY_BROWSER_NATIVE_ROLE', file: 'command-guard/policy.mjs',
+    search: "  if (envelope.role !== (event.agentType ?? 'main')) return null;",
+    replacement: '  if (false) return null;',
+  },
+  {
+    id: 'POLICY_BROWSER_ACTIVE_BINDING', file: 'command-guard/policy.mjs',
+    search: '      match = bindBrowserMatch(match, event, env);',
+    replacement: '      match = match;',
+  },
 ]);

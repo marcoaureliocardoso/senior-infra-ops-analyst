@@ -10,6 +10,7 @@ import { parseHookEvent } from './command-guard/contract.mjs';
 import { LIMITS } from './command-guard/limits.mjs';
 import { analyzeCommand } from './command-guard/policy.mjs';
 import { decisionResponse } from './command-guard/response.mjs';
+import { stageBrowserOpenApproval } from './record-command-approval.mjs';
 
 async function readBoundedInput(stream) {
   const chunks = [];
@@ -41,6 +42,7 @@ export function evaluateHook(raw, env = process.env) {
   } else if (binding && result.decision === 'ask') {
     writePendingBinding(binding, env);
   }
+  stageBrowserOpenApproval(result, event, env);
   appendAudit(result, event, env);
   return decisionResponse(result);
 }

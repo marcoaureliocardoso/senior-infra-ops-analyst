@@ -5,6 +5,7 @@ import { lookupFamily } from './catalogue.mjs';
 import { classifyCredentials, credentialFlowErrors } from './credential-flow.mjs';
 import { detectSensitiveSpans } from './redaction.mjs';
 import { NORMAL_MODES } from './limits.mjs';
+import { readActiveOperation } from '../../../browser-operations/scripts/browser-binding-store.mjs';
 
 const RANK = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
 export const REASON_CODES = Object.freeze([
@@ -16,7 +17,7 @@ export const REASON_CODES = Object.freeze([
   'DENY_PROVIDER_CONTROL_CREDENTIAL_ACCESS',
   'DENY_MULTIPLE_CREDENTIAL_TRANSPORTS', 'DENY_UNKNOWN_CREDENTIAL_CONSUMER',
   'DENY_UNKNOWN_COMMAND', 'DENY_AMBIGUOUS_TARGET', 'DENY_UNSUPPORTED_GIT_FORM',
-  'DENY_POWERSHELL_PROFILE',
+  'DENY_POWERSHELL_PROFILE', 'DENY_BROWSER_BINDING',
 ]);
 export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CONTRACT_BACKGROUND_REJECT', 'CONTRACT_COMMAND_BOUND', 'LEXER_DYNAMIC_REJECT',
@@ -64,6 +65,9 @@ export const SECURITY_PREDICATE_IDS = Object.freeze([
   'CATALOGUE_GIT_TAG_FORCE_RISK', 'CATALOGUE_GIT_TAG_DELETE_RISK',
   'POLICY_GIT_UNSUPPORTED_FORM_GUIDANCE', 'CATALOGUE_KUBECTL_PRUNE_RISK',
   'POLICY_POWERSHELL_NOPROFILE_REQUIRED',
+  'CATALOGUE_BROWSER_RUNNER_PATH_IDENTITY', 'CATALOGUE_BROWSER_WORKFLOW_DECODE',
+  'CATALOGUE_BROWSER_EFFECT_CLASSIFICATION', 'CATALOGUE_BROWSER_ALWAYS_ASK',
+  'POLICY_BROWSER_NATIVE_ROLE', 'POLICY_BROWSER_ACTIVE_BINDING',
 ]);
 
 const DENY_GUIDANCE = Object.freeze({
@@ -80,6 +84,7 @@ const DENY_GUIDANCE = Object.freeze({
   DENY_AMBIGUOUS_TARGET: 'Reformulate with explicit target and environment selectors; variables, globs, and implicit remote context are not sufficient.',
   DENY_UNSUPPORTED_GIT_FORM: 'Use a supported git add, commit, or tag form with only finite literal options and operands.',
   DENY_POWERSHELL_PROFILE: 'Invoke pwsh or powershell with exactly one canonical -NoProfile option before -Command.',
+  DENY_BROWSER_BINDING: 'Use the native actor\'s own session, role and live operation binding; browser capability is not authorization.',
 });
 
 class CommandPolicyError extends Error {
@@ -124,6 +129,21 @@ function explicitBinding(value) {
   return typeof value === 'string' && value.length > 0 && !/[$*?{}]/u.test(value);
 }
 
+function bindBrowserMatch(match, event, env) {
+  const request = match.browserRequest;
+  let envelope = request.envelope;
+  let active;
+  if (!envelope) {
+    try { active = readActiveOperation(event.sessionId, request.operationId, env); } catch { return null; }
+    if (!active || !active.permissionModes.includes(event.permissionMode)) return null;
+    envelope = active.envelope;
+  }
+  if (envelope.role !== (event.agentType ?? 'main')) return null;
+  if (envelope.sessionId !== event.sessionId
+      || (!active && envelope.permissionModeAtApproval !== event.permissionMode)) return null;
+  return { ...match, environment: match.environment ?? envelope.serviceOrigins[0] };
+}
+
 export function analyzeCommand(event, env = {}) {
   let composition;
   let dialect;
@@ -146,9 +166,13 @@ export function analyzeCommand(event, env = {}) {
   const analyses = [];
   for (const stage of composition.stages) {
     if (stage.redirects.some(({ destination }) => !['/dev/null', 'NUL', '&1'].includes(destination))) return denied(credentialAnalysis.metadata ? 'DENY_SECRET_PERSISTENCE' : 'DENY_UNSUPPORTED_SYNTAX', stage.index);
-    const match = lookupFamily(stage, { cwd: event.cwd, env, dialect });
+    let match = lookupFamily(stage, { cwd: event.cwd, env, dialect });
     if (match?.denyReasonCode) return denied(match.denyReasonCode, stage.index);
     if (!match) return denied('DENY_UNKNOWN_COMMAND', stage.index);
+    if (match.policyId === 'BROWSER_PROTECTED_RUNNER') {
+      match = bindBrowserMatch(match, event, env);
+      if (!match) return denied('DENY_BROWSER_BINDING', stage.index);
+    }
     if (credentialAnalysis.metadata?.literal && match.modifiers.includes('CREDENTIAL_OUTPUT')) {
       return { ...denied('DENY_SECRET_OUTPUT', stage.index), credential: credentialAnalysis.metadata };
     }
@@ -206,5 +230,6 @@ export function analyzeCommand(event, env = {}) {
     risk: aggregate.risk, modifiers, policyId: aggregate.policyId, target: aggregate.target,
     environment: aggregate.environment ?? null, scope: `stages:${composition.stages.length}`,
     credential: credentialAnalysis.metadata, credentialBinding, findings, stage: aggregate.stage,
+    browserArgs: Array.isArray(aggregate.browserArgs) ? [...aggregate.browserArgs] : null,
   };
 }

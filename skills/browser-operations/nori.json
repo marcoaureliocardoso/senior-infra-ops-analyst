@@ -1,0 +1,6 @@
+{
+  "name": "browser-operations",
+  "version": "1.0.5",
+  "type": "skill",
+  "description": "Use for capability-detected browser diagnosis and approved infrastructure UI operations under an active fail-closed operation envelope."
+}

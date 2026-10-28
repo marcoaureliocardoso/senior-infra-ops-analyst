@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,13 @@ from scripts.nori_package import build_staging, validate_staging  # noqa: E402
 
 
 class NoriStagingTests(unittest.TestCase):
+    def test_nori_staging_excludes_adapter_and_sdk(self):
+        build_staging(self.source,self.destination)
+        self.assertFalse((self.destination/"tests").exists())
+        self.assertFalse((self.destination/".review-runtime").exists())
+        self.assertFalse(any(self.destination.rglob("browser_context_*.py")))
+        self.assertFalse(any(self.destination.rglob("claude_agent_sdk")))
+
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.temp_root = Path(self.tempdir.name)
@@ -96,6 +104,28 @@ class NoriStagingTests(unittest.TestCase):
             source = self.source / relative
             self.assertTrue(source.is_file(), relative.as_posix())
             self.assertEqual(self.file_hash(staged), self.file_hash(source))
+        inventory = {path.name for path in self.destination.rglob("*") if path.is_file()}
+        self.assertNotIn("browser-permission-mcp.py", inventory)
+        self.assertNotIn("browser-permission-verifier.mjs", inventory)
+
+    @unittest.skipIf(os.name == "nt", "POSIX execute modes are unavailable")
+    def test_build_normalizes_and_validates_package_file_modes(self) -> None:
+        self.build()
+        launcher = (
+            self.destination / "skills" / "browser-operations" / "scripts"
+            / "browser-hook-launcher.sh"
+        )
+        manifest = self.destination / "nori.json"
+        self.assertEqual(stat.S_IMODE(launcher.stat().st_mode), 0o755)
+        self.assertEqual(stat.S_IMODE(manifest.stat().st_mode), 0o644)
+
+        launcher.chmod(0o644)
+        errors, _ = validate_staging(self.source, self.destination)
+        self.assertIn(
+            "mode differs from package policy: "
+            "skills/browser-operations/scripts/browser-hook-launcher.sh",
+            errors,
+        )
 
     def test_build_contains_all_first_class_subagent_packages(self) -> None:
         self.build()
@@ -111,7 +141,7 @@ class NoriStagingTests(unittest.TestCase):
                 )
                 self.assertEqual(set(manifest), {"name", "version", "type", "description"})
                 self.assertEqual(manifest["name"], directory.name)
-                self.assertEqual(manifest["version"], "1.1.0")
+                self.assertEqual(manifest["version"], "1.2.0")
                 self.assertEqual(manifest["type"], "subagent")
 
     def test_json_inventory_is_sorted_and_does_not_enter_staging(self) -> None:

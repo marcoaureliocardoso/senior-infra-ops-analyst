@@ -135,6 +135,26 @@ class NoriPackageContractTests(unittest.TestCase):
         manifest = json.loads((ROOT / "nori.json").read_text(encoding="utf-8"))
         self.assertEqual(set(manifest), CANONICAL_FIELDS)
 
+    def test_release_component_versions_are_aligned(self) -> None:
+        root_manifest = json.loads((ROOT / "nori.json").read_text(encoding="utf-8"))
+        browser_manifest = json.loads(
+            (ROOT / "skills/browser-operations/nori.json").read_text(encoding="utf-8")
+        )
+        command_manifest = json.loads(
+            (ROOT / "skills/command-driven-operations/nori.json").read_text(encoding="utf-8")
+        )
+        continuity_manifest = json.loads(
+            (ROOT / "skills/context-continuity/nori.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(root_manifest["version"], "0.15.0")
+        self.assertEqual(browser_manifest["version"], "1.0.5")
+        browser_skill = (ROOT / "skills/browser-operations/SKILL.md").read_text(encoding="utf-8")
+        frontmatter = browser_skill.split("---", 2)[1]
+        self.assertRegex(frontmatter, r"(?m)^version: 0\.1\.1$")
+        self.assertRegex(frontmatter, r"(?m)^last_updated: 2026-10-08$")
+        self.assertEqual(command_manifest["version"], "1.2.1")
+        self.assertEqual(continuity_manifest["version"], "1.0.1")
+
     def test_canonical_manifest_is_accepted(self) -> None:
         self.canonicalize_manifest()
         result = self.run_validator()
@@ -281,7 +301,7 @@ class NoriPackageContractTests(unittest.TestCase):
                 manifest = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(set(manifest), SUBAGENT_FIELDS)
                 self.assertEqual(manifest["name"], path.parent.name)
-                self.assertEqual(manifest["version"], "1.1.0")
+                self.assertEqual(manifest["version"], "1.2.0")
                 self.assertEqual(manifest["type"], "subagent")
 
     def test_flat_subagent_definition_is_rejected(self) -> None:

@@ -310,4 +310,5 @@ if [ "$errors" -gt 0 ]; then
   exit 1
 fi
 
+python3 tests/test-ci-isolation-wiring.py --check-only
 echo "CI workflow validation passed"

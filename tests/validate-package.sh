@@ -1,7 +1,74 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ -z "${P004B_TERMINAL_NODE:-}" || -z "${P004B_TERMINAL_MODULE_ROOT:-}" ]]; then
+  printf 'test terminal runtime paths are required\n' >&2
+  exit 2
+fi
+if ! command -v bwrap >/dev/null 2>&1; then
+  printf 'Bubblewrap namespace runtime is required\n' >&2
+  exit 2
+fi
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+  /usr/bin/python3 -I -B -c 'import sys; sys.path.insert(0,"tests"); from ci_isolation_bootstrap import require_frozen_ci_runtime; require_frozen_ci_runtime()'
+fi
+python3 tests/test-ci-image-upgrade.py
+python3 tests/test-ci-isolation-runtime.py
+python3 tests/test-ci-isolation-bootstrap.py
+python3 tests/test-ci-isolation-probe.py
+python3 tests/test-ci-isolation-wiring.py
+python3 tests/test-ci-worker-diagnostics.py
+python3 tests/test-ci-workflows.py
+python3 tests/test-nori-package-contract.py
+python3 tests/test-browser-operation-policy.py
+python3 tests/terminal-runtime-preflight.py --node "$P004B_TERMINAL_NODE" \
+  --module-root "$P004B_TERMINAL_MODULE_ROOT"
+python3 tests/offline-terminal-resume-probe.py --audit-isolation --source . \
+  --node "$P004B_TERMINAL_NODE" --module-root "$P004B_TERMINAL_MODULE_ROOT"
+node --test tests/terminal-state-adapter.test.mjs
+python3 tests/test-terminal-state-adapter.py
+python3 tests/test-terminal-input-policy.py
+python3 tests/test-terminal-context-sample.py
+python3 tests/test-terminal-resume-history.py
+python3 tests/test-terminal-sdk-relocation.py
+python3 tests/test-terminal-resume-failure-diagnostics.py
+python3 tests/test-terminal-input-challenge.py
+python3 tests/test-terminal-nonce-history-diagnostics.py
+python3 tests/test-nonce-history-driver.py
+python3 tests/test-terminal-context-echo.py
+python3 tests/test-terminal-context-display.py
+python3 tests/test-terminal-history-rejection.py
+python3 tests/test-terminal-post-enter-observation.py
+python3 tests/test-post-enter-observation-report.py
+python3 tests/test-terminal-context-diagnostics.py
+python3 tests/test-terminal-structural-diagnostics.py
+python3 tests/test-terminal-context-debug.py
+python3 tests/test-headless-context-driver.py
+python3 tests/test-terminal-runtime-provisioning.py
+python3 tests/test-terminal-wiring.py
+python3 tests/test-offline-terminal-resume-safety.py
+python3 tests/test-terminal-cancellation.py
+python3 tests/test-headless-driver-signals.py
 node tests/run-command-guard-tests.mjs
+node --test tests/browser-operations/contract.test.mjs
+node --test tests/browser-operations/capabilities.test.mjs
+node --test tests/browser-operations/mcp-registry.test.mjs
+node --test tests/browser-operations/policy.test.mjs
+node --test tests/browser-operations/binding-store.test.mjs
+node --test tests/browser-operations/operation-lifetime.test.mjs
+node --test tests/browser-operations/redirect-protocol.test.mjs
+node --test tests/browser-operations/redirect-feasibility.test.mjs
+node --test tests/browser-operations/hook.test.mjs
+node --test tests/browser-operations/settings.test.mjs
+node --test tests/browser-operations/workflow.test.mjs
+node --test tests/browser-operations/runner-contract.test.mjs
+node --test tests/browser-operations/runner-lifetime.test.mjs
+node --test tests/browser-operations/adapters.test.mjs
+node --test tests/browser-operations/puppeteer-api.test.mjs
+node --test tests/browser-operations/artifacts.test.mjs
+node --test tests/browser-operations/fixture-server.test.mjs
+node --test tests/browser-operations/real-browser.test.mjs
+node --test tests/browser-permission-verifier.test.mjs
 node --test tests/context-continuity/settings.test.mjs
 node --test tests/context-continuity/statusline.test.mjs
 node --test tests/context-continuity/compact-hook.test.mjs
@@ -10,16 +77,28 @@ python3 tests/test-command-guard-install-policy.py
 python3 tests/test-native-execution-boundary.py
 python3 tests/test-native-execution-boundary-safety.py
 python3 tests/test-prompt-injection-policy.py
+python3 tests/test-browser-operation-install-policy.py
 python3 tests/test-prompt-injection-claims.py
 python3 tests/test-prompt-injection-install-policy.py
 python3 tests/test-prompt-injection-live.py
 python3 tests/test-prompt-injection-deny-tool.py
 python3 tests/test-live-prompt-injection-safety.py
+python3 tests/test-live-browser-operation-safety.py
+python3 tests/test-browser-launch-diagnostics.py
+python3 tests/test-browser-disposable-launcher.py
+python3 tests/test-browser-measurement-guard.py
+python3 tests/test-browser-context-contract.py
+python3 tests/test-browser-context-sdk.py
+python3 tests/test-browser-context-gateway.py
+python3 tests/test-browser-context-project.py
+python3 tests/test-offline-browser-context-safety.py
+python3 tests/offline-browser-context-smoke.py --self-test
+python3 tests/test-browser-mcp-config.py
+python3 tests/test-browser-permission-mcp.py
 python3 tests/test-native-execution-boundary-pty.py
 python3 tests/test-native-execution-boundary-lifecycle.py
 python3 tests/test-context-continuity-install-policy.py
 python3 -m json.tool nori.json >/dev/null
-python3 tests/test-nori-package-contract.py
 python3 tests/test-content-discovery.py
 python3 tests/test-nori-staging.py
 python3 tests/test-nori-archive.py
@@ -44,8 +123,11 @@ python3 tests/test-confirmed-window-diagnostic.py
 python3 tests/test-live-context-window-recorder.py
 python3 tests/test-live-compact-event-recorder.py
 python3 tests/test-claude-pty-driver.py
+python3 tests/test-browser-startup-approval.py
+python3 tests/test-browser-context-driver.py
 python3 tests/test-smoke-command-guard.py
 python3 tests/test-ci-workflows.py
+python3 tests/test-link-validation.py
 bash -n skills/command-driven-operations/scripts/linux-baseline-readonly.sh
 bash -n skills/command-driven-operations/scripts/network-target-readonly.sh
 bash -n skills/context-continuity/scripts/compact-hook-launcher.sh
@@ -55,6 +137,7 @@ bash -n tests/live-context-continuity-smoke.sh
 bash -n tests/live-nori-package-smoke.sh
 bash -n tests/live-native-execution-boundary-smoke.sh
 bash -n tests/live-prompt-injection-smoke.sh
+bash -n tests/live-browser-operations-smoke.sh
 bash -n tests/validate-package.sh
 bash tests/live-subagent-runtime-smoke.sh --self-test
 bash tests/live-command-guard-smoke.sh --self-test
@@ -62,6 +145,7 @@ bash tests/live-context-continuity-smoke.sh --self-test
 bash tests/live-nori-package-smoke.sh --self-test
 bash tests/live-native-execution-boundary-smoke.sh --self-test
 bash tests/live-prompt-injection-smoke.sh --self-test
+bash tests/live-browser-operations-smoke.sh --self-test
 skills/command-driven-operations/scripts/linux-baseline-readonly.sh --help >/dev/null
 skills/command-driven-operations/scripts/network-target-readonly.sh --help >/dev/null
 if command -v pwsh >/dev/null 2>&1; then

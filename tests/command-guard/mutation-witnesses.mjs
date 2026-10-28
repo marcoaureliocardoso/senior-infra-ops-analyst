@@ -16,7 +16,8 @@ async function policyFixture({ root, mutationId }, command, permissionMode = 'by
   const { parseHookEvent } = await import(moduleUrl(root, mutationId, 'contract.mjs'));
   const { analyzeCommand } = await import(moduleUrl(root, mutationId, 'policy.mjs'));
   const event = parseHookEvent(JSON.stringify(validEvent({
-    permission_mode: permissionMode, ...(extra.cwd ? { cwd: extra.cwd } : {}), tool_input: { command },
+    permission_mode: permissionMode, ...(extra.cwd ? { cwd: extra.cwd } : {}),
+    ...extra.event, tool_input: { command },
   })));
   return analyzeCommand(event, extra.env ?? {});
 }
@@ -24,6 +25,23 @@ async function policyFixture({ root, mutationId }, command, permissionMode = 'by
 async function catalogueFixture({ root, mutationId }, argv) {
   const { lookupFamily } = await import(moduleUrl(root, mutationId, 'catalogue.mjs'));
   return lookupFamily({ argv });
+}
+
+function browserRunnerPath(context) {
+  return path.resolve(context.root, '../../browser-operations/scripts/browser-runner.mjs');
+}
+
+function browserOpenArgv(context) {
+  return [
+    'node', browserRunnerPath(context), '--step', 'open', '--operation-id', 'op-witness',
+    '--session-id', 'session-witness', '--role', 'network-edge-operator',
+    '--objective-ref', 'change-42', '--target', 'router-1', '--environment', 'production',
+    '--service-origin', 'https://router.example.invalid', '--identity-ref', 'vault:network-admin',
+    '--credential-transport', 'vault', '--permission-mode', 'normal', '--action', 'inspect',
+    '--action', 'validate', '--effect', 'LOW_RISK_CHANGE', '--risk', 'LOW_RISK_CHANGE',
+    '--precondition-ref', 'reachable', '--validation-ref', 'interface-state',
+    '--compensation-ref', 'restore-interface', '--expires-in-seconds', '600',
+  ];
 }
 
 async function postgresEnvironmentFixture(context, name, value) {
@@ -471,6 +489,44 @@ const witnesses = {
     assert.equal(deniedResult.decision, 'deny');
     assert.equal(deniedResult.reasonCode, 'DENY_POWERSHELL_PROFILE');
     assert.equal((await policyFixture(context, 'pwsh -NoProfile -Command "Get-Service"')).decision, 'allow');
+  },
+  async CATALOGUE_BROWSER_RUNNER_PATH_IDENTITY(context) {
+    const argv = browserOpenArgv(context);
+    argv[1] = `${argv[1]}.copy`;
+    assert.equal(await catalogueFixture(context, argv), null);
+  },
+  async CATALOGUE_BROWSER_WORKFLOW_DECODE(context) {
+    assert.equal(await catalogueFixture(context, [
+      ...browserOpenArgv(context), '--password', 'literal-secret',
+    ]), null);
+  },
+  async CATALOGUE_BROWSER_EFFECT_CLASSIFICATION(context) {
+    const argv = browserOpenArgv(context);
+    argv[argv.indexOf('--effect') + 1] = 'DESTRUCTIVE_CHANGE';
+    argv[argv.indexOf('--risk') + 1] = 'safe';
+    assert.equal((await catalogueFixture(context, argv)).risk, 'DESTRUCTIVE');
+  },
+  async CATALOGUE_BROWSER_ALWAYS_ASK(context) {
+    const argv = browserOpenArgv(context);
+    argv[argv.indexOf('--permission-mode') + 1] = 'bypassPermissions';
+    const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
+    assert.equal((await policyFixture(context, command, 'bypassPermissions', {
+      event: { session_id: 'session-witness', agent_type: 'network-edge-operator' },
+    })).decision, 'ask');
+  },
+  async POLICY_BROWSER_NATIVE_ROLE(context) {
+    const argv = browserOpenArgv(context);
+    const command = ['node', JSON.stringify(argv[1]), ...argv.slice(2)].join(' ');
+    const result = await policyFixture(context, command, 'normal', {
+      event: { session_id: 'session-witness', agent_type: 'audit-evidence-collector' },
+    });
+    assert.equal(result.decision, 'deny');
+    assert.equal(result.reasonCode, 'DENY_BROWSER_BINDING');
+  },
+  async POLICY_BROWSER_ACTIVE_BINDING(context) {
+    const command = ['node', JSON.stringify(browserRunnerPath(context)),
+      '--operation-id op-unbound --step navigate --origin https://router.example.invalid'].join(' ');
+    assert.equal((await policyFixture(context, command)).decision, 'deny');
   },
 };
 

@@ -570,6 +570,8 @@ required_adrs = [
     'ADR-006-canonical-nori-package.md',
     'ADR-007-first-class-subagents.md',
     'ADR-008-native-execution-boundary.md',
+    'ADR-009-global-prompt-injection-defense.md',
+    'ADR-010-browser-automation-boundary.md',
 ]
 adr004_headings = (
     '## Context', '## Decision', '## Implemented architecture',
@@ -605,6 +607,23 @@ adr008_headings = (
 adr008_fragments = (
     'references/native-execution-boundary.md', 'CONFIGURED_UNPROVEN',
     'P005_GUARD_PROBE', 'DENY_UNKNOWN_COMMAND', 'P0-04B', 'P3-16',
+)
+adr010_headings = (
+    '## Context', '## Decision', '## Capability states and routing',
+    '## Authentication and human-only challenges',
+    '## Origin and artifact controls', '## Validation evidence',
+    '## Alternatives rejected', '## Consequences and residual risks',
+    '## Rollback', '## Links',
+)
+adr010_fragments = (
+    'references/browser-operations.md', 'AVAILABLE_RECOGNIZED',
+    'AVAILABLE_UNRECOGNIZED', 'CONFLICT', 'GUARD_UNPROVEN',
+    'OUTCOME_UNKNOWN', 'main-session MCP', 'protected runner',
+    'no generic MCP grants', 'credential', 'human-only', 'origin',
+    'artifact', 'runtime-detected adapters', 'prompt-only policy',
+    'mandatory single MCP',
+    'docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md',
+    'docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md',
 )
 if not architecture_index.exists():
     err('missing architecture decision index')
@@ -647,6 +666,17 @@ else:
         for fragment in adr008_fragments:
             if fragment not in adr008_text:
                 err(f'ADR-008 missing required fragment: {fragment}')
+    adr010_path = architecture_index.parent / 'ADR-010-browser-automation-boundary.md'
+    if adr010_path.exists():
+        adr010_text = adr010_path.read_text(encoding='utf-8')
+        if index_text.count('ADR-010-browser-automation-boundary.md') != 1:
+            err('architecture index must link ADR-010 exactly once')
+        for heading in adr010_headings:
+            if heading not in adr010_text:
+                err(f'ADR-010 missing required heading: {heading}')
+        for fragment in adr010_fragments:
+            if fragment not in adr010_text:
+                err(f'ADR-010 missing required fragment: {fragment}')
 
 for operator_doc in ('README.md', 'docs.md'):
     operator_text = read(operator_doc)
@@ -658,6 +688,17 @@ for operator_doc in ('README.md', 'docs.md'):
             err(f'{operator_doc} missing context continuity guidance: {marker}')
     if 'CLAUDE_CODE_AUTO_COMPACT_WINDOW is the default' in operator_text:
         err(f'{operator_doc} claims absolute context window is the default')
+    for marker in (
+        '## Guarded browser operations',
+        'configure-browser-operations.mjs --check',
+        'configure-browser-operations.mjs --apply',
+        'configure-browser-operations.mjs --remove-owned',
+        'capability detection', 'route precedence', 'authentication',
+        'human-only challenge', 'artifact', '12 subagents',
+        'does not install', 'MCP',
+    ):
+        if marker not in operator_text:
+            err(f'{operator_doc} missing browser operations guidance: {marker}')
 
 readme_text = read('README.md')
 version_history_heading = '## Version history'
@@ -673,6 +714,7 @@ if version_history_link not in readme_text:
     err('README failure: missing canonical changelog link')
 
 unpublished_ledger = [
+    ('0.15.0', '2026-09-01', None),
     ('0.14.0', '2026-08-25', None),
     ('0.13.0', '2026-08-21', None),
     ('0.11.1', '2026-08-08', None),
@@ -998,22 +1040,22 @@ nori_version_metadata = json.loads(read('.nori-version')).get('version')
 readme_version_match = re.search(r'^Version: (\S+)$', readme_text, re.MULTILINE)
 docs_version_match = re.search(r'^Version: (\S+) \|', read('docs.md'), re.MULTILINE)
 version_contracts = (
-    ('.nori-version', nori_version_metadata, '0.14.0'),
-    ('README.md', readme_version_match.group(1) if readme_version_match else None, '0.14.0'),
-    ('docs.md', docs_version_match.group(1) if docs_version_match else None, '0.14.0'),
+    ('.nori-version', nori_version_metadata, '0.15.0'),
+    ('README.md', readme_version_match.group(1) if readme_version_match else None, '0.15.0'),
+    ('docs.md', docs_version_match.group(1) if docs_version_match else None, '0.15.0'),
 )
 for source, actual, expected in version_contracts:
     if actual != expected:
         err(f'current-version metadata drift: {source} has {actual!r}, expected {expected!r}')
 
 command_manifest = json.loads(read('skills/command-driven-operations/nori.json'))
-if command_manifest.get('version') != '1.1.0':
-    err('component-version drift: command-driven-operations must be 1.1.0')
+if command_manifest.get('version') != '1.2.1':
+    err('component-version drift: command-driven-operations must be 1.2.1')
 command_skill = read('skills/command-driven-operations/SKILL.md')
-if not re.search(r'^version: 0\.6\.0$', command_skill, re.MULTILINE):
-    err('skill-version drift: command-driven-operations must be 0.6.0')
-if not re.search(r'^last_updated: 2026-08-21$', command_skill, re.MULTILINE):
-    err('skill-date drift: command-driven-operations must be 2026-08-21')
+if not re.search(r'^version: 0\.7\.0$', command_skill, re.MULTILINE):
+    err('skill-version drift: command-driven-operations must be 0.7.0')
+if not re.search(r'^last_updated: 2026-08-31$', command_skill, re.MULTILINE):
+    err('skill-date drift: command-driven-operations must be 2026-08-31')
 skills_catalog = json.loads(read('skills.json'))
 if skills_catalog.get('command-driven-operations') != '*':
     err('skills catalogue must retain wildcard command-driven-operations entry')

@@ -2,6 +2,9 @@ import { lexBash } from './bash-lexer.mjs';
 import { buildComposition } from './composition.mjs';
 import { LIMITS } from './limits.mjs';
 import { resolveOutputPath } from './output-path.mjs';
+import { parseRunnerArgs } from '../../../browser-operations/scripts/browser-runner.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const POSIX_READ = new Set(['uname', 'uptime', 'free', 'df', 'lsblk', 'findmnt']);
 const FILTER = new Set(['grep', 'rg', 'head', 'tail', 'cut', 'sort', 'uniq', 'wc']);
@@ -19,6 +22,7 @@ export const POLICY_IDS = Object.freeze([
   'AWS', 'AZURE', 'GCP', 'POSTGRES', 'MYSQL', 'MONGODB', 'REDIS',
   'NETWORK_READ', 'PACKET_CAPTURE', 'HTTP', 'REMOTE', 'PRIVILEGE', 'GIT_CI',
   'POWERSHELL_READ', 'WINDOWS_CONTROL', 'FILTER', 'DECRYPTOR',
+  'BROWSER_PROTECTED_RUNNER',
 ]);
 export const COMMAND_FAMILIES = Object.freeze(POLICY_IDS.filter((id) => id !== 'FILTER'));
 export const FILTER_FAMILIES = Object.freeze(['FILTER']);
@@ -1589,6 +1593,79 @@ function parseDmesg(words) {
   return hasLevel ? { risk, modifiers: ['SENSITIVE_OUTPUT', 'APPROVAL_REQUIRED'] } : null;
 }
 
+const BROWSER_RUNNER_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../browser-operations/scripts/browser-runner.mjs',
+);
+const BROWSER_EFFECT_RISK = new Map([
+  ['PUBLIC_READ', 'SAFE_READ_ONLY'], ['SENSITIVE_READ', 'SAFE_READ_ONLY'],
+  ['INTERACTIVE_STATE', 'LOW_RISK_CHANGE'], ['LOW_RISK_CHANGE', 'LOW_RISK_CHANGE'],
+  ['DISRUPTIVE_CHANGE', 'DISRUPTIVE_CHANGE'], ['DESTRUCTIVE_CHANGE', 'DESTRUCTIVE'],
+  ['SENSITIVE_ARTIFACT', 'LOW_RISK_CHANGE'],
+]);
+function workflowStepEffect(step) {
+  if (step.step === 'inspect') return 'SENSITIVE_READ';
+  if (['navigate', 'fill', 'select'].includes(step.step)) return 'INTERACTIVE_STATE';
+  if (['click', 'submit'].includes(step.step)) return step.effect;
+  return 'SENSITIVE_ARTIFACT';
+}
+
+function parsedRunnerEffects(request) {
+  if (request.step === 'workflow') {
+    return [
+      request.envelope.expectedEffect,
+      ...request.executionSteps.map(workflowStepEffect),
+      ...request.validationSteps.map(workflowStepEffect),
+    ];
+  }
+  if (request.step === 'open') return [request.envelope.expectedEffect];
+  if (['inspect', 'validate'].includes(request.step)) return ['SENSITIVE_READ'];
+  if (['navigate', 'fill', 'select', 'close'].includes(request.step)) return ['INTERACTIVE_STATE'];
+  if (['click', 'submit'].includes(request.step)) return [request.effect];
+  return ['SENSITIVE_ARTIFACT'];
+}
+
+function highestBrowserRisk(request) {
+  const ranks = { SAFE_READ_ONLY: 0, LOW_RISK_CHANGE: 1, DISRUPTIVE_CHANGE: 2, DESTRUCTIVE: 3 };
+  const risks = [request.envelope?.risk, ...parsedRunnerEffects(request)]
+    .map((value) => BROWSER_EFFECT_RISK.get(value) ?? value)
+    .filter((risk) => Object.hasOwn(ranks, risk));
+  if (risks.length === 0) return null;
+  return risks.reduce((highest, risk) => ranks[risk] > ranks[highest] ? risk : highest);
+}
+
+function browserStepModifiers(step) {
+  const modifiers = [];
+  if (['inspect', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('SENSITIVE_OUTPUT');
+  if (['upload', 'download', 'screenshot', 'trace'].includes(step)) modifiers.push('FILE_WRITE');
+  return modifiers;
+}
+
+function browserModifiers(request) {
+  const steps = request.step === 'workflow'
+    ? [...request.executionSteps, ...request.validationSteps].map(({ step }) => step)
+    : [request.step];
+  return ['ALWAYS_ASK', ...new Set(steps.flatMap(browserStepModifiers))];
+}
+
+function parseBrowserRunner(words) {
+  if (words[0] !== 'node' || !path.isAbsolute(words[1])
+      || path.normalize(words[1]) !== BROWSER_RUNNER_PATH) return null;
+  let request;
+  try {
+    request = parseRunnerArgs(words.slice(2));
+  } catch {
+    return null;
+  }
+  const environment = request.envelope?.serviceOrigins?.[0] ?? request.origin ?? null;
+  const risk = highestBrowserRisk(request);
+  if (!risk) return null;
+  return {
+    risk, target: request.operationId,
+    environment, modifiers: browserModifiers(request), browserArgs: words.slice(2), browserRequest: request,
+  };
+}
+
 export function lookupFamily(stage, context = {}) {
   const argv = [...stage.argv];
   const exeIndex = executableIndex(argv);
@@ -1596,6 +1673,15 @@ export function lookupFamily(stage, context = {}) {
   const words = argv.slice(exeIndex);
   const exe = words[0];
   const lower = exe.toLowerCase();
+
+  if (lower === 'node') {
+    const invocation = parseBrowserRunner(words);
+    return invocation ? result(
+      'BROWSER_PROTECTED_RUNNER', invocation.risk, invocation.target,
+      invocation.environment, invocation.modifiers,
+      { requiresExplicitBinding: true, browserArgs: invocation.browserArgs, browserRequest: invocation.browserRequest },
+    ) : null;
+  }
 
   if (POSIX_READ.has(lower)) return result('POSIX_HOST_READ', 'SAFE_READ_ONLY', 'local');
   if (lower === 'ps') {

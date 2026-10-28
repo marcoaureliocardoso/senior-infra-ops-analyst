@@ -68,6 +68,26 @@ REQUIRED_ADR_009 = (
     "not a deterministic P0-06 merge gate",
     "CANARY_EXPOSED",
 )
+REQUIRED_ADR_010 = (
+    "references/browser-operations.md",
+    "AVAILABLE_RECOGNIZED",
+    "AVAILABLE_UNRECOGNIZED",
+    "CONFLICT",
+    "GUARD_UNPROVEN",
+    "OUTCOME_UNKNOWN",
+    "main-session MCP",
+    "protected runner",
+    "no generic MCP grants",
+    "credential",
+    "human-only",
+    "origin",
+    "artifact",
+    "runtime-detected adapters",
+    "prompt-only policy",
+    "mandatory single MCP",
+    "docs/superpowers/specs/2026-08-31-p0-04b-browser-automation-design.md",
+    "docs/superpowers/plans/2026-08-31-p0-04b-browser-automation.md",
+)
 
 
 class ArchitectureDocumentationTests(unittest.TestCase):
@@ -210,6 +230,26 @@ class ArchitectureDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(heading, text)
 
+    def test_adr010_documents_browser_automation_boundary(self) -> None:
+        path = self.index_path.parent / "ADR-010-browser-automation-boundary.md"
+        self.assertTrue(path.is_file(), "ADR-010 record is missing")
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(
+            self.original_index.count("ADR-010-browser-automation-boundary.md"),
+            1,
+        )
+        for fragment in REQUIRED_ADR_010:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, text)
+        for heading in (
+            "## Context", "## Decision", "## Capability states and routing",
+            "## Authentication and human-only challenges",
+            "## Origin and artifact controls", "## Validation evidence",
+            "## Alternatives rejected", "## Consequences and residual risks",
+            "## Rollback", "## Links",
+        ):
+            self.assertIn(heading, text)
+
     def test_operator_docs_expose_owned_configuration_and_rollback(self) -> None:
         for name in ("README.md", "docs.md"):
             text = (self.sandbox / name).read_text(encoding="utf-8")
@@ -239,6 +279,21 @@ class ArchitectureDocumentationTests(unittest.TestCase):
                     "does not guarantee output confidentiality",
                     "not required for deterministic P0-06 merge acceptance",
                     "P0-04B",
+                ):
+                    self.assertIn(marker, text)
+
+    def test_operator_docs_explain_guarded_browser_operations(self) -> None:
+        for name in ("README.md", "docs.md"):
+            text = (self.sandbox / name).read_text(encoding="utf-8")
+            with self.subTest(name=name):
+                for marker in (
+                    "## Guarded browser operations",
+                    "configure-browser-operations.mjs --check",
+                    "configure-browser-operations.mjs --apply",
+                    "configure-browser-operations.mjs --remove-owned",
+                    "capability detection", "route precedence", "authentication",
+                    "human-only challenge", "artifact", "12 subagents",
+                    "does not install", "MCP",
                 ):
                     self.assertIn(marker, text)
 

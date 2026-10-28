@@ -1,5 +1,11 @@
 export const REVIEW_REGRESSION_FIXTURES = Object.freeze([
   {
+    id: 'RV96-BROWSER-RUNNER-ALTERNATE-PATH',
+    command: 'node /tmp/browser-runner.mjs --operation-id op-review --step close',
+    expectedDecision: 'deny',
+    expectedReasonCode: 'DENY_UNKNOWN_COMMAND',
+  },
+  {
     id: 'RV02-PS-OUTER-SEQUENCE',
     command: 'pwsh -NoProfile -Command "Get-Service" ; ss -K dst 192.0.2.1',
     expectedDecision: 'deny',

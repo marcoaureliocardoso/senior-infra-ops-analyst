@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import os
 import sys
@@ -28,8 +29,165 @@ def load_driver():
 
 
 class ClaudePtyDriverTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_unused_startup_approval_preserves_transition_scoped_readiness(self):
+        driver = load_driver()
+        spec = importlib.util.spec_from_file_location("approval", ROOT / "tests/browser_startup_approval.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for menu in ("Choose the text style that looks best with your terminal",
+                     "Yes, I trust this folder"):
+            for transition in ("pending", "menu", "partial-menu", "partial-blank", "ctx-only",
+                               "ready", "blank", "suggestion", "settling-menu"):
+                with self.subTest(menu=menu, transition=transition), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    fake, seen = root / "startup.py", root / "input"
+                    fake.write_text(textwrap.dedent(f'''
+                        import os, select, sys, time, tty
+                        from pathlib import Path
+                        tty.setraw(0)
+                        def line():
+                            value = bytearray()
+                            while select.select([0], [], [], 6)[0]:
+                                value.extend(os.read(0, 1))
+                                if value.endswith(b"\\r"): break
+                            with Path({str(seen)!r}).open("ab") as out: out.write(value)
+                            return bytes(value)
+                        menu = {menu!r} + "\\r\\n❯ 1. Selected option"
+                        os.write(1, menu.encode())
+                        line()
+                        if {transition!r} in ("ready", "blank", "suggestion", "settling-menu"):
+                            prompt = {{"ready": "❯ ready", "blank": "❯",
+                                       "suggestion": '❯ Try "fix tests"',
+                                       "settling-menu": "❯ ready"}}[{transition!r}]
+                            os.write(1, ("\\x1b[2J\\x1b[H" + prompt).encode())
+                            if {transition!r} == "settling-menu":
+                                time.sleep(0.8)
+                                os.write(1, ("\\x1b[2J\\x1b[H" + menu).encode())
+                                while line(): pass
+                                sys.exit(1)
+                            if line() != b"/context\\r": sys.exit(1)
+                            os.write(1, "Context Usage\\r\\nFree space: 90%\\r\\n❯ ready".encode())
+                            if line() != b"/exit\\r": sys.exit(1)
+                        else:
+                            output = {{"pending": "\\r\\napplying selection; no operational prompt yet",
+                                      "menu": "\\x1b[2J\\x1b[H" + menu,
+                                      "partial-menu": "\\r\\n❯ Dark",
+                                      "partial-blank": "\\r\\n❯",
+                                      "ctx-only": "\\r\\nctx loading"}}[{transition!r}]
+                            os.write(1, output.encode())
+                            while line(): pass
+                    '''), encoding="utf-8")
+                    approval = module.StartupApproval(1120, lambda: 1001)
+                    result = driver.drive([sys.executable, str(fake)], root / "capture", 5,
+                                          root / "events", dialogue="context", startup_approval=approval)
+                    inputs = seen.read_bytes()
+                    records = list(map(json.loads, (root / "events").read_text().splitlines()))
+                    self.assertEqual(result, 0 if transition in ("ready", "blank", "suggestion") else 2)
+                    if transition in ("ready", "blank", "suggestion"):
+                        self.assertIn(b"/context\r", inputs)
+                    else:
+                        self.assertNotIn(b"/context", inputs)
+                        self.assertFalse(any(e["stage"] == "prompt_ready" and e["outcome"] == "passed"
+                                             for e in records))
+                    self.assertFalse(any(e["stage"] == "api_key_approval" for e in records))
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_explicit_startup_decision_approves_only_the_recognized_option_once(self):
+        driver = load_driver()
+        spec = importlib.util.spec_from_file_location("approval", ROOT / "tests/browser_startup_approval.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for repeated in (False, True, "late", "not-ready"):
+            with self.subTest(repeated=repeated), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "native_double.py"
+                seen = root / "input"
+                fake.write_text(textwrap.dedent(f"""
+                    import os, select, sys, tty
+                    from pathlib import Path
+                    tty.setraw(0)
+                    seen = Path({str(seen)!r})
+                    def read(n):
+                        value = bytearray()
+                        while len(value) < n and select.select([0], [], [], 5)[0]:
+                            value.extend(os.read(0, n-len(value)))
+                        with seen.open('ab') as out: out.write(value)
+                        return bytes(value)
+                    dialogue = 'Do you want to use this API key?\\r\\n  1. Yes\\r\\n❯ 2. No (recommended)\\r\\n'
+                    os.write(1, dialogue.encode())
+                    if read(4) != b'\\x1b[A\\r': sys.exit(1)
+                    os.write(1, b'\\x1b[2J\\x1b[H')
+                    if {repeated!r} == 'not-ready':
+                        os.write(1, b'Please wait')
+                        read(1)
+                        sys.exit(1)
+                    if {repeated!r} is True:
+                        os.write(1, dialogue.encode())
+                        read(1)
+                        sys.exit(1)
+                    os.write(1, '❯ ready'.encode())
+                    if read(9) != b'/context\\r': sys.exit(1)
+                    if {repeated!r} == 'late':
+                        os.write(1, b'\\x1b[2J\\x1b[H' + dialogue.encode())
+                        read(1)
+                        sys.exit(1)
+                    os.write(1, 'Context Usage\\r\\nFree space: 90%\\r\\n❯ ready'.encode())
+                    if read(6) != b'/exit\\r': sys.exit(1)
+                """), encoding="utf-8")
+                approval = module.StartupApproval(1120, lambda: 1001)
+                extra = {"startup_approval": approval} if "startup_approval" in inspect.signature(driver.drive).parameters else {}
+                result = driver.drive([sys.executable, str(fake)], root / "capture", 9,
+                                      root / "events", dialogue="context", **extra)
+                self.assertEqual(result, 2 if repeated else 0)
+                self.assertEqual(seen.read_bytes() if seen.exists() else b"",
+                                 b"\x1b[A\r/context\r" if repeated == "late" else
+                                 b"\x1b[A\r" if repeated else b"\x1b[A\r/context\r/exit\r")
+                if repeated == "not-ready":
+                    events = list(map(json.loads, (root / "events").read_text().splitlines()))
+                    self.assertFalse(any(e["stage"] == "prompt_ready" and e["outcome"] == "passed" for e in events))
+                if repeated == "late":
+                    self.assertEqual(json.loads((root / "events").read_text().splitlines()[-1])["stage"],
+                                     "api_key_approval_required")
+
     def test_driver_exists(self) -> None:
         self.assertTrue(DRIVER.is_file())
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_keeps_numeric_grid_visible_without_expansion(self) -> None:
+        # Expanding the per-item view hides the required grid in the installed-profile fixture.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            received = root / "input"
+            fake = root / "bounded_context_view.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                from pathlib import Path
+                tty.setraw(0)
+                os.write(1, "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while not value.endswith(b"\r"):
+                        value.extend(os.read(0, 1))
+                    return bytes(value)
+                command = line()
+                Path(sys.argv[1]).write_bytes(command)
+                if command == b"/context\r":
+                    os.write(1, "Context Usage\r\nFree space: 90%\r\n❯ ready".encode())
+                    if line() != b"/exit\r": sys.exit(1)
+                else:
+                    os.write(1, "❯ expanded items without visible grid".encode())
+            '''), encoding="utf-8")
+            events = root / "events"
+            result = load_driver().drive([sys.executable, str(fake), str(received)],
+                root / "capture", 8, events, dialogue="context")
+            self.assertEqual(received.read_bytes(), b"/context\r")
+            self.assertEqual(result, 0)
+            records = list(map(json.loads, events.read_text().splitlines()))
+            self.assertEqual(records[-2:], [
+                {"kind": "pty-driver", "stage": "context_inspected", "outcome": "passed", "percent": 10},
+                {"kind": "pty-driver", "stage": "exit", "outcome": "passed"},
+            ])
 
     def test_large_prompt_writer_retries_partial_pty_writes(self) -> None:
         driver = load_driver()
@@ -55,6 +213,104 @@ class ClaudePtyDriverTests(unittest.TestCase):
 
         with self.assertRaises(OSError):
             driver.write_all(17, b"payload", lambda _fd, _remaining: 0)
+
+    def test_context_structure_stage_reports_only_allowlisted_structure(self) -> None:
+        driver = load_driver()
+        classify = driver.context_structure_stage
+        self.assertEqual(classify(b"unrelated progress 7%"), "context_header_missing")
+        self.assertEqual(classify(b"## Context Usage"), "context_free_space_missing")
+        self.assertEqual(
+            classify(b"## Context Usage\r\nFree space: 90%"),
+            "context_prompt_missing",
+        )
+        self.assertEqual(
+            classify("## Context Usage\r\nFree space: 90%\r\n❯ ready".encode()),
+            "context_inspected",
+        )
+        self.assertEqual(
+            driver.context_usage_percent(
+                "## Context Usage\r\nFree space: 90%\r\n❯ ready".encode()
+            ),
+            10,
+        )
+        self.assertEqual(
+            classify(
+                b"## Context Usage\r\nFree space: 90%\r\n"
+                b"Compact buffer: 3%"
+            ),
+            "context_prompt_missing",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\n"
+                "Autocompact buffer: 3%\r\n❯ ready".encode()
+            ),
+            "context_inspected",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\nCompact buffer: 3%\r\n"
+                "❯ ready".encode()
+            ),
+            "context_inspected",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space: 90%\r\nCompact buffer: 3%\r\n"
+                "Autocompact buffer: 4%\r\n❯ ready".encode()
+            ),
+            "context_values_invalid",
+        )
+        self.assertEqual(
+            classify(
+                "## Context Usage\r\nFree space:\r\nredraw\r\n90%\r\n❯ ready".encode()
+            ),
+            "context_free_value_separated",
+        )
+        self.assertEqual(
+            classify("## Context Usage\r\nFree space:\r\n❯ ready".encode()),
+            "context_free_value_missing",
+        )
+        self.assertEqual(
+            classify("90%\r\n## Context Usage\r\nFree space:\r\n❯ ready".encode()),
+            "context_raw_percent_present",
+        )
+
+    def test_context_usage_reconstructs_cursor_addressed_render_order(self) -> None:
+        driver = load_driver()
+        rendered_out_of_order = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;30H90.0%"
+            b"\x1b[3;1HFree space:"
+        )
+        self.assertEqual(driver.context_usage_percent(rendered_out_of_order), 10)
+        value_before_label = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;1H90.0%"
+            b"\x1b[3;30HFree space:"
+        )
+        self.assertEqual(driver.context_usage_percent(value_before_label), 10)
+        transient_then_cleared = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;30H90.0%"
+            b"\x1b[3;1HFree space:"
+            b"\x1b[2J\x1b[Hloading"
+        )
+        self.assertEqual(driver.context_usage_percent(transient_then_cleared), 10)
+
+    def test_context_usage_rejects_percentage_after_labeled_row_was_erased(self) -> None:
+        driver = load_driver()
+        erased_then_unrelated = (
+            b"\x1b[2J\x1b[HContext Usage"
+            b"\x1b[3;1HFree space:"
+            b"\x1b[3;1H\x1b[2K"
+            b"\x1b[5;1Hunrelated 90%"
+        )
+        self.assertIsNone(driver.context_usage_percent(erased_then_unrelated))
+        self.assertNotEqual(
+            driver.context_structure_stage(erased_then_unrelated),
+            "context_inspected",
+        )
 
     def test_structural_compaction_sequence_rejects_orphans_and_duplicates(self) -> None:
         driver = load_driver()
@@ -134,7 +390,10 @@ class ClaudePtyDriverTests(unittest.TestCase):
                 os.write(sys.stdout.fileno(), theme)
                 assert line() == ""
                 os.write(sys.stdout.fileno(), theme + b" " + trust)
-                assert line() == ""
+                selection = bytearray()
+                while len(selection) < 4:
+                    selection.extend(os.read(sys.stdin.fileno(), 4 - len(selection)))
+                assert bytes(selection) == b"\x1b[A\r"
                 os.write(sys.stdout.fileno(), trust)
                 assert line() == ""
                 os.write(sys.stdout.fileno(), theme + b" Welcome back")
@@ -201,6 +460,108 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertNotEqual(result, 0)
             self.assertIn('"outcome": "failed"', events.read_text(encoding="utf-8"))
 
+    def test_startup_authentication_recognition_uses_visible_screen_not_history(self) -> None:
+        driver = load_driver()
+        classify = getattr(driver, "startup_authentication_stage", lambda _data: None)
+        cases = (
+            (b"Do you want to use this API key?\r\n" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\r\n\x1b[J" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\r\n\x1b[0J" + "❯ 2. No".encode(), "api_key_approval_required"),
+            (b"Do you want to use this API key?\x1b[2J\x1b[H" + "❯ ready".encode(), None),
+            (b"Select login method:\r\n" + "❯ 1. Continue".encode(), "login_required"),
+            (b"How would you like to log in?\r\n" + "❯ 1. Continue".encode(), "login_required"),
+            (b"Claude Code requires authentication.", "login_required"),
+            (b"Context Usage\r\nFree space: 90%\r\n" + "❯ ready".encode(), None),
+        )
+        for data, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(classify(data), expected)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_startup_auth_dialogues_stop_without_answer_or_context_command(self) -> None:
+        # Removing auth-dialog recognition must expose selector input again.
+        cases = (
+            ("api", "Do you want to use this API key?", "api_key_approval_required"),
+            ("api", "Do you want to use this API key?\r\n\x1b[J", "api_key_approval_required"),
+            ("login", "Select login method:", "login_required"),
+            ("login", "How would you like to log in?", "login_required"),
+        )
+        for label, message, stage in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "auth_tui.py"
+                inputs = root / "inputs.bin"
+                inputs.write_bytes(b"")
+                fake.write_text(textwrap.dedent('''
+                    import os, sys, tty
+                    from pathlib import Path
+                    tty.setraw(sys.stdin.fileno())
+                    os.write(1, (sys.argv[2] + "\\r\\n❯ 1. Continue").encode())
+                    while True:
+                        value = os.read(0, 256)
+                        with Path(sys.argv[1]).open("ab") as stream:
+                            stream.write(value)
+                '''), encoding="utf-8")
+                events = root / "events.jsonl"
+                result = load_driver().drive(
+                    [sys.executable, str(fake), str(inputs), message],
+                    root / "capture.pty", timeout_seconds=3,
+                    events_path=events, dialogue="context",
+                )
+                self.assertEqual(result, 2)
+                self.assertEqual(inputs.read_bytes(), b"", label)
+                records = [json.loads(line) for line in events.read_text().splitlines()]
+                self.assertEqual(records[-1], {
+                    "kind": "pty-driver", "stage": stage, "outcome": "failed",
+                })
+                self.assertFalse(any(record["stage"] == "context_inspected" for record in records))
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_api_key_selector_after_startup_transitions_never_receives_input(self) -> None:
+        # A trust/theme transition or late redraw must not promote an auth selector.
+        for transition in ("theme", "trust", "late"):
+            with self.subTest(transition=transition), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "transition_tui.py"
+                inputs = root / "auth_inputs.bin"
+                inputs.write_bytes(b"")
+                fake.write_text(textwrap.dedent(r'''
+                    import os, sys, tty, time
+                    from pathlib import Path
+                    tty.setraw(sys.stdin.fileno())
+                    transition = sys.argv[2]
+                    if transition == "theme":
+                        os.write(1, b"Choose the text style that looks best with your terminal")
+                        if os.read(0, 1) != b"\r": raise SystemExit(8)
+                    elif transition == "trust":
+                        os.write(1, b"Yes, I trust this folder")
+                        selected = bytearray()
+                        while len(selected) < 4:
+                            selected.extend(os.read(0, 4 - len(selected)))
+                        if bytes(selected) != b"\x1b[A\r": raise SystemExit(9)
+                    else:
+                        os.write(1, "❯ ready".encode())
+                        time.sleep(0.8)
+                    os.write(1, ("\x1b[2J\x1b[HDo you want to use this API key?"
+                                 "\r\n❯ 2. No").encode())
+                    while True:
+                        value = os.read(0, 256)
+                        with Path(sys.argv[1]).open("ab") as stream:
+                            stream.write(value)
+                '''), encoding="utf-8")
+                events = root / "events.jsonl"
+                result = load_driver().drive(
+                    [sys.executable, str(fake), str(inputs), transition],
+                    root / "capture.pty", timeout_seconds=4,
+                    events_path=events, dialogue="context",
+                )
+                self.assertEqual(result, 2)
+                self.assertEqual(inputs.read_bytes(), b"")
+                records = [json.loads(line) for line in events.read_text().splitlines()]
+                self.assertEqual(records[-1], {
+                    "kind": "pty-driver", "stage": "api_key_approval_required", "outcome": "failed",
+                })
+
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_context_dialogue_uses_native_context_without_model_prompt(self) -> None:
         driver = load_driver()
@@ -220,7 +581,13 @@ class ClaudePtyDriverTests(unittest.TestCase):
                         if character == b"\r": return value.decode()
                         value.extend(character)
                 assert line() == "/context"
-                os.write(sys.stdout.fileno(), b"deepseek-v4-pro[1m] native context usage 7%")
+                os.write(sys.stdout.fileno(), (
+                    b"\x1b[2J\x1b[HContext Usage"
+                    b"\x1b[3;30H90.0%"
+                    b"\x1b[3;1HFree space:"
+                ))
+                assert os.read(sys.stdin.fileno(), 1) == b"\x1b"
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
                 assert line() == "/exit"
             '''), encoding="utf-8")
             result = driver.drive(
@@ -230,8 +597,99 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertEqual(result, 0)
             event_text = events.read_text(encoding="utf-8")
             self.assertIn('"stage": "context_inspected"', event_text)
-            self.assertIn('"percent": 7', event_text)
+            self.assertIn('"percent": 10', event_text)
             self.assertNotIn('"windowTokens"', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_explicitly_selects_workspace_trust(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_trust_tui.py"
+            capture = root / "capture.pty"
+            events = root / "events.jsonl"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), b"Yes, I trust this folder")
+                selection = bytearray()
+                while len(selection) < 4:
+                    selection.extend(os.read(sys.stdin.fileno(), 4 - len(selection)))
+                if bytes(selection) != b"\x1b[A\r":
+                    raise SystemExit(8)
+                os.write(sys.stdout.fileno(), "\x1b[2J\x1b[H❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
+                assert line() == "/exit"
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], capture, timeout_seconds=10,
+                events_path=events, dialogue="context",
+            )
+            self.assertEqual(result, 0)
+            event_text = events.read_text(encoding="utf-8")
+            self.assertIn('"stage": "trust_selection"', event_text)
+            self.assertIn('"stage": "context_inspected"', event_text)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_rejects_unrelated_percentage(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_unrelated_percent.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, time, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                value = bytearray()
+                while True:
+                    character = os.read(sys.stdin.fileno(), 1)
+                    if character == b"\r": break
+                    value.extend(character)
+                assert value.decode() == "/context"
+                os.write(sys.stdout.fileno(), "unrelated progress 7%\r\n❯ ready".encode())
+                time.sleep(10)
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], root / "capture.pty",
+                timeout_seconds=3, events_path=root / "events.jsonl",
+                dialogue="context",
+            )
+            self.assertEqual(result, 2)
+
+    @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
+    def test_context_dialogue_rejects_forced_exit(self) -> None:
+        driver = load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_forced_exit.py"
+            fake.write_text(textwrap.dedent(r'''
+                import os, sys, time, tty
+                tty.setraw(sys.stdin.fileno())
+                os.write(sys.stdout.fileno(), "❯ ready".encode())
+                def line():
+                    value = bytearray()
+                    while True:
+                        character = os.read(sys.stdin.fileno(), 1)
+                        if character == b"\r": return value.decode()
+                        value.extend(character)
+                assert line() == "/context"
+                os.write(sys.stdout.fileno(), "## Context Usage\r\nFree space: 90%\r\nAutocompact buffer: 3%\r\n❯ ready".encode())
+                assert line() == "/exit"
+                time.sleep(10)
+            '''), encoding="utf-8")
+            result = driver.drive(
+                [sys.executable, str(fake)], root / "capture.pty",
+                timeout_seconds=4, events_path=root / "events.jsonl",
+                dialogue="context",
+            )
+            self.assertEqual(result, 2)
 
     @unittest.skipUnless(os.name == "posix", "PTY behavior requires POSIX")
     def test_resume_dialogue_exercises_rewind_and_preserves_tasks(self) -> None:
@@ -461,6 +919,18 @@ class ClaudePtyDriverTests(unittest.TestCase):
             self.assertIn('"stage": "mock_response"', text)
             self.assertIn('"stage": "mock_second_response"', text)
             self.assertIn('"percent": 9', text)
+
+
+class AcceptanceWrapperTests(unittest.TestCase):
+    def test_context_driver_rejects_serialized_acceptance_without_launch(self):
+        driver=load_driver()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); marker=root/'launched'; capture=root/'capture'; events=root/'events'
+            command=[sys.executable,'-c',f'from pathlib import Path; Path({str(marker)!r}).touch()']
+            result=driver.drive(command,capture,1,events,dialogue='context',
+                _resume_offer={'profileObserved':True,'acceptance':True},input_probe_scope=object())
+            self.assertEqual(result,2)
+            self.assertFalse(marker.exists()); self.assertFalse(capture.exists()); self.assertFalse(events.exists())
 
 
 if __name__ == "__main__":

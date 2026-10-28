@@ -23,6 +23,7 @@ VERSION_LINE_ERROR = "noncanonical version-bearing line"
 CURRENT_RELEASE = "### 0.12.0 - 2026-08-13"
 CURRENT_RELEASE_BULLET_COUNT = 18
 UNPUBLISHED_LEDGER = [
+    ("0.15.0", "2026-09-01", None),
     ("0.14.0", "2026-08-25", None),
     ("0.13.0", "2026-08-21", None),
     ("0.11.1", "2026-08-08", None),
@@ -118,15 +119,15 @@ class ReleaseHistoryTests(unittest.TestCase):
 
     def test_current_unpublished_metadata_is_consistent(self) -> None:
         self.assertEqual(self.original_changelog.count(
-            "### 0.14.0 (unreleased) - declared 2026-08-25"
+            "### 0.15.0 (unreleased) - declared 2026-09-01"
         ), 1)
-        self.assertIn('"version": "0.14.0"', self.original_manifest)
-        self.assertIn('"version": "0.14.0"', self.original_nori_version)
-        self.assertIn("Version: 0.14.0", self.original_readme)
-        self.assertIn("Version: 0.14.0", self.original_docs)
-        self.assertIn('"version": "1.1.0"', self.original_skill_manifest)
-        self.assertIn("version: 0.6.0", self.original_skill)
-        self.assertIn("last_updated: 2026-08-21", self.original_skill)
+        self.assertIn('"version": "0.15.0"', self.original_manifest)
+        self.assertIn('"version": "0.15.0"', self.original_nori_version)
+        self.assertIn("Version: 0.15.0", self.original_readme)
+        self.assertIn("Version: 0.15.0", self.original_docs)
+        self.assertIn('"version": "1.2.1"', self.original_skill_manifest)
+        self.assertIn("version: 0.7.0", self.original_skill)
+        self.assertIn("last_updated: 2026-08-31", self.original_skill)
         self.assertIn('"command-driven-operations": "*"', self.original_skills_catalog)
         self.assertIn("deterministic package guarantees", self.original_changelog)
         self.assertIn("runtime compatibility", self.original_changelog)
@@ -145,17 +146,17 @@ class ReleaseHistoryTests(unittest.TestCase):
 
     def test_current_version_metadata_drift_is_rejected(self) -> None:
         mutations = (
-            (self.nori_version, self.original_nori_version.replace("0.14.0", "0.14.1"),
+            (self.nori_version, self.original_nori_version.replace("0.15.0", "0.15.1"),
              "current-version metadata drift"),
-            (self.readme, self.original_readme.replace("Version: 0.14.0", "Version: 0.14.1", 1),
+            (self.readme, self.original_readme.replace("Version: 0.15.0", "Version: 0.15.1", 1),
              "current-version metadata drift"),
-            (self.docs, self.original_docs.replace("Version: 0.14.0", "Version: 0.14.1", 1),
+            (self.docs, self.original_docs.replace("Version: 0.15.0", "Version: 0.15.1", 1),
              "current-version metadata drift"),
-            (self.skill_manifest, self.original_skill_manifest.replace("1.1.0", "1.1.1", 1),
+            (self.skill_manifest, self.original_skill_manifest.replace("1.2.1", "1.2.2", 1),
              "component-version drift"),
-            (self.skill, self.original_skill.replace("version: 0.6.0", "version: 0.6.1", 1),
+            (self.skill, self.original_skill.replace("version: 0.7.0", "version: 0.7.1", 1),
              "skill-version drift"),
-            (self.skill, self.original_skill.replace("2026-08-21", "2026-08-20", 1),
+            (self.skill, self.original_skill.replace("2026-08-31", "2026-08-30", 1),
              "skill-date drift"),
             (self.skills_catalog, self.original_skills_catalog.replace(
                 '"command-driven-operations": "*"', '"command-driven-operations": "1.1.0"', 1
@@ -276,10 +277,10 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.assertIn("unexpected changelog taxonomy heading", result.stdout)
 
     def test_manifest_version_must_match_highest_recorded_state(self) -> None:
-        self.assertIn('"version": "0.14.0"', self.original_manifest)
+        self.assertIn('"version": "0.15.0"', self.original_manifest)
         self.manifest.write_text(
             self.original_manifest.replace(
-                '"version": "0.14.0"', '"version": "0.14.1"', 1
+                '"version": "0.15.0"', '"version": "0.15.1"', 1
             ),
             encoding="utf-8",
         )

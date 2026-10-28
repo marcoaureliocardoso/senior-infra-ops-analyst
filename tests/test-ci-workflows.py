@@ -250,6 +250,9 @@ class CiWorkflowValidationTests(unittest.TestCase):
             if include_security_workflow:
                 (workflow_directory / "security.yml").write_text(source, encoding="utf-8")
             shutil.copy2(ROOT / "tests" / "validate-ci-workflows.sh", tests_directory)
+            shutil.copy2(ROOT / "tests" / "test-ci-isolation-wiring.py", tests_directory)
+            for name in ("ci.yml", "release.yml", "scheduled-maintenance.yml"):
+                shutil.copy2(ROOT / ".github" / "workflows" / name, workflow_directory)
 
             return subprocess.run(
                 ["bash", "tests/validate-ci-workflows.sh"],

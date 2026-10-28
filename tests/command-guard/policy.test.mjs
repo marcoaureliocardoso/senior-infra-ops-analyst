@@ -1,16 +1,86 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 
 import { analyzeCommand } from '../../skills/command-driven-operations/scripts/command-guard/policy.mjs';
 import { parseHookEvent } from '../../skills/command-driven-operations/scripts/command-guard/contract.mjs';
 import { validEvent } from './helpers.mjs';
 
-function analyze(command, permissionMode = 'default') {
+function analyze(command, permissionMode = 'default', native = {}) {
   return analyzeCommand(parseHookEvent(JSON.stringify(validEvent({
     permission_mode: permissionMode,
+    ...native,
     tool_input: { command },
   }))));
 }
+
+const BROWSER_RUNNER = path.resolve('skills/browser-operations/scripts/browser-runner.mjs');
+const browserCommand = (args) => `node ${JSON.stringify(BROWSER_RUNNER)} ${args.join(' ')}`;
+const workflowCommand = () => browserCommand([
+  '--step workflow --operation-id op-workflow-123 --session-id session-workflow-123',
+  '--role network-edge-operator --objective-ref change-42 --target edge-router-1',
+  '--environment production --service-origin http://127.0.0.1:43111',
+  '--identity-ref vault:network-admin --credential-transport vault --permission-mode normal',
+  '--action navigate --action submit --action inspect --effect LOW_RISK_CHANGE',
+  '--risk LOW_RISK_CHANGE --precondition-ref reachable --validation-ref interface-state',
+  '--compensation-ref restore-interface --expires-in-seconds 600',
+  '--workflow-step eyJzdGVwIjoibmF2aWdhdGUiLCJvcmlnaW4iOiJodHRwOi8vMTI3LjAuMC4xOjQzMTExIn0',
+  '--workflow-step eyJzdGVwIjoic3VibWl0Iiwib3JpZ2luIjoiaHR0cDovLzEyNy4wLjAuMTo0MzExMSIsImxvY2F0b3JSb2xlIjoiYnV0dG9uIiwiZWZmZWN0IjoiTE9XX1JJU0tfQ0hBTkdFIn0',
+  '--validation-step eyJzdGVwIjoiaW5zcGVjdCIsIm9yaWdpbiI6Imh0dHA6Ly8xMjcuMC4wLjE6NDMxMTEiLCJsb2NhdG9yUm9sZSI6InN0YXR1cyIsInByZWRpY2F0ZSI6InByZXNlbnQiLCJleHBlY3RlZFJlZiI6ImVudjpPUFNfQlJPV1NFUl9WQUxVRV9FWFBFQ1RFRCIsImV4cGVjdFJlZiI6ImludGVyZmFjZS1zdGF0ZSJ9',
+]);
+
+
+test('protected browser runner is an exact always-confirmed command family', () => {
+  const open = browserCommand([
+    '--step open --operation-id op-123 --session-id session-123 --role network-edge-operator',
+    '--objective-ref change-42 --target edge-router-1 --environment production',
+    '--service-origin https://router.example.invalid --identity-ref vault:network-admin',
+    '--credential-transport vault --permission-mode normal --action inspect --action validate',
+    '--effect LOW_RISK_CHANGE --risk LOW_RISK_CHANGE --precondition-ref reachable',
+    '--validation-ref interface-state --compensation-ref restore-interface --expires-in-seconds 600',
+  ]);
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze(open.replace('--permission-mode normal', `--permission-mode ${mode}`), mode,
+      { session_id: 'session-123', agent_type: 'network-edge-operator' });
+    assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
+    assert.equal(result.risk, 'LOW_RISK_CHANGE');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.reasonCode, 'ASK_SENSITIVE_OPERATION');
+  }
+  const inspect = analyze(browserCommand([
+    '--operation-id op-123 --step inspect --origin https://router.example.invalid',
+    '--locator-role status --expect-ref status-readable',
+  ]));
+  assert.equal(inspect.reasonCode, 'DENY_BROWSER_BINDING');
+  assert.equal(inspect.decision, 'deny');
+});
+
+
+test('one-shot browser workflows always ask even in bypassPermissions', () => {
+  for (const mode of ['default', 'bypassPermissions']) {
+    const result = analyze(workflowCommand().replace('--permission-mode normal', `--permission-mode ${mode}`), mode,
+      { session_id: 'session-workflow-123', agent_type: 'network-edge-operator' });
+    assert.equal(result.policyId, 'BROWSER_PROTECTED_RUNNER');
+    assert.equal(result.decision, 'ask');
+    assert.equal(result.reasonCode, 'ASK_SENSITIVE_OPERATION');
+  }
+});
+
+
+test('browser runner catalogue rejects path and grammar escape hatches', () => {
+  const rejected = [
+    `node ./skills/browser-operations/scripts/browser-runner.mjs --operation-id op-123 --step close`,
+    `node ${JSON.stringify(`${BROWSER_RUNNER}.copy`)} --operation-id op-123 --step close`,
+    'node -e "process.exit(0)"',
+    browserCommand(['--operation-id op-123 --step fill --origin https://router.example.invalid --locator-role textbox --value literal']),
+    browserCommand(['--operation-id op-123 --step navigate --origin javascript:alert(1)']),
+    browserCommand(['--operation-id op-123 --step navigate --origin https://']),
+    browserCommand(['--operation-id op-123 --step inspect --origin https://router.example.invalid --locator-role status --expect-ref ok --unknown x']),
+  ];
+  for (const command of rejected) {
+    assert.equal(analyze(command).decision, 'deny', command);
+  }
+});
 
 test('narrow read and bounded read pipeline allow in normal mode', () => {
   assert.equal(analyze('uname -a').decision, 'allow');

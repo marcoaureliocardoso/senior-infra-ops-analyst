@@ -60,6 +60,10 @@ const FAMILY = Object.freeze({
   WINDOWS_CONTROL: ['Restart-Service -Name spooler', 'Set-Item x y'],
   FILTER: ['grep Linux', 'grep root /etc/passwd'],
   DECRYPTOR: ['gpg --decrypt credential.gpg', 'gpg --encrypt plaintext'],
+  BROWSER_PROTECTED_RUNNER: [
+    `node ${JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs'))} --operation-id op-coverage --step close`,
+    'node /tmp/browser-runner.mjs --operation-id op-coverage --step close',
+  ],
 });
 
 const REASONS = Object.freeze({
@@ -85,6 +89,7 @@ const REASONS = Object.freeze({
   DENY_AMBIGUOUS_TARGET: ['docker restart web', 'default'],
   DENY_UNSUPPORTED_GIT_FORM: ['git commit -F message.txt', 'default'],
   DENY_POWERSHELL_PROFILE: ['pwsh -Command "Get-Service"', 'default'],
+  DENY_BROWSER_BINDING: [`node ${JSON.stringify(path.resolve('skills/browser-operations/scripts/browser-runner.mjs'))} --operation-id op-unbound --step navigate --origin https://router.example.invalid`, 'default'],
 });
 
 const CREDENTIALS = Object.freeze({

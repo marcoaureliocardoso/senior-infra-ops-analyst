@@ -23,5 +23,6 @@
   "disaster-recovery-drills": "*",
   "vendor-escalation-management": "*",
   "audit-compliance-evidence": "*",
-  "context-continuity": "*"
+  "context-continuity": "*",
+  "browser-operations": "*"
 }

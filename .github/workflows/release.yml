@@ -15,13 +15,47 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    permissions:
+      contents: read
+    # Keep the full-gate budget aligned with CI package-validate.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare guarded image and verified namespace runtime
+        id: isolation_prepare
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
+        run: python3 tests/ci_isolation_bootstrap.py --prepare --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
+      - name: Provision test-only terminal runtime
+        id: terminal_provision
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
+        run: |
+          terminal_node="$(readlink -f "$(command -v node)")"
+          terminal_npm="$(readlink -f "$(command -v npm)")"
+          python3 tests/provision-terminal-runtime.py --target "$RUNNER_TEMP/p004b-terminal-runtime" --npm "$terminal_npm" --node "$terminal_node"
+          printf 'P004B_TERMINAL_NODE=%s\n' "$terminal_node" >> "$GITHUB_ENV"
+          printf 'P004B_TERMINAL_MODULE_ROOT=%s\n' "$RUNNER_TEMP/p004b-terminal-runtime/node_modules" >> "$GITHUB_ENV"
+      - name: Verify required isolation and real helper audit
+        id: isolation_verify
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
+        run: python3 tests/ci_isolation_bootstrap.py --verify --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
       - name: Full package validation
+        id: package_gate
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
         run: bash tests/validate-package.sh
       - name: Schema validation
         run: python3 tests/validate-schema.py
+      - name: Clean owned namespace runtime and policy
+        id: isolation_cleanup
+        env:
+          CI_ISOLATION_REPORT: ${{ runner.temp }}/ci-isolation-report.json
+        if: always()
+        run: python3 tests/ci_isolation_bootstrap.py --cleanup --manifest tests/ci-runtime-lock.json --report "$CI_ISOLATION_REPORT"
 
   release:
     needs: validate
