@@ -34,6 +34,22 @@ privileged/native behavior, formal full-PR security or merge readiness. The new
 immutable full-package gate is pending at this checkpoint; no new hosted CI,
 push or merge has occurred.
 
+The single immutable gate at `25434beba1c24ebd1c12cf066bcd06f3e0ae9cda`
+passed in1496.622 seconds, exit0, without timeout. All620 canonical files matched
+the archive before execution and remained unchanged; disposableRootAbsent was
+true. Archive SHA-256 before/after:
+`df397388cbb19b394a70f8b0687601213821988b50bcd6d0e59e9a8498a51636`.
+The synchronized receipt and its exclusive identical-byte Windows copy both
+hashed to `96d5235178e5207e6d92fff86502e7f564e8b36ceb22287b339503481cff8359`.
+The log reached `package validation passed`; guard mutations passed88/88.
+Existing conditional exclusions remained explicit: four Python batches reported
+3/1/1/1 skips, one Node browser opt-in case was skipped, and Linux did not provide
+PowerShell for the .ps1 syntax check. These exclusions do not qualify native
+acceptance. Expected negative argument-parser output was not a test failure.
+This following evidence-only documentation commit is distinct from tested source.
+No new hosted CI, provider/browser/native run, push, merge, release or definitive
+TODO completion is implied; the earlier hosted cause remains unproven.
+
 ## Four bounded PR58 repairs and pending redirect design - 2026-10-28
 
 Against eb895f60cfc39188f73141a5e5ede19c89ec6f10, synthetic RED checks showed
