@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected CI namespace evidence collection: retain the directly launched
+  verified executable's PID even when it exits before process sampling. Reject
+  missing/invalid process identities and malformed audit responses with existing
+  finite codes; preserve the first diagnostic failure through cleanup and stdout.
+  PID/window/binary correlation and policy refusal remain mandatory. This does
+  not establish the previous hosted failure's exact cause or hosted acceptance.
+  Report schema3 and Nori component versions are unchanged.
+
 - Corrected four additional PR 58 findings locally: evaluate execution
   prerequisite predicates before later browser effects; classify package
   service paths without filename decoding loss; invalidate workflow evidence

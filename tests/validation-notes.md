@@ -1,6 +1,39 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## CI probe identity and finite failure preservation - 2026-10-28
+
+At `543c62281aef6f2bbda410fdaf62dab592187592`, hosted CI40717553378 failed
+PREPARE/POLICY_AUDIT/CI_NAMESPACE_UNPROVEN; owned cleanup passed. Package
+validation and isolation verification were skipped, six other CI jobs passed,
+and Security40717553408 passed. This locates an audit-evidence acquisition
+failure before policy snapshot/loading, not a proven AppArmor cause. A synthetic
+fast-exit/PID-sampling race reproduces this projection; a reader failure can also
+produce it. The actual native PID set and specific reader error were not retained.
+
+The bounded repair records the verified direct launch PID without waiting for
+process sampling, retains executable verification for descendants, rejects
+invalid PID sets and strictly validates the tiny audit boolean response.
+Namespace diagnosis now latches finite failures before returning BLOCKED.
+Policy matching still requires PID, bounded time window, verified executable
+and the reviewed denial fields; no policy or privilege rule was relaxed.
+
+RED reproduced missing fast-exit identity, invalid PID forwarding, malformed
+audit response acceptance and lost reader codes. GREEN: image23/runtime7/
+bootstrap37/proof6/wiring18/workflow25 passed, including both cleanup outcomes
+and unknown/subclass exception mapping. Schema7, content, architecture13,
+changed-document Markdown/spelling and diff whitespace checks also passed.
+These controls use synthetic process/reader boundaries, not real root, journal,
+AppArmor, provider or browser calls. Internal schema3 and component versions
+are unchanged. The single fresh independent read-only engineering review read
+all seven changed files and relevant consumers, found no Critical/Important/Minor
+issues, independently passed bootstrap37/wiring18 and diff checking, and approved
+this bounded local repair. Its first service-limited attempt produced no verdict;
+the resumed review completed. It did not qualify historical hosted causation,
+privileged/native behavior, formal full-PR security or merge readiness. The new
+immutable full-package gate is pending at this checkpoint; no new hosted CI,
+push or merge has occurred.
+
 ## Four bounded PR58 repairs and pending redirect design - 2026-10-28
 
 Against eb895f60cfc39188f73141a5e5ede19c89ec6f10, synthetic RED checks showed

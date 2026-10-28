@@ -66,9 +66,19 @@ actual runner-invoked version are verified before PATH publication and the gate.
 
 If the fixed isolated baseline fails, exactly one minimal isolated control is
 available. A policy intervention requires a matching AppArmor denial from the
-verified invocation's observed executable/PIDs and bounded time window. Missing
+verified invocation's launched PID or executable-verified descendant PIDs and
+bounded time window. The direct, shell-free launch records its PID immediately;
+process sampling remains necessary for descendant identity and observed labels,
+not for retaining the launched PID after a fast exit. Missing
 attribution, incompatible ABI, a foreign attachment or conflicting identity
 blocks; EPERM or a restriction scalar alone is insufficient.
+Empty, invalid or more than128 distinct PIDs reject before the privileged reader.
+Its response must be at most128 bytes and contain exactly one matched boolean;
+duplicate keys, arrays, extra fields and boolean-equivalent integers reject.
+A valid false response is uncorrelated evidence, not a transport failure.
+Reader failures keep existing finite codes; namespace diagnosis latches them
+before its BLOCKED result becomes the outer generic namespace error. No audit
+text, PID, label, timestamp or exception content enters the diagnostic projection.
 
 The separately licensed, digest-locked ABI-4 template attaches to that private
 executable only. Unique owned parent/child names retain the upstream stacked
@@ -140,6 +150,8 @@ merge, release and definitive TODO completion remain separate gates.
 See [validation notes](../../tests/validation-notes.md) for exact evidence and exclusions.
 
 ## Primary sources
+- [Direct subprocess PID identity](https://docs.python.org/3/library/subprocess.html#subprocess.Popen.pid).
+- [Executable-link process lifecycle](https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html).
 - [APT action and ShortBreaks emission](https://github.com/Debian/apt/blob/2.8.1/apt-pkg/algorithms.cc#L110-L287).
 - [Fixed source release](https://github.com/containers/bubblewrap/releases/tag/v0.12.0).
 - [Upstream security advisory](https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx).

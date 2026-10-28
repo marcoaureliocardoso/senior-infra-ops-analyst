@@ -193,8 +193,8 @@ def diagnose_namespace(runtime, *, executor, deadline):
         if (evidence.executable_identity == runtime.receipt.binary_sha256
                 and policy_is_needed(snapshot, evidence)):
             return DiagnosticResult("POLICY_NEEDED", "MATCHING_APPARMOR_DENIAL", evidence)
-    except (OSError, ValueError):
-        pass
+    except (OSError, ValueError) as error:
+        remember_failure(executor, 'PREPARE', error)
     return DiagnosticResult("BLOCKED", "NAMESPACE_ATTRIBUTION_UNPROVEN")
 
 

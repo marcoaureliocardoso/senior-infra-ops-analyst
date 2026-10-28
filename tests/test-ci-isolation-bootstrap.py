@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
@@ -456,6 +457,65 @@ class ProvisioningTests(unittest.TestCase):
         for command in (("relative",), ("/bin/sh", "-c", "true"), ("/usr/bin/python3", "bad\x00arg")):
             with self.subTest(command=command), self.assertRaises(ValueError):
                 transport.command(command, time.monotonic() + 1)
+
+
+class NamespaceEvidenceTests(unittest.TestCase):
+    def executor(self, directory):
+        import ci_isolation_linux as linux
+        executor = linux.LinuxExecutor(SimpleNamespace(source_sha256='a' * 64),
+                                       Path(directory), 'b' * 32, 'c' * 64)
+        runtime = SimpleNamespace(binary=Path('/verified/private/bin/bwrap'),
+                                  receipt=SimpleNamespace(binary_sha256='d' * 64))
+        return linux, executor, runtime
+
+    def test_fast_exit_preserves_launched_pid_without_proc_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            linux, executor, runtime = self.executor(directory)
+            process = SimpleNamespace(pid=4321, returncode=1, poll=lambda: 1)
+            with patch.object(linux, 'verify_installed_runtime'), \
+                    patch.object(linux.subprocess, 'Popen', return_value=process), \
+                    patch.object(linux.os, 'readlink', side_effect=FileNotFoundError):
+                self.assertFalse(executor.namespace_probe(runtime, 'full', time.monotonic() + 5))
+            self.assertEqual(executor.probe_records[0][2:], ((4321,), ()))
+
+    def test_audit_rejects_missing_invalid_or_excessive_pid_identity_before_reader(self):
+        for pids in ((), (True,), (0,), (-1,), ('4321',), tuple(range(1, 130))):
+            with self.subTest(count=len(pids)), tempfile.TemporaryDirectory() as directory:
+                _, executor, runtime = self.executor(directory)
+                executor.probe_records = [(1.0, 2.0, pids, ())]
+                def unexpected_reader(*args):
+                    self.fail('invalid process identity reached the privileged reader')
+                executor.root_action = unexpected_reader
+                with self.assertRaisesRegex(ValueError, '^CI_POLICY_EVIDENCE_MISSING$'):
+                    executor.denial_evidence(runtime, time.monotonic() + 5)
+
+    def test_audit_response_requires_one_exact_boolean_field(self):
+        samples = (b'not-json', b'{"matched":1}', b'{"matched":null}', b'{}',
+                   b'{"matched":true,"matched":false}', b'{"matched":false,"matched":true}',
+                   b'{"matched":true,"extra":"private"}', b'[["matched",true]]', b'[]',
+                   b' ' * 129, b'\xff')
+        for sample in samples:
+            with self.subTest(length=len(sample)), tempfile.TemporaryDirectory() as directory:
+                _, executor, runtime = self.executor(directory)
+                executor.probe_records = [(1.0, 2.0, (4321,), ())]
+                executor.root_action = lambda *args: sample
+                with self.assertRaisesRegex(ValueError, '^CI_POLICY_EVIDENCE_REJECTED$'):
+                    executor.denial_evidence(runtime, time.monotonic() + 5)
+
+    def test_audit_boolean_keeps_pid_window_and_binary_correlation(self):
+        for matched in (False, True):
+            with self.subTest(matched=matched), tempfile.TemporaryDirectory() as directory:
+                _, executor, runtime = self.executor(directory)
+                executor.probe_records = [(1.0, 2.0, (4321,), ()), (2.0, 3.0, (4322,), ())]
+                def reader(action, deadline, request):
+                    self.assertEqual(action, 'audit-read')
+                    self.assertEqual(json.loads(request), {'pids': [4321, 4322], 'window': [1.0, 3.0]})
+                    return json.dumps({'matched': matched}).encode('ascii')
+                executor.root_action = reader
+                evidence = executor.denial_evidence(runtime, time.monotonic() + 5)
+                self.assertIs(evidence.correlated, matched)
+                self.assertEqual(evidence.executable_identity, 'd' * 64)
+                self.assertEqual(evidence.time_window, (1.0, 3.0))
 
 
 class PolicyFixtureExecutor(FixtureExecutor):

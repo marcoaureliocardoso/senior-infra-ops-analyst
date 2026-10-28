@@ -181,6 +181,10 @@ class LinuxExecutor:
                                        stdin=subprocess.DEVNULL, stdout=output, stderr=output,
                                        env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, start_new_session=True)
             try:
+                # Direct exec of the verified binary establishes this PID even
+                # when it exits before /proc can be sampled. Descendants still
+                # require executable verification; labels remain observational.
+                pids.add(process.pid)
                 while True:
                     # Inspect only this owned child and descendants linked from
                     # it. Never enumerate the host process table/operator state.
@@ -232,12 +236,29 @@ class LinuxExecutor:
         records = self.probe_records[:2]
         if not records:
             raise ValueError("CI_POLICY_EVIDENCE_MISSING")
-        pids = tuple(sorted({pid for record in records for pid in record[2]}))
+        observed = [pid for record in records for pid in record[2]]
+        if not observed or any(type(pid) is not int or pid <= 0 for pid in observed):
+            raise ValueError("CI_POLICY_EVIDENCE_MISSING")
+        pids = tuple(sorted(set(observed)))
+        if len(pids) > 128:
+            raise ValueError("CI_POLICY_EVIDENCE_MISSING")
         window = (records[0][0], records[-1][1])
         request = json.dumps({"pids": pids, "window": window}, separators=(",", ":"))
-        response = json.loads(self.root_action("audit-read", deadline, request))
+        payload = self.root_action("audit-read", deadline, request)
+        if type(payload) is not bytes or len(payload) > 128:
+            raise ValueError("CI_POLICY_EVIDENCE_REJECTED")
+        try:
+            # Preserve object pairs to reject duplicate keys, arrays and bool-
+            # equivalent integers rather than silently treating them as proof.
+            response = json.loads(payload, object_pairs_hook=lambda pairs: pairs)
+        except (ValueError, UnicodeError):
+            raise ValueError("CI_POLICY_EVIDENCE_REJECTED") from None
+        if (type(response) is not list or len(response) != 1
+                or type(response[0]) is not tuple or len(response[0]) != 2
+                or response[0][0] != "matched" or type(response[0][1]) is not bool):
+            raise ValueError("CI_POLICY_EVIDENCE_REJECTED")
         return DenialEvidence(runtime.receipt.binary_sha256, window, "unprivileged_userns",
-                              "net_admin", response == {"matched": True})
+                              "net_admin", response[0][1])
 
     def policy_template(self):
         self.stage = 'POLICY_TEMPLATE'

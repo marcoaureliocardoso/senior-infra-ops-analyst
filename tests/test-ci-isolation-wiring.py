@@ -97,6 +97,51 @@ def check_workflows(root=ROOT):
 
 
 class WiringTests(unittest.TestCase):
+    def test_namespace_audit_failure_survives_prepare_cleanup_report_and_stdout(self):
+        import ci_isolation_bootstrap as bootstrap
+        cases = ((ValueError('CI_COMMAND_FAILED'), 'CI_COMMAND_FAILED'),
+                 (ValueError('CI_POLICY_EVIDENCE_MISSING'), 'CI_POLICY_EVIDENCE_MISSING'),
+                 (ValueError('CI_POLICY_EVIDENCE_REJECTED'), 'CI_POLICY_EVIDENCE_REJECTED'),
+                 (OSError('private transport details'), 'OS_ERROR'),
+                 (ValueError('private received content'), 'UNKNOWN_ERROR'),
+                 (type('UntrustedError', (ValueError,), {})('CI_COMMAND_FAILED'), 'UNKNOWN_ERROR'))
+        for error, expected in cases:
+            for cleaned in (True, False):
+                with self.subTest(code=expected, cleaned=cleaned), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory); report = root/'report.json'; output = io.StringIO()
+                    executor = SimpleNamespace(stage='NAMESPACE_FULL', spec=object(), primary_failure=None)
+                    executor.namespace_probe = lambda *args: False
+                    def audit(*args):
+                        executor.stage = 'POLICY_AUDIT'
+                        raise error
+                    executor.denial_evidence = audit
+                    def snapshot(*args): self.fail('audit failure reached the policy snapshot')
+                    executor.snapshot_policy = snapshot
+                    def cleanup(*args, **kwargs):
+                        executor.stage = 'CLEANUP_CACHE'
+                        return cleaned
+                    with patch.dict(os.environ, {'GITHUB_RUN_ID': '1', 'GITHUB_RUN_ATTEMPT': '1',
+                                                 'GITHUB_SHA': 'a'*40}), \
+                            patch.object(bootstrap, '_hosted_environment', return_value=root), \
+                            patch.object(bootstrap, '_executor', return_value=executor), \
+                            patch.object(bootstrap, 'provision_runtime', return_value=object()), \
+                            patch.object(bootstrap, 'verify_installed_runtime'), \
+                            patch.object(bootstrap, '_cleanup', side_effect=cleanup), contextlib.redirect_stdout(output):
+                        self.assertEqual(bootstrap.main(['--prepare', '--manifest', 'tests/ci-runtime-lock.json',
+                                                         '--report', str(report)]), 1)
+                        if cleaned:
+                            bootstrap.cleanup_cli(report, root)
+                        else:
+                            with self.assertRaises(ValueError): bootstrap.cleanup_cli(report, root)
+                        record = bootstrap._read_report(report)
+                    projection = json.loads(output.getvalue().splitlines()[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
+                    for diag in (record['diagnostics'], projection):
+                        self.assertEqual((diag['phase'], diag['stage'], diag['error']),
+                                         ('PREPARE', 'POLICY_AUDIT', expected))
+                        self.assertEqual(diag['cleanup'], 'PASSED' if cleaned else 'FAILED')
+                    for forbidden in ('private', directory, 'UntrustedError'):
+                        self.assertNotIn(forbidden, output.getvalue() + report.read_text())
+
     def test_first_apt_rejection_survives_prepare_cleanup_and_stdout_without_content(self):
         import ci_isolation_bootstrap as bootstrap
         from ci_image_upgrade import parse_apt_simulation
