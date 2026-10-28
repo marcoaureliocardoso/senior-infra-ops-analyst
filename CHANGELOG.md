@@ -7,6 +7,14 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Fixed the CI audit command's unsupported journalctl --kernel option by using
+  the documented --dmesg kernel filter. Added a closed audit-worker failure
+  envelope and schema4 diagnostics preserving internal phase, finite error,
+  worker return code and journal-command return code through cleanup/stdout.
+  Raw command/audit streams and exception text remain excluded; unknown frames
+  still block. Synthetic controls reproduce the CLI defect and protocol loss;
+  actual hosted resolution remains unproven. Nori versions are unchanged.
+
 - Corrected CI namespace evidence collection: retain the directly launched
   verified executable's PID even when it exits before process sampling. Reject
   missing/invalid process identities and malformed audit responses with existing

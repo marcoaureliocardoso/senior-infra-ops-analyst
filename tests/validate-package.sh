@@ -17,6 +17,7 @@ python3 tests/test-ci-isolation-runtime.py
 python3 tests/test-ci-isolation-bootstrap.py
 python3 tests/test-ci-isolation-probe.py
 python3 tests/test-ci-isolation-wiring.py
+python3 tests/test-ci-worker-diagnostics.py
 python3 tests/test-ci-workflows.py
 python3 tests/test-nori-package-contract.py
 python3 tests/test-browser-operation-policy.py

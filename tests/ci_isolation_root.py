@@ -27,6 +27,7 @@ from ci_isolation_runtime import (  # noqa: E402
     verify_installed_runtime,
 )
 from ci_isolation_bootstrap import load_policy_template, match_denial_records, policy_for_runtime  # noqa: E402
+from ci_worker_diagnostics import encode_failure  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,28 +67,46 @@ def load_owned_runtime(spec, nonce):
     return OwnedRuntime(prefix, prefix / "bin/bwrap", BuildReceipt(**record))
 
 
-def bounded_root_command(argv, cache, *, allow_failure=False):
+def bounded_root_command(argv, cache, *, allow_failure=False, trace=None):
+    audit_trace = trace is not None
+    trace = {} if trace is None else trace
+    trace['phase'] = 'AUDIT_JOURNAL_OPEN'
     with tempfile.TemporaryFile(dir=cache) as output:
+        trace['phase'] = 'AUDIT_JOURNAL_SPAWN'
         process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output, stderr=output,
                                    env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
                                    start_new_session=True)
         deadline = time.monotonic() + 15
+        trace['phase'] = 'AUDIT_JOURNAL_WAIT'
+        primary = None
         try:
             while process.poll() is None:
-                if time.monotonic() >= deadline or output.tell() > 512 * 1024:
-                    raise ValueError("CI_ROOT_COMMAND_BOUNDED_FAILURE")
+                if time.monotonic() >= deadline:
+                    raise ValueError("CI_ROOT_COMMAND_TIMEOUT")
+                if output.tell() > 512 * 1024:
+                    raise ValueError("CI_ROOT_COMMAND_OUTPUT_LIMIT")
                 time.sleep(0.01)
-            if output.tell() > 512 * 1024 or process.returncode and not allow_failure:
+            if output.tell() > 512 * 1024:
+                raise ValueError("CI_ROOT_COMMAND_OUTPUT_LIMIT")
+            if process.returncode and not allow_failure:
                 raise ValueError("CI_ROOT_COMMAND_FAILED")
             output.seek(0)
             return output.read(512 * 1024 + 1)
+        except BaseException as error:
+            primary = error
+            raise
         finally:
-            if process.poll() is None:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=5)
+            try:
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=5)
+            except (OSError, subprocess.SubprocessError):
+                if not audit_trace or primary is None: raise
+            finally:
+                trace['commandReturnCode'] = process.returncode
 
 
 def loaded_profiles():
@@ -217,7 +236,9 @@ def policy_action(action, spec, nonce, cache):
         print("CLEAN")
 
 
-def main(argv):
+def main(argv, *, trace=None):
+    trace = {} if trace is None else trace
+    trace['phase'] = 'ROOT_SCOPE'
     if (os.geteuid() != 0 or len(argv) < 3 or argv[0] not in
             {"cache-create", "cache-cleanup", "runtime-install", "runtime-cleanup",
              "audit-read", "policy-load", "policy-cleanup"}
@@ -228,8 +249,10 @@ def main(argv):
     expected_count = 2 if action == "runtime-install" else 1 if action == "audit-read" else 0
     if len(extra) != expected_count:
         raise ValueError("CI_ROOT_SCOPE_REJECTED")
+    trace['phase'] = 'ROOT_MANIFEST'
     spec = load_runtime_spec(Path(argv[1]))
     cache = CACHE_BASE / spec.source_sha256
+    trace['phase'] = 'ROOT_DIRECTORIES'
     protected_directory(PREFIX_BASE.parent)
     protected_directory(CACHE_BASE.parent)
     if action == "cache-create":
@@ -245,6 +268,7 @@ def main(argv):
         for relative in ("lists/partial", "archives/partial"):
             os.chown(cache / relative, apt_uid, 0)
         return
+    trace['phase'] = 'ROOT_CACHE'
     protected_directory(cache)
     marker = read_record(cache / "owner.json")
     if (marker != {"nonce": nonce, "source": spec.source_sha256,
@@ -261,8 +285,11 @@ def main(argv):
     elif action in ("policy-load", "policy-cleanup"):
         policy_action(action, spec, nonce, cache)
     elif action == "audit-read":
+        trace['phase'] = 'AUDIT_RUNTIME_LOAD'
         runtime = load_owned_runtime(spec, nonce)
+        trace['phase'] = 'AUDIT_RUNTIME_VERIFY'
         verify_installed_runtime(runtime, check_version=False)
+        trace['phase'] = 'AUDIT_REQUEST'
         request = json.loads(extra[0])
         if type(request) is not dict or set(request) != {"pids", "window"}:
             raise ValueError("CI_AUDIT_SCOPE_REJECTED")
@@ -273,8 +300,9 @@ def main(argv):
                 or not all(type(value) in (int, float) for value in window)
                 or not 0 < window[1] - window[0] <= 120 or not 0 <= time.time() - window[1] <= 120):
             raise ValueError("CI_AUDIT_SCOPE_REJECTED")
-        raw = bounded_root_command(["/usr/bin/journalctl", "--kernel", "--no-pager", "--output=json",
-                                    "--since", f"@{window[0]:.6f}", "--until", f"@{window[1]:.6f}"], cache)
+        raw = bounded_root_command(["/usr/bin/journalctl", "--dmesg", "--no-pager", "--output=json",
+                                    "--since", f"@{window[0]:.6f}", "--until", f"@{window[1]:.6f}"], cache, trace=trace)
+        trace['phase'] = 'AUDIT_MATCH'
         matched = match_denial_records(raw, pids=tuple(pids), window=tuple(window), binary=str(runtime.binary))
         print(json.dumps({"matched": matched}))
     elif action == "runtime-cleanup":
@@ -306,9 +334,18 @@ def main(argv):
         print(json.dumps(asdict(runtime.receipt), separators=(",", ":")))
 
 
-if __name__ == "__main__":
+def cli(argv):
+    trace = {'phase': 'ROOT_SCOPE', 'commandReturnCode': None}
     try:
-        main(sys.argv[1:])
-    except (ValueError, OSError, KeyError, TypeError):
-        print("CI_ROOT_OPERATION_BLOCKED")
-        raise SystemExit(1) from None
+        main(argv, trace=trace)
+        return 0
+    except Exception as error:
+        if argv and argv[0] == 'audit-read':
+            print(encode_failure(trace, error))
+        else:
+            print('CI_ROOT_OPERATION_BLOCKED')
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli(sys.argv[1:]))

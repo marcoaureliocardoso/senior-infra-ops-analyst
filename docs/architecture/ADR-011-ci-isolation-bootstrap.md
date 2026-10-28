@@ -50,7 +50,7 @@ syntax, reversed order, extra lists or invalid names reject. Positional parsing
 consumes the whole line without repeated suffix copies. These intermediate
 simulation annotations never become selected actions or authority and waive
 none of the command-success, complete-Conf/version/count, protected-package,
-service, hold, reboot, frozen-proposal or postcondition checks. Schema3 still
+service, hold, reboot, frozen-proposal or postcondition checks. Schema4 still
 reports the first unknown suffix without its content.
 
 The runner builds the exact verified Bubblewrap archive without dependency
@@ -79,6 +79,9 @@ A valid false response is uncorrelated evidence, not a transport failure.
 Reader failures keep existing finite codes; namespace diagnosis latches them
 before its BLOCKED result becomes the outer generic namespace error. No audit
 text, PID, label, timestamp or exception content enters the diagnostic projection.
+The audit query uses journalctl --dmesg, not the unsupported --kernel option.
+This preserves the kernel/current-boot filter, JSON format and exact bounded
+time window. Timestamp grammar and host-security policy are unchanged.
 
 The separately licensed, digest-locked ABI-4 template attaches to that private
 executable only. Unique owned parent/child names retain the upstream stacked
@@ -101,7 +104,7 @@ receipts and nonce/inode ownership bind lifecycle stages. Raw command/audit
 streams are not exported or uploaded. Always-run cleanup removes only owned
 policy names/files, the private runtime/cache and the owned build workspace.
 Failed cleanup is a failed job, not qualified isolation.
-The schema3 aggregate includes finite diagnostic phase, stage, error and cleanup
+The schema4 aggregate includes finite diagnostic phase, stage, error and cleanup
 codes. A primary failure is latched before internal or always-run cleanup can
 replace the current stage; later cleanup cannot erase it. Only this validated
 projection enters stdout, including on prepare failure. Arbitrary
@@ -113,7 +116,22 @@ exact keys kind, line and length. Kind is a closed structural enum; line is
 one-based including blank lines (1..4096); character length excludes newline
 (1..524288). Only APT_SIMULATION_UNRECOGNIZED can carry this detail. No line,
 package identity or received-content hash is preserved, and no new form is
-accepted. The old schema2 is rejected rather than silently extended.
+accepted. Old schema2/schema3 reports are rejected rather than silently extended.
+Nullable workerFailure has exactly phase, error, workerReturnCode and
+commandReturnCode. Phases/errors are closed enums; numeric results are exact
+integers from -128 through255 or null when not observed. Worker and nested
+command results are separate: null never becomes an invented exit status.
+Only CI_ROOT_WORKER_FAILED can carry this required detail. The audit-only worker
+failure envelope is at most1024 bytes, rejects duplicate/unknown fields and
+requires worker exit1; malformed or absent envelopes become finite TRANSPORT
+failures, never evidence permitting policy. Other privileged actions retain
+their existing interface. The success response remains one exact matched boolean.
+Inner timeout/output/nonzero failures remain distinguishable; bounded child
+reaping is attempted before final return-code projection. Reaping errors cannot
+replace a prior audit failure. A null return code proves no exit observation,
+not successful reaping; top-level runtime/cache cleanup is a separate result.
+No command arguments, stream,
+exception text, PID, timestamp, path or received-content hash enters this detail.
 The shared report path is explicitly bound in each lifecycle step's environment,
 where GitHub makes runner context available; no job-level runtime expression or
 successful earlier initialization is required by cleanup. The wiring contract
@@ -150,6 +168,8 @@ merge, release and definitive TODO completion remain separate gates.
 See [validation notes](../../tests/validation-notes.md) for exact evidence and exclusions.
 
 ## Primary sources
+- [Kernel journal filter](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html).
+- [Actual journalctl option table](https://github.com/systemd/systemd/blob/v255/src/journal/journalctl.c#L491).
 - [Direct subprocess PID identity](https://docs.python.org/3/library/subprocess.html#subprocess.Popen.pid).
 - [Executable-link process lifecycle](https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html).
 - [APT action and ShortBreaks emission](https://github.com/Debian/apt/blob/2.8.1/apt-pkg/algorithms.cc#L110-L287).

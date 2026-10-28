@@ -1,6 +1,49 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Audit CLI defect and closed worker failure boundary - 2026-10-28
+
+The operator approved preserving internal phase, finite code and numeric
+subprocess results and requested a concrete defect search. The read-only
+release-cicd diagnostic delegate found the audit argv used --kernel, which is
+not a journalctl option. Official Ubuntu/systemd documentation and the v255
+option table register --dmesg/-k; unknown options reject before journal access.
+This is a deterministic source defect compatible with hosted POLICY_AUDIT /
+CI_COMMAND_FAILED, not proof that it was the first failure on that runner.
+Earlier synthetic probes accepted --kernel in their fake boundary and therefore
+did not test the native CLI grammar. The new boundary fixture derives accepted
+argv independently from the official contract and reproduces that failure.
+
+RED reproduced invalid kernel-filter dispatch, loss of worker phase/return codes,
+missing public metadata and transport-deadline result loss. The correction uses
+--dmesg and a closed audit-only failure envelope. Schema4 adds nullable
+workerFailure; ADR-011 defines exact fields, enums, numeric bounds and refusal.
+The original matched boolean, PID/window/binary correlation, command bounds,
+owned cleanup and all policy gates remain binding. Nori versions are unchanged.
+Unknown/malformed content is never persisted as diagnostic text.
+
+GREEN at this checkpoint: worker14; image23/runtime7/bootstrap37/proof6/wiring18/
+workflow25. Controls include unknown/duplicate/extra fields, boolean numeric
+forgery, numeric bounds, missing tool, nonzero journal result, inner timeout,
+oversized output, outer deadline/reaping and both report cleanup outcomes.
+All processes at privileged/journal boundaries were synthetic substitutes.
+One fresh independent read-only engineering review independently passed the
+initial worker7/wiring18 and found two Important issues: reap failures masking
+the primary error (both layers), and timing-dependent completed-output overflow
+classification. The author reproduced them RED and fixed them in one TDD pass,
+including actual public-CLI no-traceback coverage. One transport open/spawn gap
+was graded Minor by the reviewer. Ruling: treat it as a required boundary case
+under the operator's selected diagnostic contract and correct it in the same
+pass; cost is limited to additional CI-only failure metadata, not authority.
+No second review was performed. Null numeric results do not certify reaping;
+the independently reported runtime/cache cleanup does not change that meaning.
+Review exclusions remain hosted/real privileged behavior, unchanged timestamp
+and matching semantics, full-PR/formal security/native/provider/browser/SDK
+qualification, merge/release/TODO completion and exhaustive native behavior of
+other root actions. These are not established by this repair. The new immutable
+full-package gate remains pending.
+No new CI, real sudo/journal, provider/browser/native attempt, push or merge ran.
+
 ## CI probe identity and finite failure preservation - 2026-10-28
 
 At `543c62281aef6f2bbda410fdaf62dab592187592`, hosted CI40717553378 failed

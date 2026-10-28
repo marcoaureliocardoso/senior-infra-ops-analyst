@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+from ci_worker_diagnostics import decode_failure, return_code
 
 from ci_image_upgrade import (
     _valid_package, _valid_version, prepare_image_packages,
@@ -49,7 +50,7 @@ class LinuxExecutor:
         self.stage = 'EXECUTOR_INIT'
         self.primary_failure = None
 
-    def command(self, argv, deadline, *, privileged=False, limit=512 * 1024):
+    def command(self, argv, deadline, *, privileged=False, limit=512 * 1024, audit_failure=False):
         remaining = min(120, deadline - time.monotonic())
         private_binary = str(self.runtime.binary) if self.runtime else None
         if remaining <= 0 or not argv or not (str(argv[0]).startswith("/usr/") or str(argv[0]) == private_binary):
@@ -69,36 +70,70 @@ class LinuxExecutor:
             argv = ["/usr/bin/sudo", "-n", "/usr/bin/env",
                     *(f"{key}={value}" for key, value in settings.items()),
                     "/usr/bin/timeout", "--kill-after=5s", f"{remaining:.3f}s", *argv]
-        with tempfile.TemporaryFile(dir=self.workspace) as output:
-            process = subprocess.Popen(argv, cwd=self.workspace, env=env,
-                                       stdin=subprocess.DEVNULL, stdout=output,
-                                       stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            output_file = tempfile.TemporaryFile(dir=self.workspace)
+        except OSError:
+            if not audit_failure: raise
+            detail = decode_failure(b'', None); detail['error'] = 'OS_ERROR'
+            raise ValueError('CI_ROOT_WORKER_FAILED', detail) from None
+        with output_file as output:
+            try:
+                process = subprocess.Popen(argv, cwd=self.workspace, env=env,
+                                           stdin=subprocess.DEVNULL, stdout=output,
+                                           stderr=subprocess.STDOUT, start_new_session=True)
+            except OSError:
+                if not audit_failure: raise
+                detail = decode_failure(b'', None); detail['error'] = 'OS_ERROR'
+                raise ValueError('CI_ROOT_WORKER_FAILED', detail) from None
+            detail, primary = None, None
             try:
                 while process.poll() is None:
-                    if time.monotonic() >= deadline or output.tell() > limit:
+                    timed_out = time.monotonic() >= deadline
+                    if timed_out or output.tell() > limit:
+                        if audit_failure:
+                            detail = decode_failure(b'', process.returncode)
+                            detail['error'] = 'CI_ROOT_COMMAND_TIMEOUT' if timed_out else 'CI_ROOT_COMMAND_OUTPUT_LIMIT'
+                            raise ValueError('CI_ROOT_WORKER_FAILED', detail)
                         raise ValueError("CI_COMMAND_BOUNDED_FAILURE")
                     time.sleep(0.05)
                 if process.returncode or output.tell() > limit:
+                    if audit_failure:
+                        if output.tell() > limit:
+                            detail = decode_failure(b'', process.returncode)
+                            detail['error'] = 'CI_ROOT_COMMAND_OUTPUT_LIMIT'
+                        else:
+                            output.seek(0)
+                            detail = decode_failure(output.read(1025), process.returncode)
+                        raise ValueError('CI_ROOT_WORKER_FAILED', detail)
                     raise ValueError("CI_COMMAND_FAILED")
                 output.seek(0)
                 return output.read(limit + 1)
+            except BaseException as error:
+                primary = error
+                raise
             finally:
-                if process.poll() is None:
-                    try:
-                        os.killpg(process.pid, signal.SIGTERM)
-                        process.wait(timeout=6)
-                    except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                try:
+                    if process.poll() is None:
                         try:
-                            os.killpg(process.pid, signal.SIGKILL)
-                        except (ProcessLookupError, PermissionError):
-                            pass
-                        process.wait(timeout=remaining + 6)
+                            os.killpg(process.pid, signal.SIGTERM)
+                            process.wait(timeout=6)
+                        except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except (ProcessLookupError, PermissionError):
+                                pass
+                            process.wait(timeout=remaining + 6)
+                except (OSError, subprocess.SubprocessError):
+                    if not audit_failure or primary is None: raise
+                finally:
+                    if detail is not None and return_code(process.returncode):
+                        detail['workerReturnCode'] = process.returncode
 
     def root_action(self, action, deadline, *args):
         return self.command(["/usr/bin/python3", "-I", "-B",
                              str(ROOT / "tests/ci_isolation_root.py"), action,
                              str(ROOT / "tests/ci-runtime-lock.json"), self.nonce,
-                             *map(str, args)], deadline, privileged=True)
+                             *map(str, args)], deadline, privileged=True, audit_failure=action == 'audit-read')
 
     def prepare_packages(self, deadline):
         self.stage = 'CACHE_CREATE'

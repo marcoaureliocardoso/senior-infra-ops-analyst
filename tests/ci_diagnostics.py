@@ -1,5 +1,6 @@
 """Finite structural CI failure projection; never serialize exception text."""
 import json
+from ci_worker_diagnostics import failure_detail, validate_failure
 
 
 PHASES = frozenset({'NONE', 'PREPARE', 'VERIFY', 'CLEANUP'})
@@ -15,7 +16,7 @@ POLICY_LOAD POLICY_TRANSITION VERIFY_RUNTIME VERIFY_PROOF VERIFY_REAL_AUDIT
 PUBLISH_PATH CLEANUP_POLICY CLEANUP_RUNTIME CLEANUP_CACHE CLEANUP_WORKSPACE'''.split())
 ERRORS = frozenset('''NONE UNKNOWN_ERROR OS_ERROR INTERRUPTED CLEANUP_UNPROVEN
 APT_SIMULATION_INVALID APT_SIMULATION_UNRECOGNIZED APT_SIMULATION_DRIFT APT_SIMULATION_AMBIGUOUS
-CI_BOOTSTRAP_DEADLINE CI_COMMAND_SCOPE_REJECTED CI_COMMAND_BOUNDED_FAILURE CI_COMMAND_FAILED
+CI_BOOTSTRAP_DEADLINE CI_COMMAND_SCOPE_REJECTED CI_COMMAND_BOUNDED_FAILURE CI_COMMAND_FAILED CI_ROOT_WORKER_FAILED
 CI_NAMESPACE_PROBE_BOUNDED_FAILURE CI_NAMESPACE_UNPROVEN CI_POLICY_STATE_UNPROVEN
 CI_POLICY_EVIDENCE_MISSING CI_POLICY_EVIDENCE_REJECTED CI_POLICY_TEMPLATE_CHANGED
 CI_POLICY_CHILD_UNPROVEN CI_POLICY_CLEANUP_FAILED CI_RUNTIME_IDENTITY_CHANGED
@@ -27,14 +28,14 @@ PACKAGE_OWNERSHIP_UNPROVEN PACKAGE_CACHE_UNSAFE PACKAGE_CACHE_TOO_LARGE
 PACKAGE_ARCHIVE_UNPROVEN PACKAGE_ARCHIVE_UNAVAILABLE PACKAGE_CACHE_CHANGED
 PACKAGE_POSTCONDITION_FAILED RUNTIME_SPEC_INVALID RUNTIME_PREFIX_COLLISION
 RUNTIME_ARCHITECTURE_UNSUPPORTED RUNTIME_BINARY_CHANGED'''.split())
-KEYS = frozenset({'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection'})
+KEYS = frozenset({'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection', 'workerFailure'})
 APT_LINE_KINDS = frozenset('''INST_SUFFIX CONF_SUFFIX REMV_SUFFIX INST_OTHER CONF_OTHER
 REMV_OTHER SUMMARY_VARIANT NOTICE WARNING HELD_CHANGE_HEADER HEADER OTHER'''.split())
 
 
 def empty_diagnostics():
     return dict(phase='NONE', stage='NONE', error='NONE', cleanup='NOT_ATTEMPTED',
-                cleanupStage='NONE', cleanupError='NONE', aptRejection=None)
+                cleanupStage='NONE', cleanupError='NONE', aptRejection=None, workerFailure=None)
 
 
 def validate_apt_rejection(value):
@@ -49,7 +50,7 @@ def validate_apt_rejection(value):
 
 def validate_diagnostics(value):
     if (type(value) is not dict or set(value) != KEYS
-            or any(type(value[key]) is not str for key in KEYS - {'aptRejection'})):
+            or any(type(value[key]) is not str for key in KEYS - {'aptRejection', 'workerFailure'})):
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     if (value['phase'] not in PHASES or value['stage'] not in STAGES or value['error'] not in ERRORS
             or value['cleanupStage'] not in STAGES or value['cleanupError'] not in ERRORS
@@ -58,6 +59,11 @@ def validate_diagnostics(value):
     if (value['error'] == 'NONE') != (value['phase'] == 'NONE' and value['stage'] == 'NONE'):
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     if validate_apt_rejection(value['aptRejection']) is not None and value['error'] != 'APT_SIMULATION_UNRECOGNIZED':
+        raise ValueError('CI_DIAGNOSTICS_INVALID')
+    if value['workerFailure'] is not None:
+        validate_failure(value['workerFailure'])
+        if value['error'] != 'CI_ROOT_WORKER_FAILED': raise ValueError('CI_DIAGNOSTICS_INVALID')
+    elif value['error'] == 'CI_ROOT_WORKER_FAILED':
         raise ValueError('CI_DIAGNOSTICS_INVALID')
     return value
 
@@ -70,13 +76,14 @@ def failure_stage(executor):
 def error_code(error):
     if isinstance(error, KeyboardInterrupt): return 'INTERRUPTED'
     if isinstance(error, OSError): return 'OS_ERROR'
+    if failure_detail(error) is not None: return 'CI_ROOT_WORKER_FAILED'
     # Only exact built-in scalar args; never str/repr, chains or subclass properties.
     if type(error) is ValueError:
         if len(error.args) == 4 and apt_rejection(error) is not None:
             return 'APT_SIMULATION_UNRECOGNIZED'
         if len(error.args) == 1:
             code = error.args[0]
-            if type(code) is str and code in ERRORS - {'NONE'}: return code
+            if type(code) is str and code in ERRORS - {'NONE', 'CI_ROOT_WORKER_FAILED'}: return code
     return 'UNKNOWN_ERROR'
 
 
@@ -93,7 +100,7 @@ def remember_failure(executor, phase, error):
     """Latch before any internal cleanup can replace the current stage."""
     if getattr(executor, 'primary_failure', None) is None:
         executor.primary_failure = dict(phase=phase, stage=failure_stage(executor), error=error_code(error),
-                                        aptRejection=apt_rejection(error))
+                                        aptRejection=apt_rejection(error), workerFailure=failure_detail(error))
 
 
 def record_failure(record, phase, error, executor=None):
@@ -101,7 +108,7 @@ def record_failure(record, phase, error, executor=None):
     if diag['error'] != 'NONE': return
     prior = getattr(executor, 'primary_failure', None)
     values = prior if type(prior) is dict else dict(phase=phase, stage=failure_stage(executor), error=error_code(error),
-                                                 aptRejection=apt_rejection(error))
+                                                 aptRejection=apt_rejection(error), workerFailure=failure_detail(error))
     candidate = {**diag, **values}
     validate_diagnostics(candidate)
     record['diagnostics'] = candidate

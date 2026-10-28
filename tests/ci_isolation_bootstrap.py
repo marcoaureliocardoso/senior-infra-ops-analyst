@@ -297,7 +297,7 @@ def _read_report(path):
         record = json.loads(os.read(fd, 4097))
     finally:
         os.close(fd)
-    if (type(record) is not dict or set(record) != _REPORT_KEYS or record["schemaVersion"] != 3
+    if (type(record) is not dict or set(record) != _REPORT_KEYS or record["schemaVersion"] != 4
             or record["manifestSha256"] != MANIFEST_SHA256
             or type(record["nonce"]) is not str or not re.fullmatch(r"[0-9a-f]{32}", record["nonce"])
             or record["state"] not in _STATES or record["reason"] not in _REASONS
@@ -409,7 +409,7 @@ def prepare_cli(report_path, runner_temp):
     workspace = runner_temp / ("senior-infra-ci-" + nonce)
     workspace.mkdir(mode=0o700)
     info = workspace.stat()
-    record = {"schemaVersion": 3, "manifestSha256": MANIFEST_SHA256, "nonce": nonce,
+    record = {"schemaVersion": 4, "manifestSha256": MANIFEST_SHA256, "nonce": nonce,
               "workspaceIdentity": [info.st_dev, info.st_ino], "state": "PREPARING", "reason": "PREPARING",
               "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
               "githubSha": os.environ["GITHUB_SHA"], "binarySha256": "", "upgradeStatus": None,

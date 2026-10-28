@@ -100,6 +100,8 @@ class WiringTests(unittest.TestCase):
     def test_namespace_audit_failure_survives_prepare_cleanup_report_and_stdout(self):
         import ci_isolation_bootstrap as bootstrap
         cases = ((ValueError('CI_COMMAND_FAILED'), 'CI_COMMAND_FAILED'),
+                 (ValueError('CI_ROOT_WORKER_FAILED', {'phase': 'AUDIT_JOURNAL_WAIT',
+                   'error': 'CI_ROOT_COMMAND_FAILED', 'workerReturnCode': 1, 'commandReturnCode': 7}), 'CI_ROOT_WORKER_FAILED'),
                  (ValueError('CI_POLICY_EVIDENCE_MISSING'), 'CI_POLICY_EVIDENCE_MISSING'),
                  (ValueError('CI_POLICY_EVIDENCE_REJECTED'), 'CI_POLICY_EVIDENCE_REJECTED'),
                  (OSError('private transport details'), 'OS_ERROR'),
@@ -139,6 +141,8 @@ class WiringTests(unittest.TestCase):
                         self.assertEqual((diag['phase'], diag['stage'], diag['error']),
                                          ('PREPARE', 'POLICY_AUDIT', expected))
                         self.assertEqual(diag['cleanup'], 'PASSED' if cleaned else 'FAILED')
+                        if expected == 'CI_ROOT_WORKER_FAILED':
+                            self.assertEqual(diag.get('workerFailure'), error.args[1])
                     for forbidden in ('private', directory, 'UntrustedError'):
                         self.assertNotIn(forbidden, output.getvalue() + report.read_text())
 
@@ -161,7 +165,7 @@ class WiringTests(unittest.TestCase):
                                                  '--report', str(report)]), 1)
                 bootstrap.cleanup_cli(report, root)
                 record = bootstrap._read_report(report)
-            self.assertEqual(record['schemaVersion'], 3)
+            self.assertEqual(record['schemaVersion'], 4)
             projection = json.loads(output.getvalue().splitlines()[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
             for diag in (record['diagnostics'], projection):
                 self.assertEqual(diag['aptRejection'], dict(kind='NOTICE', line=2, length=7))
@@ -307,11 +311,11 @@ class WiringTests(unittest.TestCase):
                 self.assertEqual(len(lines), 2)
                 self.assertEqual(lines[-1], 'CI_BOOTSTRAP_BLOCKED')
                 data = json.loads(lines[0].removeprefix('CI_BOOTSTRAP_DIAGNOSTICS '))
-                self.assertEqual(set(data), {'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection'})
+                self.assertEqual(set(data), {'phase', 'stage', 'error', 'cleanup', 'cleanupStage', 'cleanupError', 'aptRejection', 'workerFailure'})
                 self.assertIsNone(data['aptRejection'])
                 self.assertEqual((data['stage'], data['error']), ('PACKAGE_REFRESH', 'CI_COMMAND_FAILED'))
                 record = json.loads(report.read_text())
-                for old in (1, 2):
+                for old in (1, 2, 3):
                     record['schemaVersion'] = old
                     report.write_text(json.dumps(record))
                     with self.assertRaisesRegex(ValueError, 'CI_REPORT_INVALID'): bootstrap._read_report(report)
