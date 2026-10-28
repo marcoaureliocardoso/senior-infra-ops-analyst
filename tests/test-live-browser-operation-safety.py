@@ -3129,6 +3129,80 @@ raise SystemExit(1)
         self.assertNotIn("human", json.dumps(result).lower())
 
     @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_workflow_lifecycle_faults_cannot_unlock_active(self) -> None:
+        self._assert_workflow_mutations_rejected("lifecycle")
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
+    def test_workflow_tool_owner_faults_cannot_unlock_active(self) -> None:
+        self._assert_workflow_mutations_rejected("owner")
+
+    def _assert_workflow_mutations_rejected(self, family: str) -> None:
+        import tempfile
+        from browser_operations_live import (
+            _workflow_command, aggregate_results, evaluate_allowed_stream, evaluate_denied_stream,
+        )
+        session = "session-live-browser-001"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            allow_path, deny_path = root / "allow.jsonl", root / "deny.jsonl"
+            allow_signal, deny_signal = root / "allow.signal", root / "deny.signal"
+            command = self._workflow_command()
+            deny_command = command.replace("op-live-browser-001", "op-live-browser-deny-001").replace(
+                session, "session-live-browser-deny-001")
+            self._workflow_stream(allow_path, command=command)
+            base = [json.loads(line) for line in allow_path.read_text().splitlines()]
+            self._denied_stream(deny_path, deny_command)
+            for phase, cmd, signal in (("allow", command, allow_signal), ("deny", deny_command, deny_signal)):
+                evidence = _workflow_command(cmd)
+                self._permission_signal(signal, phase, evidence["invocationFingerprint"], evidence["operationId"])
+            deny = evaluate_denied_stream(deny_path, "P004B_TEST_CANARY", deny_signal,
+                                         "p004b-run-001", "session-live-browser-deny-001")
+            candidates = []
+            if family == "lifecycle":
+                for subtype in ("conversation_reset", "compact_boundary", "task_notification", "future_event"):
+                    for position in (1, len(base)):
+                        events = json.loads(json.dumps(base))
+                        events.insert(position, {"type": "system", "subtype": subtype, "session_id": session})
+                        candidates.append((subtype + str(position), events))
+                for field, value in (("error", "synthetic-error"), ("errors", ["synthetic-error"]),
+                                     ("permission_denials", [{}]), ("deferred_tool_use", True)):
+                    events = json.loads(json.dumps(base))
+                    events[-1][field] = value
+                    candidates.append((field, events))
+                events = json.loads(json.dumps(base))
+                events.insert(1, {"type": "system", "subtype": "init", "session_id": "other-session"})
+                candidates.append(("changed-init-session", events))
+            else:
+                for wrap in (False, True):
+                    for fault in ("user-call", "assistant-result", "conflicting-role"):
+                        events = json.loads(json.dumps(base))
+                        for index in (0, 3):
+                            block = events[index]
+                            owner = "assistant" if index == 0 else "user"
+                            if fault == "user-call" and index == 0:
+                                owner = "user"
+                            if fault == "assistant-result" and index == 3:
+                                owner = "assistant"
+                            record = {"type": owner, "session_id": session, "parent_tool_use_id": None,
+                                      "message": {"role": "user" if fault == "conflicting-role" and index == 0 else owner,
+                                                  "content": [block]}}
+                            events[index] = {"type": "stream", "event": record} if wrap else record
+                        candidates.append((fault + str(wrap), events))
+            for label, events in candidates:
+                with self.subTest(family=family, fault=label):
+                    allow_path.write_text("".join(json.dumps(event) + "\n" for event in events))
+                    allow = evaluate_allowed_stream(allow_path, "P004B_TEST_CANARY", allow_signal,
+                                                    "p004b-run-001", session)
+                    result = aggregate_results(
+                        {"claude": "observed", "provider": "observed", "model": "observed", "adapter": "playwright"},
+                        [allow, deny], measurement=self._trusted_measurement(workflow_sessions=[session,
+                            "session-live-browser-deny-001"]), expected_nonce="p004b-run-001",
+                        fixture_before={"enabled": False, "revision": 1},
+                        fixture_after={"enabled": False, "revision": 1})
+                    self.assertNotEqual(result["capabilityState"], "ACTIVE")
+                    self.assertNotEqual(allow["status"], "pass")
+
+    @unittest.skipIf(os.name == "nt", "private permission signals require POSIX")
     def test_permission_pair_rejects_reordering_reuse_and_changed_state(self) -> None:
         import sys
 

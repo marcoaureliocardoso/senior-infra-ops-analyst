@@ -35,6 +35,22 @@ structured deny proves runtime coverage before an operational call.
 
 ## Capability states and routing
 
+### Pending per-hop transport amendment
+
+The operator approved the [per-hop transport design](../superpowers/specs/2026-10-27-browser-redirect-transport-design.md)
+on 2026-10-28 instead of blanket redirect denial. The
+[F0 plan](../superpowers/plans/2026-10-28-browser-redirect-f0.md) was confirmed on
+the same date. Its test-only candidate exercises public session correlation,
+paused target startup, per-hop HTTP(S) policy, lifetime and closed structural
+reporting. F0 always reports SYNTHETIC_ONLY/NOT_RUN; the deprecated nested route
+is explicit. Local tests cannot establish native startup or exclusive ownership.
+Public native-interface feasibility must precede any production transport change.
+Design approval is not an implemented or qualified containment claim.
+The separate local author repair now evaluates workflow execution `inspect`
+predicates with protected expected references and the non-navigating verifier
+before subsequent effects. Independent validation after earlier possible
+persistence remains mandatory; browser component 1.0.5 does not qualify redirects.
+
 ### Test-only MAIN-stage structured context route
 
 The approved [stage-owned specification](../superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)

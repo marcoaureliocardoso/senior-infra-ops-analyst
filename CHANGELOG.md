@@ -7,6 +7,16 @@ tag. Tagged versions correspond to repository tags.
 
 ### 0.15.0 (unreleased) - declared 2026-09-01
 
+- Corrected four additional PR 58 findings locally: evaluate execution
+  prerequisite predicates before later browser effects; classify package
+  service paths without filename decoding loss; invalidate workflow evidence
+  on lifecycle/terminal faults and reject wrongly owned native tool blocks.
+  Browser component advances to 1.0.5. Per-hop redirect transport has a separate
+  approved design and a test-only F0 candidate. Its structural result is always
+  SYNTHETIC_ONLY/NOT_RUN and explicitly marks deprecated public session routing;
+  production redirect admission is not implemented or qualified by these controls.
+  Hosted package validation and native acceptance remain open.
+
 - Modeled official APT action annotations in the CI-only simulation parser:
   ordered relational blocks on Inst and one optional trailing ShortBreaks list
   on Inst/Conf/Remv. Exact syntax and bounded package identities are validated;

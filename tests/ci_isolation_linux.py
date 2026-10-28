@@ -342,9 +342,11 @@ class LinuxPackageAdapter:
 
     @staticmethod
     def service_path(path):
-        path = path.lstrip("./")
-        return path.startswith(("etc/init/", "etc/init.d/", "lib/systemd/", "usr/lib/systemd/",
-                                "usr/share/dbus-1/system-services/", "etc/systemd/"))
+        # Unix filename bytes need not be ASCII or valid UTF-8. Classify only
+        # the ASCII directory prefixes, without dropping or replacing bytes.
+        path = path.lstrip(b"./")
+        return path.startswith((b"etc/init/", b"etc/init.d/", b"lib/systemd/", b"usr/lib/systemd/",
+                                b"usr/share/dbus-1/system-services/", b"etc/systemd/"))
 
     def service_packages(self, proposal, deadline):
         self.executor.stage = 'PACKAGE_METADATA'
@@ -352,12 +354,12 @@ class LinuxPackageAdapter:
         for action in proposal.actions:
             if action.installed_version is not None:
                 files = self.executor.command(["/usr/bin/dpkg-query", "--listfiles", action.package], deadline)
-                if not files or any(self.service_path(line) for line in files.decode("ascii").splitlines()):
+                if not files or any(self.service_path(line) for line in files.splitlines()):
                     services.add(action.package)
             archive = self.frozen.get(action.package)
             if archive:
                 listing = self.executor.command(["/usr/bin/dpkg-deb", "--contents", str(archive[0])], deadline)
-                for line in listing.decode("utf-8").splitlines():
+                for line in listing.splitlines():
                     fields = line.split(maxsplit=5)
                     if len(fields) != 6:
                         raise ValueError("PACKAGE_OWNERSHIP_UNPROVEN")

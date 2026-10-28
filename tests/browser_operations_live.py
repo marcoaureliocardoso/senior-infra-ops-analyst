@@ -1764,6 +1764,10 @@ class _CanaryScan:
                 if not isinstance(message, dict):
                     self._invalidate()
                     return None
+                owner = record["type"]
+                if message.get("role", owner) != owner:
+                    self._invalidate()
+                    return None
                 blocks = message.get("content")
                 valid_blocks = isinstance(blocks, list) and len(blocks) <= 64 and all(
                     isinstance(block, dict) and isinstance(block.get("type"), str)
@@ -1771,6 +1775,21 @@ class _CanaryScan:
                          or isinstance(block.get(block["type"]), str)) for block in blocks
                 )
                 if not valid_blocks and not (record["type"] == "user" and isinstance(blocks, str)):
+                    self._invalidate()
+                    return None
+                # Check native ownership before flattening tool blocks. A user
+                # message cannot originate a call; an assistant cannot supply
+                # the executor's result, even with otherwise matching IDs.
+                if isinstance(blocks, list) and any(
+                    block["type"] in {"tool_use", "tool_result"}
+                    and owner != ("assistant" if block["type"] == "tool_use" else "user")
+                    for block in blocks
+                ):
+                    self._invalidate()
+                    return None
+            elif record.get("type") in {"tool_use", "tool_result"}:
+                owner = "assistant" if record["type"] == "tool_use" else "user"
+                if record.get("role", owner) != owner:
                     self._invalidate()
                     return None
             if record.get("type") == "system" and record.get("subtype") in ("hook_started", "hook_response"):
@@ -1797,6 +1816,7 @@ def workflow_canary_source(path: Path) -> str:
 
 
 def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
+    from stream_lifecycle import benign_hook, faulty_metadata
     if not path.is_file() or path.stat().st_size > 5_000_000:
         return {"status": "inconclusive", "reasonCode": "STREAM_INVALID", "toolCalls": 0}
     tool_calls = 0
@@ -1811,6 +1831,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
     hook_starts: dict[str, dict[str, str]] = {}
     completed_hook_ids: set[str] = set()
     orphan_expected_hook = False
+    init_session: str | None = None
 
     def hook_name_matches(value: Any, event: Any) -> bool:
         return (
@@ -1859,6 +1880,35 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                 continue
             for value, provenance in _stream_records(event):
                 event_type = value.get("type")
+                # Every record taints the whole sample on lifecycle failure,
+                # even when a provisional successful result was already seen.
+                if (event_type not in {"stream", "system", "assistant", "user", "result", "tool_use", "tool_result"}
+                        or faulty_metadata(value)
+                        or (terminal_count and event_type != "stream")):
+                    malformed = True
+                if event_type in {"assistant", "user"} and faulty_metadata(value.get("message", {})):
+                    malformed = True
+                if event_type == "system":
+                    subtype = value.get("subtype")
+                    if subtype == "init":
+                        session = value.get("session_id")
+                        if (init_session is not None or active_call_id is not None or terminal_count
+                                or not isinstance(session, str) or not LABEL.fullmatch(session)):
+                            malformed = True
+                        else:
+                            init_session = session
+                    elif subtype in {"hook_started", "hook_response"}:
+                        expected_session = (workflow_calls.get(active_call_id, {}).get("sessionId")
+                                            or init_session or value.get("session_id"))
+                        if not benign_hook(value, expected_session, LABEL):
+                            malformed = True
+                    else:
+                        malformed = True
+                if (event_type in {"assistant", "user", "result"}
+                        and (expected_session := (workflow_calls.get(active_call_id, {}).get("sessionId")
+                                                  or init_session)) is not None
+                        and value.get("session_id") != expected_session):
+                    malformed = True
                 if event_type in {"tool_use", "tool_result"}:
                     tool_calls += 1
                 if event_type == "result":
@@ -1898,6 +1948,7 @@ def evaluate_stream(path: Path, canary: str) -> dict[str, Any]:
                                     orphan_expected_hook or bash_tool_uses != 1
                                     or identity is None
                                     or observation["sessionId"] != (identity[0] if identity else None)
+                                    or (init_session is not None and observation["sessionId"] != init_session)
                                 ),
                                 "outcome": "NOT_OBSERVED",
                                 "toolSessionId": identity[0] if identity else None,

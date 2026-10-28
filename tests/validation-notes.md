@@ -1,6 +1,60 @@
 <!-- cspell:ignore Bxll Cpmw yufz NoNewPrivs -->
 # Validation Notes
 
+## Four bounded PR58 repairs and pending redirect design - 2026-10-28
+
+Against eb895f60cfc39188f73141a5e5ede19c89ec6f10, synthetic RED checks showed
+submit after a false prerequisite, filename decoding failures, and19 workflow
+lifecycle/owner cases incorrectly reaching ACTIVE through final aggregation.
+The author corrections evaluate execution predicates before later effects,
+classify service-directory prefixes as bytes, and reject sticky lifecycle faults
+and wrong native tool-block ownership. Browser component is1.0.5; root0.15.0
+and command1.2.1 remain unchanged. The filename defect is not proof of the exact
+hosted PACKAGE_METADATA exception.
+
+Affected GREEN suites: browser228 passed/1 real-browser opt-in skip; legacy146;
+CI image23/runtime7/bootstrap33/proof6/wiring17/workflow25. After adding expiry
+at prerequisite resolution/verification, runner40 passed again. Metadata policy4
+and Nori contract25 passed in a canonical-only disposable copy. ShellCheck,
+Markdown276, spelling, schema, content, architecture13 and workflow checks
+passed; diff whitespace checking passed. The first metadata copy omitted Python
+tests and did not qualify them; the complete Git inventory corrected that test
+setup. An initial expiry fixture mixed approval and invocation clocks; its
+synthetic approval clock was aligned without changing production lifetime rules.
+
+The [redirect transport design](../docs/superpowers/specs/2026-10-27-browser-redirect-transport-design.md)
+received a read-only builder check with no important planning questions. This is
+not an independent code re-review or native feasibility proof. The operator
+approved the written design and confirmed its F0 plan on 2026-10-28. The locally
+implemented test-only candidate passed31 focused controls; it cannot establish
+native startup/ownership, HTTP(S) behavior or production redirect containment.
+Its report is always SYNTHETIC_ONLY/NOT_RUN. Full
+package validation, new hosted CI/Security, native/browser/provider acceptance,
+push, merge and release are not established by these local results.
+
+Combined author-repair plus F0 affected checks passed: browser259 with1 explicit
+real-browser skip; legacy146; CI image23/runtime7/bootstrap33/proof6/wiring17/
+workflow25; Nori metadata25 and policy4. Quality passed ShellCheck,Markdown277,
+spelling/schema/content,architecture13 and workflow checks. These include31 F0
+controls for nested acknowledgments, ownership, per-hop origins, resource bounds,
+late failure and structural finalization. The import check uses Node permissions
+with network/browser import guards and a denied fetch in an empty owned temp
+directory. It is not native browser/network isolation proof. The new immutable
+full-package gate is still pending at this checkpoint.
+
+One fresh independent engineering review read all23 combined-cycle changed/new
+files, not the unchanged historical PR. It found four Important defects in F0:
+queued sends after revocation, response-stage/non-string request admission,
+expected close detach poisoning success, and ordinary same-owned-frame
+navigation rejection. No Critical or Minor was reported. The author reproduced
+and corrected them in one TDD pass, without a second review. All36 F0 controls
+then passed. Synchronous transport revocation precedes owned cleanup; only
+owned close detachments drain without admission. Request-stage markers and
+string identities are mandatory. Same-frame navigation requires a matching
+admitted Document URL, parent and fresh loader; migration remains refused.
+Actual public-session support, startup/exclusivity, cross-domain timing and
+real redirect/TLS/cleanup behavior remain F1 or later proof obligations.
+
 ## Official APT action suffix grammar - 2026-10-27
 Native diagnostic CI40542797673 at a20ee24 identified INST_SUFFIX,line28,
 length126; cleanup passed, all six other CI jobs and Security40542797971 passed.

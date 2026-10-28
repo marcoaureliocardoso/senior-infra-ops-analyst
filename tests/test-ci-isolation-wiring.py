@@ -406,6 +406,8 @@ class WiringTests(unittest.TestCase):
         self.assertIn("require_frozen_ci_runtime()", source)
         self.assertIn("tests/offline-terminal-resume-probe.py --audit-isolation", source)
         self.assertIn("node --test tests/browser-operations/puppeteer-api.test.mjs", source)
+        for name in ('redirect-protocol.test.mjs', 'redirect-feasibility.test.mjs'):
+            self.assertTrue('node --test tests/browser-operations/' + name in source, 'required F0 suite missing')
 
     def test_cli_and_transport_share_one_typed_module_identity(self):
         script = ("import runpy,sys; from pathlib import Path; "

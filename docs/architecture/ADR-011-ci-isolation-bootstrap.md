@@ -132,7 +132,8 @@ The template has its own GPL-2.0 notice/license and is excluded from Nori delive
 the upstream archive and built binary are not release artifacts.
 
 Root 0.15.0 remains unreleased. The resumed review's browser/guard corrections
-advance the browser component to 1.0.4 and command component to 1.2.1; the CI-only
+advanced the browser component to 1.0.4 and command component to 1.2.1. The later
+execution-prerequisite repair advances the browser component to 1.0.5; the CI-only
 diagnostics grant no additional production/native authority. ADR-010's blocked SDK shutdown boundary,
 provider/browser/twelve-role acceptance, formal full-PR security qualification,
 merge, release and definitive TODO completion remain separate gates.

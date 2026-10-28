@@ -147,7 +147,7 @@ class NoriPackageContractTests(unittest.TestCase):
             (ROOT / "skills/context-continuity/nori.json").read_text(encoding="utf-8")
         )
         self.assertEqual(root_manifest["version"], "0.15.0")
-        self.assertEqual(browser_manifest["version"], "1.0.4")
+        self.assertEqual(browser_manifest["version"], "1.0.5")
         browser_skill = (ROOT / "skills/browser-operations/SKILL.md").read_text(encoding="utf-8")
         frontmatter = browser_skill.split("---", 2)[1]
         self.assertRegex(frontmatter, r"(?m)^version: 0\.1\.1$")

@@ -923,6 +923,74 @@ test('one-shot workflow returns outcome unknown when validation expectation cann
 });
 
 
+test('execution prerequisite must be verified before dispatching the following effect', async () => {
+  for (const scenario of ['not-met', 'met', 'mismatch', 'unavailable', 'unresolved',
+    'expired-reference', 'expired-verification']) {
+    await stateFixture(async (envBase) => {
+      const prerequisite = { step: 'inspect', origin: 'http://127.0.0.1:43111',
+        locatorRole: 'status', locatorName: 'Ready state', predicate: 'text-equals',
+        expectedRef: 'env:OPS_BROWSER_VALUE_READY', expectRef: 'router-reachable' };
+      const args = workflowArgs({ executionSteps: [
+        { step: 'navigate', origin: prerequisite.origin }, prerequisite,
+        { step: 'submit', origin: prerequisite.origin, locatorRole: 'button',
+          locatorName: 'Save', effect: 'LOW_RISK_CHANGE' },
+      ] });
+      const savedClock = Date.now;
+      let request;
+      try {
+        Date.now = () => NOW;
+        request = await stageWorkflowApproval(envBase, args, NOW);
+      } finally { Date.now = savedClock; }
+      let persisted = false;
+      let expectationResolved = false;
+      let phase = 0;
+      let clock = NOW + 1;
+      const env = { ...envBase, OPS_BROWSER_SESSION_ID: 'session-runner-001',
+        OPS_BROWSER_VALUE_PASSWORD: 'synthetic-password',
+        OPS_BROWSER_VALUE_EXPECTED: 'saved-state-enabled' };
+      Object.defineProperty(env, 'OPS_BROWSER_VALUE_READY', { get() {
+        expectationResolved = true;
+        if (scenario === 'expired-reference') clock = NOW + 600_000;
+        return scenario === 'unresolved' ? undefined : 'ready';
+      } });
+      const result = await executeBrowserWorkflow(request, { env, now: () => clock,
+        adapterFactory: async () => {
+          const validation = phase++ > 0;
+          const adapter = {
+            capabilities: { preCall: true, topLevelOrigin: true, redirects: true,
+              popups: true, artifacts: false },
+            async open() {}, async close() {},
+            async navigate() { return { status: 'ok' }; },
+            async fill() { return { status: 'ok' }; },
+            // Presence alone is not the declared prerequisite.
+            async inspect() { return { status: 'ok' }; },
+            async submit() { persisted = true; return { status: 'ok' }; },
+          };
+          if (validation || scenario !== 'unavailable') adapter.verify = async (step) => {
+            if (!validation) {
+              assert.equal(step.expected, 'ready');
+              assert.equal(step.predicate, 'text-equals');
+              if (scenario === 'expired-verification') clock = NOW + 600_000;
+            }
+            return { status: validation || scenario !== 'not-met' ? 'met' : 'not-met',
+              expectRef: !validation && scenario === 'mismatch' ? 'other-state' : step.expectRef };
+          };
+          return { state: 'ACTIVE', adapter };
+        } });
+      assert.equal(persisted, scenario === 'met', scenario);
+      assert.equal(expectationResolved, true, scenario);
+      const reasons = { met: 'WORKFLOW_VALIDATED', 'not-met': 'PRECONDITION_NOT_MET',
+        mismatch: 'PRECONDITION_NOT_MET', unavailable: 'WORKFLOW_NOT_APPLIED',
+        unresolved: 'PRECONDITION_REFERENCE_UNRESOLVED',
+        'expired-reference': 'OPERATION_EXPIRED', 'expired-verification': 'OPERATION_EXPIRED' };
+      assert.equal(result.reasonCode, reasons[scenario], scenario);
+      assert.equal(result.validationRequired, scenario === 'expired-verification', scenario);
+      assert.doesNotMatch(JSON.stringify(result), /synthetic-password|saved-state-enabled/u);
+    });
+  }
+});
+
+
 test('one-shot workflow activates before browser effects, uses a fresh validation adapter, and keeps secrets bounded', async () => {
   await stateFixture(async (envBase) => {
     const args = workflowArgs();
@@ -1169,7 +1237,7 @@ test('one-shot workflow retains partial autosaved state as unknown after a later
         async open() { calls.push('execution:open'); },
         async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
         async fill(step) { persisted.changed = true; calls.push(`execution:fill:${step.credential}`); return { status: 'ok' }; },
-        async inspect() { calls.push('execution:inspect'); throw new Error('SYNTH_READ_FAILURE'); },
+        async verify() { calls.push('execution:verify'); throw new Error('SYNTH_READ_FAILURE'); },
         async close() { calls.push('execution:close'); },
       },
       {
@@ -1198,7 +1266,7 @@ test('one-shot workflow retains partial autosaved state as unknown after a later
     assert.equal(result.validationRequired, true);
     assert.deepEqual(calls, [
       'execution:open', 'execution:navigate', 'execution:fill:synthetic-hostname',
-      'execution:inspect', 'execution:close', 'validation:open', 'validation:navigate',
+      'execution:verify', 'execution:close', 'validation:open', 'validation:navigate',
       'validation:verify', 'validation:close',
     ]);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
@@ -1248,7 +1316,7 @@ test('one-shot workflow does not treat successful navigation alone as persisted 
             },
             async open() { calls.push('execution:open'); },
             async navigate() { calls.push('execution:navigate'); return { status: 'ok' }; },
-            async inspect() { calls.push('execution:inspect'); throw new Error('SYNTH_READ_FAILURE'); },
+            async verify() { calls.push('execution:verify'); throw new Error('SYNTH_READ_FAILURE'); },
             async close() { calls.push('execution:close'); },
           },
         };
@@ -1259,7 +1327,7 @@ test('one-shot workflow does not treat successful navigation alone as persisted 
     assert.equal(result.validationRequired, false);
     assert.equal(resolutions, 1);
     assert.deepEqual(calls, [
-      'execution:open', 'execution:navigate', 'execution:inspect', 'execution:close',
+      'execution:open', 'execution:navigate', 'execution:verify', 'execution:close',
     ]);
     assert.equal(readActiveOperation('session-runner-001', request.operationId, env, NOW + 2), null);
   });

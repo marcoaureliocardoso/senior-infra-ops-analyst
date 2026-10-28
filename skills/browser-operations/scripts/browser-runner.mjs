@@ -563,6 +563,7 @@ async function executeWorkflowStep(adapter, step, envelope, capability, dependen
     return { type: 'denied', reasonCode: authorization.reasonCode, effect: authorization.effect, step };
   }
   let credential = null;
+  let expected = null;
   let dispatched = false;
   try {
     if (['fill', 'select'].includes(step.step)) {
@@ -570,14 +571,24 @@ async function executeWorkflowStep(adapter, step, envelope, capability, dependen
         step.valueRef, dependencies, env, 'CREDENTIAL_REFERENCE_UNRESOLVED',
       );
     }
-    const method = adapter?.[step.step];
+    if (step.step === 'inspect') {
+      expected = await resolveLiveReference(
+        step.expectedRef, dependencies, env, 'PRECONDITION_REFERENCE_UNRESOLVED',
+      );
+    }
+    const method = adapter?.[step.step === 'inspect' ? 'verify' : step.step];
     if (typeof method !== 'function') throw new Error('ADAPTER_STEP_UNAVAILABLE');
     lifetime.assertLive();
     dispatched = true;
     if (successfulStepMayPersist(step, authorization.effect)) scope.possiblePersistence = true;
-    const result = await method.call(adapter, credential === null ? step : { ...step, credential });
+    const result = await method.call(adapter, step.step === 'inspect'
+      ? { ...step, expected } : credential === null ? step : { ...step, credential });
     lifetime.assertLive();
-    if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
+    if (step.step === 'inspect') {
+      if (result?.expectRef !== step.expectRef || result?.status !== 'met') {
+        fail('PRECONDITION_NOT_MET');
+      }
+    } else if (result?.status !== 'ok') throw new Error('ADAPTER_RESULT_INCONCLUSIVE');
     return { type: 'ok' };
   } catch (error) {
     const reasonCode = runnerErrorReason(error, 'ADAPTER_FAILURE');
@@ -598,6 +609,7 @@ async function executeWorkflowStep(adapter, step, envelope, capability, dependen
     };
   } finally {
     credential = null;
+    expected = null;
   }
 }
 

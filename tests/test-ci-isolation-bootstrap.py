@@ -18,6 +18,30 @@ FIXTURES = ROOT / "tests/fixtures/ci-isolation"
 
 
 class ReviewedTransportTests(unittest.TestCase):
+    def test_service_metadata_preserves_non_ascii_filename_bytes(self):
+        import ci_isolation_linux as linux
+        from ci_image_upgrade import UpgradeAction, UpgradeProposal
+        from types import SimpleNamespace
+        proposal = UpgradeProposal((UpgradeAction('upgrade', 'fixture-package', '1.0', '1.1'),), 0)
+        for archive in (False, True):
+            for paths, expected in (
+                ([b'/usr/share/doc/caf\xc3\xa9.txt'], frozenset()),
+                ([b'/usr/share/doc/opaque-\xff.txt'], frozenset()),
+                ([b'/usr/share/doc/caf\xc3\xa9.txt', b'/etc/systemd/system/opaque-\xff.service'],
+                 frozenset({'fixture-package'})),
+            ):
+                with self.subTest(archive=archive, paths=len(paths), service=bool(expected)):
+                    def command(argv, deadline):
+                        if argv == ['/usr/bin/dpkg-query', '--listfiles', 'fixture-package']:
+                            return b'\n'.join(paths) + b'\n'
+                        self.assertEqual(argv, ['/usr/bin/dpkg-deb', '--contents', '/fixture.deb'])
+                        return b'\n'.join(b'-rw-r--r-- root/root 0 2026-01-01 00:00 .' + p for p in paths) + b'\n'
+                    adapter = object.__new__(linux.LinuxPackageAdapter)
+                    adapter.executor = SimpleNamespace(command=command)
+                    adapter.frozen = {'fixture-package': (Path('/fixture.deb'),)} if archive else {}
+                    current = replace(proposal.actions[0], installed_version=None) if archive else proposal.actions[0]
+                    self.assertEqual(adapter.service_packages(UpgradeProposal((current,), 0), 1), expected)
+
     def test_top_level_cleanup_checks_policy_even_without_completed_marker(self):
         import ci_isolation_bootstrap as bootstrap
         from types import SimpleNamespace

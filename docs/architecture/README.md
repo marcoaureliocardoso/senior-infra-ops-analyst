@@ -18,6 +18,11 @@ This index is the versioned architectural history for implemented AI-first contr
 
 New implemented solutions must add an ADR or explicitly supersede an existing one. A superseding ADR names the previous record and the index retains both entries.
 
+ADR-010 indexes the [per-hop redirect transport design](../superpowers/specs/2026-10-27-browser-redirect-transport-design.md),
+approved on 2026-10-28. Its [F0 plan](../superpowers/plans/2026-10-28-browser-redirect-f0.md)
+was confirmed and the test-only candidate is implemented locally. No native
+transport feasibility or production redirect containment is established.
+
 ADR-010 also indexes the test-only
 [stage-owned structured SDK context profile](../superpowers/specs/2026-10-23-p0-04b-stage-owned-context-design.md)
 and [inline implementation plan](../superpowers/plans/2026-10-23-p0-04b-stage-owned-context.md).
